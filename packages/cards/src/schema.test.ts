@@ -6,6 +6,7 @@ import {
   CardSchema,
   parseTraits,
   stripPrintMarkers,
+  TraitSpellingsSchema,
 } from "./schema";
 
 const dataDir = new URL("../data/", import.meta.url);
@@ -132,5 +133,25 @@ describe("parseTraits", () => {
     [null, []],
   ])("%j -> %j", (input, expected) => {
     expect(parseTraits(input)).toEqual(expected);
+  });
+});
+
+describe("trait spellings (Paul's ruling, Oct 21, 2026)", () => {
+  const spellings = TraitSpellingsSchema.parse(
+    JSON.parse(readFileSync(new URL("trait-spellings.json", dataDir), "utf8")),
+  );
+
+  it("no card's traits contain Super X or Hedora", () => {
+    const offenders = (cards as Card[]).filter((c) =>
+      c.traits.some((t) => t === "Super X" || t === "Hedora"),
+    );
+    expect(offenders.map((c) => c.cardNumber)).toEqual([]);
+  });
+
+  it("no card's traits use any spelling listed in trait-spellings.json", () => {
+    const wrong = new Set(Object.keys(spellings));
+    expect(
+      (cards as Card[]).filter((c) => c.traits.some((t) => wrong.has(t))),
+    ).toEqual([]);
   });
 });

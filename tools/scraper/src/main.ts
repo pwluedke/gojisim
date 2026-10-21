@@ -1,9 +1,14 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { type Card, CardListSchema, CardOverridesSchema } from "@gojisim/cards";
+import {
+  type Card,
+  CardListSchema,
+  CardOverridesSchema,
+  TraitSpellingsSchema,
+} from "@gojisim/cards";
 import { discoverBaseCards, SITE_ORIGIN } from "./discover";
 import { PoliteFetcher } from "./fetcher";
-import { linkPrints } from "./link";
+import { applyTraitSpellings, linkPrints } from "./link";
 import { type ParsedCardPage, parseCardPage } from "./parse";
 import { collectMovieTitles, displayCardNumber, toCard } from "./normalize";
 
@@ -92,8 +97,16 @@ async function main(): Promise<void> {
   const overrides = CardOverridesSchema.parse(
     JSON.parse(await readFile(new URL("overrides.json", dataDir), "utf8")),
   );
+  const traitSpellings = TraitSpellingsSchema.parse(
+    JSON.parse(
+      await readFile(new URL("trait-spellings.json", dataDir), "utf8"),
+    ),
+  );
   const cards = CardListSchema.parse(
-    linkPrints([...byId.values()], overrides).sort((a, b) =>
+    applyTraitSpellings(
+      linkPrints([...byId.values()], overrides),
+      traitSpellings,
+    ).sort((a, b) =>
       a.cardNumber < b.cardNumber
         ? -1
         : a.cardNumber > b.cardNumber

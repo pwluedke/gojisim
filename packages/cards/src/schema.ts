@@ -36,8 +36,9 @@ export const CardSchema = z.strictObject({
   colors: z.array(CardColorSchema),
   type: CardTypeSchema,
   /**
-   * Traits as printed, in the site's spelling (e.g. `["Rodan", "Weapon"]`); empty for cards with
-   * none. Use `getCardTraits` for the traits in force after errata.
+   * Traits as printed, in the site's spelling after `trait-spellings.json` (e.g.
+   * `["Rodan", "Weapon"]`); empty for cards with none. Use `getCardTraits` for the traits in force
+   * after errata.
    */
   traits: z.array(z.string().min(1)),
   rank: z.number().int().nullable(),
@@ -70,6 +71,14 @@ export const CardOverridesSchema = z.record(
 );
 
 export type CardOverrides = z.infer<typeof CardOverridesSchema>;
+
+/** Corrections to the site's trait spelling, keyed by the site's spelling. Applied after scraping. */
+export const TraitSpellingsSchema = z.record(
+  z.string().min(1),
+  z.strictObject({ spelling: z.string().min(1), reason: z.string().min(1) }),
+);
+
+export type TraitSpellings = z.infer<typeof TraitSpellingsSchema>;
 
 /** Strips parallel and finish markers: `EBP01-030++` and `ESD01-002 (Foil)` -> base numbers. */
 export function stripPrintMarkers(cardNumber: string): string {

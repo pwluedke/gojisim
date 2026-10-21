@@ -1,6 +1,6 @@
 import type { Card } from "@gojisim/cards";
 import { describe, expect, it } from "vitest";
-import { linkPrints } from "../src/link";
+import { applyTraitSpellings, linkPrints } from "../src/link";
 
 function card(id: number, cardNumber: string, parentId: number | null): Card {
   return {
@@ -66,5 +66,17 @@ describe("linkPrints", () => {
     expect(() =>
       linkPrints([card(1, "A", null)], { "7": { reason: "x" } }),
     ).toThrow(/unknown card id/);
+  });
+});
+
+describe("applyTraitSpellings", () => {
+  it("rewrites only the listed spellings", () => {
+    const [fixed] = applyTraitSpellings(
+      [{ ...card(1, "A", null), traits: ["Super X", "Weapon"] }],
+      {
+        "Super X": { spelling: "Super-X", reason: "test" },
+      },
+    );
+    expect(fixed?.traits).toEqual(["Super-X", "Weapon"]);
   });
 });
