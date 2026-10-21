@@ -1,12 +1,15 @@
 import { z } from "zod";
 import errataJson from "../data/errata.json";
-import type { Card } from "./schema";
+import { type Card, parseTraits } from "./schema";
 
 const IsoDateSchema = z.iso.date();
 
 export const ErratumSchema = z.strictObject({
   deckCardNumber: z.string().min(1),
-  /** What the erratum corrects: the ability text, or the card's traits. */
+  /**
+   * What the erratum corrects: the ability text, or the card's traits. Trait errata store the
+   * trait lists comma-separated in the same spelling as `Card.traits` (e.g. `"Rodan, Weapon"`).
+   */
   field: z.enum(["text", "traits"]),
   /**
    * Text as printed, copied verbatim from the official errata page. The page may quote only the
@@ -71,4 +74,32 @@ export function getCardText(
   return printedText === text
     ? { text, hasErrata: true }
     : { text, hasErrata: true, printedText };
+}
+
+/** Returns a card's traits with any trait errata applied. */
+export function getCardTraits(
+  card: Pick<Card, "deckCardNumber" | "traits">,
+): string[] {
+  let traits = card.traits;
+  for (const erratum of ERRATA) {
+    if (
+      erratum.field !== "traits" ||
+      erratum.deckCardNumber !== card.deckCardNumber
+    )
+      continue;
+    const printed = parseTraits(erratum.printedText);
+    const corrected = parseTraits(erratum.correctedText);
+    if (sameTraits(traits, printed)) {
+      traits = corrected;
+    } else if (!sameTraits(traits, corrected)) {
+      throw new Error(
+        `Trait erratum for ${card.deckCardNumber} matches neither the printed nor the corrected traits`,
+      );
+    }
+  }
+  return [...traits];
+}
+
+function sameTraits(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((t, i) => t === b[i]);
 }

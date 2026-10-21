@@ -4,6 +4,7 @@ import {
   type Card,
   CardOverridesSchema,
   CardSchema,
+  parseTraits,
   stripPrintMarkers,
 } from "./schema";
 
@@ -120,5 +121,16 @@ describe("stripPrintMarkers", () => {
     ["EBP01-017+ (Alt)", "EBP01-017"],
   ])("%s -> %s", (input, expected) => {
     expect(stripPrintMarkers(input)).toBe(expected);
+  });
+});
+
+describe("parseTraits", () => {
+  it.each([
+    ["Ebirah, Final Wars", ["Ebirah", "Final Wars"]],
+    ["《Rodan》, 《Weapon》", ["Rodan", "Weapon"]],
+    ["", []],
+    [null, []],
+  ])("%j -> %j", (input, expected) => {
+    expect(parseTraits(input)).toEqual(expected);
   });
 });

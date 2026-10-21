@@ -35,6 +35,11 @@ export const CardSchema = z.strictObject({
   /** Empty for colorless (blank) cards such as Rage cards. */
   colors: z.array(CardColorSchema),
   type: CardTypeSchema,
+  /**
+   * Traits as printed, in the site's spelling (e.g. `["Rodan", "Weapon"]`); empty for cards with
+   * none. Use `getCardTraits` for the traits in force after errata.
+   */
+  traits: z.array(z.string().min(1)),
   rank: z.number().int().nullable(),
   /** Threat on Monster cards, Counter Power on Battle cards. */
   counterOrThreat: z.number().int().nullable(),
@@ -69,4 +74,15 @@ export type CardOverrides = z.infer<typeof CardOverridesSchema>;
 /** Strips parallel and finish markers: `EBP01-030++` and `ESD01-002 (Foil)` -> base numbers. */
 export function stripPrintMarkers(cardNumber: string): string {
   return cardNumber.replace(/ \((Foil|Alt)\)$/, "").replace(/\++$/, "");
+}
+
+/**
+ * Splits a comma-separated trait list into trait names, dropping any 《》 brackets.
+ * The site stores traits as one comma-separated string, e.g. `"Ebirah, Final Wars"`.
+ */
+export function parseTraits(trait: string | null): string[] {
+  return (trait ?? "")
+    .split(",")
+    .map((t) => t.replace(/[《》]/g, "").trim())
+    .filter((t) => t.length > 0);
 }

@@ -45,7 +45,8 @@ describe("parseCardPage + toCard", () => {
       notes: null,
       imageUrl:
         "https://image.godzillatcgdb.com/img/cards/original/EBP01/113.png",
-      unknownFields: { Traits: "Godzilla", "Likes (unlabeled)": "0" },
+      traits: ["Godzilla"],
+      unknownFields: { "Likes (unlabeled)": "0" },
     });
     expect(cards[1]).toMatchObject({
       id: 112,
@@ -55,7 +56,8 @@ describe("parseCardPage + toCard", () => {
       isParallel: true,
       rarity: "SP",
       movie: "Godzilla (1954)",
-      unknownFields: { Traits: "Godzilla" },
+      traits: ["Godzilla"],
+      unknownFields: {},
     });
     // Promo reprint: listed under set PR, numbered as a parallel of the EBP01 card.
     expect(cards[2]).toMatchObject({
@@ -86,7 +88,8 @@ describe("parseCardPage + toCard", () => {
       rarity: "C",
       movie: "Godzilla Final Wars (2004)",
       text: "",
-      unknownFields: { Traits: "Ebirah, Final Wars", "Likes (unlabeled)": "0" },
+      traits: ["Ebirah", "Final Wars"],
+      unknownFields: { "Likes (unlabeled)": "0" },
     });
     expect(cards[1]).toMatchObject({ id: 143, isParallel: true, rarity: "P" });
   });
