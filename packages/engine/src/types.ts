@@ -1,0 +1,139 @@
+import type { Card } from "@gojisim/cards";
+
+export type PlayerId = string;
+
+/** A zone number, 1 to 8 (4.4.3). */
+export type ZoneNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+
+export const ZONE_NUMBERS: readonly ZoneNumber[] = [1, 2, 3, 4, 5, 6, 7, 8];
+
+/** A physical card in the game. */
+export interface CardInstance {
+  /**
+   * Object identity. A card gets a fresh id each time it moves to another area, except for a
+   * move from zone to zone (4.1.4).
+   */
+  instanceId: string;
+  /** `Card.id` in `cards.json` (or a test fixture), looked up in `GameState.cards`. */
+  cardId: number;
+  owner: PlayerId;
+}
+
+/**
+ * Cards stacked on each other, bottom first. A stack counts as one card and only the top card's
+ * information is read unless an effect says otherwise (3.2).
+ */
+export type CardStack = CardInstance[];
+
+/** A strategy card in a strategy zone, with the turn it was placed (7.2.3). */
+export interface StrategyPlacement {
+  card: CardInstance;
+  placedOnTurn: number;
+}
+
+export interface PlayerState {
+  id: PlayerId;
+  /** Zones 1 to 8 (4.4). Each normally holds at most one battle card stack (11.5). */
+  zones: Record<ZoneNumber, CardStack[]>;
+  /** The 2 strategy zones (4.5). Each normally holds at most one strategy card (11.5). */
+  strategyZones: [StrategyPlacement[], StrategyPlacement[]];
+  /** Monster cards not yet played (4.6). Hidden from the opponent. */
+  monsterDeck: CardInstance[];
+  /** The invading monster stack (4.7); the top card is the active monster (3.2.3.1). */
+  invadingMonsterZone: CardStack;
+  /** Zone the invading monster occupies (3.3.3); `null` before setup places it. */
+  monsterPosition: ZoneNumber | null;
+  /** Main deck, top card first (4.8). Hidden from both players. */
+  deck: CardInstance[];
+  /** Hidden from the opponent (4.9). */
+  hand: CardInstance[];
+  discard: CardInstance[];
+  /** Integer, never below 0 (3.4). */
+  rage: number;
+}
+
+export type Phase = "start" | "main" | "counter" | "end";
+
+/** An automatic ability waiting for a check timing (10.6.2). Filled in from M3d. */
+export interface StandbyAbility {
+  abilityId: string;
+  controller: PlayerId;
+  sourceInstanceId: string;
+}
+
+/** A continuous effect in force, ordered by timestamp (10.8.1.7). Filled in from M3d. */
+export interface ContinuousEffect {
+  effectId: string;
+  timestamp: number;
+  duration: "untilEndOfTurn" | "whileSourceActive" | "permanent";
+}
+
+export type ResultReason =
+  | "invasion"
+  | "counter"
+  | "concession"
+  | "effect"
+  | "bothLost"
+  | "infiniteLoop";
+
+export interface GameResult {
+  /** `null` for a draw. */
+  winner: PlayerId | null;
+  reason: ResultReason;
+  rule: string;
+}
+
+export interface LogEntry {
+  seq: number;
+  type: string;
+  /** The player the entry is about; `null` for game-level entries. */
+  player: PlayerId | null;
+  /** Public information only, so the log can go to every viewer unfiltered. */
+  payload: Record<string, unknown>;
+}
+
+/** The whole game as plain, serializable JSON (no classes, no Maps). */
+export interface GameState {
+  version: 1;
+  /** Normalized 32-bit seed. Never sent to clients. */
+  seed: number;
+  /** Current mulberry32 state. Never sent to clients. */
+  rngState: number;
+  nextInstanceId: number;
+  nextTimestamp: number;
+  players: [PlayerState, PlayerState];
+  /** Shared by both players (4.11). */
+  resolutionArea: CardInstance[];
+  firstPlayer: PlayerId;
+  turn: number;
+  turnPlayer: PlayerId;
+  phase: Phase;
+  /** Rule number of the next engine step to run, e.g. `"7.2.1"`. */
+  step: string;
+  turnFlags: {
+    /** Invasion is once per turn (8.6.2). */
+    invasionUsed: boolean;
+    /** Playing a monster card is once per turn (Paul's ruling). */
+    monsterPlayed: boolean;
+  };
+  standby: StandbyAbility[];
+  continuousEffects: ContinuousEffect[];
+  result: GameResult | null;
+  /** Every card that takes part in this game, keyed by `Card.id`. */
+  cards: Record<string, Card>;
+  log: LogEntry[];
+}
+
+export type ActionType =
+  | "playBattle"
+  | "activateStrategy"
+  | "gainRage"
+  | "playMonster"
+  | "invade"
+  | "pass";
+
+/** A player's choice in the main phase (spec "Actions"). Shapes are filled in from M3c. */
+export interface Action {
+  type: ActionType;
+  player: PlayerId;
+}

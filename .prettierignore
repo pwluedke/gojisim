@@ -6,3 +6,4 @@ test-results/
 .cache/
 tools/scraper/test/fixtures/
 packages/cards/data/
+docs/rules/spec.md

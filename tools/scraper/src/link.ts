@@ -1,6 +1,7 @@
 import {
   type Card,
   type CardOverrides,
+  type TraitSpellings,
   CardSchema,
   stripPrintMarkers,
 } from "@gojisim/cards";
@@ -43,4 +44,15 @@ export function linkPrints(cards: Card[], overrides: CardOverrides): Card[] {
       stripPrintMarkers(rootOf(card).cardNumber);
     return CardSchema.parse({ ...card, deckCardNumber });
   });
+}
+
+/** Replaces trait spellings listed in `trait-spellings.json` with the ruled spelling. */
+export function applyTraitSpellings(
+  cards: Card[],
+  spellings: TraitSpellings,
+): Card[] {
+  return cards.map((card) => ({
+    ...card,
+    traits: card.traits.map((trait) => spellings[trait]?.spelling ?? trait),
+  }));
 }
