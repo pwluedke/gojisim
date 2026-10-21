@@ -45,9 +45,15 @@ export class PoliteFetcher {
       const cached = await this.readCache(cacheKey);
       if (cached !== null) return cached;
     }
-    const body = await this.request(url, { method: "GET" });
+    const body = await (await this.request(url, { method: "GET" })).text();
     if (cacheKey) await this.writeCache(cacheKey, body);
     return body;
+  }
+
+  /** GET `url` as raw bytes (no caching; callers decide where binaries live). */
+  async getBytes(url: string): Promise<Buffer> {
+    const res = await this.request(url, { method: "GET" });
+    return Buffer.from(await res.arrayBuffer());
   }
 
   async postForm(
@@ -55,7 +61,7 @@ export class PoliteFetcher {
     form: URLSearchParams,
     headers: Record<string, string>,
   ): Promise<string> {
-    return this.request(url, {
+    const res = await this.request(url, {
       method: "POST",
       body: form,
       headers: {
@@ -63,9 +69,10 @@ export class PoliteFetcher {
         ...headers,
       },
     });
+    return res.text();
   }
 
-  private async request(url: string, init: RequestInit): Promise<string> {
+  private async request(url: string, init: RequestInit): Promise<Response> {
     const wait = this.lastRequestAt + this.minIntervalMs - Date.now();
     if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
     this.lastRequestAt = Date.now();
@@ -90,6 +97,6 @@ export class PoliteFetcher {
     if (!res.ok) {
       throw new Error(`${init.method} ${url} failed: HTTP ${res.status}`);
     }
-    return res.text();
+    return res;
   }
 }

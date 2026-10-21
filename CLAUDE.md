@@ -44,3 +44,15 @@ Accepted by Monarch in the M0 review (PR #1).
 6. The web unit test renders with `react-dom/server`, so there is no jsdom dependency.
 7. `pnpm lint` runs ESLint and `prettier --check`.
 8. CI uses `actions/checkout@v7` and `actions/setup-node@v7`, and uploads the Playwright report when a run fails.
+
+Accepted by Monarch in the M1a review (PR #2).
+
+9. Card data is scraped from godzillatcgdb.com: the `/search` POST (empty filters) lists base cards, and each card page's embedded `allPrints` JSON supplies every print. The HTML table supplies the movie title and unknown-label detection.
+10. `cardNumber` mirrors the site's display logic (PR reprints show as e.g. `EBP01-030++`; `-foil`/`-ALT` become ` (Foil)`/` (Alt)`). It is not unique; `id` is the unique key.
+11. `set` is the site's `set_number`, not the card-number prefix, so PR reprints stay in PR.
+12. `isParallel` means the card number ends in `+` (before any Foil/Alt suffix). Print families are linked by `parentId`.
+13. `colors` are title-cased (`Red`, `Blue`, `Green`, `White`), dual colors are split, and `blank` becomes `[]`.
+14. `rarity` is the site value, including its hardcoded display overrides (id 834 -> `ACSP`, id 860 -> `SSPT`) and lowercase `rage`.
+15. `movie` is `null` for blank-property cards (all Rage cards plus a few others).
+16. Card `text` and `notes` are normalized from CRLF to LF; empty notes become `null`.
+17. `pnpm-workspace.yaml` allows esbuild's build script (`allowBuilds`), needed by `tsx` under pnpm 12. `packages/cards/data/` and the scraper's HTML fixtures are in `.prettierignore`.

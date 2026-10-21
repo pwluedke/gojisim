@@ -28,6 +28,8 @@ describe("parseCardPage + toCard", () => {
       cardNumber: "EBP01-001",
       baseCardNumber: "EBP01-001",
       isParallel: false,
+      parentId: null,
+      deckCardNumber: "EBP01-001",
       name: "Godzilla (1954)",
       set: "EBP01",
       colors: ["Red"],
@@ -48,6 +50,7 @@ describe("parseCardPage + toCard", () => {
     expect(cards[1]).toMatchObject({
       id: 112,
       cardNumber: "EBP01-001+",
+      parentId: 113,
       baseCardNumber: "EBP01-001",
       isParallel: true,
       rarity: "SP",
@@ -58,6 +61,7 @@ describe("parseCardPage + toCard", () => {
     expect(cards[2]).toMatchObject({
       id: 665,
       cardNumber: "EBP01-001+",
+      parentId: 113,
       baseCardNumber: "EBP01-001",
       isParallel: true,
       set: "PR",

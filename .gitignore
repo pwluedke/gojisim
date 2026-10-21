@@ -7,3 +7,4 @@ playwright-report/
 test-results/
 *.tsbuildinfo
 .cache/
+apps/web/public/cards/

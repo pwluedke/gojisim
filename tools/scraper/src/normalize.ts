@@ -3,6 +3,7 @@ import {
   type CardColor,
   type CardType,
   CardSchema,
+  stripPrintMarkers,
 } from "@gojisim/cards";
 import type { ParsedCardPage, SitePrint } from "./parse";
 
@@ -94,6 +95,9 @@ export function toCard(
     cardNumber,
     baseCardNumber: cardNumber.replace(/\++(?=( \(\w+\))?$)/, ""),
     isParallel: /\+( \(\w+\))?$/.test(cardNumber),
+    parentId: print.parent_id,
+    // Placeholder until linkPrints() resolves the parent chain.
+    deckCardNumber: stripPrintMarkers(cardNumber),
     name: print.name,
     set: print.set_number,
     colors:

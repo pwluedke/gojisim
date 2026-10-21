@@ -22,6 +22,13 @@ export const CardSchema = z.strictObject({
   /** `cardNumber` without trailing `+` parallel markers. */
   baseCardNumber: z.string().min(1),
   isParallel: z.boolean(),
+  /** Site id of the print this one is a version of; `null` for a base print. */
+  parentId: z.number().int().positive().nullable(),
+  /**
+   * Card number the 4-copy deck limit counts against (rule 6.1.1.4): the base print's number
+   * without `+`, `++`, ` (Foil)` or ` (Alt)`. Every print of one card shares this value.
+   */
+  deckCardNumber: z.string().min(1),
   name: z.string().min(1),
   /** Set code, e.g. `EBP01`, `PR`, `RAGE`. */
   set: z.string().min(1),
@@ -48,3 +55,18 @@ export type CardType = z.infer<typeof CardTypeSchema>;
 export type CardColor = z.infer<typeof CardColorSchema>;
 
 export const CardListSchema = z.array(CardSchema);
+
+/** Manual corrections applied after scraping, keyed by card id. */
+export const CardOverridesSchema = z.record(
+  z.string().regex(/^\d+$/),
+  CardSchema.omit({ id: true })
+    .partial()
+    .extend({ reason: z.string().min(1) }),
+);
+
+export type CardOverrides = z.infer<typeof CardOverridesSchema>;
+
+/** Strips parallel and finish markers: `EBP01-030++` and `ESD01-002 (Foil)` -> base numbers. */
+export function stripPrintMarkers(cardNumber: string): string {
+  return cardNumber.replace(/ \((Foil|Alt)\)$/, "").replace(/\++$/, "");
+}
