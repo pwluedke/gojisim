@@ -3,6 +3,7 @@ import {
   type CardColor,
   type CardType,
   CardSchema,
+  parseTraits,
   stripPrintMarkers,
 } from "@gojisim/cards";
 import type { ParsedCardPage, SitePrint } from "./parse";
@@ -22,6 +23,7 @@ const KNOWN_LABELS = new Set([
   "Rarity",
   "Card Number",
   "Card Notes",
+  "Traits",
 ]);
 
 /** Rarity overrides hardcoded in the site's variant-switching script. */
@@ -65,19 +67,13 @@ export function toCard(
   const isActive = print.id === page.activeId;
 
   const unknownFields: Record<string, string> = {};
-  if (print.trait) unknownFields["Traits"] = print.trait;
   if (print.release_set) unknownFields["Released In"] = print.release_set;
   if (print.language && print.language !== "en")
     unknownFields["Language"] = print.language;
   if (isActive) {
     if (page.likes !== null) unknownFields["Likes (unlabeled)"] = page.likes;
     for (const [label, value] of Object.entries(page.table)) {
-      if (
-        !KNOWN_LABELS.has(label) &&
-        label !== "Traits" &&
-        label !== "Released In" &&
-        value
-      ) {
+      if (!KNOWN_LABELS.has(label) && label !== "Released In" && value) {
         unknownFields[label] = value;
       }
     }
@@ -105,6 +101,7 @@ export function toCard(
         ? []
         : (print.color.split("-").map(capitalize) as CardColor[]),
     type: capitalize(print.type) as CardType,
+    traits: parseTraits(print.trait),
     rank: toInt(print.rank),
     counterOrThreat: print.strength,
     invadeZones: print.invade,

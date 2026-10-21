@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { ERRATA, getCardText } from "./errata";
+import { ERRATA, getCardText, getCardTraits } from "./errata";
 import {
   DEFAULT_MAX_COPIES,
   getChoiceRestrictions,
@@ -77,8 +77,8 @@ describe("getCardText", () => {
     }
     expect(ERRATA.find((e) => e.deckCardNumber === RODAN)).toMatchObject({
       field: "traits",
-      printedText: "《Rodan》 / 《Weapon》",
-      correctedText: "《Rodan》 / 《Final Wars》",
+      printedText: "Rodan, Weapon",
+      correctedText: "Rodan, Final Wars",
       announced: "2026-06-17",
     });
   });
@@ -134,5 +134,35 @@ describe("getChoiceRestrictions", () => {
       { deckCardNumbers: ["EBP02-003", "EBP03-035"] },
     ]);
     expect(getChoiceRestrictions(day("2026-10-21"))).toHaveLength(1);
+  });
+});
+
+describe("getCardTraits", () => {
+  it("applies the Rodan(2004) trait erratum to both prints", () => {
+    const prints = printsOf(RODAN);
+    expect(prints).toHaveLength(2);
+    for (const card of prints) {
+      expect(card.traits).toEqual(["Rodan", "Weapon"]);
+      expect(getCardTraits(card)).toEqual(["Rodan", "Final Wars"]);
+    }
+  });
+
+  it("leaves already-corrected traits alone", () => {
+    expect(
+      getCardTraits({ deckCardNumber: RODAN, traits: ["Rodan", "Final Wars"] }),
+    ).toEqual(["Rodan", "Final Wars"]);
+  });
+
+  it("returns printed traits for a card without trait errata", () => {
+    const [despair] = printsOf(DESPAIR);
+    expect(getCardTraits(despair as Card)).toEqual((despair as Card).traits);
+  });
+
+  it("can apply every trait erratum to every print of its card", () => {
+    for (const erratum of ERRATA.filter((e) => e.field === "traits")) {
+      for (const card of printsOf(erratum.deckCardNumber)) {
+        expect(() => getCardTraits(card), card.cardNumber).not.toThrow();
+      }
+    }
   });
 });

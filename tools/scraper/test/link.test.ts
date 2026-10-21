@@ -14,6 +14,7 @@ function card(id: number, cardNumber: string, parentId: number | null): Card {
     set: "PR",
     colors: [],
     type: "Strategy",
+    traits: [],
     rank: null,
     counterOrThreat: null,
     invadeZones: null,
