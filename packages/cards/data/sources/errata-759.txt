@@ -1,0 +1,15 @@
+Source: https://en.godzilla-cardgame.com/errata/759/ (official page; not retrievable on 2026-10-21)
+Retrieved: 2026-10-21 from a screenshot provided by Paul (errata-759-screenshot.png in this folder).
+The official site returned HTTP 503 for scheduled maintenance and the page has no Internet Archive
+snapshot. The screenshot is a summary of the erratum, not a capture of the official page itself.
+Transcribed verbatim from the screenshot below.
+
+The official errata for Rodan (2004) (Card Numbers EBP02-015 and EBP02-015+) from Booster Set #2: "G: Monsters Raid Again" corrects an incorrect card trait.
+Error: 《Rodan》 / 《Weapon》
+Correct: 《Rodan》 / 《Final Wars》
+Replacement Policy: No physical card replacements will be issued for this errata.
+Errata Details
+Affected Cards: Rodan (2004) – EBP02-015 (Uncommon) and EBP02-015+ (Parallel).
+Set: Booster Set #2: "G: Monsters Raid Again".
+Effective Date: June 17, 2026.
+Reason: The printed card listed the wrong secondary trait (Weapon instead of Final Wars), which has been officially updated on the Godzilla Card Game Errata Page.

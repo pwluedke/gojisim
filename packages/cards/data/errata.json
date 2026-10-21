@@ -1,6 +1,15 @@
 [
   {
+    "deckCardNumber": "EBP02-015",
+    "field": "traits",
+    "printedText": "《Rodan》 / 《Weapon》",
+    "correctedText": "《Rodan》 / 《Final Wars》",
+    "announced": "2026-06-17",
+    "sourceUrl": "https://en.godzilla-cardgame.com/errata/759/"
+  },
+  {
     "deckCardNumber": "EBP02-018",
+    "field": "text",
     "printedText": "... that occupies a zone before the zone your monster card currently occupies. (If your monster card is in Zone 4, you can select battle cards in your opponent's zone 1, 2, or 3.)",
     "correctedText": "... that is occupying a zone at or before the zone your monster card currently occupies. (If your monster card is in Zone 4, you can select battle cards in your opponent's zone 1, 2, 3, or 4.)",
     "announced": "2026-01-30",

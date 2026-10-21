@@ -21,6 +21,7 @@ const GRAVITY_BEAM = "EBP01-079";
 const OXYGEN_DESTROYER = "EBP01-077";
 const GODZILLA_2003 = "EBP03-016";
 const DESPAIR = "EBP02-018";
+const RODAN = "EBP02-015";
 
 describe("errata.json and restrictions.json", () => {
   it("only reference deckCardNumbers that exist in cards.json", () => {
@@ -34,7 +35,7 @@ describe("errata.json and restrictions.json", () => {
     expect(referenced.filter((n) => !deckCardNumbers.has(n))).toEqual([]);
   });
 
-  it("can apply every erratum to every print of its card", () => {
+  it("can apply every text erratum to every print of its card", () => {
     for (const erratum of ERRATA) {
       for (const card of printsOf(erratum.deckCardNumber)) {
         expect(() => getCardText(card), card.cardNumber).not.toThrow();
@@ -64,12 +65,23 @@ describe("getCardText", () => {
     }
   });
 
-  // Pending: en.godzilla-cardgame.com/errata/759/ was down for maintenance (HTTP 503) and has no
-  // Internet Archive copy. Add the Rodan(2004) erratum to errata.json from that page, then make
-  // this a real test like the Despair one above.
-  it.todo(
-    "reports errata on both prints of Rodan(2004) (EBP02-015, EBP02-015+)",
-  );
+  // Rodan(2004)'s erratum corrects a trait (Weapon -> Final Wars), not its ability text.
+  it("reports errata on both prints of Rodan(2004) (EBP02-015, EBP02-015+)", () => {
+    const prints = printsOf(RODAN);
+    expect(prints.map((c) => c.cardNumber).sort()).toEqual([
+      "EBP02-015",
+      "EBP02-015+",
+    ]);
+    for (const card of prints) {
+      expect(getCardText(card)).toEqual({ text: card.text, hasErrata: true });
+    }
+    expect(ERRATA.find((e) => e.deckCardNumber === RODAN)).toMatchObject({
+      field: "traits",
+      printedText: "《Rodan》 / 《Weapon》",
+      correctedText: "《Rodan》 / 《Final Wars》",
+      announced: "2026-06-17",
+    });
+  });
 
   it("returns the scraped text unchanged for a card without errata", () => {
     const [card] = printsOf(GRAVITY_BEAM);

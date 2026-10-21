@@ -6,6 +6,8 @@ const IsoDateSchema = z.iso.date();
 
 export const ErratumSchema = z.strictObject({
   deckCardNumber: z.string().min(1),
+  /** What the erratum corrects: the ability text, or the card's traits. */
+  field: z.enum(["text", "traits"]),
   /**
    * Text as printed, copied verbatim from the official errata page. The page may quote only the
    * changed part of the ability, marked with a leading or trailing `...`.
@@ -52,7 +54,8 @@ export function getCardText(
 
   let text = card.text;
   let printedText = card.text;
-  for (const erratum of errata) {
+  // Trait errata (e.g. Rodan(2004)) still mark the card as having errata but leave its text alone.
+  for (const erratum of errata.filter((e) => e.field === "text")) {
     const printed = excerptCore(erratum.printedText);
     const corrected = excerptCore(erratum.correctedText);
     if (text.includes(corrected)) {
@@ -65,5 +68,7 @@ export function getCardText(
       );
     }
   }
-  return { text, hasErrata: true, printedText };
+  return printedText === text
+    ? { text, hasErrata: true }
+    : { text, hasErrata: true, printedText };
 }
