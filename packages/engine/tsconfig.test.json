@@ -2,7 +2,10 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "composite": false,
-    "noEmit": true
+    "noEmit": true,
+    "types": ["node"],
+    "rootDir": "."
   },
-  "exclude": []
+  "exclude": [],
+  "include": ["src", "test"]
 }
