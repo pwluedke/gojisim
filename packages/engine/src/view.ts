@@ -46,7 +46,7 @@ export interface PlayerView {
   turn: number;
   turnPlayer: PlayerId;
   phase: GameState["phase"];
-  step: string;
+  step: GameState["step"];
   turnFlags: GameState["turnFlags"];
   standby: GameState["standby"];
   continuousEffects: GameState["continuousEffects"];

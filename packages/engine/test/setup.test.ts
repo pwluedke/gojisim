@@ -192,15 +192,15 @@ describe("engine API", () => {
     );
   });
 
-  it("Engine: getLegalActions is a stub that returns [] (M3c)", () => {
+  it("Engine: right after setup there are no legal actions; the start phase has not run", () => {
     const state = createGame(testGameOptions());
     expect(getLegalActions(state, state.turnPlayer)).toEqual([]);
   });
 
-  it("Engine: applyAction is a stub that throws (M3b/M3c)", () => {
+  it("Engine: applyAction rejects an action outside the play timing", () => {
     const state = createGame(testGameOptions());
     expect(() =>
       applyAction(state, { type: "pass", player: state.turnPlayer }),
-    ).toThrow("not implemented");
+    ).toThrow(/Illegal action/);
   });
 });

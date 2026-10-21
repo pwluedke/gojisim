@@ -1,3 +1,4 @@
+import { shuffleInPlace } from "./rng";
 import type {
   CardInstance,
   GameState,
@@ -52,15 +53,44 @@ export function appendLog(
   return entry;
 }
 
-/** Draws up to `count` cards from the top of the deck, one at a time (4.8.3, 5.4). */
+/** Moves a card to its owner's discard pile as a new object (4.1.4, 4.1.7). */
+export function toDiscard(state: GameState, card: CardInstance): CardInstance {
+  const discarded = moved(state, card);
+  getPlayer(state, card.owner).discard.push(discarded);
+  return discarded;
+}
+
+/**
+ * Reshuffle (11.2), an interrupt rule action: the discard pile becomes the deck and is shuffled.
+ * With an empty discard pile nothing happens (11.2.4). Returns whether it reshuffled.
+ */
+export function reshuffle(state: GameState, player: PlayerState): boolean {
+  if (player.discard.length === 0) {
+    appendLog(state, "reshuffle", player.id, { rule: "11.2.4", count: 0 });
+    return false;
+  }
+  player.deck = player.discard.map((card) => moved(state, card));
+  player.discard = [];
+  shuffleInPlace(state, player.deck);
+  appendLog(state, "reshuffle", player.id, {
+    rule: "11.2.3",
+    count: player.deck.length,
+  });
+  return true;
+}
+
+/**
+ * Draws `count` cards one at a time from the top of the deck (4.8.3, 5.4.2). A draw from an
+ * empty deck reshuffles first (11.2); if that fails, the draw does nothing. Returns cards drawn.
+ */
 export function drawCards(
   state: GameState,
   player: PlayerState,
   count: number,
 ): number {
   let drawn = 0;
-  // Reshuffling an empty deck (11.2) arrives with rule actions in M3d.
-  while (drawn < count && player.deck.length > 0) {
+  for (let i = 0; i < count; i++) {
+    if (player.deck.length === 0 && !reshuffle(state, player)) continue;
     const top = player.deck.shift() as CardInstance;
     player.hand.push(moved(state, top));
     drawn++;

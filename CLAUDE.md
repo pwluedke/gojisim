@@ -87,3 +87,20 @@ Accepted by Monarch in the M1d review (PR #5).
 37. Trait errata store comma-separated trait lists (`"Rodan, Weapon"`). `getCardTraits` compares whole lists and throws if a card's traits match neither the printed nor the corrected list.
 38. The Comprehensive Rules v1.2 PDF in `docs/rules/` is Paul's local download of the official file (the official URL was down and has no Internet Archive snapshot); its SHA-256 is in `docs/rules/README.md`.
 39. `docs/rules/comprehensive-rules-v1.2.txt` has `===== Page N =====` markers for citing, and is extracted column by column (see `docs/rules/README.md`).
+
+Accepted by Monarch in the M3a review (PR #6).
+
+40. Engine state carries a card catalog (`cards: Record<cardId, Card>`) built from the decks passed to `createGame`; `getPlayerView` sends only the entries for cards the viewer can see.
+41. `createGame` takes decks as full `Card[]` objects (from `cards.json` or test fixtures) and rejects two different cards with the same id.
+42. The invading monster's position (`monsterPosition`, 3.3.3) is stored separately from the invading monster zone (4.7).
+43. Each zone holds a list of stacks, so an overloaded zone (11.5) can exist until a check timing resolves it.
+44. Instance ids are sequential strings (`c1`, `c2`, ...) re-issued on every move between areas (4.1.4), so a card leaving a hidden area can't be linked to its earlier identity.
+45. Log payloads hold public information only, with the rule number in `payload.rule`, so the log goes to every viewer unfiltered.
+46. After setup the state is turn 1, phase `start`, step `7.2.1`, with the first player as turn player.
+47. Seeds may be a number (truncated to unsigned 32-bit) or a string (FNV-1a hash).
+48. The RNG stream shuffles each main deck in `players` order, then picks the first player.
+49. "Same column" (4.4.5.4) is symmetric: a relation between two zones, so it holds from both players' sides (12 cross-player pairs). Confirmed by Monarch.
+50. Reshuffle (11.2) is part of drawing from M3b on (moved from M3d by Monarch).
+51. The engine deep-copies state with a JSON round trip, so it has no DOM or Node dependency.
+52. `docs/rules/spec.md` is in `.prettierignore`, so it stays exactly as approved.
+53. Trait spelling corrections live in `packages/cards/data/trait-spellings.json` (keyed by the site's spelling, with a `reason`), applied after scraping.

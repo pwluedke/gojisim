@@ -77,6 +77,7 @@ export function createGame(options: CreateGameOptions): GameState {
     turnFlags: { invasionUsed: false, monsterPlayed: false },
     standby: [],
     continuousEffects: [],
+    counterTotal: null,
     result: null,
     cards,
     log: [],
