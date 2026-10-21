@@ -1,0 +1,42 @@
+Source: https://en.godzilla-cardgame.com/news/662/
+Retrieved: 2026-10-21 via the Internet Archive snapshot https://web.archive.org/web/20261015070823/https://en.godzilla-cardgame.com/news/662/
+(The official site returned HTTP 503 for scheduled maintenance at retrieval time.)
+Text extracted from the page's main content; navigation and footer removed.
+
+NEWS
+2026.03.20
+Others
+Updates to Restriction List (Apr. 1, 2026)
+Thank you for your continued support of Godzilla Card Game.
+To ensure a healthy gameplay environment for all Godzilla Card Game players, the following restrictions will be implemented starting from April 1, 2026.
+What are “Restricted” and “Choice-Restricted”
+Restricted to 1
+Only 1 copy of this card may be included in the 54-card deck.
+Choice-Restricted
+Only 4 copies of 1 card from each group may be included in the 54-card deck.
+These restrictions apply to all official and sanctioned tournaments.
+The need for a restriction list
+The restriction list was prepared with the following considerations:
+1. Cards or combos that warps the gameplay environment
+2. Cards that detract from unique and fun gameplay
+3. Cards that limit the potential of future card development
+Although usage and win rates were also considered, this update prioritizes the game health. Future updates may also include adjustments based on usage and win rates in tournaments.
+There are also cards that are on our watchlist. Further restrictions may be added after the release of Booster Set #4 “Endless Wars” (Japanese edition) on April 25.
+Details
+・Restricted to 1: EBP01-077 “Oxygen Destroyer”
+Oxygen Destroyer was initially developed as the only counter to the mighty Godzilla(1954). While it would not lead to a decisive victory, it was intended as a way to stall.
+However, players were able to use this card multiple times to force an opponent’s monster card into retreating without defeating them, aiming for victory while stabilizing the game.
+While we do not believe this card to be exceptionally strong at the moment, we have evaluated that it will continue to become meta warping as Godzilla Card Game progresses and potentially reach a point where Threat Level and countering are no longer a fundamental aspect of the game.
+We are concerned that there will be an increase in situations where, through the repeated use of this card, games will extend beyond the time limit and harm the overall game experience. Such cases have already been observed.
+As such, we will be restricting Oxygen Destroyer to 1.
+・Choice-Restricted: EBP02-003 “Godzilla(2016) 2nd Form” and EBP03-035 “Satsuma”
+A combo utilizing these two cards that results in an immediate Victory through Invasion has been discovered.
+This combo was possible since the release of Booster Set #2 “G: Monsters Raid Again,” through the use of Godzilla Attacks and Cabinet Helicopter. However, the addition of Satsuma has significantly improved the stability of the combo and the strength of the deck, resulting in situations where decks have to be built with a counter to this combo in mind.
+To counter this combo, ‘hand destruction’ style cards such as Gravity Beam and specific tech cards such as Godzilla vs. SpaceGodzilla have seen an increased play rate, resulting in the loss of diversity.
+Even if this combo has not been played, if a player were to use Giant Unknown Creature as the Rank 1 monster in their monster deck, the opponent would still need to be wary of this combo. This results in red decks including Giant Unknown Creature as their Rank 1 monster regardless of their deck archetype, which significantly reduces the diversity of monster decks and further limits card development.
+Furthermore, cards like Godzilla Landing make advancing itself a significant risk and has been confirmed to limit play patterns.
+As such, Godzilla(2016) 2nd Form and Satsuma will be choice-restricted.
+Due to this update, decks that you have been using up until now may no longer be usable in their current form. However, the management team has carefully considered this matter from various perspectives and decided to take this action in consideration of the health of the game environment and its future development.
+We truly feel the support of Godzilla fans and trading card game fans in the nine months since the release of Godzilla Card Game. It is thanks to your support that we have been able to announce products that were not originally planned for at the time of initial release, as well as new developments timed with upcoming movies.
+Moving forward, we will continue to prioritize creating a healthy gameplay environment where everyone who loves Godzilla and trading card games can freely enjoy playing with their favorite cards.
+We appreciate your continued support of Godzilla Card Game.

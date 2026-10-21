@@ -1,0 +1,19 @@
+[
+  {
+    "effective": "2026-04-01",
+    "announced": "2026-03-20",
+    "sourceUrl": "https://en.godzilla-cardgame.com/news/662/",
+    "entries": [{ "deckCardNumber": "EBP01-077", "maxCopies": 1 }],
+    "choiceRestrictions": [{ "deckCardNumbers": ["EBP02-003", "EBP03-035"] }]
+  },
+  {
+    "effective": "2026-09-01",
+    "announced": "2026-08-26",
+    "sourceUrl": "https://en.godzilla-cardgame.com/news/890/",
+    "entries": [
+      { "deckCardNumber": "EBP01-079", "maxCopies": 0 },
+      { "deckCardNumber": "EBP03-016", "maxCopies": 0 }
+    ],
+    "choiceRestrictions": []
+  }
+]

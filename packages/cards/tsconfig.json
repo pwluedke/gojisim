@@ -2,9 +2,10 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "composite": true,
-    "rootDir": "src",
-    "outDir": "dist"
+    "rootDir": ".",
+    "outDir": "dist",
+    "resolveJsonModule": true
   },
-  "include": ["src"],
+  "include": ["src", "data/errata.json", "data/restrictions.json"],
   "exclude": ["src/**/*.test.ts"]
 }
