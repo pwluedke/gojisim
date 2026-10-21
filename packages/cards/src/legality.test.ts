@@ -67,7 +67,9 @@ describe("getCardText", () => {
   // Pending: en.godzilla-cardgame.com/errata/759/ was down for maintenance (HTTP 503) and has no
   // Internet Archive copy. Add the Rodan(2004) erratum to errata.json from that page, then make
   // this a real test like the Despair one above.
-  it.todo("reports errata on both prints of Rodan(2004) (EBP02-015, EBP02-015+)");
+  it.todo(
+    "reports errata on both prints of Rodan(2004) (EBP02-015, EBP02-015+)",
+  );
 
   it("returns the scraped text unchanged for a card without errata", () => {
     const [card] = printsOf(GRAVITY_BEAM);
