@@ -1,0 +1,11 @@
+{
+  "443": {
+    "parentId": 896,
+    "deckCardNumber": "EPR-005",
+    "reason": "Paul: EPR-005+ is a version of Godzilla's Bite; base print is EPR-005 (id 896). The site lists it as a parent-less parallel."
+  },
+  "896": {
+    "parentId": null,
+    "reason": "Base print of Godzilla's Bite (see 443). The site lists it as a child of 443; without this the 443 override makes a parent cycle."
+  }
+}

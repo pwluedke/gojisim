@@ -16,12 +16,23 @@ pnpm e2e         # Playwright (first run: pnpm --filter @gojisim/web exec playwr
 
 Other root scripts: `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm scrape` (refresh card data, see `tools/scraper`).
 
+## Card images
+
+Card images are not committed. Run this once after cloning:
+
+```sh
+pnpm images
+```
+
+It downloads every card's original PNG from godzillatcgdb.com (1 request per second, so the first run takes about 16 minutes) into `tools/scraper/.cache/images/`, then converts each one to `apps/web/public/cards/<id>-full.webp` (original size) and `<id>-thumb.webp` (300 px wide). Reruns skip files that already exist; `pnpm images --force` re-converts. The byte sizes are recorded in `packages/cards/data/images.json`.
+
 ## Layout
 
-| Path              | Package           | Purpose                      |
-| ----------------- | ----------------- | ---------------------------- |
-| `packages/cards`  | `@gojisim/cards`  | Card data                    |
-| `packages/engine` | `@gojisim/engine` | Pure TypeScript rules engine |
-| `packages/bot`    | `@gojisim/bot`    | AI opponent                  |
-| `apps/server`     | `@gojisim/server` | Node game server             |
-| `apps/web`        | `@gojisim/web`    | Vite + React client          |
+| Path              | Package            | Purpose                      |
+| ----------------- | ------------------ | ---------------------------- |
+| `packages/cards`  | `@gojisim/cards`   | Card data                    |
+| `packages/engine` | `@gojisim/engine`  | Pure TypeScript rules engine |
+| `packages/bot`    | `@gojisim/bot`     | AI opponent                  |
+| `apps/server`     | `@gojisim/server`  | Node game server             |
+| `apps/web`        | `@gojisim/web`     | Vite + React client          |
+| `tools/scraper`   | `@gojisim/scraper` | Card data and image scraper  |

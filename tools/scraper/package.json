@@ -5,11 +5,13 @@
   "type": "module",
   "scripts": {
     "scrape": "tsx src/main.ts",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "images": "tsx src/images.ts"
   },
   "dependencies": {
     "@gojisim/cards": "workspace:*",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "tsx": "^4.23.15"
