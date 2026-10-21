@@ -1,0 +1,21 @@
+Source: https://en.godzilla-cardgame.com/errata/609/
+Retrieved: 2026-10-21 via the Internet Archive snapshot https://web.archive.org/web/20260130040554/https://en.godzilla-cardgame.com/errata/609/
+(The official site returned HTTP 503 for scheduled maintenance at retrieval time.)
+Text extracted from the page's main content; navigation and footer removed.
+
+Errata
+2026.01.30
+Despair
+Card Number
+EBP02-018, EBP02-018+
+Card Set
+Booster Set #2 "G: Monsters Raid Again"
+Go to Card List
+▼Error
+... that occupies a zone before the zone your monster card currently occupies. (If your monster card is in Zone 4, you can select battle cards in your opponent's zone 1, 2, or 3.)
+▼Correct
+... that is occupying a zone at or before the zone your monster card currently occupies. (If your monster card is in Zone 4, you can select battle cards in your opponent's zone 1, 2, 3, or 4.)
+Reason for Correction
+Incorrect card ability text.
+Card Replacement
+There won't be any replacement for this errata.

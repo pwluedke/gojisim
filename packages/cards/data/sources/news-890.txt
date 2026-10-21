@@ -1,0 +1,55 @@
+Source: https://en.godzilla-cardgame.com/news/890/
+Retrieved: 2026-10-21 via the Internet Archive snapshot https://web.archive.org/web/20261015070704/https://en.godzilla-cardgame.com/news/890/
+(The official site returned HTTP 503 for scheduled maintenance at retrieval time.)
+Text extracted from the page's main content; navigation and footer removed.
+
+NEWS
+2026.08.26
+Others
+Updates to Restriction List (Sep. 1, 2026)
+Thank you for your continued support of Godzilla Card Game.
+The following restrictions will be implemented starting from Sep. 1. As a result, certain cards will no longer be legal for play in tournaments.
+We have carefully reviewed the tournament statistics including the win and usage rates, to maintain diverse deck creation and ensure the smooth development of future cards, we have decided to update the restriction list.
+“Restricted” Defined
+Cards that are “Restricted” cannot be included at all in the 54-card deck.
+These restrictions apply to all official and sanctioned tournaments.
+A special exception is made this time round, hence replacement cards will be distributed for the two newly restricted cards. Please note that these restrictions were implemented with the understanding that replacement cards would be made available.
+The need for a restriction list
+With the main objective being to create a more open and fun playing environment, here are two cards that were picked out for the restriction list.
+The restriction list was prepared with the following considerations:
+1. Cards or combos that greatly restrict cards used in deck building
+2. Cards that detract from unique and fun gameplay
+3. Cards that limit the potential of future card development
+4. Usage and win rates in tournaments
+While previous restriction list updates focused mainly on the first three points, recent tournament events have seen growing player participation. Taking this into account, “4. Usage and win rates in tournaments” was prioritized in the decision-making process this time round.
+To add on, even among decks using the same card in Monster Decks, there are strategies aiming for [Victory through Invasion], [Victory through Countering], or both, with each strategy evaluated separately.
+Eventually, players with a game strategy of [Victory through Invasion] from Rank II by particularly combining the use of Godzilla(2002) and Gravity Beam were identified as the dominant strategy in the current meta.
+Details
+・Restricted (cannot be used at all): EBP01-079 "Gravity Beam"
+Gravity Beam is a “White” card that can be included in any deck, and features “Invade Icon: 2”, a critical component in deck creations. Because it is Rank 5 with no other conditions needed to be fulfilled to use the card, its inclusion rate across all deck types has remained abnormally high since its launch in July 2025.
+Originally, the “Invade Icon: 2” is meant to be the key factor in granting the player autonomy in deciding their gameplay depending on their deck color or play style.
+Moreover, Gravity Beam has the ability to force the opponent to discard their hand. This ability was initially one of the strengths of the “Red” deck, most notably represented by Operation Wadatsumi and Space Beam.
+When Gravity Beam was released, it was designed to combo with King Ghidorah(2024) and discard the opponent's hand at the same time, if the player wants to devote their “Invade Icon: 2” slot in any color of their decks.
+However, with the growing card pool, our observations have revealed that Gravity Beam, being the “White” card included in every deck, ended up locking down the “Invade Icon: 2” slot, reducing other cards with “Invade Icon: 2” for consideration during deck creation across “Red” and other colored decks.
+Similarly, Gravity Beam may further limits the potential for the card development of “Invade Icon: 2” in the future.
+Since the release of the Booster Set #4 “Endless Wars”, the Gravity Beam and Godzilla(2002) combo allowed players to consistently rush [Victory through Invasion] from Rank II, resulting in a high win rate in recent tournaments.
+As such, to ensure a healthy gameplay environment, future card development, and diversity of deck creations, Gravity Beam will be restricted.
+・Restricted: EBP03-016 "Godzilla(2003)"
+Godzilla(2002) ~ Godzilla(2003) Monster Cards were originally designed to gain advantage by discarding Battle Cards from the player's hand.
+Even when the player isn’t activating these cards' abilities, the constant discarding and drawing (required by certain cards) naturally smooths out player’s draws and makes the whole deck way too consistent.
+As a result, the deck turned out to be much stronger in competitive tournaments than we originally designed or expected.
+Specifically, EBP03-016 Godzilla(2003) and EBP03-017 Godzilla(2003) streamline the deck’s overall strategy because both share the ability to increase/decrease Rage, drastically boosting the deck’s power when using them in the same deck.
+In particular, Godzilla(2003) has amazing abilities for a Rank III card. Its only real drawback is a low Threat level, however, including it in the same deck with other Rank III Monster Cards or A Journey of 130 Million Years negates this weakness.
+We have also evaluated Godzilla(2002), another core piece of the same deck. However, we believe that restricting the use of Gravity Beam alone provides a sufficient cap on Godzilla(2002)’s effectiveness.
+Therefore, we decided to restrict the use of Godzilla(2003), which is more deeply involved in the core meta of the deck.
+As such, Godzilla(2003) will be restricted.
+Distribution of the replacement cards
+We are giving out replacement cards in place of the restricted cards.
+These replacement cards are crucial in ensuring that restricting these cards does not leave the King Ghidorah(2024), and any "Godzilla" card featuring Godzilla Against Mechagodzilla, and Godzilla: Tokyo SOS isolated without a playable Rank III Monster Card.
+The replacement cards may be weaker versions of the restricted ones to balance the game out. However, in certain decks or specific dynamics of the gameplay, they actually have unique advantages that make them different from the restricted cards.
+You can receive these 2 replacement cards for free as participation promos at the Shop Tournaments starting this October. Be sure to check out your local game stores!
+*The two replacement cards are the preview cards from the upcoming products.
+More than a year has passed since the release of the Godzilla Card Game. We truly feel the support of many Godzilla fans including trading card game fans who have been with us since launch, as well as many new faces.
+In the near future, we are excited to announce the new movie Godzilla Minus Zero hitting theaters on November 6, 2026! To tie in with the movie, we are releasing three new "Battle Begins! Starter Decks," as well as "Booster Set #5" featuring cards from the new movie Godzilla Minus Zero. We highly recommend you to check out both the movie and the card game!
+Moving forward, we will continue to prioritize creating a healthy gameplay environment where everyone who loves Godzilla and trading card games can freely enjoy playing with their favorite cards.
+We appreciate your continued support of Godzilla Card Game.

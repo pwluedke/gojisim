@@ -56,3 +56,15 @@ Accepted by Monarch in the M1a review (PR #2).
 15. `movie` is `null` for blank-property cards (all Rage cards plus a few others).
 16. Card `text` and `notes` are normalized from CRLF to LF; empty notes become `null`.
 17. `pnpm-workspace.yaml` allows esbuild's build script (`allowBuilds`), needed by `tsx` under pnpm 12. `packages/cards/data/` and the scraper's HTML fixtures are in `.prettierignore`.
+
+Accepted by Monarch in the M1b review (PR #3).
+
+18. `packages/cards/data/overrides.json` sets 896 (`EPR-005`) to `parentId: null` as well as 443 -> 896, because the site lists 896 as a child of 443 and the 443 override alone would create a parent cycle. 628, 629 and 895 stay under 443.
+19. Paul's decision on `EPR-005+` replaces the `unknownFields` flag proposed in the PR #2 review.
+20. `deckCardNumber` comes from the root of the parent chain, not just the direct parent.
+21. Card WebPs use sharp's defaults (lossy, quality 80). Thumbs are resized by width only (300 px), keeping the aspect ratio.
+22. `pnpm images` skips WebPs that already exist; `pnpm images --force` re-converts them.
+23. The image test checks the manifest and that both WebP files exist on disk; it is skipped when `apps/web/public/cards/` is missing (as on CI).
+24. ESLint `no-unused-vars` ignores `_`-prefixed names and rest siblings.
+25. `image.godzillatcgdb.com` has no robots.txt (it returns 403); image downloads follow the same politeness rules as the page scrape.
+26. The README Layout table lists `tools/scraper`.
