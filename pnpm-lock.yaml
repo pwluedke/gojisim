@@ -245,6 +245,16 @@ importers:
         specifier: workspace:*
         version: link:../cards
 
+  tools/ability-survey:
+    dependencies:
+      '@gojisim/cards':
+        specifier: workspace:*
+        version: link:../../packages/cards
+    devDependencies:
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+
   tools/scraper:
     dependencies:
       '@gojisim/cards':

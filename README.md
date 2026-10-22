@@ -14,7 +14,7 @@ pnpm test        # Vitest across all packages
 pnpm e2e         # Playwright (first run: pnpm --filter @gojisim/web exec playwright install chromium)
 ```
 
-Other root scripts: `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm scrape` (refresh card data, see `tools/scraper`).
+Other root scripts: `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm scrape` (refresh card data, see `tools/scraper`), `pnpm survey` (regenerate the ability survey in `docs/abilities/`).
 
 ## Debug viewer
 
@@ -47,11 +47,13 @@ It downloads every card's original PNG from godzillatcgdb.com (1 request per sec
 
 ## Layout
 
-| Path              | Package            | Purpose                      |
-| ----------------- | ------------------ | ---------------------------- |
-| `packages/cards`  | `@gojisim/cards`   | Card data                    |
-| `packages/engine` | `@gojisim/engine`  | Pure TypeScript rules engine |
-| `packages/bot`    | `@gojisim/bot`     | AI opponent                  |
-| `apps/server`     | `@gojisim/server`  | Node game server             |
-| `apps/web`        | `@gojisim/web`     | Vite + React client          |
-| `tools/scraper`   | `@gojisim/scraper` | Card data and image scraper  |
+| Path                   | Package                   | Purpose                                                            |
+| ---------------------- | ------------------------- | ------------------------------------------------------------------ |
+| `packages/cards`       | `@gojisim/cards`          | Card data                                                          |
+| `packages/engine`      | `@gojisim/engine`         | Pure TypeScript rules engine                                       |
+| `packages/bot`         | `@gojisim/bot`            | AI opponent                                                        |
+| `apps/server`          | `@gojisim/server`         | Node game server                                                   |
+| `apps/web`             | `@gojisim/web`            | Vite + React client                                                |
+| `tools/scraper`        | `@gojisim/scraper`        | Card data and image scraper                                        |
+| `tools/stress`         | `@gojisim/stress`         | Random-game stress test                                            |
+| `tools/ability-survey` | `@gojisim/ability-survey` | Card ability text survey (`pnpm survey`, writes `docs/abilities/`) |

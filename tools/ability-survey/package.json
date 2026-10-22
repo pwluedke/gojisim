@@ -1,0 +1,16 @@
+{
+  "name": "@gojisim/ability-survey",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "survey": "tsx src/main.ts",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@gojisim/cards": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}
