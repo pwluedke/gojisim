@@ -26,6 +26,7 @@ import {
   loadImportedDecks,
   saveImportedDecks,
 } from "./decks";
+import { ManualPanel } from "./ManualPanel";
 import { ActionPanel, LogPanel, StatusBar } from "./Panels";
 
 /** A record plus the action index the viewer was at when it was exported. */
@@ -437,6 +438,7 @@ export function DebugViewer() {
               </div>
             </div>
             <div style={{ minWidth: 360 }}>
+              <ManualPanel state={state} onAction={takeAction} />
               <ActionPanel state={state} onAction={takeAction} />
               <div style={{ border: "1px solid #888", padding: 6, margin: 4 }}>
                 <button

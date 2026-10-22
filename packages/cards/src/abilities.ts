@@ -1,4 +1,8 @@
 import { z } from "zod";
+import ebp01 from "../data/abilities/EBP01.json";
+import ebp02 from "../data/abilities/EBP02.json";
+import ebp03 from "../data/abilities/EBP03.json";
+import ebp04 from "../data/abilities/EBP04.json";
 import esd01 from "../data/abilities/ESD01.json";
 import esd02 from "../data/abilities/ESD02.json";
 
@@ -635,6 +639,10 @@ export type AbilityFile = z.infer<typeof AbilityFileSchema>;
 
 /** The set files, by set code. Each new set file is added here. */
 export const ABILITY_FILES: Record<string, unknown> = {
+  EBP01: ebp01,
+  EBP02: ebp02,
+  EBP03: ebp03,
+  EBP04: ebp04,
   ESD01: esd01,
   ESD02: esd02,
 };

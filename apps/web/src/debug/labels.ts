@@ -66,6 +66,7 @@ export function actionLabel(state: GameState, action: Action): string {
         const [player, zone] = action.optionId.split(":");
         return `Choose ${player}'s zone ${zone}`;
       }
+      if (choice?.kind === "manual") return "Done (close the manual override)";
       if (choice?.kind === "replacementOrder")
         return `Apply ${action.optionId} (${choice.rule})`;
       if (choice?.kind === "confirm")
@@ -75,5 +76,7 @@ export function actionLabel(state: GameState, action: Action): string {
     }
     case "concede":
       return "Concede";
+    case "manual":
+      return `Manual: ${action.op.kind}`;
   }
 }

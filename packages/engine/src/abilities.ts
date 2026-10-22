@@ -7,6 +7,7 @@ import type {
 } from "./types";
 import { ZONE_NUMBERS } from "./types";
 import { dataAbilityId, dataTriggers } from "./interpreter";
+import { manualReason, queueManual } from "./manual";
 
 /** What an ability's trigger check sees. */
 export interface TriggerContext {
@@ -121,6 +122,9 @@ export function fireTriggers(
     const number = state.cards[card.cardId]?.deckCardNumber ?? "";
     for (const ability of dataTriggers(state, event, card, master))
       enter(card, master, dataAbilityId(number, ability.id));
+    // A manual card (no ability data): queue a manual override window instead (format.md 10).
+    const reason = manualReason(state, event, card, master);
+    if (reason) queueManual(state, card, master, reason);
     for (const definition of registry.values()) {
       if (!definition.cardIds.includes(card.cardId)) continue;
       if (!definition.triggers({ state, event, source: card, master }))

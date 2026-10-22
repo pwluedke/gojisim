@@ -6,7 +6,9 @@ import {
   CardSchema,
   parseTraits,
   stripPrintMarkers,
+  TextOverridesSchema,
   TraitSpellingsSchema,
+  applyTextOverrides,
 } from "./schema";
 
 const dataDir = new URL("../data/", import.meta.url);
@@ -153,5 +155,50 @@ describe("trait spellings (Paul's ruling, Oct 21, 2026)", () => {
     expect(
       (cards as Card[]).filter((c) => c.traits.some((t) => wrong.has(t))),
     ).toEqual([]);
+  });
+});
+
+describe("text overrides (Q12)", () => {
+  const overrides = TextOverridesSchema.parse(
+    JSON.parse(readFileSync(new URL("text-overrides.json", dataDir), "utf8")),
+  );
+
+  it("every override is applied: no print of its card still has the old text, and some print has the new", () => {
+    for (const [number, fixes] of Object.entries(overrides)) {
+      const prints = (cards as Card[]).filter(
+        (c) => c.deckCardNumber === number,
+      );
+      expect(prints.length, number).toBeGreaterThan(0);
+      for (const fix of fixes) {
+        expect(
+          prints.filter((c) => c.text.includes(fix.from)),
+          fix.from,
+        ).toEqual([]);
+        expect(
+          prints.some((c) => c.text.includes(fix.to)),
+          fix.to,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("applyTextOverrides replaces the text in every print of the listed card only", () => {
+    const [first, second] = cards as Card[];
+    if (!first || !second) throw new Error("no cards");
+    const fixed = applyTextOverrides(
+      [
+        { ...first, text: "Gozilla here, Gozilla there" },
+        { ...second, text: "Gozilla" },
+      ],
+      {
+        [first.deckCardNumber]: [
+          { from: "Gozilla", to: "Godzilla", reason: "test" },
+        ],
+      },
+    );
+    expect(fixed[0]?.text).toBe("Godzilla here, Godzilla there");
+    expect(fixed[1]?.text).toBe(
+      first.deckCardNumber === second.deckCardNumber ? "Godzilla" : "Gozilla",
+    );
   });
 });

@@ -95,3 +95,38 @@ export function parseTraits(trait: string | null): string[] {
     .map((t) => t.replace(/[《》]/g, "").trim())
     .filter((t) => t.length > 0);
 }
+
+/**
+ * Corrections to scraped card text, keyed by `deckCardNumber` (Q12). Each `from` is replaced by
+ * `to` in every print of the card whose text contains it. Applied after scraping.
+ */
+export const TextOverridesSchema = z.record(
+  z.string().min(1),
+  z
+    .array(
+      z.strictObject({
+        from: z.string().min(1),
+        to: z.string(),
+        reason: z.string().min(1),
+      }),
+    )
+    .min(1),
+);
+
+export type TextOverrides = z.infer<typeof TextOverridesSchema>;
+
+/** Applies `text-overrides.json` to every print of each listed card (Q12). */
+export function applyTextOverrides(
+  cards: Card[],
+  overrides: TextOverrides,
+): Card[] {
+  return cards.map((card) => {
+    const fixes = overrides[card.deckCardNumber];
+    if (!fixes) return card;
+    const text = fixes.reduce(
+      (current, fix) => current.split(fix.from).join(fix.to),
+      card.text,
+    );
+    return text === card.text ? card : { ...card, text };
+  });
+}

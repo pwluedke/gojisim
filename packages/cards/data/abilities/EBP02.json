@@ -1,0 +1,3 @@
+{
+  "EBP02-031": {"deckCardNumber": "EBP02-031", "status": "manual", "abilities": [], "deckRules": [{"rule": "anyNumber"}], "notes": "Q13: \"You may have any number of this card in your deck\" lifts the 4-copy limit (6.1.1.4). Its other abilities are not built yet (M12)."}
+}

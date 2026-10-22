@@ -1,3 +1,4 @@
+import { getCardAbilities } from "./abilities";
 import { getCardTraits } from "./errata";
 import { getChoiceRestrictions, getMaxCopies } from "./restrictions";
 import type { Card } from "./schema";
@@ -104,9 +105,13 @@ export function validateDeck(deck: Deck, asOf: Date): DeckValidation {
   }
 
   // 6.1.1.4: at most 4 copies per card number across both decks; "+" is ignored (6.1.1.4.1).
+  // A card whose text allows any number of copies lifts the limit (1.3.1, Q13).
   const copies = countBy(all, (c) => c.deckCardNumber);
   for (const [number, count] of copies) {
-    if (count > MAX_COPIES_PER_CARD)
+    const anyNumber = getCardAbilities(number).deckRules?.some(
+      (r) => r.rule === "anyNumber",
+    );
+    if (count > MAX_COPIES_PER_CARD && !anyNumber)
       fail(
         "6.1.1.4",
         `${copiesOf(count, number)} (at most ${MAX_COPIES_PER_CARD})`,

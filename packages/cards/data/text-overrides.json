@@ -1,0 +1,42 @@
+{
+  "ESD01-009": [
+    {
+      "from": "(Active if your monster card is in zone 4 or beyond.)<",
+      "to": "(Active if your monster card is in zone 4 or beyond.)",
+      "reason": "Stray \"<\" at the end of the scraped text (findings F11, Q12)."
+    }
+  ],
+  "EBP01-075": [
+    {
+      "from": "After beying played",
+      "to": "After being played",
+      "reason": "Typo \"beying\" (findings F11, Q12)."
+    }
+  ],
+  "EBP03-047": [
+    {
+      "from": "named 'Super Mechagodzilla\"",
+      "to": "named \"Super Mechagodzilla\"",
+      "reason": "Mismatched quote around the card name (findings F11, Q12)."
+    }
+  ],
+  "EBP04-063": [
+    {
+      "from": "named \"Gozilla Earth\"",
+      "to": "named \"Godzilla Earth\"",
+      "reason": "Typo in the card name it returns; the card is \"Godzilla Earth\" (findings F11, Q12)."
+    }
+  ],
+  "EBP04-073": [
+    {
+      "from": "to theirh and,",
+      "to": "to their hand,",
+      "reason": "Typo \"theirh and\" (findings F11, Q12)."
+    },
+    {
+      "from": "from your discard pile from your hand",
+      "to": "from your discard pile to your hand",
+      "reason": "\"from your hand\" should be \"to your hand\" (findings F11, Q12)."
+    }
+  ]
+}

@@ -364,7 +364,7 @@
       "hasErrata": false,
       "abilities": [
         {
-          "text": "[awakening-4] This card gains +3000 counter power. (Active if your monster card is in zone 4 or beyond.)<",
+          "text": "[awakening-4] This card gains +3000 counter power. (Active if your monster card is in zone 4 or beyond.)",
           "parts": [
             {
               "category": "keyword",
@@ -5470,7 +5470,7 @@
           ]
         },
         {
-          "text": "[awakening-8] You can play this card with its rank reduced by 4. (Active if your monster card is in zone 8. After beying played, this card is rank 8.)",
+          "text": "[awakening-8] You can play this card with its rank reduced by 4. (Active if your monster card is in zone 8. After being played, this card is rank 8.)",
           "parts": [
             {
               "category": "keyword",
@@ -14063,7 +14063,7 @@
       "hasErrata": false,
       "abilities": [
         {
-          "text": "At the beginning of your counter phase, if this card is in the same column as your opponent's monster card, you may discard 1 battle card with [weapon] or [mech] from your hand. If you do, search your deck for up to 1 battle card named 'Super Mechagodzilla\", play it on top of this card, then shuffle your deck.",
+          "text": "At the beginning of your counter phase, if this card is in the same column as your opponent's monster card, you may discard 1 battle card with [weapon] or [mech] from your hand. If you do, search your deck for up to 1 battle card named \"Super Mechagodzilla\", play it on top of this card, then shuffle your deck.",
           "parts": [
             {
               "category": "keyword",
@@ -14120,12 +14120,12 @@
             {
               "category": "effect",
               "pattern": "search deck",
-              "text": "search your deck for up to 1 battle card named 'super mechagodzilla\", play it on top of this card, then shuffle your deck",
+              "text": "search your deck for up to 1 battle card named \"super mechagodzilla\", play it on top of this card, then shuffle your deck",
               "params": {
                 "player": "you",
                 "count": "up to 1",
                 "cardType": "battle",
-                "name": "'super mechagodzilla"
+                "name": "super mechagodzilla"
               }
             },
             {
@@ -20132,7 +20132,7 @@
       "hasErrata": false,
       "abilities": [
         {
-          "text": "[revenge] Return up to 1 battle card named \"Gozilla Earth\" from your discard pile to your hand. (Activates when destroyed by a card effect or monster movement.)",
+          "text": "[revenge] Return up to 1 battle card named \"Godzilla Earth\" from your discard pile to your hand. (Activates when destroyed by a card effect or monster movement.)",
           "parts": [
             {
               "category": "keyword",
@@ -20150,11 +20150,11 @@
             {
               "category": "effect",
               "pattern": "return from discard pile to hand",
-              "text": "return up to 1 battle card named \"gozilla earth\" from your discard pile to your hand",
+              "text": "return up to 1 battle card named \"godzilla earth\" from your discard pile to your hand",
               "params": {
                 "count": "up to 1",
                 "cardType": "battle",
-                "name": "gozilla earth"
+                "name": "godzilla earth"
               }
             },
             {
@@ -20707,7 +20707,7 @@
       "hasErrata": false,
       "abilities": [
         {
-          "text": "[opponents-turn] Whenever your opponent returns a card from their discard pile to theirh and, if this card is in zone 1, you may return up to 1 card from your discard pile from your hand.",
+          "text": "[opponents-turn] Whenever your opponent returns a card from their discard pile to their hand, if this card is in zone 1, you may return up to 1 card from your discard pile to your hand.",
           "parts": [
             {
               "category": "keyword",
@@ -20741,7 +20741,7 @@
             {
               "category": "effect",
               "pattern": "return from discard pile to hand",
-              "text": "return up to 1 card from your discard pile from your hand",
+              "text": "return up to 1 card from your discard pile to your hand",
               "params": {
                 "count": "up to 1"
               }

@@ -14,7 +14,7 @@ pnpm test        # Vitest across all packages
 pnpm e2e         # Playwright (first run: pnpm --filter @gojisim/web exec playwright install chromium)
 ```
 
-Other root scripts: `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm scrape` (refresh card data, see `tools/scraper`), `pnpm survey` (regenerate the ability survey in `docs/abilities/`).
+Other root scripts: `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm scrape` (refresh card data, see `tools/scraper`), `pnpm survey` (regenerate the ability survey in `docs/abilities/`), `pnpm abilities:coverage` (every card's ability status: implemented, partial or manual; `--set`, `--status`, `--json`).
 
 ## Debug viewer
 

@@ -83,6 +83,7 @@ export function createGame(options: CreateGameOptions): GameState {
     resolution: null,
     revealed: [],
     timedTriggers: [],
+    manualQueue: [],
     pendingLosses: [],
     nextChoiceId: 1,
     loopGuard: [],

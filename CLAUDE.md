@@ -234,3 +234,13 @@ Accepted by Monarch in the M4e review (PR #16).
 154. Rage changes go through `setRage`, which logs `rageChanged {from, to}` or `rageUnchanged` (1.3.2.1). The 7.2.4 reset from 0 logs nothing.
 155. `cardPlayed` also matches a new invading monster after a counter (5.11.2) and strategy activations (5.9); `what` is evaluated where the card landed.
 156. The manual-strategy `strategyTextPending` test uses ESD02-014.
+
+Accepted by Monarch in the M4f review (PR #17).
+
+157. Burst's discard is a `state.timedTriggers` entry (`timed:burstDiscard`), since the card may be covered and inactive when it fires (12.5.2.1). It fires once (10.6.5.1) at the master's next end phase; a card already gone logs `gone: true`.
+158. A monster card is a Burst play only when its printed rank doesn't match the current monster and its Burst rank does; a printed-rank match is a normal play.
+159. Evolution is expanded in the engine (`withKeywords`) into an optional `phaseBegins` (main, yours) trigger `evolution` whose effect is `evolve` on `this`; the data carries only the keyword.
+160. `evolve` reads the target's Evolution keyword from ability data (cards without data aren't offered), searches `exact 1` with "find nothing", stacks the found card on the existing stack, and logs `place` (`played: true`), `evolve` (5.17.1.1) and `shuffleDeck`.
+161. `Resolution.subject` holds the card being evolved across its two choices.
+162. The canonical state for loop detection includes timed triggers.
+163. Tests that need a manual card use non-starter cards (EBP01-001, EBP01-032). After a Burst play the monster reads the Burst card's printed rank (ESD01-007 reads IV), confirmed by Monarch.
