@@ -153,16 +153,32 @@ export interface GameState {
   log: LogEntry[];
 }
 
-export type ActionType =
-  | "playBattle"
-  | "activateStrategy"
-  | "gainRage"
-  | "playMonster"
-  | "invade"
-  | "pass";
+/** One of a player's two strategy zones (4.5.2). */
+export type StrategyZoneNumber = 1 | 2;
 
-/** A player's choice in the main phase (spec "Actions"). M3b implements `pass`. */
-export interface Action {
-  type: ActionType;
-  player: PlayerId;
-}
+/** A turn player's choice at the main phase play timing (spec "Actions", 8). */
+export type Action =
+  /** Play a battle card from hand to one of the player's zones (8.2, 10.5.2.1.2). */
+  | {
+      type: "playBattle";
+      player: PlayerId;
+      cardInstanceId: string;
+      zone: ZoneNumber;
+    }
+  /** Activate a strategy card from hand into an empty strategy zone (8.3). */
+  | {
+      type: "activateStrategy";
+      player: PlayerId;
+      cardInstanceId: string;
+      strategyZone: StrategyZoneNumber;
+    }
+  /** Discard a monster card from hand for +1 rage (8.4). */
+  | { type: "gainRage"; player: PlayerId; cardInstanceId: string }
+  /** Stack a monster card from hand on the invading monster (8.5). */
+  | { type: "playMonster"; player: PlayerId; cardInstanceId: string }
+  /** Discard a card from hand and advance once per invasion icon point (8.6). */
+  | { type: "invade"; player: PlayerId; cardInstanceId: string }
+  /** End the play timing and the main phase (10.4.4.3). */
+  | { type: "pass"; player: PlayerId };
+
+export type ActionType = Action["type"];

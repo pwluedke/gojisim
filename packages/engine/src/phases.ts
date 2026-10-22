@@ -1,10 +1,5 @@
-import {
-  cardOf,
-  checkTiming,
-  crushAndDestroy,
-  hasPendingRuleActions,
-  topOf,
-} from "./rules";
+import { advanceMonster } from "./movement";
+import { cardOf, checkTiming, hasPendingRuleActions, topOf } from "./rules";
 import {
   appendLog,
   drawCards,
@@ -12,7 +7,7 @@ import {
   getPlayer,
   toDiscard,
 } from "./state";
-import type { GameState, Phase, PlayerState, Step, ZoneNumber } from "./types";
+import type { GameState, Phase, PlayerState, Step } from "./types";
 import { ZONE_NUMBERS } from "./types";
 
 /** Hand size the end phase draws up to (7.5.4). */
@@ -69,29 +64,6 @@ function beginningOf(state: GameState, phase: Phase, rule: string): void {
   // "At the beginning of the <phase>" trigger (no abilities trigger on it until M4).
   appendLog(state, "phaseBegins", state.turnPlayer, { rule, phase });
   checkTiming(state, rule);
-}
-
-/** Advances the turn player's monster 1 zone outside an invasion (5.13.1, 5.13.1.1.1). */
-function advanceMonster(
-  state: GameState,
-  player: PlayerState,
-  rule: string,
-): void {
-  const from = player.monsterPosition;
-  if (from === null) return;
-  if (from === 8) {
-    appendLog(state, "advance", player.id, {
-      rule: "5.13.1.1.1",
-      from,
-      to: from,
-    });
-    return;
-  }
-  const to = (from + 1) as ZoneNumber;
-  player.monsterPosition = to;
-  appendLog(state, "advance", player.id, { rule, from, to });
-  // Interrupt rule action: entering a zone with its master's battle card destroys it (11.3).
-  crushAndDestroy(state);
 }
 
 /** Runs one engine step and sets `state.step` to the next one. Mutates `state`. */
@@ -199,7 +171,7 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
   "7.5.2": (state) => {
     const player = turnPlayer(state);
     if (player.monsterPosition !== null && player.monsterPosition <= 7) {
-      advanceMonster(state, player, "7.5.2");
+      advanceMonster(state, player, { invasion: false, rule: "7.5.2" });
     }
     goTo(state, "end", "7.5.3");
   },
@@ -254,10 +226,11 @@ export function isAtPlayTiming(state: GameState): boolean {
 
 /**
  * Runs the next automatic engine step and returns the new state. At the main phase play timing
- * (7.3.2), or once the game has a result, it returns the state unchanged.
+ * (7.3.2) it returns the state unchanged. Throws "game over" once the game has a result (1.2.1).
  */
 export function advance(state: GameState): GameState {
-  if (state.result !== null || state.step === "7.3.2") return state;
+  if (state.result !== null) throw new Error("game over");
+  if (state.step === "7.3.2") return state;
   const next = cloneState(state);
   STEP_RUNNERS[next.step](next);
   return next;

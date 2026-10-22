@@ -5,6 +5,13 @@ export const ENGINE_PACKAGE = "@gojisim/engine";
 export const ENGINE_DEPENDENCIES: readonly string[] = [CARDS_PACKAGE];
 
 export { applyAction, getLegalActions } from "./actions";
+export {
+  type AdvanceOptions,
+  advanceMonster,
+  advanceMonsterTo,
+  retreatMonster,
+  retreatMonsterTo,
+} from "./movement";
 export * from "./geometry";
 export {
   activeMonster,
