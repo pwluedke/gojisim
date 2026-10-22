@@ -7,11 +7,12 @@ import {
   type CardInstance,
   type GameRecord,
   type GameState,
+  buildLoopReport,
   replayAll,
   startGame,
 } from "@gojisim/engine";
 import { useState } from "react";
-import { CardDetail, Field, PlayerAreas } from "./Board";
+import { CARD_DETAIL_WIDTH, CardDetail, Field, PlayerAreas } from "./Board";
 import { ActionPanel, LogPanel, StatusBar } from "./Panels";
 
 /** A record plus the action index the viewer was at when it was exported. */
@@ -98,16 +99,20 @@ function NewGameForm({
   );
 }
 
-function download(record: ExportedRecord): void {
-  const blob = new Blob([JSON.stringify(record, null, 2)], {
+function downloadJson(data: unknown, filename: string): void {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
     type: "application/json",
   });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `gojisim-${record.seed}-${record.actions.length}.json`;
+  link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function download(record: ExportedRecord): void {
+  downloadJson(record, `gojisim-${record.seed}-${record.actions.length}.json`);
 }
 
 /** Debug viewer: both players' hidden information visible, every legal action as a button. */
@@ -183,7 +188,14 @@ export function DebugViewer() {
   };
 
   return (
-    <div style={{ fontFamily: "sans-serif", fontSize: 13 }}>
+    // While the card drawer is open, the page keeps its width free so nothing is covered.
+    <div
+      style={{
+        fontFamily: "sans-serif",
+        fontSize: 13,
+        paddingRight: selected ? CARD_DETAIL_WIDTH : 0,
+      }}
+    >
       <h1 style={{ fontSize: 18 }}>GojiSim debug viewer</h1>
       <div
         data-testid="debug-banner"
@@ -206,6 +218,20 @@ export function DebugViewer() {
         >
           Export game record
         </button>{" "}
+        {session && state?.loop && (
+          <button
+            type="button"
+            data-testid="export-loop-report"
+            onClick={() =>
+              downloadJson(
+                buildLoopReport(session.record, state),
+                `loop-report-${session.record.seed}.json`,
+              )
+            }
+          >
+            Download loop report
+          </button>
+        )}{" "}
         <label>
           Import{" "}
           <input

@@ -47,3 +47,32 @@ test("debug viewer: 3 pass-only turns, step back, export and import", async ({
   await expect(page.getByTestId("status")).toHaveText(status ?? "");
   await expect(page.getByTestId("position")).toHaveText("2");
 });
+
+test("debug viewer: the card detail drawer leaves the step controls and log usable; Esc closes it", async ({
+  page,
+}) => {
+  await page.goto("/debug");
+  await page.getByTestId("seed-input").fill("20261021");
+  await page.getByTestId("start-game").click();
+  await page.getByRole("button", { name: "Pass", exact: true }).click();
+  await expect(page.getByTestId("status-turn")).toHaveText("2");
+
+  // Open a card from a hand.
+  await page.locator("[data-testid=player-P1] button").first().click();
+  const drawer = page.getByTestId("card-detail");
+  await expect(drawer).toBeVisible();
+
+  // Nothing is covered: the drawer and the step controls / log do not overlap, and Step back
+  // can be clicked while the drawer is open (Playwright refuses to click a covered element).
+  const drawerBox = await drawer.boundingBox();
+  for (const id of ["step-back", "log"]) {
+    const box = await page.getByTestId(id).boundingBox();
+    expect(box && drawerBox && box.x + box.width <= drawerBox.x).toBe(true);
+  }
+  await page.getByTestId("step-back").click();
+  await expect(page.getByTestId("status-turn")).toHaveText("1");
+  await expect(drawer).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(drawer).toBeHidden();
+});

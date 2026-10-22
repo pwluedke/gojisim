@@ -6,7 +6,10 @@ import {
   type PlayerState,
   type ZoneNumber,
 } from "@gojisim/engine";
-import { Fragment } from "react";
+import { Fragment, useEffect } from "react";
+
+/** Width of the card detail drawer; the page reserves this much space while it is open. */
+export const CARD_DETAIL_WIDTH = 400;
 import { cardData } from "./labels";
 
 type Select = (card: CardInstance) => void;
@@ -279,23 +282,33 @@ export function CardDetail({
   onClose: () => void;
 }) {
   const text = getCardText(card);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
   return (
-    <div
+    <aside
       data-testid="card-detail"
+      aria-label="Card detail"
       style={{
-        ...box,
         position: "fixed",
-        right: 8,
-        top: 8,
-        width: 380,
-        maxHeight: "95vh",
+        right: 0,
+        top: 0,
+        bottom: 0,
+        width: CARD_DETAIL_WIDTH,
+        boxSizing: "border-box",
+        padding: 8,
+        borderLeft: "2px solid #888",
         overflow: "auto",
         background: "#fff",
         zIndex: 10,
       }}
     >
-      <button type="button" onClick={onClose}>
-        Close
+      <button type="button" data-testid="card-detail-close" onClick={onClose}>
+        Close (Esc)
       </button>
       <h3>
         {card.name} [{card.cardNumber}]
@@ -326,6 +339,6 @@ export function CardDetail({
           <pre style={{ whiteSpace: "pre-wrap" }}>{text.printedText}</pre>
         </>
       )}
-    </div>
+    </aside>
   );
 }
