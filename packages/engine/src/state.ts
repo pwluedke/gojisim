@@ -117,3 +117,37 @@ export function drawCards(
   }
   return drawn;
 }
+
+/**
+ * Sets a player's rage, never below 0 (3.4.4), and logs `rageChanged` with `from` and `to`: the
+ * event `rageChanged` triggers match, once per change whatever its size. A change to the value it
+ * already has is no change (1.3.2.1): it logs `rageUnchanged`, or nothing when `quiet`.
+ */
+export function setRage(
+  state: GameState,
+  player: PlayerState,
+  value: number,
+  rule: string,
+  extra: Record<string, unknown> = {},
+  quiet = false,
+): void {
+  const from = player.rage;
+  const to = Math.max(0, value);
+  player.rage = to;
+  if (to === from) {
+    if (!quiet)
+      appendLog(state, "rageUnchanged", player.id, {
+        rule: "1.3.2.1",
+        from,
+        to,
+        ...extra,
+      });
+    return;
+  }
+  appendLog(state, "rageChanged", player.id, {
+    rule: value < 0 ? "3.4.4" : rule,
+    from,
+    to,
+    ...extra,
+  });
+}

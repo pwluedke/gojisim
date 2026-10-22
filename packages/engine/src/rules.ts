@@ -1,5 +1,9 @@
 import { getAbility } from "./abilities";
-import { resolveDataAbility } from "./interpreter";
+import {
+  applyReplacement,
+  replacementFor,
+  resolveDataAbility,
+} from "./interpreter";
 import { guardLoop } from "./loop";
 import { requireChoice } from "./choices";
 import { resolveLosses } from "./losses";
@@ -56,13 +60,23 @@ export function destroyCards(
   targets: { card: CardInstance; player: PlayerState; zone?: ZoneNumber }[],
   rule: string,
   cause: string,
+  picks: Map<string, string> = new Map(),
 ): void {
+  // Replacements first, while each card is still where it would be destroyed (10.9, Q1).
+  const replaced = new Set<string>();
+  for (const { card } of targets) {
+    const replacement = replacementFor(state, card, picks.get(card.instanceId));
+    if (!replacement) continue;
+    applyReplacement(state, replacement, card, "destroyed", rule);
+    replaced.add(card.instanceId);
+  }
   const removed: {
     player: PlayerState;
     zone: ZoneNumber | null;
     cards: CardInstance[];
   }[] = [];
   for (const { card, player, zone } of targets) {
+    if (replaced.has(card.instanceId)) continue;
     if (zone !== undefined) {
       const stack = player.zones[zone].find(
         (s) => topOf(s)?.instanceId === card.instanceId,
@@ -106,10 +120,18 @@ export function crushAndDestroy(state: GameState): number {
       isBattleStack(state, stack),
     );
     if (crushed.length === 0) continue;
+    // A replacement (Q1) takes the card out of the zone instead of destroying it.
+    const destroyedStacks = crushed.filter((stack) => {
+      const top = topOf(stack) as CardInstance;
+      const replacement = replacementFor(state, top);
+      if (replacement)
+        applyReplacement(state, replacement, top, "destroyed", "11.3");
+      return !replacement;
+    });
     player.zones[zone] = player.zones[zone].filter(
-      (stack) => !crushed.includes(stack),
+      (stack) => !destroyedStacks.includes(stack),
     );
-    for (const stack of crushed)
+    for (const stack of destroyedStacks)
       destroyStack(state, player, zone, stack, "11.3");
     destroyed += crushed.length;
   }
@@ -128,6 +150,8 @@ interface RuleActions {
     player: PlayerState;
     remove: () => CardInstance[][];
     area: string;
+    /** For zones: the top cards that would be destroyed, checked for replacements first. */
+    losers?: CardInstance[];
   }[];
 }
 
@@ -165,11 +189,16 @@ function pendingRuleActions(state: GameState): RuleActions {
         actions.overloaded.push({
           player,
           area: `zone ${zone}`,
+          losers: losers.map((stack) => topOf(stack) as CardInstance),
           remove: () => {
+            // A loser a replacement already took away (Q1) is not destroyed.
+            const present = losers.filter((s) =>
+              player.zones[zone].includes(s),
+            );
             player.zones[zone] = player.zones[zone].filter(
               (s) => !losers.includes(s),
             );
-            return losers;
+            return present;
           },
         });
       }
@@ -234,6 +263,14 @@ export function hasPendingRuleActions(state: GameState): boolean {
 function resolveRuleActionsOnce(state: GameState): boolean {
   const { illegal, overloaded } = pendingRuleActions(state);
   if (illegal.length === 0 && overloaded.length === 0) return false;
+  // Overload with a replacement (Q1): the old card goes where the replacement says (for example
+  // the bottom of the deck) instead of being destroyed; the new card stays.
+  for (const { losers } of overloaded)
+    for (const card of losers ?? []) {
+      const replacement = replacementFor(state, card);
+      if (replacement)
+        applyReplacement(state, replacement, card, "destroyed", "11.5");
+    }
   // Remove everything from the same snapshot first, then move it, so they happen together.
   const removedIllegal = illegal.map((a) => ({ ...a, cards: a.remove() }));
   const removedOverloaded = overloaded.map((a) => ({

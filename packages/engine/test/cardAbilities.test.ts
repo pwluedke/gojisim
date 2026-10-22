@@ -136,11 +136,11 @@ describe("ESD01-016 Heat Ray", () => {
     const state = atPlayTiming();
     const me = turnPlayer(state);
     me.monsterPosition = 8;
-    const ginza = inHand(state, me, real("ESD01-013"));
+    const manual = inHand(state, me, real("ESD02-014"));
     const after = applyAction(state, {
       type: "activateStrategy",
       player: me.id,
-      cardInstanceId: ginza.instanceId,
+      cardInstanceId: manual.instanceId,
       strategyZone: 1,
     });
     expect(logTypes(after)).toContain("strategyTextPending");
@@ -261,9 +261,11 @@ describe("ESD02-009 Super-X", () => {
       zone: 8,
     });
     expect(nonTurnPlayer(after).rage).toBe(0);
+    // No change is no rageChanged event (1.3.2.1).
+    expect(logTypes(after)).not.toContain("rageChanged");
     expect(
-      after.log.find((e) => e.type === "rageChanged")?.payload,
-    ).toMatchObject({ rule: "3.4.4", from: 0, to: 0 });
+      after.log.find((e) => e.type === "rageUnchanged")?.payload,
+    ).toMatchObject({ rule: "1.3.2.1", from: 0, to: 0 });
   });
 });
 

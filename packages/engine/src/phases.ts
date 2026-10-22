@@ -13,6 +13,7 @@ import {
   drawCards,
   getOpponent,
   getPlayer,
+  setRage,
   toDiscard,
 } from "./state";
 import type { GameState, Phase, PlayerState, Step } from "./types";
@@ -91,7 +92,8 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
       from: player.rage,
       rage: 0,
     });
-    player.rage = 0;
+    // A change from more than 0 is a rageChanged event; 0 to 0 is no change (1.3.2.1).
+    setRage(state, player, 0, "7.2.4", {}, true);
     goTo(state, "start", "7.2.5");
   },
   "7.2.5": (state) => {

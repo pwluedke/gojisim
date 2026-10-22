@@ -245,8 +245,6 @@ describe("ESD01-015 Operation Wadatsumi", () => {
 });
 
 describe("ESD01-014 Godzilla Emerges", () => {
-  afterEach(() => setTestAbilities("ESD01-011", null));
-
   function activate(rage: number) {
     const state = atPlayTiming();
     const me = turnPlayer(state);
@@ -289,20 +287,6 @@ describe("ESD01-014 Godzilla Emerges", () => {
   });
 
   it("ESD01-014 12.2: the played card's [enter] chains (a found ESD01-011 triggers too)", () => {
-    // ESD01-011 is manual until M4e; this test gives it its [enter] ability (format.md example).
-    setTestAbilities("ESD01-011", {
-      deckCardNumber: "ESD01-011",
-      status: "partial",
-      abilities: [
-        {
-          kind: "triggered",
-          id: "enter-rage",
-          trigger: { on: "enter" },
-          condition: { rage: "you", op: ">=", value: 2 },
-          effects: [{ effect: "rage", player: "opponent", delta: -1 }],
-        },
-      ],
-    });
     const zoneChoice = choose(activate(2), real("ESD01-011").id);
     const after = choose(zoneChoice, `${zoneChoice.turnPlayer}:3`);
     expect(resolved(after)).toEqual([
