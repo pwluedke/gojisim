@@ -137,14 +137,47 @@ export type ChoiceKind =
   /** Which of the player's standby abilities to play next (10.4.3.2, 10.6.3.1). */
   | "standbyOrder"
   /** The next invading monster after a counter (5.15.1.2). */
-  | "nextMonster";
+  | "nextMonster"
+  /** A target card for an ability's effect (10.5.3), one card per choice. */
+  | "target"
+  /** A zone for a `chooseZone` effect (format.md). */
+  | "zone";
 
 export interface ChoiceOption {
-  /** Standby id for `standbyOrder`, card instance id for `nextMonster`. */
+  /**
+   * Standby id for `standbyOrder`, card instance id for `nextMonster` and `target`,
+   * `<player>:<zone>` for `zone`, and `done` to stop choosing "up to N" targets.
+   */
   id: string;
-  cardId: number;
+  /** The card behind the option; `null` for a zone or `done`. */
+  cardId: number | null;
   /** For `standbyOrder`: the ability that would resolve. */
   abilityId: string | null;
+}
+
+/** A card or zone an effect bound with `as`, for later effects of the same resolution. */
+export type Binding =
+  | { kind: "zone"; player: PlayerId; zone: ZoneNumber }
+  | {
+      kind: "cards";
+      /** Last known information of each card (10.10). */
+      cards: {
+        instanceId: string;
+        cardId: number;
+        rank: number | null;
+        counterPower: number | null;
+        threat: number | null;
+      }[];
+    };
+
+/** A data ability part-way through resolving, kept while it waits for a choice (format.md). */
+export interface Resolution {
+  standby: StandbyAbility;
+  /** Index of the effect being performed. */
+  effectIndex: number;
+  bindings: Record<string, Binding>;
+  /** Progress inside the current effect: targets chosen so far. */
+  chosen: string[];
 }
 
 /** A choice the engine is waiting for. Only `player` may act, with `choose` (or `concede`). */
@@ -203,6 +236,8 @@ export interface GameState {
   counterTotal: number | null;
   /** A choice the engine is waiting for; the engine does nothing else until it is made. */
   pendingChoice: PendingChoice | null;
+  /** A data ability waiting for a choice in the middle of its resolution; otherwise `null`. */
+  resolution: Resolution | null;
   /** The check timing in progress while a choice inside it is pending (10.4.3). */
   checkTiming: { rule: string } | null;
   /** Losses recorded during the current process (1.2.2); empty between processes. */

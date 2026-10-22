@@ -3,56 +3,10 @@ import { requireChoice } from "./choices";
 import { behind } from "./geometry";
 import { markLoss } from "./losses";
 import { cardOf, crushAndDestroy, topOf } from "./rules";
-import { appendLog, getPlayer, moved } from "./state";
-import type { CardInstance, GameState, PlayerId, PlayerState } from "./types";
-import { ZONE_NUMBERS } from "./types";
+import { appendLog, moved } from "./state";
+import type { CardInstance, GameState, PlayerState } from "./types";
 
-/** Threat added per point of rage (3.4.5). */
-export const RAGE_THREAT = 5000;
-
-/** The active monster: the top card of the invading monster stack (3.2.3.1). */
-export function activeMonster(state: GameState, player: PlayerState) {
-  const top = topOf(player.invadingMonsterZone);
-  return top ? cardOf(state, top) : null;
-}
-
-/** Layer 5 of 10.8.1: continuous effects that change numbers. None exist until M4. */
-function applyNumberEffects(
-  _state: GameState,
-  _playerId: PlayerId,
-  _value: "threat",
-  base: number,
-): number {
-  return base;
-}
-
-/**
- * The threat of a player's invading monster, read in the 10.8.1 layer order: printed threat
- * (layer 1), rage at +5,000 per point (layer 4, 3.4.5), then number-changing effects (layer 5).
- */
-export function getThreat(state: GameState, playerId: PlayerId): number {
-  const player = getPlayer(state, playerId);
-  const printed = activeMonster(state, player)?.counterOrThreat ?? 0;
-  const withRage = printed + RAGE_THREAT * player.rage;
-  return applyNumberEffects(state, playerId, "threat", withRage);
-}
-
-/**
- * Total counter power of a player's battle cards in zones (7.4.2). Only stacks topped by a battle
- * card count; monster cards in zones add nothing (7.4.2.1), nor do cards that cannot engage (5.16.1).
- */
-export function counterPowerOf(state: GameState, player: PlayerState): number {
-  let total = 0;
-  for (const zone of ZONE_NUMBERS) {
-    for (const stack of player.zones[zone]) {
-      const top = topOf(stack);
-      if (!top || top.statuses?.includes("cannotEngage")) continue;
-      const card = cardOf(state, top);
-      if (card.type === "Battle") total += card.counterOrThreat ?? 0;
-    }
-  }
-  return total;
-}
+export { activeMonster, counterPowerOf, getThreat, RAGE_THREAT } from "./stats";
 
 /** Monster cards that can follow the current monster after a counter (5.15.1.2). */
 export function nextMonsterCandidates(
@@ -91,6 +45,7 @@ export function makeInvadingMonster(
   appendLog(state, "newInvadingMonster", player.id, {
     rule: "5.15.1.2",
     cardId: monster.cardId,
+    instanceId: monster.instanceId,
     zone: player.monsterPosition,
   });
 }

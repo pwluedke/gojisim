@@ -80,6 +80,7 @@ export function createGame(options: CreateGameOptions): GameState {
     counterTotal: null,
     pendingChoice: null,
     checkTiming: null,
+    resolution: null,
     pendingLosses: [],
     nextChoiceId: 1,
     loopGuard: [],

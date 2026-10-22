@@ -13,20 +13,16 @@ export {
   retreatMonsterTo,
 } from "./movement";
 export * from "./geometry";
-export {
-  type AbilityDefinition,
-  getAbility,
-  registerAbility,
-  type TriggerContext,
-  unregisterAbility,
-} from "./abilities";
+export { nextMonsterCandidates } from "./counter";
 export {
   activeMonster,
   counterPowerOf,
+  getCounterPower,
+  getRank,
   getThreat,
-  nextMonsterCandidates,
   RAGE_THREAT,
-} from "./counter";
+} from "./stats";
+export { abilitiesOf, hasAbilityData } from "./interpreter";
 export {
   advance,
   advanceToDecision,

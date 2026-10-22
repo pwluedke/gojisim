@@ -1,16 +1,18 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  type AbilityDefinition,
   buildLoopReport,
   type GameRecord,
   getLegalActions,
   LOOP_STEP_LIMIT,
-  registerAbility,
   replay,
   startGame,
   stateHash,
-  unregisterAbility,
 } from "../src";
+import {
+  type AbilityDefinition,
+  registerAbility,
+  unregisterAbility,
+} from "../src/testing";
 import { testDeck } from "./fixtures/cards";
 
 const RANK_ONE = 900001; // alice's rank I monster in the fixture decks
@@ -61,9 +63,11 @@ describe("infinite loops (13.1, Paul's ruling)", () => {
       step: "7.3.2",
       turn: 1,
     });
+    // Checked before each resolution (M4c): the state before the second resolution repeats the
+    // state before the first, so the loop is caught after one resolution.
     expect(
       state.log.filter((e) => e.type === "resolveAbility").length,
-    ).toBeGreaterThanOrEqual(2);
+    ).toBeGreaterThanOrEqual(1);
     expect(state.log.slice(-2).map((e) => e.type)).toEqual([
       "infiniteLoop",
       "gameOver",

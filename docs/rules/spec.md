@@ -236,6 +236,14 @@ The M3 engine must include the framework below, so that M4 adds card abilities a
 | 9.1 | Tokens: treated as cards, exist only in zones (battle tokens), disappear if moved elsewhere |
 | 5.17, 12.6 | Evolve: the new battle card is stacked on top of the old one |
 
+**M4 engine changes** (`docs/abilities/format.md`, "Engine changes for M4"):
+
+- Ability loader (format.md change 1): card abilities are data in `packages/cards/data/abilities/<SET>.json`, validated with Zod (`packages/cards/src/abilities.ts`) on first use and in CI. A card with no entry is `manual` and its abilities don't run. The M3d code registry is test-only.
+- Interpreter (format.md change 2, 10.5): `packages/engine/src/interpreter.ts` matches triggers on engine events, evaluates conditions and selectors, runs effects in order and binds `as` names for one resolution. A target or zone choice pauses the resolution (`state.resolution`) until the player chooses. Effects not built yet throw `not implemented: <effect>`.
+- Gates (format.md change 3, Q7, Q9, 10.3.2): turn and Awakening gates are checked when a trigger matches, again when the ability resolves, and before each of its effects. A closed gate ends the resolution. The ability's condition is checked when it resolves.
+- Strategy cards (format.md change 5, Q10): a card with ability data declares its own trigger (`placedInStrategyZone` when its text has none). Only cards without data still log `strategyTextPending`.
+- Layers (format.md change 8, 10.8.1): `getCounterPower(card)`, `getRank(card)` and `getThreat` read printed values, then continuous modifiers. 7.4.2 totals `getCounterPower` plus `totalCounterPower` modifiers; 8.2.1 and 8.3.1 compare `getRank`.
+
 **Keyword abilities (12)**, all in M4: Enter (12.2), When invading (12.3), Awakening N (12.4), Burst (12.5), Evolution (12.6), Revenge (12.7), Resonance (12.8), Base (12.9).
 
 **Manual override (hybrid mode).** For an effect not yet coded, the engine pauses and gives both players a manual action set: move any card between areas, change rage, advance or retreat the monster, draw, shuffle, reveal. Each manual action is logged with the card that caused it. The opponent sees every manual action.

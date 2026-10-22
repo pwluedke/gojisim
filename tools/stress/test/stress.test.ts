@@ -66,3 +66,13 @@ describe("weighted policy", () => {
     ]);
   });
 });
+
+describe("official starter decks (M4c)", () => {
+  it("Engine: ESD01 official vs ESD02 official games finish cleanly, with implemented cards running and manual cards inert", () => {
+    for (let game = 0; game < 4; game++) {
+      const outcome = playGame("official", game, 500, "weighted", "official");
+      expect(outcome.failure).toBeNull();
+      expect(outcome.result).not.toBeNull();
+    }
+  });
+});

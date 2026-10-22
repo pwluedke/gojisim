@@ -1,0 +1,42 @@
+{
+  "ESD02-001": { "deckCardNumber": "ESD02-001", "status": "implemented", "abilities": [] },
+  "ESD02-002": { "deckCardNumber": "ESD02-002", "status": "implemented", "abilities": [
+    { "kind": "triggered", "id": "enter-destroy", "trigger": { "on": "enter" },
+      "effects": [ { "effect": "destroy",
+        "target": { "select": { "owner": "opponent", "area": "zones", "type": "Battle", "rank": { "op": "<=", "value": 4 } },
+                    "count": { "exact": 1 }, "chooser": "you" } } ] }
+  ] },
+  "ESD02-006": { "deckCardNumber": "ESD02-006", "status": "implemented", "abilities": [
+    { "kind": "continuous", "id": "strategy-threat",
+      "modifiers": [ { "stat": "threat", "target": { "owner": "you", "area": "monster", "this": true },
+                       "amount": { "per": { "owner": "opponent", "area": "strategy" }, "times": 5000 } } ] }
+  ] },
+  "ESD02-009": { "deckCardNumber": "ESD02-009", "status": "implemented", "abilities": [
+    { "kind": "triggered", "id": "enter-rage", "gates": [ { "gate": "awakening", "zone": 4 } ],
+      "trigger": { "on": "enter" },
+      "condition": { "zoneOf": "this", "in": [8] },
+      "effects": [ { "effect": "rage", "player": "opponent", "delta": -1 } ] }
+  ], "notes": "Q7: the Awakening gate is checked when the trigger fires and again on resolution." },
+  "ESD02-011": { "deckCardNumber": "ESD02-011", "status": "implemented", "abilities": [
+    { "kind": "continuous", "id": "awakening-bonus", "gates": [ { "gate": "awakening", "zone": 6 } ],
+      "modifiers": [ { "stat": "counterPower", "target": { "owner": "you", "area": "zones", "this": true }, "amount": 3000 } ] }
+  ] },
+  "ESD02-012": { "deckCardNumber": "ESD02-012", "status": "implemented", "abilities": [
+    { "kind": "continuous", "id": "rank-bonus",
+      "condition": { "monsterRank": "opponent", "op": ">=", "value": 4 },
+      "modifiers": [ { "stat": "counterPower", "target": { "owner": "you", "area": "zones", "this": true }, "amount": 5000 } ] },
+    { "kind": "continuous", "id": "column-bonus",
+      "condition": { "zoneOf": "this", "in": { "relation": "sameColumnAs", "of": "opponentMonster" } },
+      "modifiers": [ { "stat": "counterPower", "target": { "owner": "you", "area": "zones", "this": true }, "amount": 3000 } ] }
+  ] },
+  "ESD02-013": { "deckCardNumber": "ESD02-013", "status": "implemented", "abilities": [] },
+  "ESD02-015": { "deckCardNumber": "ESD02-015", "status": "implemented", "abilities": [
+    { "kind": "triggered", "id": "rampage", "trigger": { "on": "placedInStrategyZone" },
+      "effects": [
+        { "effect": "chooseZone", "owner": "opponent", "as": "zone" },
+        { "effect": "destroy",
+          "target": { "select": { "owner": "opponent", "area": "zones", "type": "Battle",
+                                  "zones": { "relation": "adjacentTo", "of": { "bound": "zone" }, "includeSelf": true } },
+                      "count": "all", "chooser": "you" } } ] }
+  ] }
+}
