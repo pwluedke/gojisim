@@ -1,0 +1,179 @@
+import { readFileSync } from "node:fs";
+import { parseDeckList } from "@gojisim/cards/deck-lists";
+import { buildTestDeck } from "@gojisim/cards/test-decks";
+import {
+  advanceToDecision,
+  applyAction,
+  checkInvariants,
+  type GameState,
+  getPlayerView,
+  type PlayerId,
+  type PlayerSetup,
+  startGame,
+} from "@gojisim/engine";
+import { describe, expect, it } from "vitest";
+import { randomBot, weightedBot } from "./baseline";
+import { determinize } from "./determinize";
+import { botInput, decklistsOf, seededRng } from "./input";
+
+function official(file: string): Omit<PlayerSetup, "id"> {
+  const url = new URL(`../../cards/data/decks/${file}`, import.meta.url);
+  const deck = parseDeckList(readFileSync(url, "utf8")).decks[0];
+  if (!deck) throw new Error(file);
+  return { monsterDeck: deck.monsterDeck, mainDeck: deck.mainDeck };
+}
+
+function decksFor(game: number): [PlayerSetup, PlayerSetup] {
+  if (game % 2 === 0)
+    return [
+      { id: "P1", ...official("esd01-starter.txt") },
+      { id: "P2", ...official("esd02-starter.txt") },
+    ];
+  return [
+    { id: "P1", ...buildTestDeck("ESD02", `det-${game}-1`) },
+    { id: "P2", ...buildTestDeck("ESD01", `det-${game}-2`) },
+  ];
+}
+
+const decider = (state: GameState): PlayerId =>
+  state.pendingChoice?.player ?? state.turnPlayer;
+
+/** Decision points (with their decider) from bot games, every `every`-th one. */
+function samples(games: number, every: number) {
+  const found: { state: GameState; decks: [PlayerSetup, PlayerSetup] }[] = [];
+  for (let game = 0; game < games; game++) {
+    const decks = decksFor(game);
+    const lists = decklistsOf(decks);
+    const rng = seededRng(`det-${game}`);
+    let state = advanceToDecision(startGame({ seed: `det-${game}`, decks }));
+    for (let n = 0; state.result === null && state.turn < 80; n++) {
+      if (n % every === 0) found.push({ state, decks });
+      const bot = game % 3 === 0 ? randomBot : weightedBot;
+      const action = bot.chooseAction(
+        botInput(state, decider(state), lists, rng),
+      );
+      state = advanceToDecision(applyAction(state, action));
+    }
+  }
+  return found;
+}
+
+const allCards = (state: GameState, id: PlayerId) => {
+  const p = state.players.find((x) => x.id === id);
+  if (!p) return [];
+  return [
+    ...p.hand,
+    ...p.deck,
+    ...p.discard,
+    ...p.monsterDeck,
+    ...p.invadingMonsterZone,
+    ...Object.values(p.zones).flat(2),
+    ...p.strategyZones.flat().map((s) => s.card),
+    ...state.resolutionArea.filter((c) => c.owner === id),
+  ]
+    .map((c) => c.cardId)
+    .sort((a, b) => a - b);
+};
+
+describe("determinize (M6a)", () => {
+  const points = samples(40, 7).slice(0, 200);
+
+  it("has 200 mid-game decision points to check, choices of every common kind among them", () => {
+    expect(points).toHaveLength(200);
+    const kinds = new Set(
+      points.map((p) => p.state.pendingChoice?.kind ?? "play timing"),
+    );
+    expect(kinds.has("play timing")).toBe(true);
+    expect(kinds.has("target")).toBe(true);
+  });
+
+  it("over 200 mid-game states: conservation, public areas and own hidden areas exact, invariants pass", () => {
+    for (const [i, { state, decks }] of points.entries()) {
+      const viewer = decider(state);
+      const view = getPlayerView(state, viewer);
+      const det = determinize(
+        view,
+        { decks: decklistsOf(decks), log: view.log },
+        seededRng(i),
+      );
+      // Everything the viewer sees is exactly the same, own hand and monster deck included.
+      expect(getPlayerView(det, viewer), `state ${i}`).toEqual(view);
+      // Card conservation: each player's cards are exactly their presented decks (6.3.1.1).
+      for (const deck of decks)
+        expect(allCards(det, deck.id), `state ${i} ${deck.id}`).toEqual(
+          [...deck.monsterDeck, ...deck.mainDeck]
+            .map((c) => c.id)
+            .sort((a, b) => a - b),
+        );
+      expect(checkInvariants(det), `state ${i}`).toEqual([]);
+    }
+  });
+
+  it("a determinized state is playable: the viewer's legal actions match, and the game goes on", () => {
+    for (const [i, { state, decks }] of points.slice(0, 40).entries()) {
+      const viewer = decider(state);
+      const view = getPlayerView(state, viewer);
+      const lists = decklistsOf(decks);
+      const det = determinize(
+        view,
+        { decks: lists, log: view.log },
+        seededRng(i),
+      );
+      const input = botInput(det, viewer, lists, seededRng(i));
+      expect(input.legalActions, `state ${i}`).toEqual(
+        botInput(state, viewer, lists, seededRng(i)).legalActions,
+      );
+      const action = randomBot.chooseAction(input);
+      expect(() => advanceToDecision(applyAction(det, action))).not.toThrow();
+    }
+  });
+});
+
+describe("no peeking (M6a rule for every bot)", () => {
+  /** The same state with the opponent's hand and deck mixed up, and both decks reordered. */
+  function differentHidden(state: GameState, viewer: PlayerId): GameState {
+    const other = JSON.parse(JSON.stringify(state)) as GameState;
+    const opp = other.players.find((p) => p.id !== viewer);
+    const me = other.players.find((p) => p.id === viewer);
+    if (!opp || !me) throw new Error("players");
+    // Swap the opponent's hand cards with cards from their deck (same instance ids kept in place
+    // only for the slots; the cards behind them change).
+    const swaps = Math.min(opp.hand.length, opp.deck.length);
+    for (let i = 0; i < swaps; i++) {
+      const h = opp.hand[i];
+      const d = opp.deck[opp.deck.length - 1 - i];
+      if (h && d) {
+        opp.hand[i] = d;
+        opp.deck[opp.deck.length - 1 - i] = h;
+      }
+    }
+    opp.deck.reverse();
+    me.deck.reverse();
+    return other;
+  }
+
+  it("two states that differ only in hidden information give the bot identical inputs and identical determinizations", () => {
+    const points = samples(6, 11).filter(
+      (p) => p.state.pendingChoice === null || !p.state.pendingChoice.private,
+    );
+    let compared = 0;
+    for (const [i, { state, decks }] of points.entries()) {
+      const viewer = decider(state);
+      const variant = differentHidden(state, viewer);
+      const opp = state.players.find((p) => p.id !== viewer);
+      const changed =
+        JSON.stringify(variant.players.find((p) => p.id !== viewer)?.hand) !==
+        JSON.stringify(opp?.hand);
+      if (!changed) continue;
+      compared++;
+      const lists = decklistsOf(decks);
+      const a = botInput(state, viewer, lists, seededRng(i));
+      const b = botInput(variant, viewer, lists, seededRng(i));
+      expect({ ...b, rng: null }, `state ${i}`).toEqual({ ...a, rng: null });
+      expect(determinize(b.view, b.knowledge, seededRng(i))).toEqual(
+        determinize(a.view, a.knowledge, seededRng(i)),
+      );
+    }
+    expect(compared).toBeGreaterThan(20);
+  });
+});

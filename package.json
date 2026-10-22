@@ -16,6 +16,8 @@
     "scrape": "pnpm --filter @gojisim/scraper scrape",
     "images": "pnpm --filter @gojisim/scraper images",
     "stress": "pnpm --filter @gojisim/stress stress",
+    "bench": "pnpm --filter @gojisim/stress bench",
+    "bots": "pnpm --filter @gojisim/bots bots",
     "survey": "pnpm --filter @gojisim/ability-survey survey",
     "abilities:coverage": "pnpm --filter @gojisim/ability-survey coverage"
   },

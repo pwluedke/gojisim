@@ -11,6 +11,7 @@
     "typecheck": "tsc -b && tsc -p tsconfig.test.json"
   },
   "dependencies": {
+    "@gojisim/cards": "workspace:*",
     "@gojisim/engine": "workspace:*"
   }
 }

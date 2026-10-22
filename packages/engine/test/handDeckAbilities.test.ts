@@ -273,9 +273,10 @@ describe("ESD01-014 Godzilla Emerges", () => {
 
   it("ESD01-014 5.11.1: with 2 or more rage, plays a Godzilla (2023) battle card from the deck to a zone the player chooses, ignoring 8.2.1, then shuffles", () => {
     const paused = activate(2);
+    // Hidden options come in instance id order (M6a), never in deck order.
     expect(paused.pendingChoice?.options.map((o) => o.cardId)).toEqual([
-      real("ESD01-012").id,
       real("ESD01-011").id,
+      real("ESD01-012").id,
       null,
     ]);
     const zoneChoice = choose(paused, real("ESD01-012").id);
@@ -558,7 +559,7 @@ describe("optional abilities and revealed cards (Q2, 5.10)", () => {
     const revealed = choose(searching, real("ESD01-003").id);
     expect(revealed.pendingChoice?.kind).toBe("zone");
     expect(
-      getPlayerView(revealed, opp.id).revealed.map((c) => c.instanceId),
+      getPlayerView(revealed, opp.id).revealed.map((r) => r.card.instanceId),
     ).toEqual([target.instanceId]);
     expect(
       getPlayerView(revealed, opp.id).cards[real("ESD01-003").id],

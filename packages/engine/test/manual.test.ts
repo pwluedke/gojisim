@@ -120,7 +120,7 @@ describe("manual override (spec 'Manual override', format.md change 10)", () => 
     const card = turnPlayer(state).hand[0]?.instanceId as string;
     const revealed = manual(state, me, { kind: "reveal", instanceId: card });
     expect(
-      getPlayerView(revealed, opp).revealed.map((c) => c.instanceId),
+      getPlayerView(revealed, opp).revealed.map((r) => r.card.instanceId),
     ).toEqual([card]);
     expect(getPlayerView(done(revealed), opp).revealed).toEqual([]);
   });

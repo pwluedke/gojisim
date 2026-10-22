@@ -229,6 +229,9 @@ importers:
 
   packages/bot:
     dependencies:
+      '@gojisim/cards':
+        specifier: workspace:*
+        version: link:../cards
       '@gojisim/engine':
         specifier: workspace:*
         version: link:../engine
@@ -255,6 +258,25 @@ importers:
         specifier: ^4.23.15
         version: 4.23.15
 
+  tools/bots:
+    dependencies:
+      '@gojisim/bot':
+        specifier: workspace:*
+        version: link:../../packages/bot
+      '@gojisim/cards':
+        specifier: workspace:*
+        version: link:../../packages/cards
+      '@gojisim/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+      '@gojisim/stress':
+        specifier: workspace:*
+        version: link:../stress
+    devDependencies:
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+
   tools/scraper:
     dependencies:
       '@gojisim/cards':
@@ -273,6 +295,9 @@ importers:
 
   tools/stress:
     dependencies:
+      '@gojisim/bot':
+        specifier: workspace:*
+        version: link:../../packages/bot
       '@gojisim/cards':
         specifier: workspace:*
         version: link:../../packages/cards
