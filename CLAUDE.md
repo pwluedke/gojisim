@@ -104,3 +104,19 @@ Accepted by Monarch in the M3a review (PR #6).
 51. The engine deep-copies state with a JSON round trip, so it has no DOM or Node dependency.
 52. `docs/rules/spec.md` is in `.prettierignore`, so it stays exactly as approved.
 53. Trait spelling corrections live in `packages/cards/data/trait-spellings.json` (keyed by the site's spelling, with a `reason`), applied after scraping.
+
+Accepted by Monarch in the M3b review (PR #7).
+
+54. `state.step` names the next engine step by rule number (`STEPS`, 18 steps), so tests can stop or set up state between any two steps.
+55. `counterTotal` holds the 7.4.2 total for 7.4.3 to read; it is `null` outside those steps.
+56. Actions carry `player`, and `applyAction` only accepts an action that `getLegalActions` lists.
+57. The 10.4.4.1 check timing runs after each main-phase action, before the play timing is given again.
+58. "Beginning of phase" triggers are logged (`phaseBegins`) and followed by a check timing.
+59. 11.4.1: a strategy or monster card on top of a zone stack is illegal; a monster card under a battle card is left alone. Confirmed by Monarch.
+60. Counter power counts stacks topped by a `Battle` card only; Token-type cards and cannot-engage (5.16) come later.
+61. Check-timing rule actions are collected from one snapshot and applied together (11.1.3), repeating until none are left; crush and destroy also runs in every pass.
+62. Destroying a stack sends every card in it to its owner's discard pile, each as a new object.
+63. A draw with an empty deck and an empty discard pile is skipped; later draws in the same instruction try again. Each attempt is logged.
+64. The 7.5.4 draw is mandatory ("equal to the number needed"), not the optional "draw up to" of 5.4.3.
+65. 7.5.7's "pending" check looks at the standby list and at check-timing rule actions.
+66. Check timing throws on a non-empty standby list until M3d implements 10.4.3.2/10.4.3.3. Confirmed by Monarch.

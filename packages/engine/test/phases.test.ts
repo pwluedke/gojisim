@@ -60,13 +60,17 @@ describe("engine step runner", () => {
     expect(JSON.stringify(state)).toBe(before);
   });
 
-  it("Engine: nothing advances once the game has a result", () => {
+  it('1.2.1 once the game has a result, advance and applyAction throw "game over" and there are no actions', () => {
     const state = {
       ...newGame(),
       result: { winner: "alice", reason: "concession" as const, rule: "1.2.3" },
     };
-    expect(advance(state)).toBe(state);
+    expect(() => advance(state)).toThrow("game over");
+    expect(() =>
+      applyAction(state, { type: "pass", player: state.turnPlayer }),
+    ).toThrow("game over");
     expect(getLegalActions(state, state.turnPlayer)).toEqual([]);
+    expect(advanceToDecision(state)).toBe(state);
   });
 });
 
@@ -146,9 +150,10 @@ describe("start phase (7.2)", () => {
 describe("main phase play timing (7.3.2, 10.4.4)", () => {
   it("10.4.4.3 the player passes: the main phase ends and the counter phase starts (case 34)", () => {
     const state = runTo(newGame(), "7.3.2");
-    expect(getLegalActions(state, state.turnPlayer)).toEqual([
-      { type: "pass", player: state.turnPlayer },
-    ]);
+    expect(getLegalActions(state, state.turnPlayer)).toContainEqual({
+      type: "pass",
+      player: state.turnPlayer,
+    });
     const after = pass(state);
     expect(after).toMatchObject({ phase: "counter", step: "7.4.1" });
     expect(after.log.at(-1)).toMatchObject({

@@ -1,28 +1,314 @@
-import { cloneState, isAtPlayTiming } from "./phases";
-import { appendLog } from "./state";
-import type { Action, GameState, PlayerId } from "./types";
+import { getCardTraits } from "@gojisim/cards";
+import { advanceMonster } from "./movement";
+import { activeMonster, cloneState, isAtPlayTiming } from "./phases";
+import { cardOf, checkTiming } from "./rules";
+import { appendLog, getOpponent, getPlayer, moved, toDiscard } from "./state";
+import type {
+  Action,
+  CardInstance,
+  GameState,
+  PlayerId,
+  PlayerState,
+  StrategyZoneNumber,
+} from "./types";
+import { ZONE_NUMBERS } from "./types";
 
-/** Legal actions for `playerId`. In M3b the only main-phase action is `pass`. */
+const STRATEGY_ZONES: readonly StrategyZoneNumber[] = [1, 2];
+
+function strategyZoneOf(player: PlayerState, zone: StrategyZoneNumber) {
+  return player.strategyZones[zone === 1 ? 0 : 1];
+}
+
+/** Traits in force for a card, after trait errata (M1d). */
+function traitsOf(state: GameState, card: CardInstance): string[] {
+  return getCardTraits(cardOf(state, card));
+}
+
+/**
+ * Whether a monster card in hand can be played on the invading monster (8.5.1): same rank as
+ * the active monster and at least one shared trait. Burst (12.5) arrives in M4.
+ */
+function canPlayMonster(
+  state: GameState,
+  player: PlayerState,
+  card: CardInstance,
+): boolean {
+  const top = player.invadingMonsterZone[player.invadingMonsterZone.length - 1];
+  const active = activeMonster(state, player);
+  const data = cardOf(state, card);
+  if (!top || !active || data.type !== "Monster" || data.rank !== active.rank)
+    return false;
+  const activeTraits = new Set(traitsOf(state, top));
+  return traitsOf(state, card).some((trait) => activeTraits.has(trait));
+}
+
+/**
+ * Every legal action for `playerId` (spec "Actions"). Only the turn player has a play timing
+ * (10.4.4.2), only in the main phase (7.3.2), and nobody once the game is over.
+ */
 export function getLegalActions(
   state: GameState,
   playerId: PlayerId,
 ): Action[] {
   if (!isAtPlayTiming(state) || playerId !== state.turnPlayer) return [];
-  return [{ type: "pass", player: playerId }];
+  const player = getPlayer(state, playerId);
+  const opponent = getOpponent(state, playerId);
+  const ownZone = player.monsterPosition ?? 0;
+  const opponentZone = opponent.monsterPosition ?? 0;
+  const actions: Action[] = [];
+
+  for (const card of player.hand) {
+    const data = cardOf(state, card);
+    const cardInstanceId = card.instanceId;
+    // 8.2.1: rank at most the zone number of the opponent's monster; 10.5.2.1.2: a zone the
+    // player's own monster does not occupy.
+    if (
+      data.type === "Battle" &&
+      data.rank !== null &&
+      data.rank <= opponentZone
+    ) {
+      for (const zone of ZONE_NUMBERS) {
+        if (zone !== player.monsterPosition) {
+          actions.push({
+            type: "playBattle",
+            player: playerId,
+            cardInstanceId,
+            zone,
+          });
+        }
+      }
+    }
+    // 8.3.1: rank at most the zone number of the player's own monster; 8.3.2: an empty strategy zone.
+    if (
+      data.type === "Strategy" &&
+      data.rank !== null &&
+      data.rank <= ownZone
+    ) {
+      for (const strategyZone of STRATEGY_ZONES) {
+        if (strategyZoneOf(player, strategyZone).length === 0) {
+          actions.push({
+            type: "activateStrategy",
+            player: playerId,
+            cardInstanceId,
+            strategyZone,
+          });
+        }
+      }
+    }
+    // 8.4.1: any monster card in hand; no per-turn limit.
+    if (data.type === "Monster") {
+      actions.push({ type: "gainRage", player: playerId, cardInstanceId });
+    }
+    // 8.5.1, and once per turn (Paul's ruling).
+    if (!state.turnFlags.monsterPlayed && canPlayMonster(state, player, card)) {
+      actions.push({ type: "playMonster", player: playerId, cardInstanceId });
+    }
+    // 8.6.1: any card in hand; 8.6.2: once per turn.
+    if (!state.turnFlags.invasionUsed) {
+      actions.push({ type: "invade", player: playerId, cardInstanceId });
+    }
+  }
+  actions.push({ type: "pass", player: playerId });
+  return actions;
 }
 
-/** Applies a player's action and returns the new state. Throws on an illegal action. */
+function sameAction(a: Action, b: Action): boolean {
+  return (
+    JSON.stringify(a, Object.keys(a).sort()) ===
+    JSON.stringify(b, Object.keys(b).sort())
+  );
+}
+
+/** Removes a card from the player's hand. */
+function takeFromHand(player: PlayerState, instanceId: string): CardInstance {
+  const index = player.hand.findIndex((c) => c.instanceId === instanceId);
+  const [card] = player.hand.splice(index, 1);
+  if (!card)
+    throw new Error(`Card ${instanceId} is not in ${player.id}'s hand`);
+  return card;
+}
+
+/**
+ * Play procedure (10.5.2): the card is revealed and moved to the resolution area (10.5.2.1.1),
+ * then resolved (10.5.2.3), which takes it out of the resolution area again.
+ */
+function playFromHand(
+  state: GameState,
+  player: PlayerState,
+  instanceId: string,
+  action: string,
+): CardInstance {
+  const card = moved(state, takeFromHand(player, instanceId));
+  state.resolutionArea.push(card);
+  appendLog(state, "play", player.id, {
+    rule: "10.5.2.1.1",
+    action,
+    cardId: card.cardId,
+    from: "hand",
+    to: "resolutionArea",
+  });
+  return card;
+}
+
+function resolveFromResolutionArea(
+  state: GameState,
+  card: CardInstance,
+): CardInstance {
+  state.resolutionArea = state.resolutionArea.filter(
+    (c) => c.instanceId !== card.instanceId,
+  );
+  return moved(state, card);
+}
+
+function discardFromHand(
+  state: GameState,
+  player: PlayerState,
+  instanceId: string,
+  rule: string,
+): CardInstance {
+  const card = toDiscard(state, takeFromHand(player, instanceId));
+  appendLog(state, "discard", player.id, { rule, cardId: card.cardId });
+  return card;
+}
+
+const PERFORM: {
+  [T in Action["type"]]: (
+    state: GameState,
+    action: Extract<Action, { type: T }>,
+  ) => void;
+} = {
+  playBattle: (state, action) => {
+    const player = getPlayer(state, action.player);
+    const card = playFromHand(
+      state,
+      player,
+      action.cardInstanceId,
+      "playBattle",
+    );
+    const placed = resolveFromResolutionArea(state, card);
+    // A zone that already holds a battle card now holds two; 11.5 destroys the older one at
+    // the check timing that follows the action (10.4.4.1).
+    player.zones[action.zone].push([placed]);
+    appendLog(state, "place", player.id, {
+      rule: "10.5.2.3.2",
+      cardId: placed.cardId,
+      from: "resolutionArea",
+      to: `zone ${action.zone}`,
+    });
+  },
+  activateStrategy: (state, action) => {
+    const player = getPlayer(state, action.player);
+    const card = playFromHand(
+      state,
+      player,
+      action.cardInstanceId,
+      "activateStrategy",
+    );
+    const placed = resolveFromResolutionArea(state, card);
+    strategyZoneOf(player, action.strategyZone).push({
+      card: placed,
+      placedOnTurn: state.turn,
+    });
+    appendLog(state, "place", player.id, {
+      rule: "10.5.2.3.2",
+      cardId: placed.cardId,
+      from: "resolutionArea",
+      to: `strategy zone ${action.strategyZone}`,
+    });
+    // The card's text is an automatic ability that resolves on placement (10.1.1.1.2); M4.
+    appendLog(state, "strategyTextPending", player.id, {
+      rule: "10.1.1.1.2",
+      cardId: placed.cardId,
+    });
+  },
+  gainRage: (state, action) => {
+    const player = getPlayer(state, action.player);
+    discardFromHand(state, player, action.cardInstanceId, "8.4.1");
+    player.rage += 1;
+    appendLog(state, "gainRage", player.id, {
+      rule: "8.4.1",
+      rage: player.rage,
+    });
+  },
+  playMonster: (state, action) => {
+    const player = getPlayer(state, action.player);
+    const card = playFromHand(
+      state,
+      player,
+      action.cardInstanceId,
+      "playMonster",
+    );
+    const stacked = resolveFromResolutionArea(state, card);
+    // 10.5.2.3.1: stacked on top; the monster keeps its position (4.7.2).
+    player.invadingMonsterZone.push(stacked);
+    appendLog(state, "place", player.id, {
+      rule: "10.5.2.3.1",
+      cardId: stacked.cardId,
+      from: "resolutionArea",
+      to: "invadingMonsterZone",
+    });
+    player.rage += 1;
+    appendLog(state, "gainRage", player.id, {
+      rule: "8.5.1.1",
+      rage: player.rage,
+    });
+    state.turnFlags.monsterPlayed = true;
+  },
+  invade: (state, action) => {
+    const player = getPlayer(state, action.player);
+    state.turnFlags.invasionUsed = true;
+    const card = discardFromHand(state, player, action.cardInstanceId, "8.6.1");
+    // 8.6.1.1: the number on the discarded card's invasion icon. No icon advances 0 times (1.3.2.2).
+    const icon = cardOf(state, card).invadeZones ?? 0;
+    appendLog(state, "invade", player.id, {
+      rule: "8.6.1.1",
+      cardId: card.cardId,
+      icon,
+    });
+    let advances = 0;
+    for (let i = 0; i < icon && state.result === null; i++) {
+      if (advanceMonster(state, player, { invasion: true, rule: "8.6.1.2" }))
+        advances++;
+    }
+    // 5.13.3: whether the monster actually advanced during this invasion (for When invading, M4).
+    appendLog(state, "invasionDone", player.id, {
+      rule: "5.13.3",
+      advances,
+      didAdvance: advances > 0,
+    });
+  },
+  pass: (state, action) => {
+    // 10.4.4.3: the player chose to do nothing, so the play timing and the main phase end (7.3.2).
+    appendLog(state, "pass", action.player, { rule: "10.4.4.3" });
+    state.phase = "counter";
+    state.step = "7.4.1";
+  },
+};
+
+/**
+ * Applies a player's action and returns the new state. Throws "game over" once the game has a
+ * result, and throws on any action `getLegalActions` does not list.
+ */
 export function applyAction(state: GameState, action: Action): GameState {
-  const legal = getLegalActions(state, action.player);
-  if (!legal.some((a) => a.type === action.type)) {
+  if (state.result !== null) throw new Error("game over");
+  if (
+    !getLegalActions(state, action.player).some((legal) =>
+      sameAction(legal, action),
+    )
+  ) {
     throw new Error(
-      `Illegal action ${action.type} for ${action.player} at step ${state.step} (turn player ${state.turnPlayer})`,
+      `Illegal action ${JSON.stringify(action)} at step ${state.step} (turn player ${state.turnPlayer})`,
     );
   }
   const next = cloneState(state);
-  // 10.4.4.3: the player chose to do nothing, so the play timing and the main phase end (7.3.2).
-  appendLog(next, "pass", action.player, { rule: "10.4.4.3" });
-  next.phase = "counter";
-  next.step = "7.4.1";
+  (PERFORM[action.type] as (state: GameState, action: Action) => void)(
+    next,
+    action,
+  );
+  // The game ends the instant a player wins (1.2.1): no further processing.
+  if (next.result === null && action.type !== "pass") {
+    // 10.4.4.1: a check timing before the play timing is given again (10.4.4.2).
+    checkTiming(next, "10.4.4.1");
+  }
   return next;
 }
