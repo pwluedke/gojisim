@@ -122,6 +122,40 @@ export interface TimedTrigger {
   master: PlayerId;
 }
 
+/** Why a manual override window opens: a card without ability data whose text would apply. */
+export interface ManualCause {
+  instanceId: string;
+  cardId: number;
+  /** The card's master, who closes the window. */
+  master: PlayerId;
+  /** `played`, `strategy`, `phase <name>` or `invading`. */
+  reason: string;
+}
+
+/** Where a manual move sends a card; always an area of the card's owner. */
+export type ManualDestination =
+  | {
+      area:
+        | "hand"
+        | "deckTop"
+        | "deckBottom"
+        | "discard"
+        | "monster"
+        | "monsterDeck";
+    }
+  | { area: "zone"; zone: ZoneNumber }
+  | { area: "strategy"; strategyZone: StrategyZoneNumber };
+
+/** One manual override operation (spec "Manual override"): logged, and public to both players. */
+export type ManualOp =
+  | { kind: "move"; instanceId: string; to: ManualDestination }
+  | { kind: "rage"; player: PlayerId; delta: number }
+  | { kind: "advance"; player: PlayerId }
+  | { kind: "retreat"; player: PlayerId }
+  | { kind: "draw"; player: PlayerId; count: number }
+  | { kind: "shuffle"; player: PlayerId }
+  | { kind: "reveal"; instanceId: string };
+
 /** A continuous effect in force, ordered by timestamp (10.8.1.7). Filled in from M3d. */
 export interface ContinuousEffect {
   effectId: string;
@@ -159,7 +193,12 @@ export type ChoiceKind =
   /** Yes or no: use an optional ability, or pay an optional cost (10.5.4, Q2). */
   | "confirm"
   /** Which replacement effect applies first, when 2 or more would (10.9.2.1). */
-  | "replacementOrder";
+  | "replacementOrder"
+  /**
+   * A manual override window (spec "Manual override", format.md change 10): a manual card's
+   * ability would trigger. Both players may take `manual` actions; its player chooses `done`.
+   */
+  | "manual";
 
 export interface ChoiceOption {
   /**
@@ -276,6 +315,8 @@ export interface GameState {
   revealed: string[];
   /** Timed triggers waiting for a later point in the game (10.6.5), e.g. Burst's discard. */
   timedTriggers: TimedTrigger[];
+  /** Manual cards whose ability would trigger, each waiting for a manual override window. */
+  manualQueue: ManualCause[];
   /** The check timing in progress while a choice inside it is pending (10.4.3). */
   checkTiming: { rule: string } | null;
   /** Losses recorded during the current process (1.2.2); empty between processes. */
@@ -318,6 +359,11 @@ export type Action =
   | { type: "invade"; player: PlayerId; cardInstanceId: string }
   /** End the play timing and the main phase (10.4.4.3). */
   | { type: "pass"; player: PlayerId }
+  /**
+   * A manual override operation, legal for either player while a `manual` window is open. Not
+   * listed by `getLegalActions` (its parameters are free); `applyAction` validates it.
+   */
+  | { type: "manual"; player: PlayerId; op: ManualOp }
   /** Answer the pending choice (`state.pendingChoice`). */
   | { type: "choose"; player: PlayerId; choiceId: number; optionId: string }
   /** Concede: legal for either player at any time while the game runs (1.2.3). */

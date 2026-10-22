@@ -138,6 +138,16 @@ export function checkInvariants(state: GameState): string[] {
           );
       }
 
+  // Manual windows wait only inside a check timing: none is queued at the play timing.
+  if (
+    state.step === "7.3.2" &&
+    state.pendingChoice === null &&
+    state.manualQueue.length > 0
+  )
+    problems.push(
+      `${state.manualQueue.length} manual windows queued at the play timing`,
+    );
+
   // A data ability is part-way through resolving only while it waits for its own choice.
   const effectChoice =
     state.pendingChoice?.kind === "target" ||

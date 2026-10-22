@@ -416,8 +416,9 @@ describe("full turns", () => {
     // M4d added revealed; with it removed it hashes to the M4c value cca5c5e1...2fecb6.
     // M4f added timedTriggers, and the canonical state for loop detection includes them, so the
     // loopGuard hashes changed too; the game itself is identical to M4e (diffed).
+    // M4g added manualQueue; with it removed it hashes to the M4f value 7aa94879...fb1ea1.
     expect(hash(first)).toMatchInlineSnapshot(
-      `"7aa94879ba3cf66a4cdaa9ed300034e95de8890b65ac3d4e8393106994fb1ea1"`,
+      `"844f7f07721235080fb057327a3e0ce8be9ed0dbe79a6f2ff790b7cdcf6daa57"`,
     );
     // Each player had 5 turns, so each monster advanced from zone 1 to zone 6 (7.5.2).
     expect(first.players.map((p) => p.monsterPosition)).toEqual([6, 6]);

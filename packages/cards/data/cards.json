@@ -220,7 +220,7 @@
     "invadeZones": 2,
     "rarity": "PRSSP",
     "movie": null,
-    "text": "This card gains +3000 counter power for each of your monster card's [rage].\nIf your monster card has 3 or more [rage], and this card is in zones 1-5, this card cannot be [destroy] by your opponent's effects.\n[awakening-8] You can play this card with its rank reduced by 4. (Active if your monster card is in zone 8. After beying played, this card is rank 8.)",
+    "text": "This card gains +3000 counter power for each of your monster card's [rage].\nIf your monster card has 3 or more [rage], and this card is in zones 1-5, this card cannot be [destroy] by your opponent's effects.\n[awakening-8] You can play this card with its rank reduced by 4. (Active if your monster card is in zone 8. After being played, this card is rank 8.)",
     "notes": null,
     "imageUrl": "https://image.godzillatcgdb.com/img/cards/original/PR/923.png",
     "unknownFields": {
@@ -4623,7 +4623,7 @@
     "invadeZones": 2,
     "rarity": "SR",
     "movie": null,
-    "text": "This card gains +3000 counter power for each of your monster card's [rage].\nIf your monster card has 3 or more [rage], and this card is in zones 1-5, this card cannot be [destroy] by your opponent's effects.\n[awakening-8] You can play this card with its rank reduced by 4. (Active if your monster card is in zone 8. After beying played, this card is rank 8.)",
+    "text": "This card gains +3000 counter power for each of your monster card's [rage].\nIf your monster card has 3 or more [rage], and this card is in zones 1-5, this card cannot be [destroy] by your opponent's effects.\n[awakening-8] You can play this card with its rank reduced by 4. (Active if your monster card is in zone 8. After being played, this card is rank 8.)",
     "notes": null,
     "imageUrl": "https://image.godzillatcgdb.com/img/cards/original/EBP01/262.png",
     "unknownFields": {
@@ -4651,7 +4651,7 @@
     "invadeZones": 2,
     "rarity": "SP",
     "movie": null,
-    "text": "This card gains +3000 counter power for each of your monster card's [rage].\nIf your monster card has 3 or more [rage], and this card is in zones 1-5, this card cannot be [destroy] by your opponent's effects.\n[awakening-8] You can play this card with its rank reduced by 4. (Active if your monster card is in zone 8. After beying played, this card is rank 8.)",
+    "text": "This card gains +3000 counter power for each of your monster card's [rage].\nIf your monster card has 3 or more [rage], and this card is in zones 1-5, this card cannot be [destroy] by your opponent's effects.\n[awakening-8] You can play this card with its rank reduced by 4. (Active if your monster card is in zone 8. After being played, this card is rank 8.)",
     "notes": null,
     "imageUrl": "https://image.godzillatcgdb.com/img/cards/original/EBP01/261.png",
     "unknownFields": {}
@@ -12258,7 +12258,7 @@
     "invadeZones": 2,
     "rarity": "UC",
     "movie": "Godzilla vs. Mechagodzilla II (1993)",
-    "text": "At the beginning of your counter phase, if this card is in the same column as your opponent's monster card, you may discard 1 battle card with [weapon] or [mech] from your hand. If you do, search your deck for up to 1 battle card named 'Super Mechagodzilla\", play it on top of this card, then shuffle your deck.",
+    "text": "At the beginning of your counter phase, if this card is in the same column as your opponent's monster card, you may discard 1 battle card with [weapon] or [mech] from your hand. If you do, search your deck for up to 1 battle card named \"Super Mechagodzilla\", play it on top of this card, then shuffle your deck.",
     "notes": null,
     "imageUrl": "https://image.godzillatcgdb.com/img/cards/original/EBP03/560.png",
     "unknownFields": {
@@ -12286,7 +12286,7 @@
     "invadeZones": 2,
     "rarity": "P",
     "movie": "Godzilla vs. Mechagodzilla II (1993)",
-    "text": "At the beginning of your counter phase, if this card is in the same column as your opponent's monster card, you may discard 1 battle card with [weapon] or [mech] from your hand. If you do, search your deck for up to 1 battle card named 'Super Mechagodzilla\", play it on top of this card, then shuffle your deck.",
+    "text": "At the beginning of your counter phase, if this card is in the same column as your opponent's monster card, you may discard 1 battle card with [weapon] or [mech] from your hand. If you do, search your deck for up to 1 battle card named \"Super Mechagodzilla\", play it on top of this card, then shuffle your deck.",
     "notes": null,
     "imageUrl": "https://image.godzillatcgdb.com/img/cards/original/EBP03/561.png",
     "unknownFields": {}
@@ -17568,7 +17568,7 @@
     "invadeZones": 1,
     "rarity": "R",
     "movie": "Godzilla: Planet of the Monsters (2017)",
-    "text": "[revenge] Return up to 1 battle card named \"Gozilla Earth\" from your discard pile to your hand. (Activates when destroyed by a card effect or monster movement.)",
+    "text": "[revenge] Return up to 1 battle card named \"Godzilla Earth\" from your discard pile to your hand. (Activates when destroyed by a card effect or monster movement.)",
     "notes": null,
     "imageUrl": "https://image.godzillatcgdb.com/img/cards/original/EBP04/807.png",
     "unknownFields": {
@@ -17596,7 +17596,7 @@
     "invadeZones": 1,
     "rarity": "P",
     "movie": "Godzilla: Planet of the Monsters (2017)",
-    "text": "[revenge] Return up to 1 battle card named \"Gozilla Earth\" from your discard pile to your hand. (Activates when destroyed by a card effect or monster movement.)",
+    "text": "[revenge] Return up to 1 battle card named \"Godzilla Earth\" from your discard pile to your hand. (Activates when destroyed by a card effect or monster movement.)",
     "notes": null,
     "imageUrl": "https://image.godzillatcgdb.com/img/cards/original/EBP04/806.png",
     "unknownFields": {}
@@ -18116,7 +18116,7 @@
     "invadeZones": 1,
     "rarity": "C",
     "movie": "The War of the Gargantuas (1966)",
-    "text": "[opponents-turn] Whenever your opponent returns a card from their discard pile to theirh and, if this card is in zone 1, you may return up to 1 card from your discard pile from your hand.",
+    "text": "[opponents-turn] Whenever your opponent returns a card from their discard pile to their hand, if this card is in zone 1, you may return up to 1 card from your discard pile to your hand.",
     "notes": null,
     "imageUrl": "https://image.godzillatcgdb.com/img/cards/original/EBP04/827.png",
     "unknownFields": {
@@ -18144,7 +18144,7 @@
     "invadeZones": 1,
     "rarity": "P",
     "movie": "The War of the Gargantuas (1966)",
-    "text": "[opponents-turn] Whenever your opponent returns a card from their discard pile to theirh and, if this card is in zone 1, you may return up to 1 card from your discard pile from your hand.",
+    "text": "[opponents-turn] Whenever your opponent returns a card from their discard pile to their hand, if this card is in zone 1, you may return up to 1 card from your discard pile to your hand.",
     "notes": null,
     "imageUrl": "https://image.godzillatcgdb.com/img/cards/original/EBP04/826.png",
     "unknownFields": {}
@@ -19970,7 +19970,7 @@
     "invadeZones": 1,
     "rarity": "SD",
     "movie": "Godzilla Minus One (2023)",
-    "text": "[awakening-4] This card gains +3000 counter power. (Active if your monster card is in zone 4 or beyond.)<",
+    "text": "[awakening-4] This card gains +3000 counter power. (Active if your monster card is in zone 4 or beyond.)",
     "notes": null,
     "imageUrl": "https://image.godzillatcgdb.com/img/cards/original/ESD01/16.png",
     "unknownFields": {

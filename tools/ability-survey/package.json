@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "survey": "tsx src/main.ts",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "coverage": "tsx src/coverageMain.ts"
   },
   "dependencies": {
     "@gojisim/cards": "workspace:*"

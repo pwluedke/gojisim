@@ -87,6 +87,8 @@ export const POLICY_WEIGHTS: Record<Action["type"], number> = {
   invade: 1,
   choose: 4,
   concede: 0,
+  // Manual override actions are never listed, so never chosen.
+  manual: 0,
 };
 
 /** Whether a player's zone holds a battle card (a stack topped by one). */

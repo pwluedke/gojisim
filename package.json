@@ -16,7 +16,8 @@
     "scrape": "pnpm --filter @gojisim/scraper scrape",
     "images": "pnpm --filter @gojisim/scraper images",
     "stress": "pnpm --filter @gojisim/stress stress",
-    "survey": "pnpm --filter @gojisim/ability-survey survey"
+    "survey": "pnpm --filter @gojisim/ability-survey survey",
+    "abilities:coverage": "pnpm --filter @gojisim/ability-survey coverage"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -6,6 +6,7 @@ import {
   resolveDataAbility,
 } from "./interpreter";
 import { guardLoop } from "./loop";
+import { openManualWindow } from "./manual";
 import { requireChoice } from "./choices";
 import { resolveLosses } from "./losses";
 import { appendLog, getPlayer, toDiscard } from "./state";
@@ -391,6 +392,8 @@ export function continueCheckTiming(state: GameState): void {
       state.standby.some((a) => a.master === id),
     );
     if (master === undefined) {
+      // Manual cards whose text would apply get a manual override window, one at a time.
+      if (openManualWindow(state)) return;
       state.checkTiming = null;
       return;
     }

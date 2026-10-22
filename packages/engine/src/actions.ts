@@ -1,5 +1,6 @@
 import { getCardTraits } from "@gojisim/cards";
 import { advanceMonster } from "./movement";
+import { closeManualWindow, manualProblem, performManual } from "./manual";
 import { burstRankOf, hasAbilityData, resumeResolution } from "./interpreter";
 import { getRank } from "./stats";
 import { activeMonster, makeInvadingMonster } from "./counter";
@@ -364,6 +365,8 @@ const PERFORM: {
       choice.kind === "replacementOrder"
     ) {
       resumeResolution(state, choice.kind, action.optionId);
+    } else if (choice.kind === "manual") {
+      closeManualWindow(state);
     } else {
       makeInvadingMonster(
         state,
@@ -374,6 +377,9 @@ const PERFORM: {
     resolveLosses(state);
     // Pick up the check timing the choice paused, if any (10.4.3).
     continueCheckTiming(state);
+  },
+  manual: (state, action) => {
+    performManual(state, action.player, action.op);
   },
   concede: (state, action) => {
     // 1.2.3: the conceding player loses at once, with no check timing; 1.2.3.1: nothing stops it.
@@ -394,7 +400,15 @@ const PERFORM: {
  */
 export function applyAction(state: GameState, action: Action): GameState {
   if (state.result !== null) throw new Error("game over");
+  // A manual override operation has free parameters, so it is validated rather than listed.
+  const manualProblemText =
+    action.type === "manual"
+      ? manualProblem(state, action.player, action.op)
+      : null;
+  if (manualProblemText !== null)
+    throw new Error(`Illegal manual action: ${manualProblemText}`);
   if (
+    action.type !== "manual" &&
     !getLegalActions(state, action.player).some((legal) =>
       sameAction(legal, action),
     )
@@ -415,7 +429,8 @@ export function applyAction(state: GameState, action: Action): GameState {
   const mainAction =
     action.type !== "pass" &&
     action.type !== "choose" &&
-    action.type !== "concede";
+    action.type !== "concede" &&
+    action.type !== "manual";
   if (next.result === null && mainAction) {
     // 10.4.4.1: a check timing before the play timing is given again (10.4.4.2).
     checkTiming(next, "10.4.4.1");

@@ -125,6 +125,17 @@ describe("validateDeck (6.1.1)", () => {
     );
   });
 
+  it("6.1.1.4 Q13: a card that allows any number of copies may have more than 4 (1.3.1)", () => {
+    const deck = starter("esd01-starter.txt");
+    const six = (c: Card) => [...deck.mainDeck.slice(6), c, c, c, c, c, c];
+    // MBT-MB90 (EBP03-031, Red): "You may put any number of this card in your deck."
+    expect(rules({ ...deck, mainDeck: six(card("EBP03-031")) })).toEqual([]);
+    // Without that text the 4-copy limit holds.
+    expect(rules({ ...deck, mainDeck: six(card("EBP01-001")) })).toContain(
+      "6.1.1.4",
+    );
+  });
+
   it("6.1.1.5 a Token-trait card in the deck is invalid (case 6)", () => {
     expect(rules(esd01With(card("EBP02-T01")))).toEqual(["6.1.1.5"]);
   });

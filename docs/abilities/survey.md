@@ -84,13 +84,13 @@ Patterns come from a regex classifier (`tools/ability-survey/src/survey.ts`); ev
 | `threat +N` | gains +5000 threat level | 23 | 2 | amount: 1000, 10000, 20000, 3000, 5000, computed; player: you; cardType: monster | ESD01-003, ESD02-006, EBP01-042, EBP02-002, EBP02-006 |
 | `discard down to N` | your opponent discards cards until they have 2 cards remaining | 19 | 3 | player: each, opponent; handSize: 2, 3, 4, 5; optional: true | ESD01-004, ESD01-005, ESD01-015, EBP01-005, EBP01-031 |
 | `mill (top of deck to discard pile)` | send the top card of your deck to your discard pile | 19 | 0 | count: 2, 3 | EBP01-001, EBP01-002, EBP01-003, EBP01-015, EBP01-072 |
-| `return from discard pile to hand` | return this card from your discard pile to your hand | 17 | 0 | target: this card; count: 1, up to 1, up to 2; cardType: battle, monster, strategy; traits: gigan, guardian, king-ghidorah, rodan, spacegodzilla; name: godzilla (1991), gozilla earth; hasKeyword: base; rankMax: 2; colors: non-green | EBP02-009, EBP02-058, EBP02-059, EBP02-060, EBP02-062 |
+| `return from discard pile to hand` | return this card from your discard pile to your hand | 17 | 0 | target: this card; count: 1, up to 1, up to 2; cardType: battle, monster, strategy; traits: gigan, guardian, king-ghidorah, rodan, spacegodzilla; name: godzilla (1991), godzilla earth; hasKeyword: base; rankMax: 2; colors: non-green | EBP02-009, EBP02-058, EBP02-059, EBP02-060, EBP02-062 |
 | `advance monster` | advance your opponent's monster card by 1 zone | 16 | 0 | player: opponent, you; by: 1, 2; toZone: 5, 6; extra: true | EBP01-008, EBP01-011, EBP01-012, EBP01-015, EBP01-030 |
 | `shuffle deck` | shuffle | 16 | 2 | - | ESD01-002, ESD01-014, EBP01-019, EBP01-020, EBP01-058 |
 | `add to hand (from revealed/searched)` | add it to your hand | 14 | 1 | count: 1, all, up to 1; cardType: battle, monster; from: among them; rankMax: 5; colors: red+blue; target: this card; traits: fest, mechagodzilla | ESD01-002, EBP01-020, EBP02-007, EBP02-078, EBP02-080 |
 | `draw` | draw 1 card | 14 | 1 | count: 1, 2, 5 | ESD02-010, EBP01-032, EBP01-047, EBP01-054, EBP01-055 |
 | `place a card under a card` | place 1 card with both [gigan] and [fest] from your discard pile under this card | 14 | 0 | player: you; count: 1, 2, 3, all; traits: gigan+fest, mech+weapon+godzilla-the-ride; from: discard pile, hand, strategy zone; cardType: battle, monster; target: this card | EBP01-026, EBP01-073, EBP02-012, EBP02-046, EBP03-025 |
-| `search deck` | search your deck for up to 1 rank iii card named [godzilla (2023)] with [burst], reveal i… | 14 | 2 | player: you; count: 1, up to 1, up to 2; rank: 1, 3; hasKeyword: burst; name: 'super mechagodzilla, godzilla (2023), land moguera, space beam; cardType: battle, monster, strategy; traits: kamacuras, mech, mech+weapon, moguera; target: this card; colors: green | ESD01-002, ESD01-014, EBP01-019, EBP01-020, EBP03-033 |
+| `search deck` | search your deck for up to 1 rank iii card named [godzilla (2023)] with [burst], reveal i… | 14 | 2 | player: you; count: 1, up to 1, up to 2; rank: 1, 3; hasKeyword: burst; name: godzilla (2023), land moguera, space beam, super mechagodzilla; cardType: battle, monster, strategy; traits: kamacuras, mech, mech+weapon, moguera; target: this card; colors: green | ESD01-002, ESD01-014, EBP01-019, EBP01-020, EBP03-033 |
 | `play with reduced rank` | reduce its rank by 1 | 13 | 0 | by: 1, 2, 3, 4 | EBP01-027, EBP01-033, EBP01-058, EBP01-075, EBP01-080 |
 | `replacement (instead)` | place this card on the bottom of your deck instead | 13 | 2 | - | ESD01-011, ESD01-012, EBP01-038, EBP01-066, EBP02-012 |
 | `reveal top of deck` | reveal the top 5 cards of your deck | 13 | 0 | count: 1, 2, 3, 5, 7 | EBP01-015, EBP02-007, EBP02-078, EBP02-080, EBP03-007 |
@@ -284,7 +284,7 @@ Hand check: Correct: reminder text only, restating 8.2.1. No ability.
 
 #### ESD01-009 Reinforcements (Battle)
 
-> [awakening-4] This card gains +3000 counter power. (Active if your monster card is in zone 4 or beyond.)<
+> [awakening-4] This card gains +3000 counter power. (Active if your monster card is in zone 4 or beyond.)
 
 - keyword: `Awakening N (12.4)` (zone=4)
 - condition: `awakening: own monster in zone N or beyond` (zone=4)
