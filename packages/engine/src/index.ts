@@ -34,6 +34,17 @@ export {
   isAtPlayTiming,
   isWaiting,
 } from "./phases";
+export {
+  buildLoopReport,
+  checkInvariants,
+  type LoopReport,
+} from "./invariants";
+export {
+  canonicalState,
+  LOOP_STEP_LIMIT,
+  type LoopInfo,
+  stateHash,
+} from "./loop";
 export { type GameRecord, replay, replayAll, startGame } from "./record";
 export { normalizeSeed } from "./rng";
 export { type CreateGameOptions, createGame, type PlayerSetup } from "./setup";

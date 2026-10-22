@@ -5,6 +5,7 @@ import {
   activeMonster,
 } from "./counter";
 import { resolveLosses } from "./losses";
+import { guardLoop, resetLoopGuard } from "./loop";
 import { advanceMonster } from "./movement";
 import { checkTiming, hasPendingRuleActions } from "./rules";
 import {
@@ -47,6 +48,7 @@ function beginningOf(state: GameState, phase: Phase, rule: string): void {
 const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
   "7.2.1": (state) => {
     state.turnFlags = { invasionUsed: false, monsterPlayed: false };
+    resetLoopGuard(state);
     appendLog(state, "beginTurn", state.turnPlayer, {
       rule: "7.1.1",
       turn: state.turn,
@@ -219,6 +221,7 @@ export function advance(state: GameState): GameState {
   const next = cloneState(state);
   STEP_RUNNERS[next.step](next);
   resolveLosses(next);
+  guardLoop(next);
   return next;
 }
 
