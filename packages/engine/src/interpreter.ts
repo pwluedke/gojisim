@@ -1090,20 +1090,21 @@ function perform(state: GameState, effect: Effect): Outcome {
         });
         return "done";
       }
-      // That player chooses the cards to keep and discards the rest (5.7.2).
+      // That player chooses which cards to discard, down to the size (5.7.2; Paul's ruling: the
+      // player picks the discards, not the keeps). The result is the same as 5.7.2's wording.
       const hand = select(ctx, {
         owner: effect.player === "you" ? "you" : "opponent",
         area: "hand",
       });
-      const keep =
-        effect.size === 0
-          ? []
-          : pickCards(ctx, hand, { exact: effect.size }, player.id, "5.7.2", {
-              hidden: true,
-            });
-      if (keep === "paused") return "paused";
-      const kept = new Set(keep.map((k) => k.card.instanceId));
-      const rest = hand.filter((l) => !kept.has(l.card.instanceId));
+      const rest = pickCards(
+        ctx,
+        hand,
+        { exact: hand.length - effect.size },
+        player.id,
+        "5.7.2",
+        { hidden: true },
+      );
+      if (rest === "paused") return "paused";
       appendLog(state, "discardDownTo", player.id, {
         rule: "5.7.2",
         size: effect.size,

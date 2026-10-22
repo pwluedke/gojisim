@@ -1,6 +1,6 @@
 import { type Action, type GameState, getLegalActions } from "@gojisim/engine";
 import { useEffect, useRef } from "react";
-import { actionLabel } from "./labels";
+import { actionLabel, decisionHeading } from "./labels";
 
 const box = { border: "1px solid #888", padding: 6, margin: 4 } as const;
 
@@ -60,8 +60,7 @@ export function ActionPanel({
   return (
     <div data-testid="actions" style={box}>
       <div>
-        <strong>Actions for {decider}</strong>{" "}
-        {state.result ? "(game over)" : ""}
+        <strong data-testid="decision-heading">{decisionHeading(state)}</strong>
       </div>
       {actions.map((action, i) => (
         <button

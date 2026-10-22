@@ -183,7 +183,7 @@ describe("ESD01-004 Godzilla (2023)", () => {
     return invade(state, 1);
   }
 
-  it("ESD01-004 5.7.2: when invading with 2 or more rage, the opponent keeps 2 cards of their choice and discards the rest", () => {
+  it("ESD01-004 5.7.2: when invading with 2 or more rage, the opponent chooses cards to discard down to 2 (Paul's ruling: pick discards, not keeps)", () => {
     const paused = invadeWith(2, 5);
     const opp = nonTurnPlayer(paused);
     expect(paused.pendingChoice).toMatchObject({
@@ -192,9 +192,13 @@ describe("ESD01-004 Godzilla (2023)", () => {
       rule: "5.7.2",
       private: true,
     });
-    const keep = opp.hand.slice(0, 2).map((c) => c.instanceId);
-    const after = choose(choose(paused, keep[0] as string), keep[1] as string);
-    expect(nonTurnPlayer(after).hand.map((c) => c.instanceId)).toEqual(keep);
+    const [a, b, c, d, e] = opp.hand.map((x) => x.instanceId) as string[];
+    // 5 cards down to 2: three picks, each a card to discard.
+    const after = choose(
+      choose(choose(paused, c as string), a as string),
+      e as string,
+    );
+    expect(nonTurnPlayer(after).hand.map((x) => x.instanceId)).toEqual([b, d]);
     expect(nonTurnPlayer(after).discard).toHaveLength(3);
   });
 
@@ -233,7 +237,11 @@ describe("ESD01-015 Operation Wadatsumi", () => {
       choose(paused, opp.hand[3]?.instanceId as string),
       opp.hand[1]?.instanceId as string,
     );
-    expect(nonTurnPlayer(after).hand).toHaveLength(2);
+    // The two picks are the discards; the other two stay.
+    expect(nonTurnPlayer(after).hand.map((x) => x.instanceId)).toEqual([
+      opp.hand[0]?.instanceId,
+      opp.hand[2]?.instanceId,
+    ]);
     expect(nonTurnPlayer(after).discard).toHaveLength(2);
   });
 
