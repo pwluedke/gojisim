@@ -33,6 +33,21 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Spec case 52: random legal games with invariant checks. Seeded by the commit, so a
+      # failure can be reproduced with `pnpm stress --games 1000 --seed <sha>`.
+      - name: Stress test (1,000 games)
+        run: pnpm stress --games 1000 --seed ${{ github.sha }}
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: stress-failures
+          path: |
+            stress-failures/
+            loop-reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Install Playwright Chromium
         run: pnpm --filter @gojisim/web exec playwright install --with-deps chromium
 

@@ -8,3 +8,5 @@ test-results/
 *.tsbuildinfo
 .cache/
 apps/web/public/cards/
+stress-failures/
+loop-reports/
