@@ -1,4 +1,5 @@
 import { getAbility } from "./abilities";
+import { guardLoop } from "./loop";
 import { requireChoice } from "./choices";
 import { resolveLosses } from "./losses";
 import { appendLog, getPlayer, toDiscard } from "./state";
@@ -293,6 +294,8 @@ export function continueCheckTiming(state: GameState): void {
         b.timestamp < a.timestamp ? b : a,
       );
       resolveStandby(state, earliest.standbyId);
+      // An ability loop never leaves this check timing, so it is checked here too (13.1).
+      if (guardLoop(state)) return;
     } else {
       requireChoice(
         state,

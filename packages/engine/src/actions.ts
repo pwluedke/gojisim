@@ -1,6 +1,7 @@
 import { getCardTraits } from "@gojisim/cards";
 import { advanceMonster } from "./movement";
 import { activeMonster, makeInvadingMonster } from "./counter";
+import { resetLoopGuard } from "./loop";
 import { markLoss, resolveLosses } from "./losses";
 import { cloneState, isAtPlayTiming } from "./phases";
 import {
@@ -361,6 +362,8 @@ export function applyAction(state: GameState, action: Action): GameState {
     );
   }
   const next = cloneState(state);
+  // A player choice: states seen before it no longer count toward a loop (13.1.1).
+  resetLoopGuard(next);
   (PERFORM[action.type] as (state: GameState, action: Action) => void)(
     next,
     action,

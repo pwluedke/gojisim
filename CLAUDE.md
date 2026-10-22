@@ -149,3 +149,17 @@ Accepted by Monarch in the M3d review (PR #9).
 87. The next-monster choice after a counter cannot be refused (searching may "find nothing" is not offered). Confirmed by Monarch.
 88. `concede` comes last in every legal action list.
 89. `nextChoiceId` is a state counter for choice ids.
+
+Accepted by Monarch in the M3v review (PR #10).
+
+90. The debug viewer builds both decks with the game seed, so a seed fully determines a game.
+91. `buildTestDeck` is a subpath export (`@gojisim/cards/test-decks`) because it imports `cards.json`; the main `@gojisim/cards` entry never does. The viewer is lazy-loaded on `/debug`.
+92. Test decks use only base, English prints of the chosen set; "plus White" means White cards of that set.
+93. Test main decks are a seeded random draw from all legal copies (many monster cards are possible). Paul decides later whether to switch to official starter lists.
+94. `buildTestDeck` does not apply restriction lists (neither ESD set has restricted cards).
+95. Debug viewer player ids are `P1` and `P2`.
+96. An exported game record includes `position`; import opens the viewer at that action.
+97. The viewer caches every state (`states[i]` after `i` actions) for instant stepping.
+98. Card images come from `pnpm images` (`/cards/<id>-thumb.webp`, `-full.webp`); missing images are hidden.
+99. `/debug` is a pathname check in `main.tsx`, with no router.
+100.  The 6.1.1 checks in the `buildTestDeck` test are test-only; the real validator is M8.

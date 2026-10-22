@@ -1,4 +1,5 @@
 import type { Card } from "@gojisim/cards";
+import type { LoopInfo } from "./loop";
 
 export type PlayerId = string;
 
@@ -207,6 +208,10 @@ export interface GameState {
   /** Losses recorded during the current process (1.2.2); empty between processes. */
   pendingLosses: PendingLoss[];
   nextChoiceId: number;
+  /** Canonical state hashes since the last player choice this turn, for loop detection (13.1). */
+  loopGuard: string[];
+  /** Set when an infinite loop ended the game in a draw (13.1.1.3). */
+  loop: LoopInfo | null;
   result: GameResult | null;
   /** Every card that takes part in this game, keyed by `Card.id`. */
   cards: Record<string, Card>;

@@ -7,3 +7,5 @@ test-results/
 tools/scraper/test/fixtures/
 packages/cards/data/
 docs/rules/spec.md
+stress-failures/
+loop-reports/

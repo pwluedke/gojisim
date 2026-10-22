@@ -1,0 +1,17 @@
+{
+  "name": "@gojisim/stress",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "stress": "tsx src/main.ts",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@gojisim/cards": "workspace:*",
+    "@gojisim/engine": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}

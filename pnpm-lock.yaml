@@ -261,6 +261,19 @@ importers:
         specifier: ^4.23.15
         version: 4.23.15
 
+  tools/stress:
+    dependencies:
+      '@gojisim/cards':
+        specifier: workspace:*
+        version: link:../../packages/cards
+      '@gojisim/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+    devDependencies:
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+
 packages:
 
   '@cacheable/memory@2.2.0':
