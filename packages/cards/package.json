@@ -5,7 +5,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./test-decks": "./src/testDecks.ts"
+    "./test-decks": "./src/testDecks.ts",
+    "./deck-lists": "./src/deckLists.ts",
+    "./data/decks/*": "./data/decks/*"
   },
   "scripts": {
     "build": "tsc -b",

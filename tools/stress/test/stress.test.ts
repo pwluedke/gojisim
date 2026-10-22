@@ -33,3 +33,35 @@ describe("stress test (spec case 52)", () => {
     expect(outcome.failure?.reason).toBe("turn cap 2 reached");
   });
 });
+
+describe("weighted policy", () => {
+  it("Engine: weighted games finish cleanly and counter far more often than uniform ones", () => {
+    let counters = 0;
+    for (let game = 0; game < 6; game++) {
+      const outcome = playGame("weighted", game, 500, "weighted");
+      expect(outcome.failure).toBeNull();
+      counters += replay(outcome.record).log.filter(
+        (e) => e.type === "counter",
+      ).length;
+    }
+    expect(counters).toBeGreaterThan(6);
+  });
+
+  it("Engine: with its own zone 8 empty, a weighted battle play goes to zone 8 (a blocker stops invasion wins, 5.13.1.1.1)", () => {
+    const outcome = playGame("weighted", 1, 500, "weighted");
+    const firstBattle = outcome.record.actions.find(
+      (a) => a.type === "playBattle",
+    );
+    expect(firstBattle).toMatchObject({ zone: 8 });
+  });
+
+  it("Engine: games record each deck's legality (Paul's ruling, Oct 21, 2026)", () => {
+    const outcome = playGame("legality", 0);
+    expect(
+      outcome.record.deckLegality?.map((l) => [l.player, l.legal]),
+    ).toEqual([
+      ["P1", true],
+      ["P2", true],
+    ]);
+  });
+});

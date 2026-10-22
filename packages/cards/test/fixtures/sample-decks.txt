@@ -1,0 +1,26 @@
+# Sample deck list for tests. Deck names are made up.
+
+[deck] Test Folder/Red Sample
+[monster deck]
+1 ESD01-001
+1 ESD01-002
+1 ESD01-003
+1 ESD01-004
+[main deck]
+4 ESD01-005
+3 ESD01-011
+1 ESD01-012+
+2 ESD01-016
+
+[deck] Broken Sample
+[monster deck]
+1 ESD02-001
+1 NOPE-999
+[main deck]
+0 ESD02-007
+x2 ESD02-008
+[side deck]
+3 ESD02-009
+just some words here
+
+4 ESD02-010

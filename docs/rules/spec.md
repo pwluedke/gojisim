@@ -75,7 +75,7 @@ The validator returns every failed check with its rule number, not only the firs
 
 **Setup (6.3.1), in order**
 
-1. Both players present their decks (6.3.1.1). In GojiSim the server validates both decks and refuses to start a game with an illegal deck.
+1. Both players present their decks (6.3.1.1). GojiSim validates both decks and shows each player a warning that lists every failed check, with its rule number. An illegal deck can still be used (Paul's ruling, Oct 21, 2026).
 2. Each player places their monster deck in the monster deck zone (6.3.1.2).
 3. Each player shuffles their main deck into the deck area (6.3.1.3). Uses the seeded RNG.
 4. A random first player (6.3.1.4), from the seeded RNG.

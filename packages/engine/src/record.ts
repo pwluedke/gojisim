@@ -1,7 +1,8 @@
 import { applyAction } from "./actions";
 import { advanceToDecision } from "./phases";
 import { createGame, type PlayerSetup } from "./setup";
-import type { Action, GameState } from "./types";
+import { failedRules, validateDeck } from "@gojisim/cards";
+import type { Action, GameState, PlayerId } from "./types";
 
 /**
  * Everything needed to rebuild a game: the seed, both decks and every action taken. The engine is
@@ -12,6 +13,38 @@ export interface GameRecord {
   seed: number | string;
   decks: [PlayerSetup, PlayerSetup];
   actions: Action[];
+  /**
+   * Each deck's legality when the game started. Illegal decks are allowed in every mode with a
+   * warning (Paul's ruling, Oct 21, 2026), so replays and stats can mark such games. Optional
+   * so records made before it existed still load; replay ignores it.
+   */
+  deckLegality?: DeckLegality[];
+}
+
+/** One player's deck check at game start (spec "Setup", step 1). */
+export interface DeckLegality {
+  player: PlayerId;
+  legal: boolean;
+  /** Failed rule numbers, e.g. ["6.1.1.4", "Restriction list"]. */
+  failedRules: string[];
+  /** The date the deck was checked against (restriction lists depend on it). */
+  asOf: string;
+}
+
+/** Validates both decks of a game on `asOf` (spec "Setup", step 1). */
+export function deckLegalityFor(
+  decks: readonly PlayerSetup[],
+  asOf: Date,
+): DeckLegality[] {
+  return decks.map((deck) => {
+    const validation = validateDeck(deck, asOf);
+    return {
+      player: deck.id,
+      legal: validation.legal,
+      failedRules: failedRules(validation),
+      asOf: asOf.toISOString().slice(0, 10),
+    };
+  });
 }
 
 /** A new game, advanced to its first decision. */

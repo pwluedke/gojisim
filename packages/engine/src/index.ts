@@ -45,7 +45,14 @@ export {
   type LoopInfo,
   stateHash,
 } from "./loop";
-export { type GameRecord, replay, replayAll, startGame } from "./record";
+export {
+  type DeckLegality,
+  deckLegalityFor,
+  type GameRecord,
+  replay,
+  replayAll,
+  startGame,
+} from "./record";
 export { normalizeSeed } from "./rng";
 export { type CreateGameOptions, createGame, type PlayerSetup } from "./setup";
 export * from "./types";

@@ -20,6 +20,21 @@ Other root scripts: `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm scrape` (
 
 `pnpm --filter @gojisim/web dev`, then open `http://localhost:5173/debug`. Pick a seed and a test deck for each player (`buildTestDeck`, ESD01 or ESD02), then play both sides. All hidden information is shown. Step back and forward through the actions, and export the game record as JSON to attach to a bug report (import loads it again). Card images appear once `pnpm images` has run.
 
+## Deck lists
+
+Decks use GojiSim's plain-text deck list format (the godzilla-sim export format):
+
+```text
+# comment
+[deck] Folder/Deck Name
+[monster deck]
+1 ESD01-001
+[main deck]
+4 ESD01-005
+```
+
+`/debug` imports and exports these files in the browser. Keep personal deck files in `local-decks/` (gitignored); never commit them. The official starters are in `packages/cards/data/decks/`. Illegal decks are allowed everywhere, with a warning listing every failed rule (Paul's ruling, Oct 21, 2026).
+
 ## Card images
 
 Card images are not committed. Run this once after cloning:
