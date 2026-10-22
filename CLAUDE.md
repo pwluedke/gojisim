@@ -167,7 +167,7 @@ Accepted by Monarch in the M3v review (PR #10).
 Accepted by Monarch in the M3e review (PR #11).
 
 101. Loop detection compares a canonical state that leaves out instance ids, the log, counters, timestamps and RNG state; hand, discard pile and monster deck compare as sorted lists, the deck in order.
-102. Loop checks run after every engine step and after every ability resolved inside a check timing.
+102. Loop checks run after every engine step and, inside a check timing, before every ability resolves. (Amended in the M4c review: checking after each resolution recorded the same state twice when a step ended with an ability resolving, which drew the game.)
 103. `LOOP_STEP_LIMIT` (2,000 automatic steps in one turn without a player choice) also ends the game as a 13.1.1.3 draw (`kind: "stepLimit"`).
 104. A `standbyOrder` choice counts as a player choice and clears the loop history.
 105. 13.1.1.2 (the turn player may not repeat an identical-state action) is not enforced on player actions. Confirmed by Monarch: revisit only if a real case shows up.
@@ -193,3 +193,19 @@ Accepted by Monarch in the M3f review (PR #12).
 122. `/debug` checks decks against today's date, defaults to ESD01 official vs ESD02 official, stores imported decks as deck list text under `gojisim.debug.importedDecks`, and exports the picked decks as `gojisim-decks.txt`.
 123. `pnpm stress` takes `--progress N` (default 10; nightly uses 500). The nightly timeout is 120 minutes.
 124. Weighted stress policy weights: playBattle 32, gainRage 20, playMonster 12, activateStrategy 8, pass 8, choose 4, invade 1. Battle cards go to the player's own empty zone 8 first, then to empty zones behind its own monster.
+
+Accepted by Monarch in the M4c review (PR #14).
+
+125. Gates are checked when a trigger matches, when the ability resolves, and before each of its effects; a closed gate ends the resolution (Q7).
+126. An ability's `condition` is checked when it resolves. A failed condition logs `conditionNotMet`; a closed gate logs `abilityInactive`.
+127. [enter] fires when a card enters the board: a play from the resolution area, and the monster that comes in after a counter (5.15.1.2). The rank I monster placed at setup (6.3.1.6) does not trigger it. Paul's ruling, Oct 21, 2026.
+128. `place` and `newInvadingMonster` log entries carry the placed card's `instanceId`.
+129. Effect targets are chosen with a `target` choice, one card per choice. With N or fewer legal targets for "exactly N" there is no choice (10.5.3.1); "up to N" adds a `done` option. `chooseZone` is a `zone` choice with options `<player>:<zone>`. `ChoiceOption.cardId` is nullable.
+130. A paused resolution lives in `state.resolution`; an invariant checks it exists only while a `target` or `zone` choice is pending.
+131. Selector `traits` requires every listed trait. `keyword` reads ability data, or the printed `[keyword` icon for cards without data.
+132. While modifiers are being collected, nested stat reads see printed values (10.8.1.6).
+133. Monster rank for the 7.2.2 draw and the next-monster check stays printed; only 7.4.2, 8.2.1 and 8.3.1 read the 10.8.1 layers. Revisit in M12 when a card first modifies monster rank.
+134. Triggers not built yet never match, so manual cards stay inert; `optional` and `cost` threw `not implemented` until M4d. Tests can register `custom` effect handlers.
+135. `pnpm stress` takes `--decks random|official`.
+136. `docs/abilities/format.md` is in `.prettierignore`, so it stays exactly as approved.
+137. The M3d code ability registry is test-only (`packages/engine/src/testing.ts`).

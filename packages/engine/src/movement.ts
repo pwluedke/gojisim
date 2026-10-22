@@ -28,10 +28,17 @@ function step(
   to: ZoneNumber,
   type: string,
   rule: string,
+  invasion = false,
 ): void {
   const from = player.monsterPosition;
   player.monsterPosition = to;
-  appendLog(state, type, player.id, { rule, from, to });
+  // `invasion` marks an advance step of an invasion, for When invading (12.3, Q4).
+  appendLog(state, type, player.id, {
+    rule,
+    from,
+    to,
+    ...(invasion ? { invasion: true } : {}),
+  });
   crushAndDestroy(state);
 }
 
@@ -48,7 +55,14 @@ export function advanceMonster(
   const from = player.monsterPosition;
   if (state.result !== null || from === null) return false;
   if (from < 8) {
-    step(state, player, (from + 1) as ZoneNumber, "advance", options.rule);
+    step(
+      state,
+      player,
+      (from + 1) as ZoneNumber,
+      "advance",
+      options.rule,
+      options.invasion,
+    );
     return true;
   }
   const opponent = getOpponent(state, player.id);

@@ -255,7 +255,7 @@ export type Effect =
       zones?: ZoneSet | undefined;
       asManyAsPossible?: boolean | undefined;
       preferEmpty?: boolean | undefined;
-      ignoreRankLimit: boolean;
+      ignoreRankLimit?: boolean | undefined;
       as?: string | undefined;
     }
   | { effect: "addToHand"; target: Selector; as?: string | undefined }
@@ -387,7 +387,8 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
       zones: ZoneSetSchema.optional(),
       asManyAsPossible: z.boolean().optional(),
       preferEmpty: z.boolean().optional(),
-      ignoreRankLimit: z.boolean(),
+      /** Defaults to true: 8.2.1 limits only the main phase action. */
+      ignoreRankLimit: z.boolean().optional(),
       ...asField,
     }),
     z.strictObject({

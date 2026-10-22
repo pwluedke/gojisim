@@ -66,7 +66,9 @@ export function actionLabel(state: GameState, action: Action): string {
         const [player, zone] = action.optionId.split(":");
         return `Choose ${player}'s zone ${zone}`;
       }
-      if (action.optionId === "done") return "Stop choosing";
+      if (choice?.kind === "confirm")
+        return `${action.optionId === "yes" ? "Yes" : "No"} (${option?.abilityId ?? "?"}, ${choice.rule})`;
+      if (action.optionId === "done") return "Stop choosing (or find nothing)";
       return `Choose ${card ? `${card.name} [${card.cardNumber}]` : action.optionId}`;
     }
     case "concede":

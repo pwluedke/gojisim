@@ -243,6 +243,11 @@ The M3 engine must include the framework below, so that M4 adds card abilities a
 - Gates (format.md change 3, Q7, Q9, 10.3.2): turn and Awakening gates are checked when a trigger matches, again when the ability resolves, and before each of its effects. A closed gate ends the resolution. The ability's condition is checked when it resolves.
 - Strategy cards (format.md change 5, Q10): a card with ability data declares its own trigger (`placedInStrategyZone` when its text has none). Only cards without data still log `strategyTextPending`.
 - Layers (format.md change 8, 10.8.1): `getCounterPower(card)`, `getRank(card)` and `getThreat` read printed values, then continuous modifiers. 7.4.2 totals `getCounterPower` plus `totalCounterPower` modifiers; 8.2.1 and 8.3.1 compare `getRank`.
+- Hand and deck effects (format.md build plan item 2): `discard` (the chooser picks), `discardDownTo` (that player keeps cards of their choice, 5.7.2; a hand at or below the size is untouched, 5.7.2.1), `search` (the whole deck, may find nothing, 4.1.2.3, 5.8.1.2; its own effects run on the found cards), `play` from the deck, discard pile or a bound card (zones per 5.11.1.1 to 5.11.1.3; `ignoreRankLimit` defaults to true, since 8.2.1 limits only the main phase action; `asManyAsPossible` and `preferEmpty`, Q3), `addToHand` and `shuffle`. A card played by an effect triggers [enter].
+- Costs and optional abilities (Q2, 10.5.4): an optional cost asks the player first; a cost that can't be paid in full, or is declined, stops the effects. `optional: true` asks "use this ability?" before resolving it. Choices of hidden cards (a hand, a searched deck) show their options only to the chooser.
+- When invading (format.md change 6, Q4, 12.3.2.1): fires once per advance step of an invasion, only when the monster moved; the step that wins the game ends it first (1.2.1).
+- Revealed cards (format.md change 9, 5.10): `getPlayerView` shows a revealed card to both players until it moves or the effect ends (5.10.1.1).
+- Monster rank for the 7.2.2 draw and the next-monster check (5.15.1.2) stays printed. Revisit in M12 when a card first modifies a monster's rank.
 
 **Keyword abilities (12)**, all in M4: Enter (12.2), When invading (12.3), Awakening N (12.4), Burst (12.5), Evolution (12.6), Revenge (12.7), Resonance (12.8), Base (12.9).
 
@@ -258,6 +263,7 @@ The M3 engine must include the framework below, so that M4 adds card abilities a
 | Multi-color cards (missing rule 2.4.4.1) | A multi-color card passes 6.1.1.3 if any of its colors matches the rank I monster |
 | Concede | Allowed any time, including the opponent's turn, with a confirm step |
 | Infinite loop | Declare a draw and save a loop report (seed, decks, full action log, state at detection) for review |
+| [enter] on a monster after a counter | [enter] fires when a card enters the board, including the monster that comes in after a counter (5.15.1.2). The rank I monster placed at setup (6.3.1.6) does not trigger it, because the game hasn't started yet |
 
 ## Test cases
 
