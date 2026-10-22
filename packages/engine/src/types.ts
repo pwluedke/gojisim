@@ -54,6 +54,33 @@ export interface PlayerState {
 
 export type Phase = "start" | "main" | "counter" | "end";
 
+/**
+ * Engine steps, named by rule number, in the order a turn runs them (spec "Turn structure").
+ * `7.3.2` is the turn player's play timing, where the engine waits for an action.
+ */
+export const STEPS = [
+  "7.2.1",
+  "7.2.2",
+  "7.2.3",
+  "7.2.4",
+  "7.2.5",
+  "7.3.1",
+  "7.3.2",
+  "7.4.1",
+  "7.4.2",
+  "7.4.3",
+  "7.4.4",
+  "7.5.1",
+  "7.5.2",
+  "7.5.3",
+  "7.5.4",
+  "7.5.5",
+  "7.5.6",
+  "7.5.7",
+] as const;
+
+export type Step = (typeof STEPS)[number];
+
 /** An automatic ability waiting for a check timing (10.6.2). Filled in from M3d. */
 export interface StandbyAbility {
   abilityId: string;
@@ -108,8 +135,8 @@ export interface GameState {
   turn: number;
   turnPlayer: PlayerId;
   phase: Phase;
-  /** Rule number of the next engine step to run, e.g. `"7.2.1"`. */
-  step: string;
+  /** The next engine step to run. */
+  step: Step;
   turnFlags: {
     /** Invasion is once per turn (8.6.2). */
     invasionUsed: boolean;
@@ -118,6 +145,8 @@ export interface GameState {
   };
   standby: StandbyAbility[];
   continuousEffects: ContinuousEffect[];
+  /** Counter power totalled at 7.4.2, compared at 7.4.3; `null` outside the counter phase. */
+  counterTotal: number | null;
   result: GameResult | null;
   /** Every card that takes part in this game, keyed by `Card.id`. */
   cards: Record<string, Card>;
@@ -132,7 +161,7 @@ export type ActionType =
   | "invade"
   | "pass";
 
-/** A player's choice in the main phase (spec "Actions"). Shapes are filled in from M3c. */
+/** A player's choice in the main phase (spec "Actions"). M3b implements `pass`. */
 export interface Action {
   type: ActionType;
   player: PlayerId;
