@@ -255,3 +255,13 @@ Accepted by Monarch in the M6a review (PR #20).
 169. The weighted policy lives in `@gojisim/bot` and reads the view; stress calls it.
 170. The tournament harness (`tools/bots`): bot a sits in P1 in even games, the sets swap every 2 games, games past turn 500 are unfinished draws, ms per decision covers `chooseAction` only.
 171. Root scripts `pnpm bench` and `pnpm bots`; `bot-reports/` is gitignored.
+
+Accepted by Monarch in the M6b review (PR #21).
+
+172. The freeze guard is switched by `GOJISIM_FREEZE` (read through `globalThis.process`, so the engine keeps no Node dependency) and `setFreezeGuard()`. Test fixtures replace `state.cards` instead of writing into it.
+173. Every evaluation feature is own minus opponent, so `evaluate` is exactly antisymmetric.
+174. `winThreat` counts an invasion as available with a card in hand, unless it's your turn and you already invaded.
+175. `countersLeft` and `nextMonster` read the current monster's printed rank (decision 133).
+176. `greedy` evaluates at the first decision point after the action, whoever it belongs to, or at the game's end; a single legal action is played without searching; ties within 1e-12 go to the seeded rng.
+177. `@gojisim/bot` uses `rootDir: "."` and includes `data/*.json` for the weights file.
+178. `pnpm bots` takes `--a-settings`/`--b-settings` as `key=value` pairs; reports label bots with their settings.

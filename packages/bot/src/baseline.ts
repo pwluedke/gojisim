@@ -1,4 +1,9 @@
-import type { Action, PlayerView, ZoneNumber } from "@gojisim/engine";
+import type {
+  Action,
+  GameState,
+  PlayerView,
+  ZoneNumber,
+} from "@gojisim/engine";
 import type { Bot } from "./types";
 
 /** A uniform pick in [0, n) from a [0, 1) rng. */
@@ -23,22 +28,48 @@ export const POLICY_WEIGHTS: Record<Action["type"], number> = {
   manual: 0,
 };
 
-/** Whether a player's zone holds a battle card (a stack topped by one), from a view. */
-function hasBattleCard(
-  view: PlayerView,
-  playerId: string,
-  zone: ZoneNumber,
-): boolean {
-  const player = view.players.find((p) => p.id === playerId);
-  return (player?.zones[zone].cards ?? []).some((stack) => {
-    const top = stack[stack.length - 1];
-    return top !== undefined && view.cards[top.cardId]?.type === "Battle";
-  });
+/** What the weighted policy reads about the board: from a view, or (in rollouts) a state. */
+export interface Board {
+  /** Whether the player's zone holds a battle card (a stack topped by one). */
+  battleAt(playerId: string, zone: ZoneNumber): boolean;
+  monsterPosition(playerId: string): number | null;
 }
 
-/** The `weighted` policy's pick, from the bot's view only. */
-export function weightedChoice(
-  view: PlayerView,
+/** The board as a player's view shows it. */
+export function viewBoard(view: PlayerView): Board {
+  return {
+    battleAt: (playerId, zone) =>
+      (
+        view.players.find((p) => p.id === playerId)?.zones[zone].cards ?? []
+      ).some((stack) => {
+        const top = stack[stack.length - 1];
+        return top !== undefined && view.cards[top.cardId]?.type === "Battle";
+      }),
+    monsterPosition: (playerId) =>
+      view.players.find((p) => p.id === playerId)?.monsterPosition ?? null,
+  };
+}
+
+/** The board of a full state (for simulations inside a determinized state). */
+export function stateBoard(state: GameState): Board {
+  return {
+    battleAt: (playerId, zone) =>
+      (state.players.find((p) => p.id === playerId)?.zones[zone] ?? []).some(
+        (stack) => {
+          const top = stack[stack.length - 1];
+          return (
+            top !== undefined && state.cards[top.cardId]?.type === "Battle"
+          );
+        },
+      ),
+    monsterPosition: (playerId) =>
+      state.players.find((p) => p.id === playerId)?.monsterPosition ?? null,
+  };
+}
+
+/** The `weighted` policy's pick. */
+export function weightedPick(
+  board: Board,
   options: Action[],
   pick: (n: number) => number,
 ): Action {
@@ -54,20 +85,29 @@ export function weightedChoice(
   const battles = ofType.filter((a) => a.type === "playBattle");
   if (battles.length === 0) return ofType[pick(ofType.length)] as Action;
   const playerId = battles[0]?.player ?? "";
-  const own = view.players.find((p) => p.id === playerId)?.monsterPosition ?? 1;
+  const own = board.monsterPosition(playerId) ?? 1;
   // A battle card in your own zone 8 blocks the opponent's victory through invasion
   // (5.13.1.1.1), so fill an empty zone 8 first. Your own monster crushes it (11.3.3) when it
   // reaches zone 8 at an end phase (7.5.2).
   const toZone8 = battles.filter((a) => a.zone === 8);
-  if (toZone8.length > 0 && !hasBattleCard(view, playerId, 8))
+  if (toZone8.length > 0 && !board.battleAt(playerId, 8))
     return toZone8[pick(toZone8.length)] as Action;
   // Otherwise prefer an empty zone behind your own monster: it only advances (7.5.2), so a
   // battle card there is not crushed and keeps adding counter power (7.4.2).
   const safe = battles.filter(
-    (a) => a.zone < own && !hasBattleCard(view, playerId, a.zone),
+    (a) => a.zone < own && !board.battleAt(playerId, a.zone),
   );
   const pool = safe.length > 0 ? safe : battles;
   return pool[pick(pool.length)] as Action;
+}
+
+/** The `weighted` policy's pick, from the bot's view only. */
+export function weightedChoice(
+  view: PlayerView,
+  options: Action[],
+  pick: (n: number) => number,
+): Action {
+  return weightedPick(viewBoard(view), options, pick);
 }
 
 /** Uniform over the legal actions: the stress test's `uniform` policy. */
