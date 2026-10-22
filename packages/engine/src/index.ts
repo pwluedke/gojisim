@@ -34,6 +34,7 @@ export {
   isAtPlayTiming,
   isWaiting,
 } from "./phases";
+export { type GameRecord, replay, replayAll, startGame } from "./record";
 export { normalizeSeed } from "./rng";
 export { type CreateGameOptions, createGame, type PlayerSetup } from "./setup";
 export * from "./types";

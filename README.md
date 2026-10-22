@@ -16,6 +16,10 @@ pnpm e2e         # Playwright (first run: pnpm --filter @gojisim/web exec playwr
 
 Other root scripts: `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm scrape` (refresh card data, see `tools/scraper`).
 
+## Debug viewer
+
+`pnpm --filter @gojisim/web dev`, then open `http://localhost:5173/debug`. Pick a seed and a test deck for each player (`buildTestDeck`, ESD01 or ESD02), then play both sides. All hidden information is shown. Step back and forward through the actions, and export the game record as JSON to attach to a bug report (import loads it again). Card images appear once `pnpm images` has run.
+
 ## Card images
 
 Card images are not committed. Run this once after cloning:
