@@ -11,7 +11,7 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
-    "test": "vitest run",
+    "test": "GOJISIM_FREEZE=1 vitest run",
     "e2e": "pnpm --filter @gojisim/web e2e",
     "scrape": "pnpm --filter @gojisim/scraper scrape",
     "images": "pnpm --filter @gojisim/scraper images",

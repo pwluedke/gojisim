@@ -54,6 +54,7 @@ export {
   replayAll,
   startGame,
 } from "./record";
+export { isFreezeGuardOn, setFreezeGuard } from "./freeze";
 export { normalizeSeed } from "./rng";
 export { type CreateGameOptions, createGame, type PlayerSetup } from "./setup";
 export * from "./types";

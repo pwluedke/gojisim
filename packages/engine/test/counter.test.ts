@@ -209,7 +209,7 @@ describe("counter (5.15, 7.4)", () => {
       (c) => state.cards[c.cardId]?.rank === 3,
     ) as CardInstance;
     const other = monsterCard(3, { traits: ["Other"] });
-    state.cards[other.id] = other;
+    state.cards = { ...state.cards, [other.id]: other };
     rank3.cardId = other.id;
     expect(runCounter(state).result).toMatchObject({
       winner: me.id,

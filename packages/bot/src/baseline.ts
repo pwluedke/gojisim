@@ -83,9 +83,3 @@ export const weightedBot: Bot = {
   chooseAction: ({ view, legalActions, rng }) =>
     weightedChoice(view, legalActions, pickWith(rng)),
 };
-
-/** Bots by name, for the tournament harness. */
-export const BOTS: Record<string, Bot> = {
-  random: randomBot,
-  weighted: weightedBot,
-};

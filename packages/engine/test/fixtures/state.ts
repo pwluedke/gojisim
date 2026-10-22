@@ -32,7 +32,8 @@ export function addCard(
   card: Card,
   owner: string,
 ): CardInstance {
-  state.cards[card.id] = card;
+  // The catalog is shared between states (decision 168): replace it, never write into it.
+  state.cards = { ...state.cards, [card.id]: card };
   return { instanceId: `c${state.nextInstanceId++}`, cardId: card.id, owner };
 }
 

@@ -23,7 +23,7 @@ function burstPlay(): GameState {
   const opp = state.players.find((p) => p.id !== state.turnPlayer)!;
   const add = (number: string, owner: string) => {
     const card = real(number);
-    state.cards[card.id] = card;
+    state.cards = { ...state.cards, [card.id]: card };
     return { instanceId: `c${state.nextInstanceId++}`, cardId: card.id, owner };
   };
   me.invadingMonsterZone = [add("ESD01-001", me.id)];
