@@ -1,4 +1,7 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { BOTS, type BotSettings } from "@gojisim/bot";
 import {
@@ -25,6 +28,11 @@ const { values } = parseArgs({
     decks: { type: "string", default: "official" },
     "turn-cap": { type: "string", default: String(MATCH_TURN_CAP) },
     progress: { type: "string", default: "50" },
+    // Play games in N child processes (one shard each), then merge the results in game order.
+    workers: { type: "string", default: "1" },
+    // Internal: which games a child plays ("k/N": games with game % N === k), and where it writes.
+    shard: { type: "string" },
+    results: { type: "string" },
     // pnpm runs this script inside tools/bots; INIT_CWD is where `pnpm bots` was typed.
     out: { type: "string", default: process.env["INIT_CWD"] ?? "." },
   },
@@ -60,25 +68,75 @@ if (decks !== "official" && decks !== "random")
 const games = Number(values.games);
 const progress = Number(values.progress);
 
+const workers = Math.max(1, Number(values.workers));
+const shard = values.shard?.split("/").map(Number) as
+  [number, number] | undefined;
+const mine = (game: number) => !shard || game % shard[1] === shard[0];
+
 const results: GameResult[] = [];
-for (let game = 0; game < games; game++) {
-  results.push(
-    playMatchGame(
-      { bot: a, settings: aSettings },
-      { bot: b, settings: bSettings },
-      values.seed,
-      game,
-      decks,
-      Number(values["turn-cap"]),
-    ),
+if (workers > 1 && !shard) {
+  // Each child replays this command for its shard and writes its results to a file.
+  const dir = await mkdtemp(join(tmpdir(), "gojisim-bots-"));
+  const args = process.argv
+    .slice(2)
+    .filter((x, i, all) => x !== "--workers" && all[i - 1] !== "--workers");
+  let done = 0;
+  await Promise.all(
+    Array.from({ length: workers }, (_, k) => {
+      const file = join(dir, `shard-${k}.json`);
+      return new Promise<void>((resolve, reject) => {
+        const child = spawn(
+          process.execPath,
+          [
+            ...process.execArgv,
+            process.argv[1] as string,
+            ...args,
+            "--shard",
+            `${k}/${workers}`,
+            "--results",
+            file,
+          ],
+          { stdio: ["ignore", "ignore", "inherit"] },
+        );
+        child.on("exit", async (code) => {
+          if (code !== 0)
+            return reject(new Error(`shard ${k} exited with ${code}`));
+          results.push(
+            ...(JSON.parse(await readFile(file, "utf8")) as GameResult[]),
+          );
+          done++;
+          console.log(
+            `  shard ${done} / ${workers} done (${results.length} / ${games} games)`,
+          );
+          resolve();
+        });
+      });
+    }),
   );
-  if ((game + 1) % progress === 0 || game + 1 === games) {
-    const s = summarize(a, b, values.seed, decks, results);
-    s.a = label(a.name, aSettings);
-    s.b = label(b.name, bSettings);
-    console.log(
-      `  ${game + 1} / ${games}: ${s.a} ${s.wins.a}, ${s.b} ${s.wins.b}, draws ${s.wins.draws}`,
+  results.sort((x, y) => x.game - y.game);
+} else {
+  for (let game = 0; game < games; game++) {
+    if (!mine(game)) continue;
+    results.push(
+      playMatchGame(
+        { bot: a, settings: aSettings },
+        { bot: b, settings: bSettings },
+        values.seed,
+        game,
+        decks,
+        Number(values["turn-cap"]),
+      ),
     );
+    if (!shard && ((game + 1) % progress === 0 || game + 1 === games)) {
+      const s = summarize(a, b, values.seed, decks, results);
+      console.log(
+        `  ${game + 1} / ${games}: ${label(a.name, aSettings)} ${s.wins.a}, ${label(b.name, bSettings)} ${s.wins.b}, draws ${s.wins.draws}`,
+      );
+    }
+  }
+  if (shard) {
+    await writeFile(values.results as string, JSON.stringify(results));
+    process.exit(0);
   }
 }
 
