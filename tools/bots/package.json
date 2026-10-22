@@ -1,0 +1,19 @@
+{
+  "name": "@gojisim/bots",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bots": "tsx src/main.ts",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@gojisim/bot": "workspace:*",
+    "@gojisim/cards": "workspace:*",
+    "@gojisim/engine": "workspace:*",
+    "@gojisim/stress": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}

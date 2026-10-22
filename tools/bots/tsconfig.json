@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "types": ["node"]
+  },
+  "include": ["src", "test"],
+  "references": [
+    { "path": "../../packages/cards" },
+    { "path": "../../packages/engine" },
+    { "path": "../../packages/bot" }
+  ]
+}

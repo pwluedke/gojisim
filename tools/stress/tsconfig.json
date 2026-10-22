@@ -12,6 +12,9 @@
     },
     {
       "path": "../../packages/engine"
+    },
+    {
+      "path": "../../packages/bot"
     }
   ]
 }

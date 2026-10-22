@@ -921,6 +921,12 @@ function pickCards(
   if (!canStop && left.length <= remaining) return [...chosen, ...left];
   if (remaining <= 0 || left.length === 0 || r.chosen.includes("done"))
     return chosen;
+  // Hidden cards are offered in instance id order, so the options never reveal a deck's order.
+  if (options.hidden)
+    left.sort(
+      (a, b) =>
+        Number(a.card.instanceId.slice(1)) - Number(b.card.instanceId.slice(1)),
+    );
   requireChoice(
     state,
     chooser,

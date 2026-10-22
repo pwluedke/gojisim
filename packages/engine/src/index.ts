@@ -30,6 +30,7 @@ export {
 export {
   advance,
   advanceToDecision,
+  cloneState,
   END_PHASE_HAND_SIZE,
   isAtPlayTiming,
   isWaiting,

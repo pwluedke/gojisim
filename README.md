@@ -14,7 +14,7 @@ pnpm test        # Vitest across all packages
 pnpm e2e         # Playwright (first run: pnpm --filter @gojisim/web exec playwright install chromium)
 ```
 
-Other root scripts: `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm scrape` (refresh card data, see `tools/scraper`), `pnpm survey` (regenerate the ability survey in `docs/abilities/`), `pnpm abilities:coverage` (every card's ability status: implemented, partial or manual; `--set`, `--status`, `--json`).
+Other root scripts: `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm scrape` (refresh card data, see `tools/scraper`), `pnpm survey` (regenerate the ability survey in `docs/abilities/`), `pnpm abilities:coverage` (every card's ability status: implemented, partial or manual; `--set`, `--status`, `--json`). `pnpm bench` (engine speed: clone, applyAction, getLegalActions, random games per second), `pnpm bots --a weighted --b random --games 1000 --seed s --decks official` (bot tournament; report in `bot-reports/`).
 
 ## Debug viewer
 
@@ -57,3 +57,4 @@ It downloads every card's original PNG from godzillatcgdb.com (1 request per sec
 | `tools/scraper`        | `@gojisim/scraper`        | Card data and image scraper                                        |
 | `tools/stress`         | `@gojisim/stress`         | Random-game stress test                                            |
 | `tools/ability-survey` | `@gojisim/ability-survey` | Card ability text survey (`pnpm survey`, writes `docs/abilities/`) |
+| `tools/bots`           | `@gojisim/bots`           | Bot tournament harness (`pnpm bots`)                               |

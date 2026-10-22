@@ -14,6 +14,13 @@ import { ZONE_NUMBERS } from "./types";
 
 export type Viewer = PlayerId | "spectator";
 
+/** A card revealed from a hidden area (5.10), and where it is. */
+export interface RevealedCard {
+  card: CardInstance;
+  player: PlayerId;
+  area: "hand" | "deck" | "monsterDeck";
+}
+
 export interface PendingChoiceView extends Omit<PendingChoice, "options"> {
   optionCount: number;
   options: ChoiceOption[] | null;
@@ -63,8 +70,18 @@ export interface PlayerView {
    * everyone sees the option count.
    */
   pendingChoice: PendingChoiceView | null;
-  /** Cards revealed to both players, wherever they are, until they move or the effect ends (5.10). */
-  revealed: CardInstance[];
+  /** Cards revealed to both players, with where they are, until they move or the effect ends (5.10). */
+  revealed: RevealedCard[];
+  /** Public engine status a search bot needs to rebuild a playable state (M6a). */
+  counterTotal: GameState["counterTotal"];
+  checkTiming: GameState["checkTiming"];
+  timedTriggers: GameState["timedTriggers"];
+  manualQueue: GameState["manualQueue"];
+  /**
+   * The paused ability resolution, only for the player who must make the pending choice (its
+   * progress is their own picks); `null` for everyone else.
+   */
+  resolution: GameState["resolution"];
   result: GameState["result"];
   /** Card data only for cards this viewer can see. */
   cards: Record<string, Card>;
@@ -142,7 +159,7 @@ function visibleCardIds(view: Omit<PlayerView, "cards">): Set<number> {
     add(player.discard.cards);
   }
   add(view.resolutionArea.cards);
-  add(view.revealed);
+  add(view.revealed.map((r) => r.card));
   for (const entry of view.log) {
     if (typeof entry.payload["cardId"] === "number")
       ids.add(entry.payload["cardId"]);
@@ -171,13 +188,31 @@ export function getPlayerView(state: GameState, viewer: Viewer): PlayerView {
     standby: cloneJson(state.standby),
     continuousEffects: cloneJson(state.continuousEffects),
     pendingChoice: choiceView(state.pendingChoice, viewer),
-    revealed: cloneJson(
-      state.players.flatMap((p) =>
-        [...p.hand, ...p.deck, ...p.monsterDeck].filter((c) =>
-          state.revealed.includes(c.instanceId),
-        ),
+    revealed: state.players.flatMap((p) =>
+      (["hand", "deck", "monsterDeck"] as const).flatMap((area) =>
+        p[area]
+          .filter((c) => state.revealed.includes(c.instanceId))
+          .map((c) => ({ card: cloneJson(c), player: p.id, area })),
       ),
     ),
+    counterTotal: state.counterTotal,
+    checkTiming: cloneJson(state.checkTiming),
+    timedTriggers: cloneJson(state.timedTriggers),
+    manualQueue: cloneJson(state.manualQueue),
+    // Only the chooser sees the paused resolution, and only its master sees what it bound (a card
+    // its own search found, for example).
+    resolution:
+      state.pendingChoice !== null &&
+      state.pendingChoice.player === viewer &&
+      state.resolution !== null
+        ? {
+            ...cloneJson(state.resolution),
+            bindings:
+              state.resolution.standby.master === viewer
+                ? cloneJson(state.resolution.bindings)
+                : {},
+          }
+        : null,
     result: cloneJson(state.result),
     log: cloneJson(state.log),
   };

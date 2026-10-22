@@ -3,13 +3,18 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./src/stress.ts"
+  },
   "scripts": {
     "stress": "tsx src/main.ts",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "bench": "tsx src/bench.ts"
   },
   "dependencies": {
     "@gojisim/cards": "workspace:*",
-    "@gojisim/engine": "workspace:*"
+    "@gojisim/engine": "workspace:*",
+    "@gojisim/bot": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.23.15"

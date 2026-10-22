@@ -185,6 +185,17 @@ export function checkInvariants(state: GameState): string[] {
         state.pendingChoice.player === viewer
           ? state.pendingChoice.options.map((o) => o.id)
           : []),
+        // The chooser's view of a paused resolution: their own picks so far, and (for its master)
+        // the cards it bound, all cards that player has seen (a hand, a searched deck).
+        ...(view.resolution
+          ? [
+              ...view.resolution.chosen,
+              ...(view.resolution.subject ? [view.resolution.subject] : []),
+              ...Object.values(view.resolution.bindings).flatMap((b) =>
+                b.kind === "cards" ? b.cards.map((c) => c.instanceId) : [],
+              ),
+            ]
+          : []),
       ]);
       const leaked = hidden.filter(
         (c) => mentioned.has(`"${c.instanceId}"`) && !allowed.has(c.instanceId),
