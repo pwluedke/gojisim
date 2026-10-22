@@ -6,6 +6,11 @@
     "outDir": "dist",
     "resolveJsonModule": true
   },
-  "include": ["src", "data/errata.json", "data/restrictions.json"],
+  "include": [
+    "src",
+    "data/errata.json",
+    "data/restrictions.json",
+    "data/cards.json"
+  ],
   "exclude": ["src/**/*.test.ts"]
 }

@@ -11,6 +11,8 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@gojisim/cards": "workspace:*",
+    "@gojisim/engine": "workspace:*",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

@@ -133,3 +133,19 @@ Accepted by Monarch in the M3c review (PR #8).
 74. `invade` sets `invasionUsed` before discarding.
 75. `advanceToDecision` returns a finished game instead of throwing; `advance` itself throws "game over".
 76. Battle and strategy cards need a non-null `rank` to be offered as actions.
+
+Accepted by Monarch in the M3d review (PR #9).
+
+77. Check timing is resumable: each engine step moves `state.step` on before its check timing, and a check timing is always the last thing a step or action does. A choice pauses it (`state.checkTiming`) and `choose` resumes it.
+78. 7.4.3 moves to step 7.4.4 before countering, so a `nextMonster` choice waits at 7.4.4.
+79. Standby order is asked only when it can matter: copies of the same ability from the same card resolve earliest-first automatically.
+80. Every log entry is an engine event for the trigger check, except `enterStandby`.
+81. Abilities are active on the top card of each zone stack, the top card of the invading monster, and strategy cards (10.3.4). Other areas come with M4.
+82. The ability registry is module-level code (`registerAbility`), not state; tests unregister their fixtures.
+83. Standby entries also store `sourceCardId` and the triggering `event`.
+84. `ResultReason` is `invasion | victoryThroughCountering | concession | effect | draw`.
+85. Losses (`markLoss`) settle at the end of each engine step, action, choice and ability resolution (`resolveLosses`); both players losing is a draw (1.2.2).
+86. `choiceRequired` logs only the kind and option count; the chosen next monster is logged once it is public.
+87. The next-monster choice after a counter cannot be refused (searching may "find nothing" is not offered). Confirmed by Monarch.
+88. `concede` comes last in every legal action list.
+89. `nextChoiceId` is a state counter for choice ids.
