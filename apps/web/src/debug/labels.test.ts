@@ -39,21 +39,23 @@ function burstPlay(): GameState {
 }
 
 describe("debug decision heading and choice labels", () => {
-  it("says the opponent is choosing what to discard during the turn player's turn, with Keep buttons", () => {
+  it("says the opponent is choosing what to discard during the turn player's turn, with Discard buttons", () => {
     const state = burstPlay();
     const opp = state.pendingChoice!.player;
     expect(opp).not.toBe(state.turnPlayer);
     expect(decisionHeading(state)).toBe(
-      `${opp} is choosing what to discard: keeping 4 cards, the rest are discarded for Godzilla (2023) (pick 4 more to keep) during ${state.turnPlayer}'s turn`,
+      `${opp} is choosing what to discard for Godzilla (2023), down to 4 cards (discard 1 more) during ${state.turnPlayer}'s turn`,
     );
     const choices = getLegalActions(state, opp).filter(
       (a) => a.type === "choose",
     );
     expect(
-      choices.every((a) => actionLabel(state, a).startsWith("Keep ")),
+      choices.every((a) => actionLabel(state, a).startsWith("Discard ")),
     ).toBe(true);
+    // One pick is all it takes: the turn player's play timing comes back.
     const after = applyAction(state, choices[0] as Action);
-    expect(decisionHeading(after)).toContain("(pick 3 more to keep)");
+    expect(after.pendingChoice).toBeNull();
+    expect(after.players.find((p) => p.id === opp)?.hand).toHaveLength(4);
   });
 
   it("at the play timing, names the turn player", () => {

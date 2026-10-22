@@ -77,7 +77,7 @@ export function actionLabel(state: GameState, action: Action): string {
       // Hand and deck choices say what happens to the card.
       switch (choice?.rule) {
         case "5.7.2":
-          return `Keep ${named}`;
+          return `Discard ${named}`;
         case "5.7.1":
           return `Discard ${named}`;
         case "5.8.1":
@@ -156,8 +156,10 @@ export function decisionHeading(state: GameState): string {
     default: {
       const effect = currentEffect(state);
       if (choice.rule === "5.7.2" && effect?.effect === "discardDownTo") {
-        const left = effect.size - (state.resolution?.chosen.length ?? 0);
-        what = `choosing what to discard: keeping ${effect.size} card${effect.size === 1 ? "" : "s"}, the rest are discarded${by} (pick ${left} more to keep)`;
+        const picked = state.resolution?.chosen.length ?? 0;
+        const hand = state.players.find((p) => p.id === who)?.hand.length ?? 0;
+        const left = hand - effect.size - picked;
+        what = `choosing what to discard${by}, down to ${effect.size} card${effect.size === 1 ? "" : "s"} (discard ${left} more)`;
       } else if (choice.rule === "5.7.1")
         what = `choosing a card to discard${by}`;
       else if (choice.rule === "5.8.1" || choice.rule === "12.6.2")

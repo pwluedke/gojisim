@@ -215,7 +215,7 @@ Accepted by Monarch in the M4d review (PR #15).
 138. Optional costs and `optional` abilities ask a yes/no `confirm` choice. Declining logs `abilityDeclined` or `costNotPaid`; a cost that can't be paid in full is skipped without asking (10.5.4.1). Payability is checked for `discard` costs.
 139. A search always offers `done` ("find nothing", 5.8.1.2); "up to N" picks also offer `done`.
 140. Choices among hidden cards are private (`PendingChoice.private`): only the chooser sees the options, and the `choose` log omits the card id.
-141. `discardDownTo` has that player pick the cards to keep, one per choice, then discards the rest (5.7.2). `player: "each"` is not built yet.
+141. `discardDownTo` has that player pick the cards to discard, one per choice, until the hand is down to the size (5.7.2; amended by Paul's ruling, Oct 22, 2026: pick discards, not keeps). `player: "each"` is not built yet.
 142. `search` of another player's deck and `play` of a non-battle card are not built yet.
 143. `play` chooses every zone before placing any card: own zones from the selector, minus the own monster's zone, minus zones already used if others remain, empty zones first with `preferEmpty`. One legal zone means no choice; none means that card isn't played.
 144. Cards played by an effect get `playedVia: "effect"`, and their `place` log entry carries `played: true`, which [enter] matches.
