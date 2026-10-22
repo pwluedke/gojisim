@@ -223,3 +223,14 @@ Accepted by Monarch in the M4d review (PR #15).
 146. A resolution keeps a `stage` (useAbility, payCost, cost, main), a `path` into nested effects, and `chosen`, `zonePicks` and `answer` progress.
 147. `state.revealed` holds revealed instance ids until the resolution ends; `getPlayerView().revealed` lists them. `addToHand` names a card only if it was revealed or came from the discard pile.
 148. Invasion `advance` log entries carry `invasion: true`; the `invading` trigger matches them on the active monster only.
+
+Accepted by Monarch in the M4e review (PR #16).
+
+149. Replacements are checked while the doomed card is still in its zone (before an 11.3 crush, before overload losers are removed, before effect destroys). `instead` effects run inline under a temporary resolution; one that needs a choice is not built yet.
+150. A `replacementOrder` choice is offered for effect destroys. A rule action (11.3, 11.5) can't pause, so 2 or more replacements there throw; a stress invariant flags any card with 2 or more destroy replacements, so M12 catches it.
+151. A replacement logs `replace` (with `replacedRule`) instead of `destroy`; overload losers a replacement took away are left out of the 11.5 destroy.
+152. `putOnDeck` on a zone card takes its whole stack; cards under it go to the discard pile without a destroy (5.12.1.1).
+153. `moveBattle` offers only zones on the card owner's field, minus its current zone and the owner's monster zone; `optional: true` adds `done` to the zone choice. Several targets are not built yet.
+154. Rage changes go through `setRage`, which logs `rageChanged {from, to}` or `rageUnchanged` (1.3.2.1). The 7.2.4 reset from 0 logs nothing.
+155. `cardPlayed` also matches a new invading monster after a counter (5.11.2) and strategy activations (5.9); `what` is evaluated where the card landed.
+156. The manual-strategy `strategyTextPending` test uses ESD02-014.

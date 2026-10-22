@@ -553,7 +553,7 @@ export function dataTriggers(
 ): Extract<Ability, { kind: "triggered" }>[] {
   const data = abilitiesOf(state, source);
   if (data.status === "manual") return [];
-  return data.abilities.filter(
+  return withKeywords(data.abilities).filter(
     (a): a is Extract<Ability, { kind: "triggered" }> =>
       a.kind === "triggered" &&
       triggerMatches(state, a.trigger, event, source, master) &&
@@ -576,7 +576,8 @@ function findAbility(
     card &&
     (testAbilities.get(card.deckCardNumber) ??
       getCardAbilities(card.deckCardNumber));
-  const ability = data?.abilities.find((a) => "id" in a && a.id === id);
+  const ability =
+    data && withKeywords(data.abilities).find((a) => "id" in a && a.id === id);
   if (
     !ability ||
     ability.kind !== "triggered" ||
@@ -584,6 +585,85 @@ function findAbility(
   )
     throw new Error(`No triggered ability ${standby.abilityId}`);
   return ability;
+}
+
+/**
+ * The card's abilities with keywords expanded into the abilities they stand for. Evolution
+ * (12.6.2): "at the beginning of your main phase, you may search ..." becomes an optional trigger
+ * whose `evolve` effect searches by this card's rank and trait. Burst is handled by the play
+ * action and a timed trigger (12.5).
+ */
+export function withKeywords(abilities: Ability[]): Ability[] {
+  return abilities.flatMap((ability): Ability[] => {
+    if (ability.kind !== "keyword" || ability.keyword.name !== "evolution")
+      return [ability];
+    return [
+      {
+        kind: "triggered",
+        id: "evolution",
+        optional: true,
+        trigger: { on: "phaseBegins", phase: "main", whose: "yours" },
+        effects: [
+          {
+            effect: "evolve",
+            target: { owner: "you", area: "zones", this: true },
+          },
+        ],
+      },
+    ];
+  });
+}
+
+/** A card's Evolution keyword (12.6), if its data has one. */
+function evolutionOf(
+  state: GameState,
+  card: CardInstance,
+): { rank: number; trait: string } | null {
+  for (const ability of abilitiesOf(state, card).abilities)
+    if (ability.kind === "keyword" && ability.keyword.name === "evolution")
+      return { rank: ability.keyword.rank, trait: ability.keyword.trait };
+  return null;
+}
+
+/** A card's Burst rank (12.5), if its data has one. */
+export function burstRankOf(
+  state: GameState,
+  card: CardInstance,
+): number | null {
+  for (const ability of abilitiesOf(state, card).abilities)
+    if (ability.kind === "keyword" && ability.keyword.name === "burst")
+      return ability.keyword.rank;
+  return null;
+}
+
+/**
+ * Resolves Burst's timed trigger (12.5.2): the card leaves the invading monster for the discard
+ * pile, even if it isn't on top (12.5.2.1). The card below becoming the top is not an entry
+ * (12.5.3): nothing is placed, so no [enter] or `cardPlayed`.
+ */
+export function resolveBurstDiscard(
+  state: GameState,
+  standby: StandbyAbility,
+): void {
+  const player = getPlayer(state, standby.master);
+  const index = player.invadingMonsterZone.findIndex(
+    (c) => c.instanceId === standby.sourceInstanceId,
+  );
+  if (index < 0) {
+    appendLog(state, "burstDiscard", player.id, {
+      rule: "12.5.2",
+      cardId: standby.sourceCardId,
+      gone: true,
+    });
+    return;
+  }
+  const [card] = player.invadingMonsterZone.splice(index, 1);
+  toDiscard(state, card as CardInstance);
+  appendLog(state, "burstDiscard", player.id, {
+    rule: "12.5.2",
+    cardId: standby.sourceCardId,
+    wasTop: index === player.invadingMonsterZone.length,
+  });
 }
 
 function contextOf(state: GameState): Context {
@@ -623,6 +703,7 @@ export function resolveDataAbility(
     zonePicks: [],
     answer: null,
     replacementPicks: [],
+    subject: null,
   };
   if (
     ability.condition &&
@@ -756,6 +837,7 @@ function runResolution(state: GameState): void {
     r.chosen = [];
     r.zonePicks = [];
     r.replacementPicks = [];
+    r.subject = null;
     const next = nextPath(list, r.path);
     if (next) r.path = next;
     else if (r.stage === "cost") {
@@ -1216,6 +1298,89 @@ function perform(state: GameState, effect: Effect): Outcome {
       });
       return "done";
     }
+    case "evolve": {
+      // 1. Pick the battle card to evolve: one with an Evolution keyword (5.17, Q8).
+      if (r.subject === null) {
+        const candidates = select(ctx, effect.target).filter(
+          (l) => l.zone !== undefined && evolutionOf(state, l.card) !== null,
+        );
+        const picked = pickCards(
+          ctx,
+          candidates,
+          { exact: 1 },
+          ctx.master,
+          "5.17",
+        );
+        if (picked === "paused") return "paused";
+        const [target] = picked;
+        // No legal card: nothing happens.
+        if (!target) return "done";
+        r.subject = target.card.instanceId;
+        r.chosen = [];
+      }
+      const target = locate(state, r.subject);
+      const evolution = target && evolutionOf(state, target.card);
+      if (!target || target.zone === undefined || !evolution) return "done";
+      // 2. Search the deck for 1 battle card with the trait and rank N or lower, which may find
+      // nothing (12.6.2, 5.8.1.2).
+      const me = getPlayer(state, ctx.master);
+      const found = pickCards(
+        ctx,
+        select(ctx, {
+          owner: "you",
+          area: "deck",
+          type: "Battle",
+          traits: [evolution.trait],
+          rank: { op: "<=", value: evolution.rank },
+        }),
+        { exact: 1 },
+        me.id,
+        "12.6.2",
+        { mayFindNothing: true, hidden: true },
+      );
+      if (found === "paused") return "paused";
+      appendLog(state, "search", me.id, {
+        rule: "12.6.2",
+        found: found.length,
+        abilityId,
+      });
+      const [card] = found;
+      if (card) {
+        // 3. Reveal it and play it stacked on top of the evolving card (12.6.2, 5.17.1).
+        appendLog(state, "reveal", me.id, {
+          rule: "5.10.1",
+          cardId: card.card.cardId,
+          abilityId,
+        });
+        const stack = me.zones[target.zone].find(
+          (s) => topOf(s)?.instanceId === target.card.instanceId,
+        );
+        if (stack) {
+          const evolved = moved(state, takeCard(card));
+          evolved.playedVia = "evolution";
+          stack.push(evolved);
+          appendLog(state, "place", me.id, {
+            rule: "12.6.2",
+            cardId: evolved.cardId,
+            instanceId: evolved.instanceId,
+            from: "deck",
+            to: `zone ${target.zone}`,
+            played: true,
+            abilityId,
+          });
+          appendLog(state, "evolve", me.id, {
+            rule: "5.17.1.1",
+            from: target.card.cardId,
+            to: evolved.cardId,
+            zone: target.zone,
+          });
+        }
+      }
+      // 4. The deck is shuffled whether or not the search found a card.
+      shuffleInPlace(state, me.deck);
+      appendLog(state, "shuffleDeck", me.id, { rule: "12.6.2", abilityId });
+      return "done";
+    }
     case "putOnDeck": {
       for (const found of select(ctx, effect.target)) {
         const card = takeFromAnywhere(state, found);
@@ -1417,6 +1582,7 @@ export function applyReplacement(
     zonePicks: [],
     answer: null,
     replacementPicks: [],
+    subject: null,
   };
   try {
     for (const effect of replacement.ability.instead)
@@ -1435,6 +1601,10 @@ export function applyReplacement(
  * Each replacement applies to an event at most once (10.9.2.3): once one applies, the destroy is
  * gone, so no other can.
  */
+/** Error message when a rule action meets 2 or more replacements (decision 150, M12). */
+export const REPLACEMENT_ORDER_IN_RULE_ACTION =
+  "not implemented: choosing between replacements in a rule action";
+
 export function replacementFor(
   state: GameState,
   card: CardInstance,
@@ -1444,9 +1614,6 @@ export function replacementFor(
   if (options.length === 0) return null;
   if (options.length === 1) return options[0] as Replacement;
   const chosen = options.find((o) => o.abilityId === picked);
-  if (!chosen)
-    throw new Error(
-      "not implemented: choosing between replacements in a rule action",
-    );
+  if (!chosen) throw new Error(REPLACEMENT_ORDER_IN_RULE_ACTION);
   return chosen;
 }

@@ -99,6 +99,23 @@ export function fireTriggers(
     state.standby.push(ability);
     entered.push(ability);
   };
+  // Timed triggers (10.6.5) fire once, whether or not their card is still active (12.5.2.1).
+  if (event.type === "phaseBegins" && event.payload["phase"] === "end") {
+    const due = state.timedTriggers.filter(
+      (t) => t.kind === "burstDiscard" && t.master === state.turnPlayer,
+    );
+    state.timedTriggers = state.timedTriggers.filter((t) => !due.includes(t));
+    for (const timed of due)
+      enter(
+        {
+          instanceId: timed.sourceInstanceId,
+          cardId: timed.sourceCardId,
+          owner: timed.master,
+        },
+        timed.master,
+        "timed:burstDiscard",
+      );
+  }
   for (const { card, master } of activeCards(state)) {
     // Card ability data: the trigger matches and the gates are open (format.md, Q7, Q9).
     const number = state.cards[card.cardId]?.deckCardNumber ?? "";

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   advanceToDecision,
   applyAction,
+  checkInvariants,
   type CardInstance,
   type GameState,
   getCounterPower,
@@ -460,5 +461,9 @@ describe("replacement order (10.9.2)", () => {
     expect(byId(after, opp.id).deck.at(-1)?.cardId).toBe(967001);
     expect(byId(after, opp.id).deck[0]?.cardId).not.toBe(967001);
     expect(after.log.filter((e) => e.type === "replace")).toHaveLength(1);
+    // The M12 guard (decision 150): the invariant check flags such a card in a zone.
+    expect(checkInvariants(paused).some((p) => p.startsWith("M12:"))).toBe(
+      true,
+    );
   });
 });

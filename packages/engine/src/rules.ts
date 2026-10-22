@@ -2,6 +2,7 @@ import { getAbility } from "./abilities";
 import {
   applyReplacement,
   replacementFor,
+  resolveBurstDiscard,
   resolveDataAbility,
 } from "./interpreter";
 import { guardLoop } from "./loop";
@@ -307,6 +308,16 @@ export function resolveStandby(state: GameState, standbyId: string): void {
   const [ability] = state.standby.splice(index, 1);
   if (!ability) throw new Error(`No standby ability ${standbyId}`);
   const definition = getAbility(ability.abilityId);
+  if (ability.abilityId === "timed:burstDiscard") {
+    appendLog(state, "resolveAbility", ability.master, {
+      rule: "10.6.5",
+      standbyId,
+      abilityId: ability.abilityId,
+      cardId: ability.sourceCardId,
+    });
+    resolveBurstDiscard(state, ability);
+    return;
+  }
   if (!definition && ability.abilityId.includes("#")) {
     appendLog(state, "resolveAbility", ability.master, {
       rule: "10.6.3",

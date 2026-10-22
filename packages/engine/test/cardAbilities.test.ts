@@ -136,7 +136,7 @@ describe("ESD01-016 Heat Ray", () => {
     const state = atPlayTiming();
     const me = turnPlayer(state);
     me.monsterPosition = 8;
-    const manual = inHand(state, me, real("ESD02-014"));
+    const manual = inHand(state, me, real("EBP01-032"));
     const after = applyAction(state, {
       type: "activateStrategy",
       player: me.id,

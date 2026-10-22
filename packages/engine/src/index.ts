@@ -22,7 +22,11 @@ export {
   getThreat,
   RAGE_THREAT,
 } from "./stats";
-export { abilitiesOf, hasAbilityData } from "./interpreter";
+export {
+  abilitiesOf,
+  hasAbilityData,
+  REPLACEMENT_ORDER_IN_RULE_ACTION,
+} from "./interpreter";
 export {
   advance,
   advanceToDecision,

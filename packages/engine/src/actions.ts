@@ -1,6 +1,6 @@
 import { getCardTraits } from "@gojisim/cards";
 import { advanceMonster } from "./movement";
-import { hasAbilityData, resumeResolution } from "./interpreter";
+import { burstRankOf, hasAbilityData, resumeResolution } from "./interpreter";
 import { getRank } from "./stats";
 import { activeMonster, makeInvadingMonster } from "./counter";
 import { resetLoopGuard } from "./loop";
@@ -42,21 +42,24 @@ function traitsOf(state: GameState, card: CardInstance): string[] {
 }
 
 /**
- * Whether a monster card in hand can be played on the invading monster (8.5.1): same rank as
- * the active monster and at least one shared trait. Burst (12.5) arrives in M4.
+ * How a monster card in hand can be played on the invading monster, or `null` (8.5.1): it needs
+ * at least one shared trait, and either the active monster's rank (`normal`) or, with Burst, a
+ * Burst rank equal to it (`burst`, 12.5.2: played as though its rank were the Burst rank).
  */
-function canPlayMonster(
+function monsterPlay(
   state: GameState,
   player: PlayerState,
   card: CardInstance,
-): boolean {
+): "normal" | "burst" | null {
   const top = player.invadingMonsterZone[player.invadingMonsterZone.length - 1];
   const active = activeMonster(state, player);
   const data = cardOf(state, card);
-  if (!top || !active || data.type !== "Monster" || data.rank !== active.rank)
-    return false;
+  if (!top || !active || data.type !== "Monster") return null;
   const activeTraits = new Set(traitsOf(state, top));
-  return traitsOf(state, card).some((trait) => activeTraits.has(trait));
+  if (!traitsOf(state, card).some((trait) => activeTraits.has(trait)))
+    return null;
+  if (data.rank === active.rank) return "normal";
+  return burstRankOf(state, card) === active.rank ? "burst" : null;
 }
 
 /**
@@ -134,7 +137,10 @@ function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
       actions.push({ type: "gainRage", player: playerId, cardInstanceId });
     }
     // 8.5.1, and once per turn (Paul's ruling).
-    if (!state.turnFlags.monsterPlayed && canPlayMonster(state, player, card)) {
+    if (
+      !state.turnFlags.monsterPlayed &&
+      monsterPlay(state, player, card) !== null
+    ) {
       actions.push({ type: "playMonster", player: playerId, cardInstanceId });
     }
     // 8.6.1: any card in hand; 8.6.2: once per turn.
@@ -270,6 +276,13 @@ const PERFORM: {
   },
   playMonster: (state, action) => {
     const player = getPlayer(state, action.player);
+    const how = monsterPlay(
+      state,
+      player,
+      player.hand.find(
+        (c) => c.instanceId === action.cardInstanceId,
+      ) as CardInstance,
+    );
     const card = playFromHand(
       state,
       player,
@@ -279,6 +292,17 @@ const PERFORM: {
     const stacked = resolveFromResolutionArea(state, card);
     // 10.5.2.3.1: stacked on top; the monster keeps its position (4.7.2).
     player.invadingMonsterZone.push(stacked);
+    if (how === "burst") {
+      // 12.5.2: at the beginning of the master's next end phase, this card goes to the discard
+      // pile, a timed trigger (10.6.5). Its rank is now its printed rank.
+      stacked.playedVia = "burst";
+      state.timedTriggers.push({
+        kind: "burstDiscard",
+        sourceInstanceId: stacked.instanceId,
+        sourceCardId: stacked.cardId,
+        master: player.id,
+      });
+    }
     appendLog(state, "place", player.id, {
       rule: "10.5.2.3.1",
       cardId: stacked.cardId,

@@ -110,6 +110,18 @@ export interface StandbyAbility {
   event: LogEntry;
 }
 
+/**
+ * A timed trigger (10.6.5), created by an effect or keyword rather than printed on an active card.
+ * It fires once (10.6.5.1). `burstDiscard`: at the beginning of the master's next end phase, send
+ * the card from the invading monster to the discard pile, even if it isn't on top (12.5.2.1).
+ */
+export interface TimedTrigger {
+  kind: "burstDiscard";
+  sourceInstanceId: string;
+  sourceCardId: number;
+  master: PlayerId;
+}
+
 /** A continuous effect in force, ordered by timestamp (10.8.1.7). Filled in from M3d. */
 export interface ContinuousEffect {
   effectId: string;
@@ -196,6 +208,8 @@ export interface Resolution {
   answer: "yes" | "no" | null;
   /** Replacement abilities picked, in order, for destroyed cards with 2 or more (10.9.2.1). */
   replacementPicks: string[];
+  /** The card an effect works on once picked (the battle card being evolved, 5.17). */
+  subject: string | null;
 }
 
 /** A choice the engine is waiting for. Only `player` may act, with `choose` (or `concede`). */
@@ -260,6 +274,8 @@ export interface GameState {
   resolution: Resolution | null;
   /** Instance ids of cards revealed to both players until they move or the effect ends (5.10). */
   revealed: string[];
+  /** Timed triggers waiting for a later point in the game (10.6.5), e.g. Burst's discard. */
+  timedTriggers: TimedTrigger[];
   /** The check timing in progress while a choice inside it is pending (10.4.3). */
   checkTiming: { rule: string } | null;
   /** Losses recorded during the current process (1.2.2); empty between processes. */
