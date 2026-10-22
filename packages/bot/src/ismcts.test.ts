@@ -56,7 +56,8 @@ const choose = (state: GameState, seed: string, settings = BUDGET) =>
     botInput(state, "P1", LISTS, seededRng(seed), settings),
   );
 
-describe("ismcts (M6c)", () => {
+// Searches run a fixed number of iterations (no clock), which takes seconds on a slow CI runner.
+describe("ismcts (M6c)", { timeout: 60_000 }, () => {
   it("a seeded search returns the same action twice", () => {
     const state = start();
     expect(choose(state, "same")).toEqual(choose(state, "same"));
