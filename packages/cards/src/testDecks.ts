@@ -1,12 +1,18 @@
-import cardsJson from "../data/cards.json";
-import { type Card, CardListSchema } from "./schema";
+import { getAllCards } from "./allCards";
+import type { Card } from "./schema";
+import {
+  MAIN_DECK_SIZE,
+  MAX_COPIES_PER_CARD,
+  MAX_INVASION_2,
+} from "./validate";
+
+export { getAllCards } from "./allCards";
 
 /** Sets `buildTestDeck` is offered for in the debug viewer. */
 export const TEST_DECK_SETS = ["ESD01", "ESD02"] as const;
 
-export const MAIN_DECK_SIZE = 50;
-export const MAX_COPIES = 4;
-export const MAX_INVASION_2 = 10;
+export { MAIN_DECK_SIZE, MAX_INVASION_2 } from "./validate";
+const MAX_COPIES = MAX_COPIES_PER_CARD;
 
 export interface TestDeck {
   set: string;
@@ -14,14 +20,6 @@ export interface TestDeck {
   monsterDeck: Card[];
   /** 50 cards, sorted by card number. */
   mainDeck: Card[];
-}
-
-let allCards: Card[] | null = null;
-
-/** Every card in `cards.json`, validated once. */
-export function getAllCards(): Card[] {
-  allCards ??= CardListSchema.parse(cardsJson as unknown);
-  return allCards;
 }
 
 /** mulberry32: a small deterministic PRNG (same algorithm as the engine's). */

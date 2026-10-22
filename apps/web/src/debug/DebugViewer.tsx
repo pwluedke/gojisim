@@ -1,5 +1,10 @@
-import type { Card } from "@gojisim/cards";
-import { buildTestDeck, TEST_DECK_SETS } from "@gojisim/cards/test-decks";
+import { type Card, type DeckValidation, failedRules } from "@gojisim/cards";
+import {
+  type DeckListError,
+  formatDeckList,
+  type NamedDeck,
+  parseDeckList,
+} from "@gojisim/cards/deck-lists";
 import {
   type Action,
   advanceToDecision,
@@ -8,11 +13,19 @@ import {
   type GameRecord,
   type GameState,
   buildLoopReport,
+  deckLegalityFor,
   replayAll,
   startGame,
 } from "@gojisim/engine";
 import { useState } from "react";
 import { CARD_DETAIL_WIDTH, CardDetail, Field, PlayerAreas } from "./Board";
+import {
+  checkDeck,
+  type DeckOption,
+  deckOptions,
+  loadImportedDecks,
+  saveImportedDecks,
+} from "./decks";
 import { ActionPanel, LogPanel, StatusBar } from "./Panels";
 
 /** A record plus the action index the viewer was at when it was exported. */
@@ -33,30 +46,91 @@ function randomSeed(): number {
   return Math.floor(Math.random() * 2 ** 31);
 }
 
-function newSession(seed: number, sets: [string, string]): Session {
+function newSession(seed: number, picked: [DeckOption, DeckOption]): Session {
+  const named = picked.map((option) => option.build(seed));
   const decks = PLAYER_IDS.map((id, i) => {
-    const deck = buildTestDeck(sets[i] as string, seed);
+    const deck = named[i] as NamedDeck;
     return { id, monsterDeck: deck.monsterDeck, mainDeck: deck.mainDeck };
   }) as GameRecord["decks"];
-  const record: GameRecord = { version: 1, seed, decks, actions: [] };
+  const record: GameRecord = {
+    version: 1,
+    seed,
+    decks,
+    actions: [],
+    // Illegal decks are allowed, with a warning (Paul's ruling, Oct 21, 2026).
+    deckLegality: deckLegalityFor(decks, new Date()),
+  };
   return { record, states: [startGame(record)], position: 0 };
+}
+
+function LegalityNote({ option, seed }: { option: DeckOption; seed: number }) {
+  let validation: DeckValidation;
+  try {
+    validation = checkDeck(option.build(seed));
+  } catch (err) {
+    return <div style={{ color: "#b00" }}>{String(err)}</div>;
+  }
+  return (
+    <div
+      data-testid="deck-legality"
+      style={{ color: validation.legal ? "#080" : "#b00", fontSize: 12 }}
+    >
+      {validation.legal
+        ? "Legal"
+        : `Illegal: ${validation.failures.map((f) => `${f.rule} (${f.message})`).join("; ")}`}
+    </div>
+  );
 }
 
 function NewGameForm({
   onStart,
 }: {
-  onStart: (seed: number, sets: [string, string]) => void;
+  onStart: (seed: number, picked: [DeckOption, DeckOption]) => void;
 }) {
   const [seed, setSeed] = useState("20261021");
-  const [sets, setSets] = useState<[string, string]>(["ESD01", "ESD02"]);
+  const [imported, setImported] = useState<NamedDeck[]>(() =>
+    loadImportedDecks(),
+  );
+  const options = deckOptions(imported);
+  const [keys, setKeys] = useState<[string, string]>([
+    "official:ESD01",
+    "official:ESD02",
+  ]);
   const [error, setError] = useState<string | null>(null);
+  const [importErrors, setImportErrors] = useState<DeckListError[]>([]);
+  const byKey = (key: string) =>
+    options.find((o) => o.key === key) ?? (options[0] as DeckOption);
+  const picked: [DeckOption, DeckOption] = [byKey(keys[0]), byKey(keys[1])];
+  const legalityLabel = (option: DeckOption) => {
+    if (option.kind !== "imported") return option.label;
+    const validation = checkDeck(option.build(0));
+    return `${option.label} ${validation.legal ? "✓ legal" : `✗ ${failedRules(validation).join(", ")}`}`;
+  };
+
+  const importDeckList = async (file: File) => {
+    const { decks, errors } = parseDeckList(await file.text());
+    const next = [...imported, ...decks];
+    setImported(next);
+    saveImportedDecks(next);
+    setImportErrors(errors);
+  };
+
+  const exportDeckList = () => {
+    const seedNumber = Number(seed);
+    const decks = picked.map((o) => o.build(seedNumber));
+    const unique = decks.filter(
+      (d, i) => decks.findIndex((x) => x.name === d.name) === i,
+    );
+    downloadText(formatDeckList(unique), "gojisim-decks.txt");
+  };
+
   return (
     <form
       style={{ border: "1px solid #888", padding: 8, margin: 4 }}
       onSubmit={(e) => {
         e.preventDefault();
         try {
-          onStart(Number(seed), sets);
+          onStart(Number(seed), picked);
         } catch (err) {
           setError(String(err));
         }
@@ -73,30 +147,108 @@ function NewGameForm({
       <button type="button" onClick={() => setSeed(String(randomSeed()))}>
         Random
       </button>{" "}
-      {PLAYER_IDS.map((id, i) => (
-        <label key={id} style={{ marginLeft: 12 }}>
-          {id} deck{" "}
-          <select
-            data-testid={`deck-${id}`}
-            value={sets[i]}
-            onChange={(e) =>
-              setSets((s) =>
-                i === 0 ? [e.target.value, s[1]] : [s[0], e.target.value],
-              )
-            }
-          >
-            {TEST_DECK_SETS.map((set) => (
-              <option key={set}>{set}</option>
-            ))}
-          </select>
-        </label>
-      ))}{" "}
       <button type="submit" data-testid="start-game">
         Start
       </button>
+      <div style={{ display: "flex", gap: 16, marginTop: 6 }}>
+        {PLAYER_IDS.map((id, i) => (
+          <div key={id}>
+            <label>
+              {id} deck{" "}
+              <select
+                data-testid={`deck-${id}`}
+                value={keys[i]}
+                onChange={(e) =>
+                  setKeys((k) =>
+                    i === 0 ? [e.target.value, k[1]] : [k[0], e.target.value],
+                  )
+                }
+              >
+                {options.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {legalityLabel(option)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <LegalityNote
+              option={picked[i] as DeckOption}
+              seed={Number(seed)}
+            />
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 6 }}>
+        <label>
+          Import deck list (.txt){" "}
+          <input
+            type="file"
+            accept=".txt,text/plain"
+            data-testid="import-deck-list"
+            onChange={(e) =>
+              e.target.files?.[0] && void importDeckList(e.target.files[0])
+            }
+          />
+        </label>{" "}
+        <button
+          type="button"
+          data-testid="export-deck-list"
+          onClick={exportDeckList}
+        >
+          Export deck list
+        </button>
+        {importErrors.length > 0 && (
+          <ul
+            data-testid="deck-list-errors"
+            style={{ color: "#b00", fontSize: 12 }}
+          >
+            {importErrors.map((e) => (
+              <li key={e.line}>
+                Line {e.line}: {e.reason}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       {error && <div style={{ color: "red" }}>{error}</div>}
     </form>
   );
+}
+
+/** Warning shown during a game that uses an illegal deck (Paul's ruling, Oct 21, 2026). */
+function IllegalDeckBanner({ record }: { record: GameRecord }) {
+  const problems = record.decks
+    .map((deck) => ({
+      player: deck.id,
+      validation: checkDeck({ name: deck.id, ...deck }),
+    }))
+    .filter((p) => !p.validation.legal);
+  if (problems.length === 0) return null;
+  return (
+    <div
+      data-testid="illegal-deck-banner"
+      style={{ background: "#ffcdd2", padding: 6, margin: 4 }}
+    >
+      <strong>Warning: playing with an illegal deck (allowed).</strong>
+      {problems.map((p) => (
+        <div key={p.player}>
+          {p.player}:{" "}
+          {p.validation.failures
+            .map((f) => `${f.rule} (${f.message})`)
+            .join("; ")}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function downloadText(text: string, filename: string): void {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function downloadJson(data: unknown, filename: string): void {
@@ -172,6 +324,9 @@ export function DebugViewer() {
           seed: record.seed,
           decks: record.decks,
           actions: record.actions,
+          // Records made before deck legality existed get it computed now.
+          deckLegality:
+            record.deckLegality ?? deckLegalityFor(record.decks, new Date()),
         },
         states,
         position,
@@ -204,7 +359,7 @@ export function DebugViewer() {
         Debug: hidden info visible
       </div>
       <NewGameForm
-        onStart={(seed, sets) => setSession(newSession(seed, sets))}
+        onStart={(seed, picked) => setSession(newSession(seed, picked))}
       />
       <div style={{ margin: 4 }}>
         <button
@@ -248,6 +403,7 @@ export function DebugViewer() {
       {session && state && (
         <>
           <StatusBar state={state} />
+          <IllegalDeckBanner record={session.record} />
           <div style={{ display: "flex", gap: 8 }}>
             <div>
               <PlayerAreas

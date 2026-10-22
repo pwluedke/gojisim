@@ -10,3 +10,4 @@ test-results/
 apps/web/public/cards/
 stress-failures/
 loop-reports/
+local-decks/

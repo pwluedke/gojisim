@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   type Action,
+  deckLegalityFor,
   advanceToDecision,
   applyAction,
   type GameRecord,
@@ -69,5 +70,35 @@ describe("game records", () => {
       decks: [testDeck("alice", 0), testDeck("bob", 1)],
     });
     expect(state).toMatchObject({ turn: 1, step: "7.3.2", phase: "main" });
+  });
+});
+
+describe("deck legality in the record (Paul's ruling, Oct 21, 2026)", () => {
+  it("6.3.1.1 each player's deck legality and failed rules are recorded; illegal decks still play", () => {
+    const decks: GameRecord["decks"] = [
+      testDeck("alice", 0),
+      testDeck("bob", 1),
+    ];
+    const legality = deckLegalityFor(decks, new Date("2026-10-21T00:00:00Z"));
+    // The fixture decks are legal: unique Red cards, ranks I to IV, 50 in the main deck.
+    expect(legality.map((l) => [l.player, l.legal, l.failedRules])).toEqual([
+      ["alice", true, []],
+      ["bob", true, []],
+    ]);
+    expect(legality[0]).toMatchObject({ asOf: "2026-10-21" });
+    const illegal = { ...decks[0], mainDeck: decks[0].mainDeck.slice(0, 40) };
+    const [checked] = deckLegalityFor(
+      [illegal],
+      new Date("2026-10-21T00:00:00Z"),
+    );
+    expect(checked).toEqual({
+      player: "alice",
+      legal: false,
+      failedRules: ["6.1.1.2"],
+      asOf: "2026-10-21",
+    });
+    // The game itself starts regardless.
+    const state = startGame({ seed: 1, decks: [illegal, decks[1]] });
+    expect(state.result).toBeNull();
   });
 });

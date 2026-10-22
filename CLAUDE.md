@@ -163,3 +163,19 @@ Accepted by Monarch in the M3v review (PR #10).
 98. Card images come from `pnpm images` (`/cards/<id>-thumb.webp`, `-full.webp`); missing images are hidden.
 99. `/debug` is a pathname check in `main.tsx`, with no router.
 100.  The 6.1.1 checks in the `buildTestDeck` test are test-only; the real validator is M8.
+
+Accepted by Monarch in the M3e review (PR #11).
+
+101. Loop detection compares a canonical state that leaves out instance ids, the log, counters, timestamps and RNG state; hand, discard pile and monster deck compare as sorted lists, the deck in order.
+102. Loop checks run after every engine step and after every ability resolved inside a check timing.
+103. `LOOP_STEP_LIMIT` (2,000 automatic steps in one turn without a player choice) also ends the game as a 13.1.1.3 draw (`kind: "stepLimit"`).
+104. A `standbyOrder` choice counts as a player choice and clears the loop history.
+105. 13.1.1.2 (the turn player may not repeat an identical-state action) is not enforced on player actions. Confirmed by Monarch: revisit only if a real case shows up.
+106. A loop report replays the loop only where the looping abilities are registered.
+107. The stress tool picks actions with its own per-game PRNG; deck seeds are `<seed>-<game>-P1/P2`.
+108. Stress output goes to the directory `pnpm stress` was run from (`INIT_CWD`), changeable with `--out`.
+109. `pnpm stress` takes `--turn-cap` (default 500).
+110. The PR stress run is seeded with the commit SHA; nightly runs use the UTC date.
+111. The invariant view-leak check collects each view's instance ids once (0.5 ms per action).
+112. `stress-failures/` and `loop-reports/` are gitignored.
+113. Card conservation flags opponent-owned cards in a player's areas; M4 adds an exception for effects that move a card to the opponent's field. Confirmed by Monarch.
