@@ -1,28 +1,12 @@
 {
-  "ESD01-001": { "deckCardNumber": "ESD01-001", "status": "implemented", "abilities": [] },
-  "ESD01-003": { "deckCardNumber": "ESD01-003", "status": "implemented", "abilities": [
-    { "kind": "continuous", "id": "rage-threat",
-      "condition": { "rage": "you", "op": ">=", "value": 2 },
-      "modifiers": [ { "stat": "threat", "target": { "owner": "you", "area": "monster", "this": true }, "amount": 5000 } ] }
-  ] },
-  "ESD01-008": { "deckCardNumber": "ESD01-008", "status": "implemented", "abilities": [],
-    "notes": "Reminder text only: it restates 8.2.1." },
-  "ESD01-009": { "deckCardNumber": "ESD01-009", "status": "implemented", "abilities": [
-    { "kind": "continuous", "id": "awakening-bonus", "gates": [ { "gate": "awakening", "zone": 4 } ],
-      "modifiers": [ { "stat": "counterPower", "target": { "owner": "you", "area": "zones", "this": true }, "amount": 3000 } ] }
-  ] },
-  "ESD01-010": { "deckCardNumber": "ESD01-010", "status": "implemented", "abilities": [
-    { "kind": "continuous", "id": "rage-bonus",
-      "condition": { "rage": "you", "op": ">=", "value": 2 },
-      "modifiers": [ { "stat": "counterPower", "target": { "owner": "you", "area": "zones", "type": "Battle", "other": true, "zones": [8] }, "amount": 5000 } ] },
-    { "kind": "continuous", "id": "awakening-bonus", "gates": [ { "gate": "awakening", "zone": 6 } ],
-      "modifiers": [ { "stat": "counterPower", "target": { "owner": "you", "area": "zones", "type": "Battle", "other": true, "zones": [8] }, "amount": 5000 } ] }
-  ], "notes": "Q6: no bonus to itself in zone 8; the two bonuses stack." },
-  "ESD01-016": { "deckCardNumber": "ESD01-016", "status": "implemented", "abilities": [
-    { "kind": "triggered", "id": "heat-ray", "trigger": { "on": "placedInStrategyZone" },
-      "effects": [ { "effect": "destroy",
-        "target": { "select": { "owner": "opponent", "area": "zones", "type": "Battle",
-                                "zones": { "relation": "sameColumnAs", "of": "yourMonster" } },
-                    "count": "all", "chooser": "you" } } ] }
-  ] }
+  "ESD01-001": {"deckCardNumber": "ESD01-001", "status": "implemented", "abilities": []},
+  "ESD01-002": {"deckCardNumber": "ESD01-002", "status": "implemented", "abilities": [{"kind": "triggered", "id": "invading-search", "trigger": {"on": "invading"}, "effects": [{"effect": "search", "player": "you", "filter": {"owner": "you", "area": "deck", "rank": {"op": "=", "value": 3}, "name": "Godzilla (2023)", "keyword": "burst"}, "count": {"upTo": 1}, "reveal": true, "as": "found", "effects": [{"effect": "addToHand", "target": {"owner": "you", "area": "bound", "bind": "found"}}]}, {"effect": "shuffle", "player": "you"}]}], "notes": "Q4: triggers once per advance step of an invasion."},
+  "ESD01-003": {"deckCardNumber": "ESD01-003", "status": "implemented", "abilities": [{"kind": "continuous", "id": "rage-threat", "condition": {"rage": "you", "op": ">=", "value": 2}, "modifiers": [{"stat": "threat", "target": {"owner": "you", "area": "monster", "this": true}, "amount": 5000}]}]},
+  "ESD01-004": {"deckCardNumber": "ESD01-004", "status": "implemented", "abilities": [{"kind": "triggered", "id": "invading-discard", "trigger": {"on": "invading"}, "condition": {"rage": "you", "op": ">=", "value": 2}, "effects": [{"effect": "discardDownTo", "player": "opponent", "size": 2}]}]},
+  "ESD01-008": {"deckCardNumber": "ESD01-008", "status": "implemented", "abilities": [], "notes": "Reminder text only: it restates 8.2.1."},
+  "ESD01-009": {"deckCardNumber": "ESD01-009", "status": "implemented", "abilities": [{"kind": "continuous", "id": "awakening-bonus", "gates": [{"gate": "awakening", "zone": 4}], "modifiers": [{"stat": "counterPower", "target": {"owner": "you", "area": "zones", "this": true}, "amount": 3000}]}]},
+  "ESD01-010": {"deckCardNumber": "ESD01-010", "status": "implemented", "abilities": [{"kind": "continuous", "id": "rage-bonus", "condition": {"rage": "you", "op": ">=", "value": 2}, "modifiers": [{"stat": "counterPower", "target": {"owner": "you", "area": "zones", "type": "Battle", "other": true, "zones": [8]}, "amount": 5000}]}, {"kind": "continuous", "id": "awakening-bonus", "gates": [{"gate": "awakening", "zone": 6}], "modifiers": [{"stat": "counterPower", "target": {"owner": "you", "area": "zones", "type": "Battle", "other": true, "zones": [8]}, "amount": 5000}]}], "notes": "Q6: no bonus to itself in zone 8; the two bonuses stack."},
+  "ESD01-014": {"deckCardNumber": "ESD01-014", "status": "implemented", "abilities": [{"kind": "triggered", "id": "emerges", "trigger": {"on": "placedInStrategyZone"}, "condition": {"rage": "you", "op": ">=", "value": 2}, "effects": [{"effect": "search", "player": "you", "filter": {"owner": "you", "area": "deck", "type": "Battle", "name": "Godzilla (2023)"}, "count": {"upTo": 1}, "as": "found", "effects": [{"effect": "play", "from": "bound", "filter": {"owner": "you", "area": "bound", "bind": "found"}, "count": {"exact": 1}}]}, {"effect": "shuffle", "player": "you"}]}], "notes": "The found card is played to a zone the player chooses (5.11.1.2), ignoring the 8.2.1 rank limit; its [enter] triggers."},
+  "ESD01-015": {"deckCardNumber": "ESD01-015", "status": "implemented", "abilities": [{"kind": "triggered", "id": "wadatsumi", "trigger": {"on": "placedInStrategyZone"}, "effects": [{"effect": "discardDownTo", "player": "opponent", "size": 2}]}]},
+  "ESD01-016": {"deckCardNumber": "ESD01-016", "status": "implemented", "abilities": [{"kind": "triggered", "id": "heat-ray", "trigger": {"on": "placedInStrategyZone"}, "effects": [{"effect": "destroy", "target": {"select": {"owner": "opponent", "area": "zones", "type": "Battle", "zones": {"relation": "sameColumnAs", "of": "yourMonster"}}, "count": "all", "chooser": "you"}}]}]}
 }

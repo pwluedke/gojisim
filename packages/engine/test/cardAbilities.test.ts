@@ -1,15 +1,12 @@
 import { type Card, getCardAbilities } from "@gojisim/cards";
-import { getAllCards } from "@gojisim/cards/test-decks";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   applyAction,
-  type CardInstance,
   counterPowerOf,
   type GameState,
   getCounterPower,
   getLegalActions,
   getThreat,
-  type PlayerState,
   type ZoneNumber,
 } from "../src";
 import { registerCustomEffect, setTestAbilities } from "../src/testing";
@@ -24,55 +21,14 @@ import {
   strategyCard,
   turnPlayer,
 } from "./fixtures/state";
-
-/** The base print of a real card (lowest id), by card number. */
-function real(deckCardNumber: string): Card {
-  const card = getAllCards()
-    .filter((c) => c.deckCardNumber === deckCardNumber && c.parentId === null)
-    .sort((a, b) => a.id - b.id)[0];
-  if (!card) throw new Error(`No card ${deckCardNumber}`);
-  return card;
-}
-
-/** A game at the turn player's main phase play timing. */
-const atPlayTiming = () => runTo(newGame(), "7.3.2");
-
-function place(
-  state: GameState,
-  player: PlayerState,
-  card: Card,
-  zone: ZoneNumber,
-): CardInstance {
-  const instance = addCard(state, card, player.id);
-  player.zones[zone].push([instance]);
-  return instance;
-}
-
-/** Makes `card` the player's invading monster, in `zone`. */
-function monster(
-  state: GameState,
-  player: PlayerState,
-  card: Card,
-  zone: ZoneNumber,
-): CardInstance {
-  const instance = addCard(state, card, player.id);
-  player.invadingMonsterZone = [instance];
-  player.monsterPosition = zone;
-  return instance;
-}
-
-function inHand(state: GameState, player: PlayerState, card: Card) {
-  const instance = addCard(state, card, player.id);
-  player.hand.push(instance);
-  return instance;
-}
-
-const zoneCardIds = (player: PlayerState) =>
-  Object.fromEntries(
-    Object.entries(player.zones)
-      .filter(([, stacks]) => stacks.length > 0)
-      .map(([zone, stacks]) => [zone, stacks.map((s) => s.at(-1)?.cardId)]),
-  );
+import {
+  atPlayTiming,
+  inHand,
+  monster,
+  place,
+  real,
+  zoneCardIds,
+} from "./fixtures/real";
 
 describe("cards with no ability text (format.md: abilities: [])", () => {
   it.each(["ESD01-001", "ESD01-008", "ESD02-001", "ESD02-013"])(

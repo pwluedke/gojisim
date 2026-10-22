@@ -317,14 +317,21 @@ const PERFORM: {
       rule: choice.rule,
       kind: choice.kind,
       choiceId: choice.id,
-      // A next-monster choice reveals the card: it becomes the public invading monster.
-      cardId:
-        choice.options.find((o) => o.id === action.optionId)?.cardId ?? null,
+      // A next-monster choice reveals the card: it becomes the public invading monster. A
+      // private choice (a hand, a searched deck) stays hidden.
+      cardId: choice.private
+        ? null
+        : (choice.options.find((o) => o.id === action.optionId)?.cardId ??
+          null),
     });
     if (choice.kind === "standbyOrder") {
       resolveStandby(state, action.optionId);
-    } else if (choice.kind === "target" || choice.kind === "zone") {
-      resumeResolution(state, action.optionId);
+    } else if (
+      choice.kind === "target" ||
+      choice.kind === "zone" ||
+      choice.kind === "confirm"
+    ) {
+      resumeResolution(state, choice.kind, action.optionId);
     } else {
       makeInvadingMonster(
         state,

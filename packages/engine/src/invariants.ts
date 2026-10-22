@@ -128,7 +128,8 @@ export function checkInvariants(state: GameState): string[] {
   // A data ability is part-way through resolving only while it waits for its own choice.
   const effectChoice =
     state.pendingChoice?.kind === "target" ||
-    state.pendingChoice?.kind === "zone";
+    state.pendingChoice?.kind === "zone" ||
+    state.pendingChoice?.kind === "confirm";
   if ((state.resolution !== null) !== effectChoice)
     problems.push(
       `resolution ${state.resolution ? "in progress" : "missing"} with choice ${state.pendingChoice?.kind ?? "none"}`,
@@ -152,7 +153,18 @@ export function checkInvariants(state: GameState): string[] {
         ...real.deck,
         ...(own ? [] : [...real.hand, ...real.monsterDeck]),
       ];
-      const leaked = hidden.filter((c) => mentioned.has(`"${c.instanceId}"`));
+      // Allowed: cards revealed to both players (5.10), and the options of the viewer's own
+      // private choice (their hand, or the deck they are searching, 5.8.1).
+      const allowed = new Set([
+        ...state.revealed,
+        ...(state.pendingChoice?.private &&
+        state.pendingChoice.player === viewer
+          ? state.pendingChoice.options.map((o) => o.id)
+          : []),
+      ]);
+      const leaked = hidden.filter(
+        (c) => mentioned.has(`"${c.instanceId}"`) && !allowed.has(c.instanceId),
+      );
       if (leaked.length > 0)
         problems.push(
           `view(${viewer}) leaks ${leaked.length} hidden instance ids of ${p.id}`,

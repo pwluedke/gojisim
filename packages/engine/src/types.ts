@@ -23,6 +23,8 @@ export interface CardInstance {
    * object without them (4.1.4). Omitted when empty.
    */
   statuses?: CardStatus[];
+  /** How the card was played, for "played through ..." conditions (format.md change 7). */
+  playedVia?: "evolution" | "burst" | "effect";
 }
 
 /** A status an effect can put on a card. */
@@ -140,13 +142,16 @@ export type ChoiceKind =
   | "nextMonster"
   /** A target card for an ability's effect (10.5.3), one card per choice. */
   | "target"
-  /** A zone for a `chooseZone` effect (format.md). */
-  | "zone";
+  /** A zone for a `chooseZone` effect or an effect play (format.md, 5.11.1). */
+  | "zone"
+  /** Yes or no: use an optional ability, or pay an optional cost (10.5.4, Q2). */
+  | "confirm";
 
 export interface ChoiceOption {
   /**
    * Standby id for `standbyOrder`, card instance id for `nextMonster` and `target`,
-   * `<player>:<zone>` for `zone`, and `done` to stop choosing "up to N" targets.
+   * `<player>:<zone>` for `zone`, `yes` or `no` for `confirm`, and `done` to stop choosing "up to
+   * N" targets or to find nothing in a search (5.8.1.2).
    */
   id: string;
   /** The card behind the option; `null` for a zone or `done`. */
@@ -173,11 +178,20 @@ export type Binding =
 /** A data ability part-way through resolving, kept while it waits for a choice (format.md). */
 export interface Resolution {
   standby: StandbyAbility;
-  /** Index of the effect being performed. */
-  effectIndex: number;
+  /**
+   * `useAbility`: asking whether to use an optional ability; `payCost`: asking whether to pay an
+   * optional cost (Q2); `cost`: performing the cost; `main`: performing the effects.
+   */
+  stage: "useAbility" | "payCost" | "cost" | "main";
+  /** Position of the current effect: an index per nesting level (a search's own effects). */
+  path: number[];
   bindings: Record<string, Binding>;
-  /** Progress inside the current effect: targets chosen so far. */
+  /** Progress inside the current effect: cards chosen so far (or `done`). */
   chosen: string[];
+  /** Progress inside the current effect: zones chosen so far, `<player>:<zone>`. */
+  zonePicks: string[];
+  /** The answer to the current `confirm` choice. */
+  answer: "yes" | "no" | null;
 }
 
 /** A choice the engine is waiting for. Only `player` may act, with `choose` (or `concede`). */
@@ -188,6 +202,8 @@ export interface PendingChoice {
   kind: ChoiceKind;
   rule: string;
   options: ChoiceOption[];
+  /** The options are hidden cards only `player` may see (a hand, a searched deck). */
+  private?: true;
 }
 
 export interface GameResult {
@@ -238,6 +254,8 @@ export interface GameState {
   pendingChoice: PendingChoice | null;
   /** A data ability waiting for a choice in the middle of its resolution; otherwise `null`. */
   resolution: Resolution | null;
+  /** Instance ids of cards revealed to both players until they move or the effect ends (5.10). */
+  revealed: string[];
   /** The check timing in progress while a choice inside it is pending (10.4.3). */
   checkTiming: { rule: string } | null;
   /** Losses recorded during the current process (1.2.2); empty between processes. */

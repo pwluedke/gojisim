@@ -413,8 +413,9 @@ describe("full turns", () => {
     // the state still hashes to the M3b/M3c value 208bb050...4924d (behavior unchanged).
     // M3e added loopGuard and loop; with those removed it hashes to the M3d value 128a23c3...cfcf90.
     // M4c added resolution; with it removed it hashes to the M3e value a5d594d2...df1669.
+    // M4d added revealed; with it removed it hashes to the M4c value cca5c5e1...2fecb6.
     expect(hash(first)).toMatchInlineSnapshot(
-      `"cca5c5e1b0fc2fc6657deb974478cd13e6efd18440d61cbc1f769ae8b72fecb6"`,
+      `"a4e4c4420fc429d4f899a32058e45801fa723be4b27e34320e0a2ba526bb31cd"`,
     );
     // Each player had 5 turns, so each monster advanced from zone 1 to zone 6 (7.5.2).
     expect(first.players.map((p) => p.monsterPosition)).toEqual([6, 6]);

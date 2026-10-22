@@ -121,6 +121,7 @@ export function guardLoop(state: GameState): boolean {
   state.pendingChoice = null;
   state.checkTiming = null;
   state.resolution = null;
+  state.revealed = [];
   state.standby = [];
   appendLog(state, "gameOver", null, {
     rule: "13.1.1.3",

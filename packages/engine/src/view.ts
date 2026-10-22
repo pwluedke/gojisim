@@ -59,9 +59,12 @@ export interface PlayerView {
   continuousEffects: GameState["continuousEffects"];
   /**
    * The pending choice. Only its player sees the options of a `nextMonster` choice, which come
-   * from their hidden monster deck (4.6.2); everyone sees the option count.
+   * from their hidden monster deck (4.6.2), or of a private choice (their hand, a searched deck);
+   * everyone sees the option count.
    */
   pendingChoice: PendingChoiceView | null;
+  /** Cards revealed to both players, wherever they are, until they move or the effect ends (5.10). */
+  revealed: CardInstance[];
   result: GameState["result"];
   /** Card data only for cards this viewer can see. */
   cards: Record<string, Card>;
@@ -113,7 +116,9 @@ function choiceView(
   viewer: Viewer,
 ): PendingChoiceView | null {
   if (choice === null) return null;
-  const hidden = choice.kind === "nextMonster" && viewer !== choice.player;
+  const hidden =
+    (choice.kind === "nextMonster" || choice.private === true) &&
+    viewer !== choice.player;
   return {
     ...cloneJson(choice),
     optionCount: choice.options.length,
@@ -137,6 +142,7 @@ function visibleCardIds(view: Omit<PlayerView, "cards">): Set<number> {
     add(player.discard.cards);
   }
   add(view.resolutionArea.cards);
+  add(view.revealed);
   for (const entry of view.log) {
     if (typeof entry.payload["cardId"] === "number")
       ids.add(entry.payload["cardId"]);
@@ -165,6 +171,13 @@ export function getPlayerView(state: GameState, viewer: Viewer): PlayerView {
     standby: cloneJson(state.standby),
     continuousEffects: cloneJson(state.continuousEffects),
     pendingChoice: choiceView(state.pendingChoice, viewer),
+    revealed: cloneJson(
+      state.players.flatMap((p) =>
+        [...p.hand, ...p.deck, ...p.monsterDeck].filter((c) =>
+          state.revealed.includes(c.instanceId),
+        ),
+      ),
+    ),
     result: cloneJson(state.result),
     log: cloneJson(state.log),
   };
