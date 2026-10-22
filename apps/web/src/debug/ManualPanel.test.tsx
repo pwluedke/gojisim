@@ -19,7 +19,7 @@ function withWindow(): GameState {
   const orga = getAllCards().find((c) => c.cardNumber === "EBP01-047")!;
   const me = state.players.find((p) => p.id === state.turnPlayer)!;
   const opp = state.players.find((p) => p.id !== state.turnPlayer)!;
-  state.cards[orga.id] = orga;
+  state.cards = { ...state.cards, [orga.id]: orga };
   const instance = {
     instanceId: `c${state.nextInstanceId++}`,
     cardId: orga.id,

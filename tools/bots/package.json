@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "bots": "tsx src/main.ts",
+    "bots": "GOJISIM_FREEZE=1 tsx src/main.ts",
     "typecheck": "tsc -b"
   },
   "dependencies": {

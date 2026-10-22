@@ -1,0 +1,13 @@
+{
+  "position": 0.5,
+  "blocker": 0.4,
+  "winThreat": 1.2,
+  "countersLeft": 0.3,
+  "counterEdge": 0.6,
+  "nextMonster": 0.6,
+  "rage": 0.3,
+  "hand": 0.2,
+  "battleCards": 0.3,
+  "icon2": 0.15,
+  "strategyFree": 0.05
+}

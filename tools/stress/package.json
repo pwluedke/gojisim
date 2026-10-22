@@ -7,7 +7,7 @@
     ".": "./src/stress.ts"
   },
   "scripts": {
-    "stress": "tsx src/main.ts",
+    "stress": "GOJISIM_FREEZE=1 tsx src/main.ts",
     "typecheck": "tsc -b",
     "bench": "tsx src/bench.ts"
   },

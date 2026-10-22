@@ -1,4 +1,5 @@
 import type { Card } from "@gojisim/cards";
+import { freezeShared } from "./freeze";
 import { normalizeSeed, randomInt, shuffleInPlace } from "./rng";
 import { appendLog, drawCards, moved, newInstance } from "./state";
 import type {
@@ -89,7 +90,8 @@ export function createGame(options: CreateGameOptions): GameState {
     loopGuard: [],
     loop: null,
     result: null,
-    cards,
+    // Shared between cloned states (decision 168): frozen under the guard.
+    cards: freezeShared(cards),
     log: [],
   };
   const setups = new Map(options.players.map((p) => [p.id, p]));

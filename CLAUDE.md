@@ -244,3 +244,14 @@ Accepted by Monarch in the M4f review (PR #17).
 161. `Resolution.subject` holds the card being evolved across its two choices.
 162. The canonical state for loop detection includes timed triggers.
 163. Tests that need a manual card use non-starter cards (EBP01-001, EBP01-032). After a Burst play the monster reads the Burst card's printed rank (ESD01-007 reads IV), confirmed by Monarch.
+
+Accepted by Monarch in the M6a review (PR #20).
+
+164. The engine view carries the public engine status (`counterTotal`, `checkTiming`, `timedTriggers`, `manualQueue`), revealed cards with their owner and area, and, for the player who must choose, the paused `resolution` (bindings only for the ability's master). The view-leak invariant allows exactly those.
+165. Hidden choice options are sorted by instance id, so a search never reveals deck order (4.8.2).
+166. `BotInput.legalActions` leaves out `concede`; it is computed from the real state but depends only on what the bot can see (the no-peeking test checks this).
+167. The determinizer derives the opponent's monster deck from the presented monster deck minus `setInvadingMonster`/`newInvadingMonster` cards in the log, and hidden main-deck cards from the presented main deck minus every visible main-deck card. Cards the viewer's own private choice or resolution names go into its deck. A mismatch throws.
+168. `cloneState` deep-copies by hand and shares log entries and the card catalog, which the engine never writes once created. A freeze guard (off in production) makes any such write throw in tests and stress.
+169. The weighted policy lives in `@gojisim/bot` and reads the view; stress calls it.
+170. The tournament harness (`tools/bots`): bot a sits in P1 in even games, the sets swap every 2 games, games past turn 500 are unfinished draws, ms per decision covers `chooseAction` only.
+171. Root scripts `pnpm bench` and `pnpm bots`; `bot-reports/` is gitignored.
