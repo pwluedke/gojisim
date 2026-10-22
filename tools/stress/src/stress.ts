@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { type NamedDeck, parseDeckList } from "@gojisim/cards/deck-lists";
 import { buildTestDeck } from "@gojisim/cards/test-decks";
 import {
   type Action,
@@ -24,6 +26,34 @@ export const PAIRINGS: readonly (readonly [string, string])[] = [
   ["ESD01", "ESD01"],
   ["ESD02", "ESD02"],
 ];
+
+/** Where decks come from: `random` test decks (`buildTestDeck`) or the `official` starter lists. */
+export type DeckSource = "random" | "official";
+
+const OFFICIAL_FILES: Record<string, string> = {
+  ESD01: "esd01-starter.txt",
+  ESD02: "esd02-starter.txt",
+};
+
+let officialDecks: Map<string, NamedDeck> | null = null;
+
+/** The official starter deck of a set, from `packages/cards/data/decks/`. */
+function officialDeck(set: string): NamedDeck {
+  officialDecks ??= new Map(
+    Object.entries(OFFICIAL_FILES).map(([key, file]) => {
+      const url = new URL(
+        `../../../packages/cards/data/decks/${file}`,
+        import.meta.url,
+      );
+      const deck = parseDeckList(readFileSync(url, "utf8")).decks[0];
+      if (!deck) throw new Error(`${file} has no deck`);
+      return [key, deck];
+    }),
+  );
+  const deck = officialDecks.get(set);
+  if (!deck) throw new Error(`No official deck for ${set}`);
+  return deck;
+}
 
 export interface GameOutcome {
   game: number;
@@ -130,6 +160,7 @@ export function playGame(
   game: number,
   turnCap = TURN_CAP,
   policy: Policy = "uniform",
+  deckSource: DeckSource = "random",
 ): GameOutcome {
   const seed = `${runSeed}-${game}`;
   const [setA, setB] = PAIRINGS[game % PAIRINGS.length] as readonly [
@@ -137,7 +168,10 @@ export function playGame(
     string,
   ];
   const decks = [setA, setB].map((set, i) => {
-    const deck = buildTestDeck(set, `${seed}-P${i + 1}`);
+    const deck =
+      deckSource === "official"
+        ? officialDeck(set)
+        : buildTestDeck(set, `${seed}-P${i + 1}`);
     return {
       id: `P${i + 1}`,
       monsterDeck: deck.monsterDeck,

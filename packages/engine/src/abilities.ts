@@ -6,6 +6,7 @@ import type {
   StandbyAbility,
 } from "./types";
 import { ZONE_NUMBERS } from "./types";
+import { dataAbilityId, dataTriggers } from "./interpreter";
 
 /** What an ability's trigger check sees. */
 export interface TriggerContext {
@@ -19,8 +20,9 @@ export interface TriggerContext {
 }
 
 /**
- * An automatic ability's behavior (10.1.1.1), kept in code; the state only holds JSON standby
- * entries that name it by `abilityId`. M3d registers test fixtures only; card abilities come in M4.
+ * A test-only automatic ability kept in code (10.1.1.1); the state only holds JSON standby entries
+ * that name it by `abilityId`. Card abilities are data, run by `interpreter.ts`; this registry
+ * stays for engine fixtures and is exported only from `src/testing.ts`.
  */
 export interface AbilityDefinition {
   abilityId: string;
@@ -51,7 +53,7 @@ export function getAbility(abilityId: string): AbilityDefinition | undefined {
  * monster (3.3.3.2), and strategy cards in strategy zones. A card stacked under another card has
  * no active abilities (3.2.3.1).
  */
-function activeCards(
+export function activeCards(
   state: GameState,
 ): { card: CardInstance; master: PlayerId }[] {
   const active: { card: CardInstance; master: PlayerId }[] = [];
@@ -81,25 +83,32 @@ export function fireTriggers(
   state: GameState,
   event: LogEntry,
 ): StandbyAbility[] {
-  if (state.result !== null || registry.size === 0) return [];
+  if (state.result !== null) return [];
   const entered: StandbyAbility[] = [];
+  const enter = (card: CardInstance, master: PlayerId, abilityId: string) => {
+    const timestamp = state.nextTimestamp++;
+    const ability: StandbyAbility = {
+      standbyId: `s${timestamp}`,
+      abilityId,
+      sourceInstanceId: card.instanceId,
+      sourceCardId: card.cardId,
+      master,
+      timestamp,
+      event,
+    };
+    state.standby.push(ability);
+    entered.push(ability);
+  };
   for (const { card, master } of activeCards(state)) {
+    // Card ability data: the trigger matches and the gates are open (format.md, Q7, Q9).
+    const number = state.cards[card.cardId]?.deckCardNumber ?? "";
+    for (const ability of dataTriggers(state, event, card, master))
+      enter(card, master, dataAbilityId(number, ability.id));
     for (const definition of registry.values()) {
       if (!definition.cardIds.includes(card.cardId)) continue;
       if (!definition.triggers({ state, event, source: card, master }))
         continue;
-      const timestamp = state.nextTimestamp++;
-      const ability: StandbyAbility = {
-        standbyId: `s${timestamp}`,
-        abilityId: definition.abilityId,
-        sourceInstanceId: card.instanceId,
-        sourceCardId: card.cardId,
-        master,
-        timestamp,
-        event,
-      };
-      state.standby.push(ability);
-      entered.push(ability);
+      enter(card, master, definition.abilityId);
     }
   }
   return entered;

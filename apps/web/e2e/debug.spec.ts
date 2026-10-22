@@ -61,6 +61,10 @@ test("debug viewer: the card detail drawer leaves the step controls and log usab
   await page.locator("[data-testid=player-P1] button").first().click();
   const drawer = page.getByTestId("card-detail");
   await expect(drawer).toBeVisible();
+  // Each card shows its ability status (format.md): implemented, partial or manual.
+  await expect(page.getByTestId("card-ability-status")).toHaveText(
+    /^Abilities: (implemented|partial|manual)/,
+  );
 
   // Nothing is covered: the drawer and the step controls / log do not overlap, and Step back
   // can be clicked while the drawer is open (Playwright refuses to click a covered element).

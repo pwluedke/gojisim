@@ -1,0 +1,28 @@
+{
+  "ESD01-001": { "deckCardNumber": "ESD01-001", "status": "implemented", "abilities": [] },
+  "ESD01-003": { "deckCardNumber": "ESD01-003", "status": "implemented", "abilities": [
+    { "kind": "continuous", "id": "rage-threat",
+      "condition": { "rage": "you", "op": ">=", "value": 2 },
+      "modifiers": [ { "stat": "threat", "target": { "owner": "you", "area": "monster", "this": true }, "amount": 5000 } ] }
+  ] },
+  "ESD01-008": { "deckCardNumber": "ESD01-008", "status": "implemented", "abilities": [],
+    "notes": "Reminder text only: it restates 8.2.1." },
+  "ESD01-009": { "deckCardNumber": "ESD01-009", "status": "implemented", "abilities": [
+    { "kind": "continuous", "id": "awakening-bonus", "gates": [ { "gate": "awakening", "zone": 4 } ],
+      "modifiers": [ { "stat": "counterPower", "target": { "owner": "you", "area": "zones", "this": true }, "amount": 3000 } ] }
+  ] },
+  "ESD01-010": { "deckCardNumber": "ESD01-010", "status": "implemented", "abilities": [
+    { "kind": "continuous", "id": "rage-bonus",
+      "condition": { "rage": "you", "op": ">=", "value": 2 },
+      "modifiers": [ { "stat": "counterPower", "target": { "owner": "you", "area": "zones", "type": "Battle", "other": true, "zones": [8] }, "amount": 5000 } ] },
+    { "kind": "continuous", "id": "awakening-bonus", "gates": [ { "gate": "awakening", "zone": 6 } ],
+      "modifiers": [ { "stat": "counterPower", "target": { "owner": "you", "area": "zones", "type": "Battle", "other": true, "zones": [8] }, "amount": 5000 } ] }
+  ], "notes": "Q6: no bonus to itself in zone 8; the two bonuses stack." },
+  "ESD01-016": { "deckCardNumber": "ESD01-016", "status": "implemented", "abilities": [
+    { "kind": "triggered", "id": "heat-ray", "trigger": { "on": "placedInStrategyZone" },
+      "effects": [ { "effect": "destroy",
+        "target": { "select": { "owner": "opponent", "area": "zones", "type": "Battle",
+                                "zones": { "relation": "sameColumnAs", "of": "yourMonster" } },
+                    "count": "all", "chooser": "you" } } ] }
+  ] }
+}

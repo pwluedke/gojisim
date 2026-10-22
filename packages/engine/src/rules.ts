@@ -1,4 +1,5 @@
 import { getAbility } from "./abilities";
+import { resolveDataAbility } from "./interpreter";
 import { guardLoop } from "./loop";
 import { requireChoice } from "./choices";
 import { resolveLosses } from "./losses";
@@ -44,6 +45,52 @@ function destroyStack(
     cardIds: stack.map((c) => c.cardId),
   });
   for (const card of stack) toDiscard(state, card);
+}
+
+/**
+ * Destroys cards an effect chose (5.12), all at once: a card on top of a zone stack takes its whole
+ * stack with it (3.2.4); a strategy card leaves its strategy zone.
+ */
+export function destroyCards(
+  state: GameState,
+  targets: { card: CardInstance; player: PlayerState; zone?: ZoneNumber }[],
+  rule: string,
+  cause: string,
+): void {
+  const removed: {
+    player: PlayerState;
+    zone: ZoneNumber | null;
+    cards: CardInstance[];
+  }[] = [];
+  for (const { card, player, zone } of targets) {
+    if (zone !== undefined) {
+      const stack = player.zones[zone].find(
+        (s) => topOf(s)?.instanceId === card.instanceId,
+      );
+      if (!stack) continue;
+      player.zones[zone] = player.zones[zone].filter((s) => s !== stack);
+      removed.push({ player, zone, cards: stack });
+      continue;
+    }
+    const index = player.strategyZones.findIndex((p) =>
+      p.some((x) => x.card.instanceId === card.instanceId),
+    );
+    if (index < 0) continue;
+    player.strategyZones[index] =
+      player.strategyZones[index]?.filter(
+        (p) => p.card.instanceId !== card.instanceId,
+      ) ?? [];
+    removed.push({ player, zone: null, cards: [card] });
+  }
+  for (const { player, zone, cards } of removed) {
+    appendLog(state, "destroy", player.id, {
+      rule,
+      ...(zone === null ? { area: "strategy zone" } : { zone }),
+      cardIds: cards.map((c) => c.cardId),
+      cause,
+    });
+    for (const card of cards) toDiscard(state, card);
+  }
 }
 
 /**
@@ -223,6 +270,17 @@ export function resolveStandby(state: GameState, standbyId: string): void {
   const [ability] = state.standby.splice(index, 1);
   if (!ability) throw new Error(`No standby ability ${standbyId}`);
   const definition = getAbility(ability.abilityId);
+  if (!definition && ability.abilityId.includes("#")) {
+    appendLog(state, "resolveAbility", ability.master, {
+      rule: "10.6.3",
+      standbyId,
+      abilityId: ability.abilityId,
+      cardId: ability.sourceCardId,
+    });
+    resolveDataAbility(state, ability);
+    resolveLosses(state);
+    return;
+  }
   if (!definition) {
     appendLog(state, "abilityNotPlayed", ability.master, {
       rule: "10.6.3.2",
@@ -293,9 +351,10 @@ export function continueCheckTiming(state: GameState): void {
       const earliest = mine.reduce((a, b) =>
         b.timestamp < a.timestamp ? b : a,
       );
-      resolveStandby(state, earliest.standbyId);
-      // An ability loop never leaves this check timing, so it is checked here too (13.1).
+      // An ability loop never leaves this check timing, so it is checked here too (13.1): before
+      // each resolution, since the engine step that ran this check timing checks the state after it.
       if (guardLoop(state)) return;
+      resolveStandby(state, earliest.standbyId);
     } else {
       requireChoice(
         state,

@@ -4,3 +4,4 @@ export * from "./errata";
 export * from "./restrictions";
 export * from "./schema";
 export * from "./validate";
+export * from "./abilities";

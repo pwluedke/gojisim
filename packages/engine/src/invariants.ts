@@ -125,6 +125,15 @@ export function checkInvariants(state: GameState): string[] {
       problems.push(`${decider} has a decision but no actions`);
   }
 
+  // A data ability is part-way through resolving only while it waits for its own choice.
+  const effectChoice =
+    state.pendingChoice?.kind === "target" ||
+    state.pendingChoice?.kind === "zone";
+  if ((state.resolution !== null) !== effectChoice)
+    problems.push(
+      `resolution ${state.resolution ? "in progress" : "missing"} with choice ${state.pendingChoice?.kind ?? "none"}`,
+    );
+
   // getPlayerView never leaks the opponent's hand, monster deck or any deck order.
   for (const viewer of [...state.players.map((p) => p.id), "spectator"]) {
     const view = getPlayerView(state, viewer);

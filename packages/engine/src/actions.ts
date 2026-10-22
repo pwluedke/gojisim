@@ -1,5 +1,7 @@
 import { getCardTraits } from "@gojisim/cards";
 import { advanceMonster } from "./movement";
+import { hasAbilityData, resumeResolution } from "./interpreter";
+import { getRank } from "./stats";
 import { activeMonster, makeInvadingMonster } from "./counter";
 import { resetLoopGuard } from "./loop";
 import { markLoss, resolveLosses } from "./losses";
@@ -91,13 +93,10 @@ function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
   for (const card of player.hand) {
     const data = cardOf(state, card);
     const cardInstanceId = card.instanceId;
-    // 8.2.1: rank at most the zone number of the opponent's monster; 10.5.2.1.2: a zone the
-    // player's own monster does not occupy.
-    if (
-      data.type === "Battle" &&
-      data.rank !== null &&
-      data.rank <= opponentZone
-    ) {
+    // 8.2.1: rank at most the zone number of the opponent's monster, read through the 10.8.1
+    // layers; 10.5.2.1.2: a zone the player's own monster does not occupy.
+    const rank = data.type === "Monster" ? data.rank : getRank(state, card);
+    if (data.type === "Battle" && rank !== null && rank <= opponentZone) {
       for (const zone of ZONE_NUMBERS) {
         if (zone !== player.monsterPosition) {
           actions.push({
@@ -109,12 +108,9 @@ function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
         }
       }
     }
-    // 8.3.1: rank at most the zone number of the player's own monster; 8.3.2: an empty strategy zone.
-    if (
-      data.type === "Strategy" &&
-      data.rank !== null &&
-      data.rank <= ownZone
-    ) {
+    // 8.3.1: rank at most the zone number of the player's own monster (10.8.1 layers); 8.3.2: an
+    // empty strategy zone.
+    if (data.type === "Strategy" && rank !== null && rank <= ownZone) {
       for (const strategyZone of STRATEGY_ZONES) {
         if (strategyZoneOf(player, strategyZone).length === 0) {
           actions.push({
@@ -223,6 +219,7 @@ const PERFORM: {
     appendLog(state, "place", player.id, {
       rule: "10.5.2.3.2",
       cardId: placed.cardId,
+      instanceId: placed.instanceId,
       from: "resolutionArea",
       to: `zone ${action.zone}`,
     });
@@ -243,14 +240,17 @@ const PERFORM: {
     appendLog(state, "place", player.id, {
       rule: "10.5.2.3.2",
       cardId: placed.cardId,
+      instanceId: placed.instanceId,
       from: "resolutionArea",
       to: `strategy zone ${action.strategyZone}`,
     });
-    // The card's text is an automatic ability that resolves on placement (10.1.1.1.2); M4.
-    appendLog(state, "strategyTextPending", player.id, {
-      rule: "10.1.1.1.2",
-      cardId: placed.cardId,
-    });
+    // A card with ability data declares its own triggers (`placedInStrategyZone`, Q10); for a
+    // manual card the text still waits for a later M4 PR.
+    if (!hasAbilityData(state, placed))
+      appendLog(state, "strategyTextPending", player.id, {
+        rule: "10.1.1.1.2",
+        cardId: placed.cardId,
+      });
   },
   gainRage: (state, action) => {
     const player = getPlayer(state, action.player);
@@ -275,6 +275,7 @@ const PERFORM: {
     appendLog(state, "place", player.id, {
       rule: "10.5.2.3.1",
       cardId: stacked.cardId,
+      instanceId: stacked.instanceId,
       from: "resolutionArea",
       to: "invadingMonsterZone",
     });
@@ -322,6 +323,8 @@ const PERFORM: {
     });
     if (choice.kind === "standbyOrder") {
       resolveStandby(state, action.optionId);
+    } else if (choice.kind === "target" || choice.kind === "zone") {
+      resumeResolution(state, action.optionId);
     } else {
       makeInvadingMonster(
         state,

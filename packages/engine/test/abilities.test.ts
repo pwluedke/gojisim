@@ -1,14 +1,16 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  type AbilityDefinition,
   advance,
   applyAction,
   type GameState,
   getLegalActions,
   isAtPlayTiming,
+} from "../src";
+import {
+  type AbilityDefinition,
   registerAbility,
   unregisterAbility,
-} from "../src";
+} from "../src/testing";
 import { markLoss } from "../src/losses";
 import {
   addCard,

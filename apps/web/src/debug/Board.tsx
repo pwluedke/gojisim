@@ -1,4 +1,9 @@
-import { type Card, getCardText, getCardTraits } from "@gojisim/cards";
+import {
+  type Card,
+  getCardAbilities,
+  getCardText,
+  getCardTraits,
+} from "@gojisim/cards";
 import {
   type CardInstance,
   type GameState,
@@ -273,7 +278,14 @@ export function PlayerAreas({
   );
 }
 
-/** Full image, text with errata, and traits of the selected card. */
+/** Ability status colors: implemented, partial, manual (format.md). */
+const STATUS_COLOR = {
+  implemented: "#080",
+  partial: "#b60",
+  manual: "#b00",
+} as const;
+
+/** Full image, text with errata, traits and ability status of the selected card. */
 export function CardDetail({
   card,
   onClose,
@@ -282,6 +294,7 @@ export function CardDetail({
   onClose: () => void;
 }) {
   const text = getCardText(card);
+  const abilities = getCardAbilities(card.deckCardNumber);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -326,6 +339,16 @@ export function CardDetail({
       </p>
       <p>
         <strong>Traits:</strong> {getCardTraits(card).join(", ") || "none"}
+      </p>
+      <p data-testid="card-ability-status">
+        <strong>Abilities:</strong>{" "}
+        <span style={{ color: STATUS_COLOR[abilities.status] }}>
+          {abilities.status}
+        </span>
+        {abilities.status === "manual"
+          ? " (not run by the engine yet; resolve by hand)"
+          : ` (${abilities.abilities.length} in data)`}
+        {abilities.notes ? ` · ${abilities.notes}` : ""}
       </p>
       <p>
         <strong>Text{text.hasErrata ? " (ERRATA)" : ""}:</strong>
