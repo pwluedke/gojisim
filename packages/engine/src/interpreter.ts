@@ -21,6 +21,7 @@ import {
   sameColumn,
   type ZoneRef,
 } from "./geometry";
+import { activeCards } from "./abilities";
 import { cardOf, destroyCards, topOf } from "./rules";
 import { shuffleInPlace } from "./rng";
 import {
@@ -29,6 +30,7 @@ import {
   getOpponent,
   getPlayer,
   moved,
+  setRage,
   toDiscard,
 } from "./state";
 import { getCounterPower, getRank, getThreat } from "./stats";
@@ -480,6 +482,28 @@ function triggerMatches(
         top?.instanceId === source.instanceId
       );
     }
+    case "cardPlayed": {
+      // A main phase play (from the resolution area), an effect play, or a new invading monster
+      // (5.11), by the given player, of a card the selector picks.
+      const played =
+        (event.type === "place" &&
+          (event.payload["from"] === "resolutionArea" ||
+            event.payload["played"] === true)) ||
+        event.type === "newInvadingMonster";
+      const by =
+        trigger.by === "any" ||
+        (event.player === master) === (trigger.by === "you");
+      if (!played || !by) return false;
+      const ctx: Context = {
+        state,
+        master,
+        sourceInstanceId: source.instanceId,
+        bindings: {},
+      };
+      return select(ctx, trigger.what).some(
+        (l) => l.card.instanceId === event.payload["instanceId"],
+      );
+    }
     case "placedInStrategyZone":
       return (
         own &&
@@ -598,6 +622,7 @@ export function resolveDataAbility(
     chosen: [],
     zonePicks: [],
     answer: null,
+    replacementPicks: [],
   };
   if (
     ability.condition &&
@@ -616,12 +641,13 @@ export function resolveDataAbility(
 /** Continues the paused resolution after a `target`, `zone` or `confirm` choice. */
 export function resumeResolution(
   state: GameState,
-  kind: "target" | "zone" | "confirm",
+  kind: "target" | "zone" | "confirm" | "replacementOrder",
   optionId: string,
 ): void {
   const r = state.resolution;
   if (!r) throw new Error("No resolution in progress");
   if (kind === "confirm") r.answer = optionId === "yes" ? "yes" : "no";
+  else if (kind === "replacementOrder") r.replacementPicks.push(optionId);
   else if (kind === "zone") r.zonePicks.push(optionId);
   else r.chosen.push(optionId);
   runResolution(state);
@@ -729,6 +755,7 @@ function runResolution(state: GameState): void {
     if (perform(state, effect) === "paused") return;
     r.chosen = [];
     r.zonePicks = [];
+    r.replacementPicks = [];
     const next = nextPath(list, r.path);
     if (next) r.path = next;
     else if (r.stage === "cost") {
@@ -924,7 +951,30 @@ function perform(state: GameState, effect: Effect): Outcome {
         effect.as,
         targets.map((t) => t.card),
       );
-      destroyCards(state, targets, "5.12", abilityId);
+      // A card with 2 or more replacements: its master picks the one that applies (10.9.2.1).
+      const picks = new Map<string, string>();
+      let pickIndex = 0;
+      for (const target of targets) {
+        const options = destroyReplacements(state, target.card);
+        if (options.length < 2) continue;
+        const picked = r.replacementPicks[pickIndex++];
+        if (picked === undefined) {
+          requireChoice(
+            state,
+            target.player.id,
+            "replacementOrder",
+            "10.9.2.1",
+            options.map((o) => ({
+              id: o.abilityId,
+              cardId: o.source.cardId,
+              abilityId: o.abilityId,
+            })),
+          );
+          return "paused";
+        }
+        picks.set(target.card.instanceId, picked);
+      }
+      destroyCards(state, targets, "5.12", abilityId, picks);
       return "done";
     }
     case "discard": {
@@ -1120,17 +1170,8 @@ function perform(state: GameState, effect: Effect): Outcome {
     }
     case "rage": {
       const delta = amountOf(ctx, effect.delta);
-      for (const player of players(ctx, effect.player)) {
-        const from = player.rage;
-        // Rage never goes below 0 (3.4.4).
-        player.rage = Math.max(0, from + delta);
-        appendLog(state, "rageChanged", player.id, {
-          rule: from + delta < 0 ? "3.4.4" : "3.4.1",
-          from,
-          to: player.rage,
-          abilityId,
-        });
-      }
+      for (const player of players(ctx, effect.player))
+        setRage(state, player, player.rage + delta, "3.4.1", { abilityId });
       return "done";
     }
     case "draw": {
@@ -1175,6 +1216,82 @@ function perform(state: GameState, effect: Effect): Outcome {
       });
       return "done";
     }
+    case "putOnDeck": {
+      for (const found of select(ctx, effect.target)) {
+        const card = takeFromAnywhere(state, found);
+        const owner = getPlayer(state, card.owner);
+        const arrived = moved(state, card);
+        if (effect.where === "top") owner.deck.unshift(arrived);
+        else owner.deck.push(arrived);
+        appendLog(state, "putOnDeck", owner.id, {
+          rule: "5.2.1",
+          cardId: arrived.cardId,
+          from: found.area,
+          where: effect.where,
+          abilityId,
+        });
+      }
+      return "done";
+    }
+    case "moveBattle": {
+      const targets = select(ctx, effect.target).filter(
+        (t) => t.zone !== undefined,
+      );
+      if (targets.length > 1)
+        throw new Error("not implemented: moveBattle with several cards");
+      const [target] = targets;
+      if (!target || target.zone === undefined) return "done";
+      const owner = target.player;
+      // Never into the zone of the owner's own monster (Q5), and not where it already is.
+      const destinations = [
+        ...new Set(
+          resolveZoneSet(ctx, effect.to, [owner])
+            .filter((z) => z.player === owner.id)
+            .map((z) => z.zone),
+        ),
+      ]
+        .filter((z) => z !== owner.monsterPosition && z !== target.zone)
+        .sort((a, b) => a - b);
+      const [picked] = r.zonePicks;
+      if (picked === undefined) {
+        if (destinations.length === 0) return "done";
+        if (destinations.length > 1 || effect.optional) {
+          requireChoice(state, owner.id, "zone", "5.2.1", [
+            ...destinations.map((zone) => ({
+              id: `${owner.id}:${zone}`,
+              cardId: null,
+              abilityId,
+            })),
+            ...(effect.optional
+              ? [{ id: "done", cardId: null, abilityId }]
+              : []),
+          ]);
+          return "paused";
+        }
+      }
+      if (picked === "done") return "done";
+      const to = (
+        picked === undefined ? destinations[0] : Number(picked.split(":")[1])
+      ) as ZoneNumber;
+      const from = target.zone;
+      const stack = owner.zones[from].find(
+        (s) => topOf(s)?.instanceId === target.card.instanceId,
+      );
+      if (!stack) return "done";
+      owner.zones[from] = owner.zones[from].filter((s) => s !== stack);
+      // Zone to zone: the card keeps its identity (4.1.4). An occupied destination is resolved by
+      // 11.5 at the next check timing, which keeps the card that arrived last.
+      owner.zones[to].push(stack);
+      appendLog(state, "moveBattle", owner.id, {
+        rule: "5.2.1",
+        cardId: target.card.cardId,
+        instanceId: target.card.instanceId,
+        from,
+        to,
+        abilityId,
+      });
+      return "done";
+    }
     case "custom": {
       const run = customEffects.get(effect.handler);
       if (!run) throw new Error(`not implemented: custom ${effect.handler}`);
@@ -1184,4 +1301,152 @@ function perform(state: GameState, effect: Effect): Outcome {
     default:
       throw new Error(`not implemented: ${effect.effect}`);
   }
+}
+
+/**
+ * Takes a card out of wherever it is. A card on top of a zone stack takes its stack out; the
+ * cards under it go to the discard pile without being destroyed (5.12.1.1).
+ */
+function takeFromAnywhere(state: GameState, found: Located): CardInstance {
+  const { player, zone, card } = found;
+  if (found.area === "zones" && zone !== undefined) {
+    const stack = player.zones[zone].find(
+      (s) => topOf(s)?.instanceId === card.instanceId,
+    );
+    if (!stack)
+      throw new Error(`Card ${card.instanceId} is not in zone ${zone}`);
+    player.zones[zone] = player.zones[zone].filter((s) => s !== stack);
+    for (const under of stack.slice(0, -1)) toDiscard(state, under);
+    return card;
+  }
+  return takeCard(found);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Replacement effects (10.9)
+
+type ReplacementAbility = Extract<Ability, { kind: "replacement" }>;
+
+export interface Replacement {
+  ability: ReplacementAbility;
+  source: CardInstance;
+  master: PlayerId;
+  abilityId: string;
+}
+
+/**
+ * Replacement abilities that would replace destroying `card` (10.9, Q1): every active card's
+ * `replaces: destroyed` ability whose gates are open, whose condition holds and whose selector
+ * picks the card. The card must still be where it is about to be destroyed.
+ */
+export function destroyReplacements(
+  state: GameState,
+  card: CardInstance,
+): Replacement[] {
+  const found: Replacement[] = [];
+  for (const { card: source, master } of activeCards(state)) {
+    const data = abilitiesOf(state, source);
+    if (data.status === "manual") continue;
+    for (const ability of data.abilities) {
+      if (
+        ability.kind !== "replacement" ||
+        ability.replaces.event !== "destroyed"
+      )
+        continue;
+      if (!gatesOpen(state, master, ability.gates)) continue;
+      const ctx: Context = {
+        state,
+        master,
+        sourceInstanceId: source.instanceId,
+        bindings: {},
+      };
+      if (ability.condition && !conditionHolds(ctx, ability.condition))
+        continue;
+      if (
+        !select(ctx, ability.replaces.what).some(
+          (l) => l.card.instanceId === card.instanceId,
+        )
+      )
+        continue;
+      if (ability.optional)
+        throw new Error("not implemented: optional replacement");
+      found.push({
+        ability,
+        source,
+        master,
+        abilityId: dataAbilityId(data.deckCardNumber, ability.id),
+      });
+    }
+  }
+  return found;
+}
+
+/**
+ * Performs a replacement instead of the event it replaces (10.9.1): the original event never
+ * happens (10.9.1.1), so no `destroy` is logged. Its effects run at once, outside the check timing.
+ */
+export function applyReplacement(
+  state: GameState,
+  replacement: Replacement,
+  affected: CardInstance,
+  replaces: string,
+  rule: string,
+): void {
+  appendLog(state, "replace", replacement.master, {
+    rule: "10.9.1",
+    abilityId: replacement.abilityId,
+    cardId: affected.cardId,
+    replaces,
+    replacedRule: rule,
+  });
+  const saved = state.resolution;
+  state.resolution = {
+    standby: {
+      standbyId: "replacement",
+      abilityId: replacement.abilityId,
+      sourceInstanceId: replacement.source.instanceId,
+      sourceCardId: replacement.source.cardId,
+      master: replacement.master,
+      timestamp: 0,
+      event: state.log[state.log.length - 1] as LogEntry,
+    },
+    stage: "main",
+    path: [0],
+    bindings: {},
+    chosen: [],
+    zonePicks: [],
+    answer: null,
+    replacementPicks: [],
+  };
+  try {
+    for (const effect of replacement.ability.instead)
+      if (perform(state, effect) === "paused")
+        throw new Error(
+          "not implemented: a replacement effect that needs a choice",
+        );
+  } finally {
+    state.resolution = saved;
+  }
+}
+
+/**
+ * The replacement that applies to destroying `card`, if any. With 2 or more, `picked` names it
+ * (10.9.2.1); without a pick (rule actions can't pause) it throws, since no M4 card has two.
+ * Each replacement applies to an event at most once (10.9.2.3): once one applies, the destroy is
+ * gone, so no other can.
+ */
+export function replacementFor(
+  state: GameState,
+  card: CardInstance,
+  picked?: string,
+): Replacement | null {
+  const options = destroyReplacements(state, card);
+  if (options.length === 0) return null;
+  if (options.length === 1) return options[0] as Replacement;
+  const chosen = options.find((o) => o.abilityId === picked);
+  if (!chosen)
+    throw new Error(
+      "not implemented: choosing between replacements in a rule action",
+    );
+  return chosen;
 }

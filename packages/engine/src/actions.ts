@@ -12,7 +12,14 @@ import {
   continueCheckTiming,
   resolveStandby,
 } from "./rules";
-import { appendLog, getOpponent, getPlayer, moved, toDiscard } from "./state";
+import {
+  appendLog,
+  getOpponent,
+  getPlayer,
+  moved,
+  setRage,
+  toDiscard,
+} from "./state";
 import type {
   Action,
   CardInstance,
@@ -255,7 +262,7 @@ const PERFORM: {
   gainRage: (state, action) => {
     const player = getPlayer(state, action.player);
     discardFromHand(state, player, action.cardInstanceId, "8.4.1");
-    player.rage += 1;
+    setRage(state, player, player.rage + 1, "8.4.1");
     appendLog(state, "gainRage", player.id, {
       rule: "8.4.1",
       rage: player.rage,
@@ -279,7 +286,7 @@ const PERFORM: {
       from: "resolutionArea",
       to: "invadingMonsterZone",
     });
-    player.rage += 1;
+    setRage(state, player, player.rage + 1, "8.5.1.1");
     appendLog(state, "gainRage", player.id, {
       rule: "8.5.1.1",
       rage: player.rage,
@@ -329,7 +336,8 @@ const PERFORM: {
     } else if (
       choice.kind === "target" ||
       choice.kind === "zone" ||
-      choice.kind === "confirm"
+      choice.kind === "confirm" ||
+      choice.kind === "replacementOrder"
     ) {
       resumeResolution(state, choice.kind, action.optionId);
     } else {

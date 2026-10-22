@@ -141,7 +141,7 @@ The 22 effects below cover every starter card. With the 7 modifiers, they also c
 | `rage` | `player`, `delta` (+ or -), floor 0 (3.4.4) | 52 | 3 | M4c |
 | `setRage` | `player`, `value` | 3 | 0 | M12 |
 | `search` | `player`, `filter`, `count`, `reveal?`, then nested `effects` on the found cards; may find nothing (5.8.1.2) | 14 | 2 | M4d |
-| `play` | `from`, `filter`, `count`, `zones?`, `asManyAsPossible?`, `preferEmpty?`, `ignoreRankLimit` | 24 | 2 | M4d |
+| `play` | `from`, `filter`, `count`, `zones?`, `asManyAsPossible?`, `preferEmpty?`, `ignoreRankLimit?` (default true: 8.2.1 limits only the main phase action) | 24 | 2 | M4d |
 | `addToHand` | `target` (usually bound) | 14 | 1 | M4d |
 | `shuffle` | `player` | 16 | 2 | M4d |
 | `draw` | `player`, `count` | 14 | 1 | M4c |

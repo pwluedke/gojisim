@@ -145,7 +145,9 @@ export type ChoiceKind =
   /** A zone for a `chooseZone` effect or an effect play (format.md, 5.11.1). */
   | "zone"
   /** Yes or no: use an optional ability, or pay an optional cost (10.5.4, Q2). */
-  | "confirm";
+  | "confirm"
+  /** Which replacement effect applies first, when 2 or more would (10.9.2.1). */
+  | "replacementOrder";
 
 export interface ChoiceOption {
   /**
@@ -192,6 +194,8 @@ export interface Resolution {
   zonePicks: string[];
   /** The answer to the current `confirm` choice. */
   answer: "yes" | "no" | null;
+  /** Replacement abilities picked, in order, for destroyed cards with 2 or more (10.9.2.1). */
+  replacementPicks: string[];
 }
 
 /** A choice the engine is waiting for. Only `player` may act, with `choose` (or `concede`). */

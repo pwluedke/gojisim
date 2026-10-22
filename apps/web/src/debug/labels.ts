@@ -66,6 +66,8 @@ export function actionLabel(state: GameState, action: Action): string {
         const [player, zone] = action.optionId.split(":");
         return `Choose ${player}'s zone ${zone}`;
       }
+      if (choice?.kind === "replacementOrder")
+        return `Apply ${action.optionId} (${choice.rule})`;
       if (choice?.kind === "confirm")
         return `${action.optionId === "yes" ? "Yes" : "No"} (${option?.abilityId ?? "?"}, ${choice.rule})`;
       if (action.optionId === "done") return "Stop choosing (or find nothing)";
