@@ -14,14 +14,25 @@ export {
 } from "./movement";
 export * from "./geometry";
 export {
+  type AbilityDefinition,
+  getAbility,
+  registerAbility,
+  type TriggerContext,
+  unregisterAbility,
+} from "./abilities";
+export {
   activeMonster,
+  counterPowerOf,
+  getThreat,
+  nextMonsterCandidates,
+  RAGE_THREAT,
+} from "./counter";
+export {
   advance,
   advanceToDecision,
-  counterPowerOf,
   END_PHASE_HAND_SIZE,
   isAtPlayTiming,
-  RAGE_THREAT,
-  threatOf,
+  isWaiting,
 } from "./phases";
 export { normalizeSeed } from "./rng";
 export { type CreateGameOptions, createGame, type PlayerSetup } from "./setup";

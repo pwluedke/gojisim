@@ -1,9 +1,13 @@
+import { getAbility } from "./abilities";
+import { requireChoice } from "./choices";
+import { resolveLosses } from "./losses";
 import { appendLog, getPlayer, toDiscard } from "./state";
 import type {
   CardInstance,
   CardStack,
   GameState,
   PlayerState,
+  StandbyAbility,
   ZoneNumber,
 } from "./types";
 import { ZONE_NUMBERS } from "./types";
@@ -210,20 +214,97 @@ function resolveRuleActionsOnce(state: GameState): boolean {
 }
 
 /**
- * Check timing (10.4.3). Resolves rule actions until none are left (10.4.3.1). Abilities in
- * standby (10.4.3.2, 10.4.3.3) arrive in M3d; the standby list stays in the state, empty.
+ * Plays and resolves one ability from standby (10.6.3). An ability with no registered behavior
+ * cannot be played and simply leaves standby (10.6.3.2).
+ */
+export function resolveStandby(state: GameState, standbyId: string): void {
+  const index = state.standby.findIndex((a) => a.standbyId === standbyId);
+  const [ability] = state.standby.splice(index, 1);
+  if (!ability) throw new Error(`No standby ability ${standbyId}`);
+  const definition = getAbility(ability.abilityId);
+  if (!definition) {
+    appendLog(state, "abilityNotPlayed", ability.master, {
+      rule: "10.6.3.2",
+      standbyId,
+      abilityId: ability.abilityId,
+    });
+    return;
+  }
+  appendLog(state, "resolveAbility", ability.master, {
+    rule: "10.6.3",
+    standbyId,
+    abilityId: ability.abilityId,
+    cardId: ability.sourceCardId,
+  });
+  definition.resolve(state, ability);
+  resolveLosses(state);
+}
+
+/** Standby entries that are copies of one ability from one card: their order cannot matter. */
+function interchangeable(abilities: StandbyAbility[]): boolean {
+  const [first] = abilities;
+  return abilities.every(
+    (a) =>
+      a.abilityId === first?.abilityId &&
+      a.sourceInstanceId === first.sourceInstanceId,
+  );
+}
+
+/**
+ * Check timing (10.4.3): resolve rule actions until none are left (10.4.3.1); then the turn
+ * player plays one of their standby abilities (10.4.3.2), or else the non-turn player does
+ * (10.4.3.3), and it starts again from 10.4.3.1; when no ability is left, it ends (10.4.3.4).
+ * When a player has several different abilities in standby they choose the order (10.6.3.1):
+ * the check timing stops with a `standbyOrder` choice and continues after it.
  */
 export function checkTiming(state: GameState, rule: string): void {
   appendLog(state, "checkTiming", null, { rule });
-  for (;;) {
-    // Interrupt rule actions whose condition holds are performed too (11.1.2.1).
-    const crushed = crushAndDestroy(state);
-    const resolved = resolveRuleActionsOnce(state);
-    if (crushed === 0 && !resolved) break;
-  }
-  if (state.standby.length > 0) {
-    throw new Error(
-      "Abilities in standby are not supported until M3d (10.4.3.2)",
+  state.checkTiming = { rule };
+  continueCheckTiming(state);
+}
+
+export function continueCheckTiming(state: GameState): void {
+  while (
+    state.checkTiming !== null &&
+    state.result === null &&
+    state.pendingChoice === null
+  ) {
+    for (;;) {
+      // Interrupt rule actions whose condition holds are performed too (11.1.2.1).
+      const crushed = crushAndDestroy(state);
+      const resolved = resolveRuleActionsOnce(state);
+      if (crushed === 0 && !resolved) break;
+    }
+    if (resolveLosses(state)) return;
+    const nonTurnPlayer = state.players.find(
+      (p) => p.id !== state.turnPlayer,
+    )?.id;
+    const order = [state.turnPlayer, nonTurnPlayer];
+    const master = order.find((id) =>
+      state.standby.some((a) => a.master === id),
     );
+    if (master === undefined) {
+      state.checkTiming = null;
+      return;
+    }
+    const mine = state.standby.filter((a) => a.master === master);
+    if (interchangeable(mine)) {
+      const earliest = mine.reduce((a, b) =>
+        b.timestamp < a.timestamp ? b : a,
+      );
+      resolveStandby(state, earliest.standbyId);
+    } else {
+      requireChoice(
+        state,
+        master,
+        "standbyOrder",
+        master === state.turnPlayer ? "10.4.3.2" : "10.4.3.3",
+        mine.map((a) => ({
+          id: a.standbyId,
+          cardId: a.sourceCardId,
+          abilityId: a.abilityId,
+        })),
+      );
+    }
   }
 }

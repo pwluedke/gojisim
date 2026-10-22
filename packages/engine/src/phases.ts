@@ -1,5 +1,12 @@
+import {
+  counterMonster,
+  counterPowerOf,
+  getThreat,
+  activeMonster,
+} from "./counter";
+import { resolveLosses } from "./losses";
 import { advanceMonster } from "./movement";
-import { cardOf, checkTiming, hasPendingRuleActions, topOf } from "./rules";
+import { checkTiming, hasPendingRuleActions } from "./rules";
 import {
   appendLog,
   drawCards,
@@ -8,47 +15,13 @@ import {
   toDiscard,
 } from "./state";
 import type { GameState, Phase, PlayerState, Step } from "./types";
-import { ZONE_NUMBERS } from "./types";
 
 /** Hand size the end phase draws up to (7.5.4). */
 export const END_PHASE_HAND_SIZE = 5;
 
-/** Threat added per point of rage (3.4.5). */
-export const RAGE_THREAT = 5000;
-
 /** Deep copy. Game state is plain JSON, so a JSON round trip is exact. */
 export function cloneState(state: GameState): GameState {
   return JSON.parse(JSON.stringify(state)) as GameState;
-}
-
-/** The active monster: the top card of the invading monster stack (3.2.3.1). */
-export function activeMonster(state: GameState, player: PlayerState) {
-  const top = topOf(player.invadingMonsterZone);
-  return top ? cardOf(state, top) : null;
-}
-
-/** Printed threat of the active monster plus 5,000 per point of rage (3.4.5). */
-export function threatOf(state: GameState, player: PlayerState): number {
-  return (
-    (activeMonster(state, player)?.counterOrThreat ?? 0) +
-    RAGE_THREAT * player.rage
-  );
-}
-
-/**
- * Total counter power of a player's battle cards in zones (7.4.2). Only stacks topped by a battle
- * card count; monster cards in zones add nothing (7.4.2.1). Cannot-engage (5.16) arrives in M3d.
- */
-export function counterPowerOf(state: GameState, player: PlayerState): number {
-  let total = 0;
-  for (const zone of ZONE_NUMBERS) {
-    for (const stack of player.zones[zone]) {
-      const top = topOf(stack);
-      const card = top && cardOf(state, top);
-      if (card?.type === "Battle") total += card.counterOrThreat ?? 0;
-    }
-  }
-  return total;
 }
 
 function turnPlayer(state: GameState): PlayerState {
@@ -60,6 +33,10 @@ function goTo(state: GameState, phase: Phase, step: Step): void {
   state.step = step;
 }
 
+/**
+ * "At the beginning of the <phase>" trigger, then a check timing. Callers move `state.step` on
+ * first, so a choice that pauses this check timing resumes into the next step.
+ */
 function beginningOf(state: GameState, phase: Phase, rule: string): void {
   // "At the beginning of the <phase>" trigger (no abilities trigger on it until M4).
   appendLog(state, "phaseBegins", state.turnPlayer, { rule, phase });
@@ -74,8 +51,8 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
       rule: "7.1.1",
       turn: state.turn,
     });
-    beginningOf(state, "start", "7.2.1");
     goTo(state, "start", "7.2.2");
+    beginningOf(state, "start", "7.2.1");
   },
   "7.2.2": (state) => {
     const player = turnPlayer(state);
@@ -116,21 +93,21 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
     goTo(state, "start", "7.2.5");
   },
   "7.2.5": (state) => {
-    checkTiming(state, "7.2.5");
     goTo(state, "main", "7.3.1");
+    checkTiming(state, "7.2.5");
   },
   "7.3.1": (state) => {
-    beginningOf(state, "main", "7.3.1");
-    // The play timing's own check timing (10.4.4.1) has nothing left to do here; from M3c it
-    // runs after each action, before the play timing is given again.
     goTo(state, "main", "7.3.2");
+    // The play timing's own check timing (10.4.4.1) has nothing left to do after this one; it
+    // runs after each action, before the play timing is given again.
+    beginningOf(state, "main", "7.3.1");
   },
   "7.3.2": () => {
     // Play timing: the engine waits for the turn player's action.
   },
   "7.4.1": (state) => {
-    beginningOf(state, "counter", "7.4.1");
     goTo(state, "counter", "7.4.2");
+    beginningOf(state, "counter", "7.4.1");
   },
   "7.4.2": (state) => {
     const player = turnPlayer(state);
@@ -145,7 +122,7 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
     const player = turnPlayer(state);
     const opponent = getOpponent(state, player.id);
     const total = state.counterTotal ?? 0;
-    const threat = threatOf(state, opponent);
+    const threat = getThreat(state, opponent.id);
     const countered = total >= threat;
     appendLog(state, "counterCheck", player.id, {
       rule: "7.4.3",
@@ -153,20 +130,18 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
       threat,
       countered,
     });
-    if (countered) {
-      // The counter itself (5.15) arrives in M3d.
-      appendLog(state, "counterPending", opponent.id, { rule: "5.15" });
-    }
     state.counterTotal = null;
     goTo(state, "counter", "7.4.4");
+    // A tie counts as a counter (7.4.3).
+    if (countered) counterMonster(state, opponent);
   },
   "7.4.4": (state) => {
-    checkTiming(state, "7.4.4");
     goTo(state, "end", "7.5.1");
+    checkTiming(state, "7.4.4");
   },
   "7.5.1": (state) => {
-    beginningOf(state, "end", "7.5.1");
     goTo(state, "end", "7.5.2");
+    beginningOf(state, "end", "7.5.1");
   },
   "7.5.2": (state) => {
     const player = turnPlayer(state);
@@ -176,8 +151,8 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
     goTo(state, "end", "7.5.3");
   },
   "7.5.3": (state) => {
-    checkTiming(state, "7.5.3");
     goTo(state, "end", "7.5.4");
+    checkTiming(state, "7.5.3");
   },
   "7.5.4": (state) => {
     const player = turnPlayer(state);
@@ -187,8 +162,8 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
     goTo(state, "end", "7.5.5");
   },
   "7.5.5": (state) => {
-    checkTiming(state, "7.5.5");
     goTo(state, "end", "7.5.6");
+    checkTiming(state, "7.5.5");
   },
   "7.5.6": (state) => {
     const expired = state.continuousEffects.filter(
@@ -221,29 +196,40 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
 
 /** Whether the engine is waiting for the turn player (main phase play timing, 7.3.2). */
 export function isAtPlayTiming(state: GameState): boolean {
-  return state.result === null && state.step === "7.3.2";
+  return (
+    state.result === null &&
+    state.pendingChoice === null &&
+    state.step === "7.3.2"
+  );
+}
+
+/** Whether the engine is waiting for a player: a pending choice or the play timing. */
+export function isWaiting(state: GameState): boolean {
+  return state.pendingChoice !== null || state.step === "7.3.2";
 }
 
 /**
- * Runs the next automatic engine step and returns the new state. At the main phase play timing
- * (7.3.2) it returns the state unchanged. Throws "game over" once the game has a result (1.2.1).
+ * Runs the next automatic engine step and returns the new state. While waiting for a player (a
+ * pending choice, or the main phase play timing 7.3.2) it returns the state unchanged. Throws
+ * "game over" once the game has a result (1.2.1).
  */
 export function advance(state: GameState): GameState {
   if (state.result !== null) throw new Error("game over");
-  if (state.step === "7.3.2") return state;
+  if (isWaiting(state)) return state;
   const next = cloneState(state);
   STEP_RUNNERS[next.step](next);
+  resolveLosses(next);
   return next;
 }
 
-/** Calls `advance` until the engine waits for a player or the game ends. */
+/** Calls `advance` until the engine waits for a player (a choice or the play timing) or the game ends. */
 export function advanceToDecision(
   state: GameState,
   maxSteps = 1000,
 ): GameState {
   let current = state;
   for (let i = 0; i < maxSteps; i++) {
-    if (current.result !== null || current.step === "7.3.2") return current;
+    if (current.result !== null || isWaiting(current)) return current;
     current = advance(current);
   }
   throw new Error(

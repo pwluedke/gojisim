@@ -192,9 +192,11 @@ describe("engine API", () => {
     );
   });
 
-  it("Engine: right after setup there are no legal actions; the start phase has not run", () => {
+  it("1.2.3 right after setup the only legal action is to concede; the start phase has not run", () => {
     const state = createGame(testGameOptions());
-    expect(getLegalActions(state, state.turnPlayer)).toEqual([]);
+    expect(getLegalActions(state, state.turnPlayer)).toEqual([
+      { type: "concede", player: state.turnPlayer },
+    ]);
   });
 
   it("Engine: applyAction rejects an action outside the play timing", () => {

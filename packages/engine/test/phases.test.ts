@@ -168,84 +168,15 @@ describe("main phase play timing (7.3.2, 10.4.4)", () => {
     ).toBeDefined();
   });
 
-  it("10.4.4.2 only the turn player gets a play timing; the non-turn player has no actions", () => {
+  it("10.4.4.2 only the turn player gets a play timing; the non-turn player can only concede", () => {
     const state = runTo(newGame(), "7.3.2");
     const other = nonTurnPlayer(state).id;
-    expect(getLegalActions(state, other)).toEqual([]);
+    expect(getLegalActions(state, other)).toEqual([
+      { type: "concede", player: other },
+    ]);
     expect(() => applyAction(state, { type: "pass", player: other })).toThrow(
       /Illegal action/,
     );
-  });
-});
-
-describe("counter phase stub (7.4)", () => {
-  function counterAt(totals: number[], threatRank: number, rage = 0) {
-    const state = runTo(newGame(), "7.4.1");
-    const player = turnPlayer(state);
-    const opponent = nonTurnPlayer(state);
-    totals.forEach((power, i) => {
-      player.zones[(i + 3) as 3].push([
-        addCard(state, battleCard({ counterOrThreat: power }), player.id),
-      ]);
-    });
-    opponent.invadingMonsterZone.push(
-      addCard(
-        state,
-        monsterCard(threatRank, { counterOrThreat: 10000 }),
-        opponent.id,
-      ),
-    );
-    opponent.rage = rage;
-    return runTo(state, "7.4.4");
-  }
-  const check = (state: GameState) =>
-    state.log.find((e) => e.type === "counterCheck")?.payload;
-
-  it("7.4.3 counter power equal to the threat counts as a counter (tie) and logs counterPending", () => {
-    const state = counterAt([6000, 4000], 2);
-    expect(check(state)).toEqual({
-      rule: "7.4.3",
-      total: 10000,
-      threat: 10000,
-      countered: true,
-    });
-    expect(logTypes(state)).toContain("counterPending");
-  });
-
-  it("7.4.3 counter power below the threat is not a counter", () => {
-    const state = counterAt([9000], 2);
-    expect(check(state)).toMatchObject({
-      total: 9000,
-      threat: 10000,
-      countered: false,
-    });
-    expect(logTypes(state)).not.toContain("counterPending");
-  });
-
-  it("3.4.5 rage adds 5,000 threat per point", () => {
-    const state = counterAt([10000], 2, 1);
-    expect(check(state)).toMatchObject({
-      total: 10000,
-      threat: 15000,
-      countered: false,
-    });
-  });
-
-  it("7.4.2.1 a monster card stacked in a zone adds nothing to the total", () => {
-    const state = runTo(newGame(), "7.4.2");
-    const player = turnPlayer(state);
-    const under = addCard(
-      state,
-      monsterCard(2, { counterOrThreat: 9000 }),
-      player.id,
-    );
-    const top = addCard(
-      state,
-      battleCard({ counterOrThreat: 2000 }),
-      player.id,
-    );
-    player.zones[4].push([under, top]);
-    expect(advance(state).counterTotal).toBe(2000);
   });
 });
 
@@ -477,9 +408,11 @@ describe("full turns", () => {
     const first = play();
     expect(first).toMatchObject({ turn: 11, step: "7.2.1", result: null });
     expect(hash(play())).toBe(hash(first));
-    // Golden hash: changes only when engine behavior changes on purpose.
+    // Golden hash: changes only when engine behavior or the state shape changes on purpose.
+    // M3d added pendingChoice, checkTiming, pendingLosses and nextChoiceId; with those removed
+    // the state still hashes to the M3b/M3c value 208bb050...4924d (behavior unchanged).
     expect(hash(first)).toMatchInlineSnapshot(
-      `"208bb0507d606e5d2a1198eb0361e7e96f1ad344c5160fc4f5506de82344924d"`,
+      `"128a23c3f76c32a6a99a4c26f16ecf5942914a0c9d6fb0a8917b1b41aacfcf90"`,
     );
     // Each player had 5 turns, so each monster advanced from zone 1 to zone 6 (7.5.2).
     expect(first.players.map((p) => p.monsterPosition)).toEqual([6, 6]);

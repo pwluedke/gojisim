@@ -1,6 +1,8 @@
 import type { Card } from "@gojisim/cards";
 import type {
   CardInstance,
+  ChoiceOption,
+  PendingChoice,
   CardStack,
   GameState,
   PlayerId,
@@ -11,6 +13,11 @@ import type {
 import { ZONE_NUMBERS } from "./types";
 
 export type Viewer = PlayerId | "spectator";
+
+export interface PendingChoiceView extends Omit<PendingChoice, "options"> {
+  optionCount: number;
+  options: ChoiceOption[] | null;
+}
 
 /** Deep copy. Game state is plain JSON, so a JSON round trip is exact. */
 function cloneJson<T>(value: T): T {
@@ -50,6 +57,11 @@ export interface PlayerView {
   turnFlags: GameState["turnFlags"];
   standby: GameState["standby"];
   continuousEffects: GameState["continuousEffects"];
+  /**
+   * The pending choice. Only its player sees the options of a `nextMonster` choice, which come
+   * from their hidden monster deck (4.6.2); everyone sees the option count.
+   */
+  pendingChoice: PendingChoiceView | null;
   result: GameState["result"];
   /** Card data only for cards this viewer can see. */
   cards: Record<string, Card>;
@@ -96,6 +108,19 @@ function playerView(player: PlayerState, viewer: Viewer): PlayerAreasView {
   };
 }
 
+function choiceView(
+  choice: PendingChoice | null,
+  viewer: Viewer,
+): PendingChoiceView | null {
+  if (choice === null) return null;
+  const hidden = choice.kind === "nextMonster" && viewer !== choice.player;
+  return {
+    ...cloneJson(choice),
+    optionCount: choice.options.length,
+    options: hidden ? null : cloneJson(choice.options),
+  };
+}
+
 function visibleCardIds(view: Omit<PlayerView, "cards">): Set<number> {
   const ids = new Set<number>();
   const add = (cards: CardInstance[] | null) =>
@@ -139,6 +164,7 @@ export function getPlayerView(state: GameState, viewer: Viewer): PlayerView {
     turnFlags: { ...state.turnFlags },
     standby: cloneJson(state.standby),
     continuousEffects: cloneJson(state.continuousEffects),
+    pendingChoice: choiceView(state.pendingChoice, viewer),
     result: cloneJson(state.result),
     log: cloneJson(state.log),
   };

@@ -1,7 +1,14 @@
 import { getCardTraits } from "@gojisim/cards";
 import { advanceMonster } from "./movement";
-import { activeMonster, cloneState, isAtPlayTiming } from "./phases";
-import { cardOf, checkTiming } from "./rules";
+import { activeMonster, makeInvadingMonster } from "./counter";
+import { markLoss, resolveLosses } from "./losses";
+import { cloneState, isAtPlayTiming } from "./phases";
+import {
+  cardOf,
+  checkTiming,
+  continueCheckTiming,
+  resolveStandby,
+} from "./rules";
 import { appendLog, getOpponent, getPlayer, moved, toDiscard } from "./state";
 import type {
   Action,
@@ -43,14 +50,37 @@ function canPlayMonster(
 }
 
 /**
- * Every legal action for `playerId` (spec "Actions"). Only the turn player has a play timing
- * (10.4.4.2), only in the main phase (7.3.2), and nobody once the game is over.
+ * Every legal action for `playerId`. Only the turn player has a play timing (10.4.4.2, spec
+ * "Actions"); a pending choice is answered only by its player with `choose`; `concede` is always
+ * legal while the game runs (1.2.3). Nobody has actions once the game is over.
  */
 export function getLegalActions(
   state: GameState,
   playerId: PlayerId,
 ): Action[] {
-  if (!isAtPlayTiming(state) || playerId !== state.turnPlayer) return [];
+  if (state.result !== null || !state.players.some((p) => p.id === playerId))
+    return [];
+  // 1.2.3: either player may concede at any time while the game runs.
+  const concede: Action = { type: "concede", player: playerId };
+  const choice = state.pendingChoice;
+  if (choice !== null) {
+    if (choice.player !== playerId) return [concede];
+    return [
+      ...choice.options.map((option): Action => ({
+        type: "choose",
+        player: playerId,
+        choiceId: choice.id,
+        optionId: option.id,
+      })),
+      concede,
+    ];
+  }
+  if (!isAtPlayTiming(state) || playerId !== state.turnPlayer) return [concede];
+  return [...mainPhaseActions(state, playerId), concede];
+}
+
+/** The turn player's actions at the main phase play timing (8.2 to 8.6, 10.4.4.3). */
+function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
   const player = getPlayer(state, playerId);
   const opponent = getOpponent(state, playerId);
   const ownZone = player.monsterPosition ?? 0;
@@ -277,6 +307,36 @@ const PERFORM: {
       didAdvance: advances > 0,
     });
   },
+  choose: (state, action) => {
+    const choice = state.pendingChoice;
+    if (!choice) throw new Error("No pending choice");
+    state.pendingChoice = null;
+    appendLog(state, "choose", action.player, {
+      rule: choice.rule,
+      kind: choice.kind,
+      choiceId: choice.id,
+      // A next-monster choice reveals the card: it becomes the public invading monster.
+      cardId:
+        choice.options.find((o) => o.id === action.optionId)?.cardId ?? null,
+    });
+    if (choice.kind === "standbyOrder") {
+      resolveStandby(state, action.optionId);
+    } else {
+      makeInvadingMonster(
+        state,
+        getPlayer(state, action.player),
+        action.optionId,
+      );
+    }
+    resolveLosses(state);
+    // Pick up the check timing the choice paused, if any (10.4.3).
+    continueCheckTiming(state);
+  },
+  concede: (state, action) => {
+    // 1.2.3: the conceding player loses at once, with no check timing; 1.2.3.1: nothing stops it.
+    markLoss(state, action.player, "concession", "1.2.3");
+    resolveLosses(state);
+  },
   pass: (state, action) => {
     // 10.4.4.3: the player chose to do nothing, so the play timing and the main phase end (7.3.2).
     appendLog(state, "pass", action.player, { rule: "10.4.4.3" });
@@ -287,7 +347,7 @@ const PERFORM: {
 
 /**
  * Applies a player's action and returns the new state. Throws "game over" once the game has a
- * result, and throws on any action `getLegalActions` does not list.
+ * result, and throws on any action `getLegalActions` does not list (including a stale `choose`).
  */
 export function applyAction(state: GameState, action: Action): GameState {
   if (state.result !== null) throw new Error("game over");
@@ -305,10 +365,16 @@ export function applyAction(state: GameState, action: Action): GameState {
     next,
     action,
   );
-  // The game ends the instant a player wins (1.2.1): no further processing.
-  if (next.result === null && action.type !== "pass") {
+  resolveLosses(next);
+  // The game ends the instant a player wins or loses (1.2.1): no further processing.
+  const mainAction =
+    action.type !== "pass" &&
+    action.type !== "choose" &&
+    action.type !== "concede";
+  if (next.result === null && mainAction) {
     // 10.4.4.1: a check timing before the play timing is given again (10.4.4.2).
     checkTiming(next, "10.4.4.1");
+    resolveLosses(next);
   }
   return next;
 }
