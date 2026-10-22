@@ -179,3 +179,17 @@ Accepted by Monarch in the M3e review (PR #11).
 111. The invariant view-leak check collects each view's instance ids once (0.5 ms per action).
 112. `stress-failures/` and `loop-reports/` are gitignored.
 113. Card conservation flags opponent-owned cards in a player's areas; M4 adds an exception for effects that move a card to the opponent's field. Confirmed by Monarch.
+
+Accepted by Monarch in the M3f review (PR #12).
+
+114. A card number in a deck list resolves to the base print first, then the print whose number matches its own set, then the lowest id.
+115. Deck list header names are case-insensitive. A `[deck]` header with no name, or a section header with no `[deck]` before it, gets the name "Deck N".
+116. A deck list line that isn't a count plus a card number is a parse error of its own kind.
+117. `formatDeckList` writes consecutive runs of the same card, so card order survives a round trip.
+118. Restriction failures use "Restriction list" and "Choice restriction" in place of a rule number.
+119. Resonance (6.1.2) deck checks wait for M4 ability data.
+120. `deckLegality` is optional in `GameRecord` (older records still load) and records the `asOf` date; replay ignores it.
+121. `validateDeck` is on the main `@gojisim/cards` entry; parsing is the `@gojisim/cards/deck-lists` subpath, because it imports `cards.json`.
+122. `/debug` checks decks against today's date, defaults to ESD01 official vs ESD02 official, stores imported decks as deck list text under `gojisim.debug.importedDecks`, and exports the picked decks as `gojisim-decks.txt`.
+123. `pnpm stress` takes `--progress N` (default 10; nightly uses 500). The nightly timeout is 120 minutes.
+124. Weighted stress policy weights: playBattle 32, gainRage 20, playMonster 12, activateStrategy 8, pass 8, choose 4, invade 1. Battle cards go to the player's own empty zone 8 first, then to empty zones behind its own monster.
