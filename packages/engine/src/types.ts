@@ -17,7 +17,15 @@ export interface CardInstance {
   /** `Card.id` in `cards.json` (or a test fixture), looked up in `GameState.cards`. */
   cardId: number;
   owner: PlayerId;
+  /**
+   * Statuses on this object, e.g. "cannotEngage" (5.16). A move to another area makes a new
+   * object without them (4.1.4). Omitted when empty.
+   */
+  statuses?: CardStatus[];
 }
+
+/** A status an effect can put on a card. */
+export type CardStatus = "cannotEngage";
 
 /**
  * Cards stacked on each other, bottom first. A stack counts as one card and only the top card's
@@ -81,11 +89,22 @@ export const STEPS = [
 
 export type Step = (typeof STEPS)[number];
 
-/** An automatic ability waiting for a check timing (10.6.2). Filled in from M3d. */
+/**
+ * An automatic ability in standby (10.6.2), as plain JSON. Its behavior lives in the ability
+ * registry under `abilityId` (see `registerAbility`).
+ */
 export interface StandbyAbility {
+  /** Unique per standby entry; a trigger that fires twice makes two entries (10.6.2.1). */
+  standbyId: string;
   abilityId: string;
-  controller: PlayerId;
+  /** The card whose ability triggered (it may have left its area since, 10.6.7). */
   sourceInstanceId: string;
+  sourceCardId: number;
+  /** The player who plays and resolves it (10.6.7.1: fixed when it entered standby). */
+  master: PlayerId;
+  timestamp: number;
+  /** The log entry (event) that triggered it. */
+  event: LogEntry;
 }
 
 /** A continuous effect in force, ordered by timestamp (10.8.1.7). Filled in from M3d. */
@@ -96,12 +115,46 @@ export interface ContinuousEffect {
 }
 
 export type ResultReason =
+  /** Victory through invasion (5.13.1.1.2). */
   | "invasion"
-  | "counter"
+  /** The countered player had no next monster (5.15.1.2.1, 5.15.1.2.2). */
+  | "victoryThroughCountering"
   | "concession"
+  /** A card effect made a player win or lose (1.2.4). */
   | "effect"
-  | "bothLost"
-  | "infiniteLoop";
+  /** Both players lost at the same time (1.2.2), or an unstoppable loop (13.1). */
+  | "draw";
+
+/** A loss recorded during one process, resolved together with any others (1.2.1, 1.2.2). */
+export interface PendingLoss {
+  player: PlayerId;
+  reason: ResultReason;
+  rule: string;
+}
+
+export type ChoiceKind =
+  /** Which of the player's standby abilities to play next (10.4.3.2, 10.6.3.1). */
+  | "standbyOrder"
+  /** The next invading monster after a counter (5.15.1.2). */
+  | "nextMonster";
+
+export interface ChoiceOption {
+  /** Standby id for `standbyOrder`, card instance id for `nextMonster`. */
+  id: string;
+  cardId: number;
+  /** For `standbyOrder`: the ability that would resolve. */
+  abilityId: string | null;
+}
+
+/** A choice the engine is waiting for. Only `player` may act, with `choose` (or `concede`). */
+export interface PendingChoice {
+  /** Matches `choose.choiceId`, so a stale choice is rejected. */
+  id: number;
+  player: PlayerId;
+  kind: ChoiceKind;
+  rule: string;
+  options: ChoiceOption[];
+}
 
 export interface GameResult {
   /** `null` for a draw. */
@@ -147,6 +200,13 @@ export interface GameState {
   continuousEffects: ContinuousEffect[];
   /** Counter power totalled at 7.4.2, compared at 7.4.3; `null` outside the counter phase. */
   counterTotal: number | null;
+  /** A choice the engine is waiting for; the engine does nothing else until it is made. */
+  pendingChoice: PendingChoice | null;
+  /** The check timing in progress while a choice inside it is pending (10.4.3). */
+  checkTiming: { rule: string } | null;
+  /** Losses recorded during the current process (1.2.2); empty between processes. */
+  pendingLosses: PendingLoss[];
+  nextChoiceId: number;
   result: GameResult | null;
   /** Every card that takes part in this game, keyed by `Card.id`. */
   cards: Record<string, Card>;
@@ -179,6 +239,10 @@ export type Action =
   /** Discard a card from hand and advance once per invasion icon point (8.6). */
   | { type: "invade"; player: PlayerId; cardInstanceId: string }
   /** End the play timing and the main phase (10.4.4.3). */
-  | { type: "pass"; player: PlayerId };
+  | { type: "pass"; player: PlayerId }
+  /** Answer the pending choice (`state.pendingChoice`). */
+  | { type: "choose"; player: PlayerId; choiceId: number; optionId: string }
+  /** Concede: legal for either player at any time while the game runs (1.2.3). */
+  | { type: "concede"; player: PlayerId };
 
 export type ActionType = Action["type"];

@@ -1,3 +1,4 @@
+import { fireTriggers } from "./abilities";
 import { shuffleInPlace } from "./rng";
 import type {
   CardInstance,
@@ -42,6 +43,10 @@ export function moved(
   return zoneToZone ? card : newInstance(state, card.cardId, card.owner);
 }
 
+/**
+ * Appends an entry to the action log. Every entry is an engine event, so it then goes through the
+ * trigger check (10.6.2); abilities that trigger enter standby and are logged as `enterStandby`.
+ */
 export function appendLog(
   state: GameState,
   type: string,
@@ -50,6 +55,21 @@ export function appendLog(
 ): LogEntry {
   const entry: LogEntry = { seq: state.log.length + 1, type, player, payload };
   state.log.push(entry);
+  for (const ability of fireTriggers(state, entry)) {
+    // Not an event itself, so an ability cannot trigger on its own standby entry.
+    state.log.push({
+      seq: state.log.length + 1,
+      type: "enterStandby",
+      player: ability.master,
+      payload: {
+        rule: "10.6.2",
+        standbyId: ability.standbyId,
+        abilityId: ability.abilityId,
+        cardId: ability.sourceCardId,
+        triggeredBy: entry.seq,
+      },
+    });
+  }
   return entry;
 }
 

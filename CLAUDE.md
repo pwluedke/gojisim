@@ -120,3 +120,16 @@ Accepted by Monarch in the M3b review (PR #7).
 64. The 7.5.4 draw is mandatory ("equal to the number needed"), not the optional "draw up to" of 5.4.3.
 65. 7.5.7's "pending" check looks at the standby list and at check-timing rule actions.
 66. Check timing throws on a non-empty standby list until M3d implements 10.4.3.2/10.4.3.3. Confirmed by Monarch.
+
+Accepted by Monarch in the M3c review (PR #8).
+
+67. Monster movement functions are `advanceMonster`, `retreatMonster`, `advanceMonsterTo` and `retreatMonsterTo` (`advance(state)` is the step runner).
+68. `didAdvance` (5.13.3) is the return value of the movement functions; invasion logs `invasionDone { advances, didAdvance }`.
+69. `strategyZone` is 1 or 2 in actions.
+70. `Action` is a discriminated union; `applyAction` accepts only an action equal to one from `getLegalActions`.
+71. A win ends the game at once (1.2.1): no check timing after it, and remaining invasion steps are skipped. Confirmed by Monarch.
+72. The opponent's zone 8 blocks victory through invasion if any stack there is topped by a Battle card.
+73. `gainRage` and `invade` log a `discard` with the card id (the discard pile is public).
+74. `invade` sets `invasionUsed` before discarding.
+75. `advanceToDecision` returns a finished game instead of throwing; `advance` itself throws "game over".
+76. Battle and strategy cards need a non-null `rank` to be offered as actions.

@@ -377,7 +377,7 @@ describe("invade (8.6)", () => {
 });
 
 describe("legal action list", () => {
-  it("8.1.1 every action instance is listed, with pass last; the non-turn player gets none", () => {
+  it("8.1.1 every action instance is listed, then pass, then concede; the non-turn player can only concede", () => {
     const { state, me: m, opp: o } = mainPhase();
     o.monsterPosition = 1;
     const battle = inHand(state, m, battleCard({ rank: 1 }));
@@ -390,8 +390,13 @@ describe("legal action list", () => {
         .map((a) => (a as { cardInstanceId: string }).cardInstanceId),
     ).toEqual([battle.instanceId, monster.instanceId]);
     expect(actions.filter((a) => a.type === "gainRage")).toHaveLength(1);
-    expect(actions.at(-1)).toEqual({ type: "pass", player: m.id });
-    expect(getLegalActions(state, o.id)).toEqual([]);
+    expect(actions.slice(-2)).toEqual([
+      { type: "pass", player: m.id },
+      { type: "concede", player: m.id },
+    ]);
+    expect(getLegalActions(state, o.id)).toEqual([
+      { type: "concede", player: o.id },
+    ]);
   });
 
   it("Engine: applyAction rejects an action that is not in the legal list", () => {
