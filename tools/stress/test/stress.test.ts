@@ -45,7 +45,8 @@ describe("weighted policy", () => {
       ).length;
     }
     expect(counters).toBeGreaterThan(6);
-  });
+    // Weighted games run about 33 turns, so 6 of them can exceed the 5 s default on CI.
+  }, 30_000);
 
   it("Engine: with its own zone 8 empty, a weighted battle play goes to zone 8 (a blocker stops invasion wins, 5.13.1.1.1)", () => {
     const outcome = playGame("weighted", 1, 500, "weighted");
