@@ -54,6 +54,7 @@ export function canonicalState(state: GameState): unknown {
     })),
     resolution: state.resolutionArea.map(card),
     standby: state.standby.map((a) => [a.abilityId, a.sourceCardId, a.master]),
+    timed: state.timedTriggers.map((t) => [t.kind, t.sourceCardId, t.master]),
     effects: state.continuousEffects.map((e) => [e.effectId, e.duration]),
     choice: state.pendingChoice && [
       state.pendingChoice.player,
@@ -122,6 +123,7 @@ export function guardLoop(state: GameState): boolean {
   state.checkTiming = null;
   state.resolution = null;
   state.revealed = [];
+  state.timedTriggers = [];
   state.standby = [];
   appendLog(state, "gameOver", null, {
     rule: "13.1.1.3",

@@ -11,6 +11,7 @@ import {
   type GameRecord,
   type GameState,
   getLegalActions,
+  REPLACEMENT_ORDER_IN_RULE_ACTION,
   type LoopReport,
   type ZoneNumber,
   startGame,
@@ -245,8 +246,12 @@ export function playGame(
     try {
       state = advanceToDecision(applyAction(state, action));
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       return outcome(state, {
-        reason: "engine threw",
+        // The M12 guard (decision 150): name it, so it can't be mistaken for another crash.
+        reason: message.includes(REPLACEMENT_ORDER_IN_RULE_ACTION)
+          ? "M12: 2 or more replacements in a rule action (10.9.2.1 order choice not built)"
+          : "engine threw",
         problems: [
           err instanceof Error ? (err.stack ?? err.message) : String(err),
         ],

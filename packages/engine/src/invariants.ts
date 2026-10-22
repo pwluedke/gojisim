@@ -1,4 +1,5 @@
 import { getLegalActions } from "./actions";
+import { destroyReplacements } from "./interpreter";
 import type { GameRecord } from "./record";
 import type { CardInstance, GameState, PlayerState } from "./types";
 import { ZONE_NUMBERS } from "./types";
@@ -124,6 +125,18 @@ export function checkInvariants(state: GameState): string[] {
     if (atDecision && real.length === 0)
       problems.push(`${decider} has a decision but no actions`);
   }
+
+  // M12 guard (decision 150): a card with 2 or more destroy replacements would make a rule action
+  // (11.3 crush, 11.5 overload) throw, since it can't pause for the 10.9.2.1 order choice.
+  for (const player of state.players)
+    for (const zone of ZONE_NUMBERS)
+      for (const stack of player.zones[zone]) {
+        const top = stack[stack.length - 1];
+        if (top && destroyReplacements(state, top).length >= 2)
+          problems.push(
+            `M12: ${player.id} zone ${zone} card ${top.cardId} has 2 or more destroy replacements; a crush (11.3) or overload (11.5) would throw (10.9.2.1 order choice is not built for rule actions)`,
+          );
+      }
 
   // A data ability is part-way through resolving only while it waits for its own choice.
   const effectChoice =

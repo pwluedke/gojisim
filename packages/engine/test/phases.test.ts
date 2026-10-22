@@ -414,8 +414,10 @@ describe("full turns", () => {
     // M3e added loopGuard and loop; with those removed it hashes to the M3d value 128a23c3...cfcf90.
     // M4c added resolution; with it removed it hashes to the M3e value a5d594d2...df1669.
     // M4d added revealed; with it removed it hashes to the M4c value cca5c5e1...2fecb6.
+    // M4f added timedTriggers, and the canonical state for loop detection includes them, so the
+    // loopGuard hashes changed too; the game itself is identical to M4e (diffed).
     expect(hash(first)).toMatchInlineSnapshot(
-      `"a4e4c4420fc429d4f899a32058e45801fa723be4b27e34320e0a2ba526bb31cd"`,
+      `"7aa94879ba3cf66a4cdaa9ed300034e95de8890b65ac3d4e8393106994fb1ea1"`,
     );
     // Each player had 5 turns, so each monster advanced from zone 1 to zone 6 (7.5.2).
     expect(first.players.map((p) => p.monsterPosition)).toEqual([6, 6]);

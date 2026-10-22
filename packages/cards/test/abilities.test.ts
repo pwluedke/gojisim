@@ -40,8 +40,8 @@ describe("ability data (format.md)", () => {
   });
 
   it("a card with no entry counts as manual, with no abilities", () => {
-    expect(getCardAbilities("ESD01-005")).toEqual({
-      deckCardNumber: "ESD01-005",
+    expect(getCardAbilities("EBP01-001")).toEqual({
+      deckCardNumber: "EBP01-001",
       status: "manual",
       abilities: [],
     });
