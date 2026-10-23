@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import styles from "./Board.module.css";
+import { clipPath, shardLayout } from "./shards";
 import type { BoardModel } from "./model";
 import type { AnimationSpeed } from "./settings";
 
@@ -57,6 +58,11 @@ export interface Flight {
   target: string | null;
   /** A destroyed card: it breaks apart and pulls back together before it moves (M5f). */
   shatter: boolean;
+  /**
+   * The moving card's instance id where it started (before the move), which seeds its shard
+   * layout, so a destroy breaks the same way on every replay.
+   */
+  seed: string;
 }
 
 export const PILES = ["hand", "deck", "monsterDeck", "discard"] as const;
@@ -183,6 +189,7 @@ export function planFlights(
         to: card.box,
         target: card.instanceId,
         shatter: shatters(card.cardId),
+        seed: partner.instanceId,
       });
       continue;
     }
@@ -201,6 +208,7 @@ export function planFlights(
         to: card.box,
         target: card.instanceId,
         shatter: false,
+        seed: card.instanceId,
       });
   }
   for (const card of removed) {
@@ -215,6 +223,7 @@ export function planFlights(
         to,
         target: null,
         shatter: shatters(card.cardId),
+        seed: card.instanceId,
       });
   }
   // Hidden cards between piles (an opponent's draw: deck to hand), as card backs.
@@ -233,6 +242,7 @@ export function planFlights(
         to,
         target: null,
         shatter: false,
+        seed: key,
       });
       n--;
     }
@@ -258,22 +268,6 @@ export function flightsTime(
   if (flights.length === 0 || speed === "off") return 0;
   const { move, shatter } = durations(speed);
   return Math.max(...flights.map((f) => (f.shatter ? 2 * shatter : 0) + move));
-}
-
-const PIECES = { cols: 3, rows: 4 };
-
-/** A small deterministic spread for piece `i`, so a shatter looks the same every time. */
-function spread(i: number, size: Box): { x: number; y: number; turn: number } {
-  const col = i % PIECES.cols;
-  const row = Math.floor(i / PIECES.cols);
-  const cx = (col + 0.5) / PIECES.cols - 0.5;
-  const cy = (row + 0.5) / PIECES.rows - 0.5;
-  const wobble = ((i * 37) % 11) / 11 - 0.5;
-  return {
-    x: cx * size.width * 1.4 + wobble * 12,
-    y: cy * size.height * 1.1 + wobble * 10,
-    turn: wobble * 70,
-  };
 }
 
 /** The flying cards, drawn over the board (pointer events pass through). */
@@ -307,9 +301,17 @@ export function FlightLayer({
         }),
       );
       if (!flight.shatter) continue;
+      const shards = shardLayout(flight.seed);
       el.querySelectorAll<HTMLElement>("[data-piece]").forEach((piece, i) => {
-        const s = spread(i, from);
-        const apart = `translate(${s.x}px, ${s.y}px) rotate(${s.turn}deg)`;
+        const shard = shards[i];
+        if (!shard) return;
+        // Out from the card's center, along the line through the shard's own center.
+        const [cx, cy] = shard.center;
+        const dx = cx - 0.5;
+        const dy = cy - 0.5;
+        const length = Math.hypot(dx, dy) || 1;
+        const out = shard.distance * from.width;
+        const apart = `translate(${(dx / length) * out}px, ${(dy / length) * out}px) rotate(${shard.turn}deg)`;
         running.push(
           piece.animate(
             [
@@ -344,6 +346,7 @@ export function FlightLayer({
             data-testid="flight"
             data-card-id={card?.id}
             data-shatter={flight.shatter ? "true" : undefined}
+            data-seed={flight.shatter ? flight.seed : undefined}
             style={{
               left: from.x,
               top: from.y,
@@ -352,21 +355,16 @@ export function FlightLayer({
             }}
           >
             {flight.shatter && card
-              ? Array.from({ length: PIECES.cols * PIECES.rows }, (_, i) => (
+              ? shardLayout(flight.seed).map((shard, i) => (
                   <div
                     key={i}
                     data-piece
+                    data-sides={shard.points.length}
                     className={styles.piece}
                     style={{
-                      left: `${((i % PIECES.cols) * 100) / PIECES.cols}%`,
-                      top: `${(Math.floor(i / PIECES.cols) * 100) / PIECES.rows}%`,
-                      width: `${100 / PIECES.cols}%`,
-                      height: `${100 / PIECES.rows}%`,
+                      clipPath: clipPath(shard),
+                      transformOrigin: `${shard.center[0] * 100}% ${shard.center[1] * 100}%`,
                       backgroundImage: src ? `url(${src})` : undefined,
-                      backgroundSize: `${PIECES.cols * 100}% ${PIECES.rows * 100}%`,
-                      backgroundPosition: `${((i % PIECES.cols) * 100) / (PIECES.cols - 1)}% ${
-                        (Math.floor(i / PIECES.cols) * 100) / (PIECES.rows - 1)
-                      }%`,
                     }}
                   />
                 ))

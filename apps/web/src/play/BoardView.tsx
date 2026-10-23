@@ -647,6 +647,8 @@ export function BoardView({
   onAnimating,
   turnGlow = false,
   mat = null,
+  logCollapsed = false,
+  onToggleLog,
 }: {
   model: BoardModel;
   /** The prompt panel's content (M5c: the step, Pass, turn flags, Concede, the bot's state). */
@@ -681,6 +683,9 @@ export function BoardView({
   turnGlow?: boolean;
   /** A custom mat image behind both mats (M5f), or `null` for the default mat. */
   mat?: MatView | null;
+  /** The battle log column is folded to a strip (M5f); `onToggleLog` folds or opens it. */
+  logCollapsed?: boolean;
+  onToggleLog?: () => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -910,15 +915,48 @@ export function BoardView({
               </div>
             )}
           </main>
-          <aside className={styles.rightColumn} data-testid="right-column">
-            {log && (
-              <section
-                className={`${styles.panel} ${styles.logPanel}`}
-                data-testid="log-panel"
+          <aside
+            className={
+              logCollapsed ? styles.rightColumnCollapsed : styles.rightColumn
+            }
+            data-testid="right-column"
+            data-collapsed={logCollapsed ? "true" : "false"}
+          >
+            {logCollapsed ? (
+              <button
+                type="button"
+                className={styles.logToggle}
+                data-testid="log-expand"
+                title="Show the battle log [L]"
+                aria-label="Show the battle log"
+                onClick={onToggleLog}
               >
-                <div className={styles.panelTitle}>Battle log</div>
-                {log}
-              </section>
+                «
+              </button>
+            ) : (
+              log && (
+                <section
+                  className={`${styles.panel} ${styles.logPanel}`}
+                  data-testid="log-panel"
+                >
+                  <div className={`${styles.panelTitle} ${styles.logTitle}`}>
+                    Battle log
+                    {onToggleLog && (
+                      <button
+                        type="button"
+                        className={styles.logToggle}
+                        data-testid="log-collapse"
+                        title="Collapse the battle log [L]"
+                        aria-label="Collapse the battle log"
+                        onClick={onToggleLog}
+                      >
+                        »
+                      </button>
+                    )}
+                  </div>
+                  {log}
+                </section>
+              )
             )}
           </aside>
           {flights.length > 0 && (

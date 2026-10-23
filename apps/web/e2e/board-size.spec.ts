@@ -64,7 +64,7 @@ for (const [width, height] of [
       await noScroll(page);
     });
 
-    test("every card on the board is the full image of its card, all at one size", async ({
+    test("every card is the full image of its card: one size on the board, a larger one in the hand (M5f)", async ({
       page,
     }) => {
       await handOfTen(page);
@@ -78,35 +78,46 @@ for (const [width, height] of [
       await expect(page.getByTestId("counter-power-chip")).toHaveCount(1);
       await expect(page.getByTestId("threat-chip")).toHaveCount(2);
 
-      const cards = page
-        .getByTestId("board")
-        .locator('[data-testid="card"]:not([data-testid="opponent-hand"] *)');
-      const n = await cards.count();
-      expect(n).toBe(12); // 9 in hand, 1 battle card, 2 monsters.
-      const sizes: { width: number; height: number }[] = [];
-      for (let i = 0; i < n; i++) {
-        const card = cards.nth(i);
-        const cardId = await card.getAttribute("data-card-id");
-        await expect(card.locator("img")).toHaveAttribute(
-          "src",
-          `/cards/${cardId}-thumb.webp`,
+      const sizesOf = async (selector: string, expected: number) => {
+        const cards = page.getByTestId("board").locator(selector);
+        expect(await cards.count()).toBe(expected);
+        const sizes: { width: number; height: number }[] = [];
+        for (const card of await cards.all()) {
+          const cardId = await card.getAttribute("data-card-id");
+          await expect(card.locator("img")).toHaveAttribute(
+            "src",
+            `/cards/${cardId}-thumb.webp`,
+          );
+          const box = await card.boundingBox();
+          if (!box) throw new Error("no box for a card");
+          sizes.push(box);
+        }
+        const first = sizes[0];
+        if (!first) throw new Error("no cards");
+        for (const box of sizes) {
+          expect(Math.abs(box.width - first.width)).toBeLessThanOrEqual(1);
+          expect(Math.abs(box.height - first.height)).toBeLessThanOrEqual(1);
+        }
+        // The printed card's aspect, 63:88.
+        expect(Math.abs(first.width - (first.height * 63) / 88)).toBeLessThan(
+          1,
         );
-        const box = await card.boundingBox();
-        if (!box) throw new Error(`no box for card ${i}`);
-        sizes.push(box);
-      }
-      const first = sizes[0];
-      if (!first) throw new Error("no cards");
-      for (const box of sizes) {
-        expect(Math.abs(box.width - first.width)).toBeLessThanOrEqual(1);
-        expect(Math.abs(box.height - first.height)).toBeLessThanOrEqual(1);
-      }
-      // The printed card's aspect, 63:88.
-      expect(Math.abs(first.width - (first.height * 63) / 88)).toBeLessThan(1);
+        return first;
+      };
+      // 1 battle card and 2 monsters on the mats; 9 cards in the hand.
+      const board = await sizesOf(
+        '[data-testid="card"]:not([data-testid="opponent-hand"] *):not([data-testid="your-hand"] *)',
+        3,
+      );
+      const hand = await sizesOf(
+        '[data-testid="your-hand"] [data-testid="card"]',
+        9,
+      );
+      expect(hand.height).toBeGreaterThan(board.height);
       // Mat cells are card-sized too.
       const z1 = await page.getByTestId("zone-P1-1").boundingBox();
-      expect(Math.abs((z1?.width ?? 0) - first.width)).toBeLessThanOrEqual(1);
-      expect(Math.abs((z1?.height ?? 0) - first.height)).toBeLessThanOrEqual(1);
+      expect(Math.abs((z1?.width ?? 0) - board.width)).toBeLessThanOrEqual(1);
+      expect(Math.abs((z1?.height ?? 0) - board.height)).toBeLessThanOrEqual(1);
       await noScroll(page);
     });
 

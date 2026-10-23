@@ -22,6 +22,8 @@ export interface Settings {
   animation: AnimationSpeed;
   /** The turn player's mat border glows in their monster's colors (M5f, default on). */
   turnGlow: boolean;
+  /** The battle log column is folded to a thin strip (M5f, button or L; default open). */
+  logCollapsed: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -32,6 +34,7 @@ export const DEFAULT_SETTINGS: Settings = {
   expandedHand: true,
   animation: "normal",
   turnGlow: true,
+  logCollapsed: false,
 };
 
 const STORAGE_KEY = "gojisim.settings";

@@ -52,11 +52,12 @@ async function settled(page: Page) {
   await expect(page.getByTestId("animation-lock")).toHaveCount(0);
 }
 
+/** Starting settings for a test; later changes (saved by the page) survive a reload. */
 function settings(page: Page, values: Record<string, unknown>) {
-  return page.addInitScript(
-    (text) => window.localStorage.setItem("gojisim.settings", text),
-    JSON.stringify(values),
-  );
+  return page.addInitScript((text) => {
+    if (window.localStorage.getItem("gojisim.settings") === null)
+      window.localStorage.setItem("gojisim.settings", text);
+  }, JSON.stringify(values));
 }
 
 /** Hotseat seed 2 plus one Pass: P1's turn 2 offers all five hand actions (the cover is off). */
@@ -124,7 +125,16 @@ test.describe("card movement", () => {
   test("Animation Off: the card is in place at once, and nothing flies", async ({
     page,
   }) => {
-    await settings(page, { hotseatCover: false, animation: "off" });
+    // On top of this block's starting settings (no reload here).
+    await page.addInitScript(() => {
+      const saved = JSON.parse(
+        window.localStorage.getItem("gojisim.settings") ?? "{}",
+      ) as object;
+      window.localStorage.setItem(
+        "gojisim.settings",
+        JSON.stringify({ ...saved, animation: "off" }),
+      );
+    });
     await hotseatTurn2(page);
     const { card, cardId, zone } = await battleCardAndZone(page);
     await drag(page, card, zone);
@@ -184,6 +194,35 @@ test("a destroy breaks the card apart, pulls it together, then it lands in the d
   await expect(
     page.getByTestId("discard-P2").getByTestId("card"),
   ).toHaveAttribute("data-card-id", cardId ?? "");
+});
+
+test("destroy shards are angular polygons, laid out the same way on replay", async ({
+  page,
+}) => {
+  /** Destroys the single target and reads the shards' shapes while they fly. */
+  const shatter = async () => {
+    await loadFixture(page, "single-target");
+    await page.getByTestId("choice-option").first().click();
+    const flight = page.locator('[data-testid="flight"][data-shatter="true"]');
+    await expect(flight).toHaveCount(1);
+    const shapes = await flight.evaluate((el) => ({
+      seed: el.getAttribute("data-seed"),
+      pieces: [...el.querySelectorAll<HTMLElement>("[data-piece]")].map(
+        (p) => ({ sides: Number(p.dataset["sides"]), clip: p.style.clipPath }),
+      ),
+    }));
+    await settled(page);
+    return shapes;
+  };
+  const first = await shatter();
+  expect(first.seed).toMatch(/^c\d+$/);
+  expect(first.pieces.length).toBeGreaterThanOrEqual(12);
+  for (const piece of first.pieces) expect(piece.clip).toMatch(/^polygon\(/);
+  const sides = new Set(first.pieces.map((p) => p.sides));
+  expect(sides.has(3)).toBe(true);
+  expect([...sides].some((n) => n >= 4)).toBe(true);
+  // Replaying the same game breaks the card the same way.
+  expect(await shatter()).toEqual(first);
 });
 
 test("several destroys at once play together (ESD01-007's [enter])", async ({
@@ -460,3 +499,138 @@ for (const [width, height] of [
       })),
     ).toEqual({ y: true, x: true });
   });
+
+for (const [width, height] of [
+  [1440, 900],
+  [1920, 1080],
+] as const)
+  test(`at ${width}x${height} hand cards fill the hand's height, within --hand-gap of its edges`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height });
+    await settings(page, { hotseatCover: false, animation: "off" });
+    await hotseatTurn2(page);
+    const gap = await page.evaluate(() =>
+      parseFloat(
+        getComputedStyle(
+          document.querySelector(".gojisim") as Element,
+        ).getPropertyValue("--hand-gap"),
+      ),
+    );
+    expect(gap).toBeGreaterThan(0);
+    const hand = await page.getByTestId("your-hand").boundingBox();
+    if (!hand) throw new Error("no hand");
+    const cards = page.getByTestId("your-hand").getByTestId("card");
+    expect(await cards.count()).toBeGreaterThan(0);
+    // The hand holds a strategy card (rotated): it follows the same rule.
+    await expect(
+      page.getByTestId("your-hand").locator('[data-rotated="true"]'),
+    ).not.toHaveCount(0);
+    for (const card of await cards.all()) {
+      const box = await card.boundingBox();
+      if (!box) throw new Error("no card box");
+      const top = box.y - hand.y;
+      const bottom = hand.y + hand.height - (box.y + box.height);
+      // Within the gap (plus the hand's 1 px border), never past the edge.
+      for (const margin of [top, bottom]) {
+        expect(margin).toBeGreaterThanOrEqual(0);
+        expect(margin).toBeLessThanOrEqual(gap + 1.5);
+      }
+    }
+    expect(
+      await page.evaluate(() => ({
+        y: document.documentElement.scrollHeight <= window.innerHeight,
+        x: document.documentElement.scrollWidth <= window.innerWidth,
+      })),
+    ).toEqual({ y: true, x: true });
+  });
+
+test.describe("collapsible battle log", () => {
+  test.beforeEach(async ({ page }) => {
+    await settings(page, { hotseatCover: false, animation: "off" });
+  });
+
+  const width = async (page: Page, id: string) =>
+    (await page.getByTestId(id).boundingBox())?.width ?? 0;
+
+  test("the button and L collapse and expand it; collapsed, the board widens and the state survives a reload", async ({
+    page,
+  }) => {
+    await hotseatTurn2(page);
+    await expect(page.getByTestId("log-panel")).toBeVisible();
+    const open = {
+      main: (await page.locator("main").boundingBox())?.width ?? 0,
+      mat: await width(page, "mat-you"),
+    };
+    await page.getByTestId("log-collapse").click();
+    await expect(page.getByTestId("log-panel")).toHaveCount(0);
+    await expect(page.getByTestId("right-column")).toHaveAttribute(
+      "data-collapsed",
+      "true",
+    );
+    // The strip is thin, and the board takes the freed width. At 1440x900 --card-h is limited by
+    // the height, so the cards keep their size (the next test widens a width-limited window).
+    expect(await width(page, "right-column")).toBeLessThan(60);
+    expect(
+      (await page.locator("main").boundingBox())?.width ?? 0,
+    ).toBeGreaterThan(open.main + 200);
+    expect(await width(page, "mat-you")).toBeGreaterThanOrEqual(open.mat - 0.5);
+    await page.getByTestId("log-expand").click();
+    await expect(page.getByTestId("log-panel")).toBeVisible();
+    expect(Math.abs((await width(page, "mat-you")) - open.mat)).toBeLessThan(1);
+    await page.keyboard.press("l");
+    await expect(page.getByTestId("log-panel")).toHaveCount(0);
+    await page.reload();
+    await page.getByTestId("seed-input").fill("2");
+    await startGame(page);
+    await expect(page.getByTestId("right-column")).toHaveAttribute(
+      "data-collapsed",
+      "true",
+    );
+    await page.keyboard.press("L");
+    await expect(page.getByTestId("log-panel")).toBeVisible();
+  });
+
+  test("where the width limits the cards (1280x1300), collapsing makes them larger", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 1300 });
+    await hotseatTurn2(page);
+    const open = await width(page, "zone-P1-1");
+    await page.getByTestId("log-collapse").click();
+    // --card-h recomputes: the zones (and every card) grow by a quarter or more.
+    expect(await width(page, "zone-P1-1")).toBeGreaterThan(open * 1.25);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollHeight <= window.innerHeight,
+      ),
+    ).toBe(true);
+  });
+
+  for (const [w, h] of [
+    [1440, 900],
+    [1920, 1080],
+  ] as const)
+    test(`collapsed at ${w}x${h}: no scrolling, and the preview opens over the right side of the board`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: w, height: h });
+      await hotseatTurn2(page);
+      await page.getByTestId("log-collapse").click();
+      expect(
+        await page.evaluate(() => ({
+          y: document.documentElement.scrollHeight <= window.innerHeight,
+          x: document.documentElement.scrollWidth <= window.innerWidth,
+        })),
+      ).toEqual({ y: true, x: true });
+      await page.getByTestId("hand-card").first().hover();
+      const preview = page.getByTestId("card-preview");
+      await expect(preview).toBeVisible();
+      const box = await preview.boundingBox();
+      const strip = await page.getByTestId("right-column").boundingBox();
+      if (!box || !strip) throw new Error("no box");
+      // Left of the strip, over the board's right side.
+      expect(box.x + box.width).toBeLessThanOrEqual(strip.x + 1);
+      expect(box.x).toBeGreaterThan(w / 2);
+    });
+});

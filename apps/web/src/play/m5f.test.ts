@@ -8,6 +8,7 @@ import {
   type Snapshot,
 } from "./animation";
 import { glowCycle } from "./glow";
+import { area, clipPath, shardLayout } from "./shards";
 import { MAT_MAX_BYTES, matFileProblem, matStore } from "./matStore";
 
 describe("turn glow colors (M5f)", () => {
@@ -139,6 +140,7 @@ describe("card movement flights (M5f)", () => {
         to: box(500),
         target: "c7",
         shatter: false,
+        seed: "c1",
       },
     ]);
   });
@@ -218,5 +220,38 @@ describe("card movement flights (M5f)", () => {
     ];
     expect(destroyedCards(log, 0)).toEqual([1, 2, 3]);
     expect(destroyedCards(log, 1)).toEqual([2, 3]);
+  });
+});
+
+describe("destroy shards (M5f)", () => {
+  it("angular shards, triangles and 4 to 5 sided, that tile the whole card", () => {
+    const sides = new Set<number>();
+    for (const seed of ["c1", "c42", "c317", "c9000"]) {
+      const shards = shardLayout(seed);
+      expect(shards.length).toBeGreaterThanOrEqual(12);
+      const total = shards.reduce((sum, s) => sum + area(s.points), 0);
+      expect(total).toBeCloseTo(1, 9);
+      for (const shard of shards) {
+        expect(shard.points.length).toBeGreaterThanOrEqual(3);
+        expect(shard.points.length).toBeLessThanOrEqual(5);
+        sides.add(shard.points.length);
+        for (const [x, y] of shard.points) {
+          expect(x).toBeGreaterThanOrEqual(0);
+          expect(x).toBeLessThanOrEqual(1);
+          expect(y).toBeGreaterThanOrEqual(0);
+          expect(y).toBeLessThanOrEqual(1);
+        }
+      }
+      // Varied sizes, and every shard turns as it flies.
+      const areas = shards.map((s) => area(s.points));
+      expect(Math.max(...areas) / Math.min(...areas)).toBeGreaterThan(1.5);
+    }
+    expect([...sides].sort()).toEqual([3, 4, 5]);
+  });
+
+  it("the layout is seeded by the instance id: the same on replay, different per card", () => {
+    expect(shardLayout("c12")).toEqual(shardLayout("c12"));
+    expect(shardLayout("c12")).not.toEqual(shardLayout("c13"));
+    expect(clipPath(shardLayout("c12")[0] as never)).toMatch(/^polygon\(/);
   });
 });

@@ -15,7 +15,7 @@
   flex: none;
   display: flex;
   flex-direction: column;
-  width: calc(var(--side-column-width) + 2 * var(--space-4));
+  width: var(--right-column-width);
   height: 100vh;
   padding: var(--space-2) var(--space-4);
   border-left: 1px solid var(--color-border);
@@ -385,20 +385,46 @@
 }
 
 /* The tucked hand strip (M5b): the full width of the board, never scrolling. */
+/*
+ * M5f: the hand takes the height left under the mats, and its cards fill it, with --hand-gap above
+ * and below. The hand is a size container, so its cards size from its height (rotated strategy
+ * cards too); width follows the 63:88 card ratio.
+ */
 .hand {
-  padding: var(--space-1) var(--space-2);
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  container-type: size;
+  padding: var(--hand-gap) var(--space-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   background: var(--color-panel);
 }
 
+/* The hand's count, over its top-left corner, so the cards keep the full height. */
+.handLabel {
+  position: absolute;
+  top: 0;
+  left: var(--space-2);
+  z-index: 3;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius);
+  background: rgb(255 255 255 / 80%);
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+  pointer-events: none;
+}
+
 /* Centered under the mat (M5d); a large hand overlaps instead of scrolling. */
 .handCards {
+  --card-h: 100cqh;
+  --card-w: calc(100cqh * 63 / 88);
   display: grid;
   justify-content: center;
   column-gap: var(--space-1);
-  /* Room for the lit and selected outlines inside the clipped strip. */
-  padding: var(--space-1);
+  height: 100%;
+  /* Room for the lit and selected outlines at the sides of the clipped strip. */
+  padding: 0 var(--space-1);
   overflow: hidden;
 }
 
@@ -1085,11 +1111,17 @@
   );
 }
 
-/* A destroyed card's pieces (M5f): parts of the card image that fly apart and back. */
+/*
+ * A destroyed card's shards (M5f): each is the whole card image clipped to one angular polygon
+ * (`shards.ts`), so together they show the card until they fly apart.
+ */
 .piece {
   position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
   background-color: var(--color-panel-alt);
-  border: 1px solid rgb(0 0 0 / 15%);
+  background-size: 100% 100%;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 35%));
 }
 
 .flight:has(.piece) {
@@ -1119,4 +1151,32 @@
 .error {
   color: var(--color-illegal);
   font-size: var(--font-size-sm);
+}
+
+/* The collapsed battle log (M5f): a thin strip with the expand button. */
+.rightColumnCollapsed {
+  composes: rightColumn;
+  align-items: center;
+  padding: var(--space-2) 0;
+}
+
+.logToggle {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.logTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* With the log collapsed, the preview and the zone banner open over the right side of the board. */
+:global(.log-collapsed) .preview,
+:global(.log-collapsed) .choiceBanner {
+  right: calc(var(--log-strip-width) + var(--space-2));
 }

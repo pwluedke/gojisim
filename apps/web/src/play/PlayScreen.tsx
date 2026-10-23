@@ -72,7 +72,7 @@ const SHORTCUTS: [string, string][] = [
     "Esc",
     "Cancel the selected card, close the expanded hand, a dialog or the preview",
   ],
-  ["L", "Show / hide the battle log"],
+  ["L", "Collapse / expand the battle log"],
   [
     "U",
     "Undo your last action (Casual games, back to the last draw, search, reveal, shuffle, random result or opponent action)",
@@ -112,7 +112,6 @@ export function PlayScreen() {
   const [confirming, setConfirming] = useState<"pass" | "concede" | null>(null);
   // M5d: the read-only history view (a session position), the log (L), and the overlays (H, ?).
   const [historyAt, setHistoryAt] = useState<number | null>(null);
-  const [logOpen, setLogOpen] = useState(true);
   const [overlay, setOverlay] = useState<"hand" | "shortcuts" | null>(null);
   // M5e: the game waiting for its First / Second pick, and human searches waiting for Confirm.
   const [pending, setPending] = useState<PendingGame | null>(null);
@@ -257,7 +256,7 @@ export function PlayScreen() {
           return;
         case "l":
         case "L":
-          setLogOpen((open) => !open);
+          updateSettings({ logCollapsed: !settings.logCollapsed });
           return;
         case "u":
         case "U":
@@ -666,7 +665,8 @@ export function PlayScreen() {
     label: `${card.owner}: ${state.cards[card.cardId]?.name ?? card.cardId}`,
   }));
   return (
-    <div className="gojisim">
+    // A collapsed log frees its column, so --card-h recomputes on this wrapper (M5f).
+    <div className={`gojisim${settings.logCollapsed ? " log-collapsed" : ""}`}>
       <BoardView
         model={model}
         prompt={prompt}
@@ -686,18 +686,20 @@ export function PlayScreen() {
         turnGlow={settings.turnGlow}
         mat={customMat.view}
         log={
-          logOpen ? (
-            <BattleLog
-              lines={lines}
-              viewing={viewing}
-              showRules={settings.showRules}
-              onSelect={(position) =>
-                setHistoryAt(
-                  position >= session.states.length - 1 ? null : position,
-                )
-              }
-            />
-          ) : null
+          <BattleLog
+            lines={lines}
+            viewing={viewing}
+            showRules={settings.showRules}
+            onSelect={(position) =>
+              setHistoryAt(
+                position >= session.states.length - 1 ? null : position,
+              )
+            }
+          />
+        }
+        logCollapsed={settings.logCollapsed}
+        onToggleLog={() =>
+          updateSettings({ logCollapsed: !settings.logCollapsed })
         }
       />
       {viewing !== null && (
