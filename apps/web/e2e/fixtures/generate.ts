@@ -1,7 +1,8 @@
 /**
  * Writes the M5c choice fixtures: game records that stop at a pending choice for P1 (a human
  * seat), found by playing seeded games with the weighted policy. Each record replays exactly in
- * `/play` ("Load a game record"). Run: `pnpm --filter @gojisim/web e2e:fixtures`.
+ * `/play` ("Load a game record"). Run: `pnpm --filter @gojisim/web e2e:fixtures`. The
+ * single-target fixture records `confirmSingleTarget` for P1, so its replay asks the same choices.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import type { Card } from "@gojisim/cards";
@@ -57,6 +58,8 @@ interface Fixture {
   note: string;
   decks: (game: number) => [Deck, Deck];
   match: (choice: PendingChoice, state: GameState) => boolean;
+  /** P1 confirms every target pick, as human seats do in `/play` (M5d). */
+  confirmSingleTarget?: boolean;
 }
 
 const official = (): [Deck, Deck] => [esd01, esd02];
@@ -118,6 +121,23 @@ const FIXTURES: Fixture[] = [
     match: (c) => c.kind === "nextMonster",
   },
   {
+    name: "single-target",
+    note: "P1 confirms a destroy with a single legal target (10.5.3.1, confirmSingleTarget)",
+    decks: randomDecks,
+    confirmSingleTarget: true,
+    match: (c, s) =>
+      c.kind === "target" &&
+      c.rule === "10.5.3" &&
+      c.options.length === 1 &&
+      s.players.some((p) =>
+        Object.values(p.zones).some((stacks) =>
+          stacks.some((stack) =>
+            stack.some((card) => card.instanceId === c.options[0]?.id),
+          ),
+        ),
+      ),
+  },
+  {
     name: "manual",
     note: "P1 resolves EBP01-017 by hand: a manual override window",
     decks: () => [withManual, esd02],
@@ -142,6 +162,7 @@ for (const fixture of FIXTURES) {
         P2: { kind: "bot", bot: "ismcts", settings: { difficulty: 55 } },
       },
       botSeed: `${g}-bots`,
+      ...(fixture.confirmSingleTarget ? { confirmSingleTarget: ["P1"] } : {}),
     };
     let state = startGame(record);
     const pick = rng(g);

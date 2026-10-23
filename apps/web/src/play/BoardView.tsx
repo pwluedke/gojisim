@@ -39,9 +39,9 @@ import { PhaseTracker } from "./PhaseTracker";
 import { Preview } from "./Preview";
 
 /**
- * The board at `/play` (M5a, docs/ui/board-design.md): a collapsible sidebar, the opponent's
- * mat rotated on top, the bottom player's mat below the center line, laid out like the official
- * playmat with the two zone 8s facing each other. It renders only from a `BoardModel`
+ * The board at `/play` (M5a, docs/ui/board-design.md): the opponent's mat rotated on top, the
+ * bottom player's mat below the center line, laid out like the official playmat with the two
+ * zone 8s facing each other. It renders only from a `BoardModel`
  * (the bottom player's view plus public numbers), so hidden cards never reach it.
  *
  * M5b: the hand strip, click to highlight and drag and drop (`@dnd-kit/core`) for the five hand
@@ -49,6 +49,10 @@ import { Preview } from "./Preview";
  *
  * M5c: zones offered by a zone choice light up on either mat, and the bot's last move is
  * highlighted briefly where it landed.
+ *
+ * M5d layout (Paul's play-testing): a compact top bar (prompt, phase tracker, settings) above the
+ * opponent's hand row, and the battle log in the right column, which the card preview covers
+ * while a card is previewed.
  */
 
 export const STEP_NAMES: Record<string, string> = {
@@ -86,33 +90,13 @@ function ZoneCell({
   const monster = monsterCards[monsterCards.length - 1];
   const own = player.id === model.bottom;
   const monsterLit = useInteraction().highlight.has(`${player.id}|monster`);
-  // A Burst play (12.5): the rank change, and the reminder that it is discarded at the end phase.
-  const burst =
-    monster &&
-    view.timedTriggers.some(
-      (t) =>
-        t.kind === "burstDiscard" && t.sourceInstanceId === monster.instanceId,
-    );
-  const under = monsterCards[monsterCards.length - 2];
-  const fromRank = under ? view.cards[under.cardId]?.rank : undefined;
   const monsterView = monster && (
     <CardFace
       card={monster}
       data={view.cards[monster.cardId]}
       threat={model.threat[player.id]}
       stack={monsterCards.length}
-      extra={
-        burst && (
-          <span
-            className={styles.burstBadge}
-            data-testid="burst-badge"
-            title="Burst (12.5): this card is discarded at its master's next end phase (12.5.2)"
-          >
-            Burst R{fromRank ?? "?"}→R{model.monsterRank[player.id] ?? "?"} ·
-            discard at end phase
-          </span>
-        )
-      }
+      changes={model.changes[monster.instanceId]}
     />
   );
   return (
@@ -136,6 +120,7 @@ function ZoneCell({
               data={view.cards[top.cardId]}
               counterPower={model.counterPower[top.instanceId]}
               stack={stack.length}
+              changes={model.changes[top.instanceId]}
             />
           </Layer>
         );
@@ -280,6 +265,7 @@ function StrategyZone({
           <CardFace
             card={p.card}
             data={model.view.cards[p.card.cardId]}
+            changes={model.changes[p.card.instanceId]}
             extra={
               <span
                 className={styles.turnMark}
@@ -345,13 +331,16 @@ function Pile({
   label,
   count,
   testId,
+  cellTestId,
 }: {
   label: string;
   count: number;
   testId: string;
+  /** The cell itself, so a searched-deck target can be lit (M5d). */
+  cellTestId: string;
 }) {
   return (
-    <div className={styles.cell}>
+    <div className={styles.cell} data-testid={cellTestId}>
       <div className={styles.cellLabel}>{label}</div>
       {count > 0 && (
         <Layer index={0}>
@@ -422,6 +411,7 @@ function MatCell({
           label="Deck"
           count={player.deck.count}
           testId={`deck-count-${player.id}`}
+          cellTestId={`deck-${player.id}`}
         />
       );
     case "monsterDeck":
@@ -430,6 +420,7 @@ function MatCell({
           label="Monster deck"
           count={player.monsterDeck.count}
           testId={`monster-deck-count-${player.id}`}
+          cellTestId={`monster-deck-${player.id}`}
         />
       );
     case "discard":
@@ -575,21 +566,6 @@ function Mat({
   );
 }
 
-/** One side: the mat, and the right column, kept free for the card preview. */
-function Side(props: {
-  model: BoardModel;
-  player: PlayerAreasView;
-  opponent: string;
-  side: "opp" | "you";
-}) {
-  return (
-    <div className={styles.fieldRow} data-testid={`side-${props.side}`}>
-      <Mat {...props} />
-      <div />
-    </div>
-  );
-}
-
 /**
  * Collisions for a drop: the target under the pointer (keyboard drags fall back to overlap), and
  * the monster before the zone it sits in.
@@ -631,12 +607,11 @@ export function BoardView({
   highlight?: ReadonlySet<string>;
   /** Seat names for the phase tracker (M5d): "You", "Bot", or the player id. */
   name?: (playerId: string) => string;
-  /** The battle log panel (M5d), or `null` while it is hidden (L). */
+  /** The battle log (M5d) for the right column, or `null` while it is hidden (L). */
   log?: ReactNode;
   /** The settings panel (M5d). */
   settings?: ReactNode;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [menu, setMenu] = useState<HandAction[] | null>(null);
@@ -744,43 +719,16 @@ export function BoardView({
           data-testid="board"
           data-bottom={model.bottom}
         >
-          <aside
-            className={collapsed ? styles.sidebarCollapsed : styles.sidebar}
-            data-testid="sidebar"
-          >
-            <button
-              type="button"
-              className={styles.collapse}
-              data-testid="sidebar-toggle"
-              onClick={() => setCollapsed((c) => !c)}
-              title={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
-            >
-              {collapsed ? "»" : "«"}
-            </button>
-            {!collapsed && (
-              <>
-                {log && (
-                  <section
-                    className={`${styles.panel} ${styles.logPanel}`}
-                    data-testid="log-panel"
-                  >
-                    <div className={styles.panelTitle}>Battle log</div>
-                    {log}
-                  </section>
-                )}
-                <section className={styles.panel} data-testid="prompt">
-                  <div className={styles.panelTitle}>Prompt</div>
-                  {prompt}
-                </section>
-                <section className={styles.panel} data-testid="phase-tracker">
-                  <div className={styles.panelTitle}>Phase</div>
-                  <PhaseTracker view={view} name={name} />
-                </section>
-                {settings}
-              </>
-            )}
-          </aside>
           <main className={styles.main}>
+            <header className={styles.topBar} data-testid="top-bar">
+              <section className={styles.topPrompt} data-testid="prompt">
+                {prompt}
+              </section>
+              <section className={styles.topPhase} data-testid="phase-tracker">
+                <PhaseTracker view={view} name={name} />
+              </section>
+              {settings}
+            </header>
             <div className={styles.handBacks} data-testid="opponent-hand">
               <span className={styles.muted}>
                 {opp.id} hand (
@@ -800,9 +748,9 @@ export function BoardView({
                 );
               })}
             </div>
-            <Side model={model} player={opp} opponent={you.id} side="opp" />
+            <Mat model={model} player={opp} opponent={you.id} side="opp" />
             <div className={styles.centerLine} />
-            <Side model={model} player={you} opponent={opp.id} side="you" />
+            <Mat model={model} player={you} opponent={opp.id} side="you" />
             <Hand
               model={model}
               player={you}
@@ -839,6 +787,17 @@ export function BoardView({
               </div>
             )}
           </main>
+          <aside className={styles.rightColumn} data-testid="right-column">
+            {log && (
+              <section
+                className={`${styles.panel} ${styles.logPanel}`}
+                data-testid="log-panel"
+              >
+                <div className={styles.panelTitle}>Battle log</div>
+                {log}
+              </section>
+            )}
+          </aside>
           {(previewed || previewedCard) && (
             <Preview
               model={model}

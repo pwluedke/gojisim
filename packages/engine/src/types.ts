@@ -336,6 +336,12 @@ export interface GameState {
   /** Every card that takes part in this game, keyed by `Card.id`. */
   cards: Record<string, Card>;
   log: LogEntry[];
+  /**
+   * Players whose target picks are always asked (M5d: human seats in `/play`). For them 10.5.3.1's
+   * automatic pick (N or fewer legal targets for "exactly N") becomes a choice to confirm, one
+   * option per remaining target. Omitted when empty, as for bots, stress and `/debug`.
+   */
+  confirmSingleTarget?: PlayerId[];
 }
 
 /** One of a player's two strategy zones (4.5.2). */

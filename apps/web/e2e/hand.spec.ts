@@ -175,7 +175,7 @@ test("an illegal drop does nothing: the card returns to the hand", async ({
   // The opponent's zone and an unlit zone of your own are not destinations.
   await drag(page, card, page.getByTestId("zone-P2-3"));
   await expect(lit(page)).toHaveCount(0);
-  await drag(page, card, page.getByTestId("sidebar"));
+  await drag(page, card, page.getByTestId("right-column"));
   await expect(lit(page)).toHaveCount(0);
   expect(await count(page.getByTestId("your-hand-count"))).toBe(handBefore);
   expect(await inHand(page, cardId)).toBe(inHandBefore);

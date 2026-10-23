@@ -12,6 +12,8 @@ The engine, `getLegalActions`, `getPlayerView`, the bot worker, game records, ex
 
 Desktop browser window: a collapsible sidebar on the left, the two fields in the middle, your hand along the bottom.
 
+**M5d change (Paul's play-testing, Oct 23, 2026):** the sidebar is gone. Prompt, phase tracker and Settings form a compact top bar (two lines) above the opponent's hand row; the battle log fills the right column, and the card preview covers it while a card is previewed. Your hand is centered under your mat. `--card-h` is derived from the window minus the top bar. The diagram below is the original M5a plan.
+
 ```
 +--------------------+---------------------------------------------------------------------+
 | Concede, Bug report|               [ Opponent hand: card backs ]                         |

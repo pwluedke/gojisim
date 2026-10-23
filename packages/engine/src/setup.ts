@@ -20,6 +20,8 @@ export interface PlayerSetup {
 export interface CreateGameOptions {
   seed: number | string;
   players: [PlayerSetup, PlayerSetup];
+  /** Players who confirm every target pick, even a single legal target (M5d). */
+  confirmSingleTarget?: PlayerId[];
 }
 
 export const STARTING_HAND_SIZE = 5;
@@ -95,6 +97,8 @@ export function createGame(options: CreateGameOptions): GameState {
     cards: freezeShared(cards),
     log: [],
   };
+  if (options.confirmSingleTarget?.length)
+    state.confirmSingleTarget = [...options.confirmSingleTarget];
   const setups = new Map(options.players.map((p) => [p.id, p]));
   const setupOf = (player: PlayerState) => setups.get(player.id) as PlayerSetup;
 

@@ -11,7 +11,7 @@ const PHASES = [
 /**
  * The phase tracker (M5d): Start, Main, Counter and End with their steps (7.2 to 7.5), the step
  * in progress lit (`currentStep`, not `step`, which names the next one), the turn number, and the
- * turn player and opponent by name.
+ * turn player and opponent by name. Two lines, for the top bar.
  */
 export function PhaseTracker({
   view,
@@ -24,13 +24,22 @@ export function PhaseTracker({
   const phase = stepPhase(current);
   const opponent = view.players.find((p) => p.id !== view.turnPlayer)?.id ?? "";
   return (
-    <div>
-      <div>
+    <div className={styles.trackerBody}>
+      <div className={styles.trackerLine}>
         Turn <strong data-testid="turn">{view.turn}</strong>
-      </div>
-      <div data-testid="tracker-players">
-        Turn player: <strong>{name(view.turnPlayer)}</strong> ({view.turnPlayer}
-        ) · Opponent: {name(opponent)} ({opponent})
+        <span data-testid="tracker-players">
+          {" "}
+          · Turn player: <strong>{name(view.turnPlayer)}</strong> (
+          {view.turnPlayer}) · Opponent: {name(opponent)} ({opponent})
+        </span>
+        {view.result && (
+          <span data-testid="result">
+            {" "}
+            · Game over:{" "}
+            {view.result.winner ? name(view.result.winner) : "draw"} (
+            {view.result.reason})
+          </span>
+        )}
       </div>
       <div className={styles.tracker}>
         {PHASES.map(({ phase: p, name: label }) => (
@@ -59,12 +68,6 @@ export function PhaseTracker({
           </div>
         ))}
       </div>
-      {view.result && (
-        <div data-testid="result">
-          Game over: {view.result.winner ? name(view.result.winner) : "draw"} (
-          {view.result.reason})
-        </div>
-      )}
     </div>
   );
 }

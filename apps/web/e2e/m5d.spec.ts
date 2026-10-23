@@ -13,7 +13,7 @@ const logLines = (page: Page) => page.getByTestId("log-line");
 test("the log shows turn markers and card names that open the preview", async ({
   page,
 }) => {
-  // The zone fixture: a zone choice shows a banner, so the sidebar stays usable.
+  // The zone fixture: a zone choice shows a banner, so the log stays usable.
   await loadFixture(page, "zone");
   await expect(page.getByTestId("log-turn").first()).toHaveText(
     /^Turn 1: (You|Bot)$/,
@@ -162,12 +162,71 @@ test("shortcuts: Space passes, L toggles the log, ? lists the shortcuts, Esc clo
   // Space is Pass (P2 has a lit card on turn 1, so it asks first).
   await page.keyboard.press("Space");
   await expect(page.getByTestId("confirm-dialog")).toBeVisible();
+  await expect(page.getByTestId("confirm-yes")).toHaveText("Pass [Space]");
+  await expect(page.getByTestId("confirm-cancel")).toHaveText("Cancel [Esc]");
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("confirm-dialog")).toHaveCount(0);
+  await expect(page.getByTestId("turn")).toHaveText("1");
+});
+
+test("Pass confirm: Space then Space passes, also after clicking the Pass button", async ({
+  page,
+}) => {
+  await hotseat(page, 2);
   await page.keyboard.press("Space");
-  await page.getByTestId("confirm-yes").click();
+  await expect(page.getByTestId("confirm-dialog")).toBeVisible();
+  await page.keyboard.press("Space");
+  await expect(page.getByTestId("confirm-dialog")).toHaveCount(0);
   await page.getByTestId("privacy-cover").click();
   await expect(page.getByTestId("turn")).toHaveText("2");
+  // A mouse click on Pass leaves focus on it; the second Space still passes, once.
+  await page.getByTestId("pass").click();
+  await expect(page.getByTestId("confirm-dialog")).toBeVisible();
+  await page.keyboard.press("Space");
+  await page.getByTestId("privacy-cover").click();
+  await expect(page.getByTestId("turn")).toHaveText("3");
+  await expect(page.getByTestId("confirm-dialog")).toHaveCount(0);
+});
+
+test("a single-target destroy is still asked (confirmSingleTarget), with its zone label; hovering it rings the zone", async ({
+  page,
+}) => {
+  await loadFixture(page, "single-target");
+  const modal = page.getByTestId("choice-modal");
+  await expect(modal).toHaveAttribute("data-kind", "target");
+  const option = page.getByTestId("choice-option");
+  await expect(option).toHaveCount(1);
+  const label = page.getByTestId("choice-location");
+  await expect(label).toHaveText(/^Z[1-8]( \(opponent\))?$/);
+  const [, zone, theirs] =
+    /^Z(\d)( \(opponent\))?$/.exec((await label.textContent()) ?? "") ?? [];
+  const cell = `zone-${theirs ? "P2" : "P1"}-${zone}`;
+  await option.hover();
+  const ring = page.getByTestId("target-ring");
+  await expect(ring).toHaveAttribute("data-for", cell);
+  const [a, b] = [
+    await ring.boundingBox(),
+    await page.getByTestId(cell).boundingBox(),
+  ];
+  expect(Math.abs((a?.x ?? 0) - (b?.x ?? 99))).toBeLessThanOrEqual(1);
+  expect(Math.abs((a?.y ?? 0) - (b?.y ?? 99))).toBeLessThanOrEqual(1);
+  // Confirming it destroys the card: the modal closes and the game goes on.
+  const discards = Number(
+    await page
+      .getByTestId(`discard-count-${theirs ? "P2" : "P1"}`)
+      .textContent(),
+  );
+  await option.click();
+  await expect(page.getByTestId("choice-modal")).toHaveCount(0);
+  await expect
+    .poll(async () =>
+      Number(
+        await page
+          .getByTestId(`discard-count-${theirs ? "P2" : "P1"}`)
+          .textContent(),
+      ),
+    )
+    .toBeGreaterThan(discards);
 });
 
 test("shortcuts never fire while focus is in an input", async ({ page }) => {

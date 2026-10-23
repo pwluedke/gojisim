@@ -100,7 +100,7 @@ describe("/play board model (M5a)", () => {
     expect(html).toContain("|0| +5000|");
   });
 
-  it("12.5 a Burst monster shows its rank change and the end-phase discard reminder", () => {
+  it("12.5 a Burst monster shows its rank change and the end-phase discard reminder as a change chip", () => {
     const state = game();
     const p1 = state.players[0];
     const monster = p1.invadingMonsterZone[p1.invadingMonsterZone.length - 1];
@@ -110,7 +110,7 @@ describe("/play board model (M5a)", () => {
     const plain = renderToStaticMarkup(
       <BoardView model={boardModel(state, "P1")} prompt={null} />,
     );
-    expect(plain).not.toContain('data-testid="burst-badge"');
+    expect(plain).not.toContain('data-testid="change-badge"');
     state.timedTriggers = [
       {
         kind: "burstDiscard",
@@ -122,7 +122,61 @@ describe("/play board model (M5a)", () => {
     const html = renderToStaticMarkup(
       <BoardView model={boardModel(state, "P1")} prompt={null} />,
     );
-    expect(html).toContain('data-testid="burst-badge"');
-    expect(html).toContain("discard at end phase");
+    expect(html).toContain('data-kind="burst"');
+    expect(html).toMatch(/Burst R1→R1 · discard at end phase/);
+  });
+
+  it("10.8.1 and 5.16.1: the change badge shows counter power and cannot-engage chips, and lists each in full", () => {
+    const state = game();
+    const p1 = state.players[0];
+    const city = getAllCards().find(
+      (c) => c.cardNumber === "ESD01-010" && c.parentId === null,
+    );
+    if (!city) throw new Error("City of Tokyo");
+    state.cards = { ...state.cards, [city.id]: city };
+    p1.monsterPosition = 7;
+    p1.zones[1] = [[{ instanceId: "c990001", cardId: city.id, owner: "P1" }]];
+    p1.zones[8] = [
+      [
+        {
+          instanceId: "c990002",
+          cardId: city.id,
+          owner: "P1",
+          statuses: ["cannotEngage"],
+        },
+      ],
+    ];
+    const model = boardModel(state, "P1");
+    expect(model.changes["c990002"]?.map((c) => c.label)).toEqual([
+      "CP +5000",
+      "Can't engage",
+    ]);
+    expect(model.changes["c990001"]).toBeUndefined();
+    const html = renderToStaticMarkup(
+      <BoardView model={model} prompt={null} />,
+    );
+    expect(html).toContain('data-kind="counterPower"');
+    expect(html).toContain('data-kind="cannotEngage"');
+    expect(html).toContain("Cannot engage: adds no counter power (5.16.1)");
+  });
+
+  it("10.8.1: any change in the model shows as a chip (a rank modifier on a test fixture)", () => {
+    const state = game();
+    const p1 = state.players[0];
+    const monster = p1.invadingMonsterZone[p1.invadingMonsterZone.length - 1];
+    if (!monster) throw new Error("no monster");
+    const model = boardModel(state, "P1");
+    model.changes[monster.instanceId] = [
+      {
+        kind: "rank",
+        label: "Rank +1",
+        detail: "Rank +1 from continuous effects (10.8.1)",
+      },
+    ];
+    const html = renderToStaticMarkup(
+      <BoardView model={model} prompt={null} />,
+    );
+    expect(html).toContain('data-kind="rank"');
+    expect(html).toContain(">Rank +1<");
   });
 });

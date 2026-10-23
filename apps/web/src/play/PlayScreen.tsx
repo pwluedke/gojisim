@@ -154,8 +154,17 @@ export function PlayScreen() {
 
   const takePass = () => {
     if (!pass) return;
-    if (settings.confirmPass && hasLit) setConfirming("pass");
-    else game.takeAction(pass);
+    if (settings.confirmPass && hasLit) {
+      // Off the Pass button, so a second Space reaches the dialog instead of clicking it again.
+      (document.activeElement as HTMLElement | null)?.blur();
+      setConfirming("pass");
+    } else game.takeAction(pass);
+  };
+  const confirmYes = () => {
+    setConfirming(null);
+    if (confirming === "pass" && pass) game.takeAction(pass);
+    if (confirming === "concede" && concedeFor)
+      game.takeAction({ type: "concede", player: concedeFor });
   };
 
   // Keyboard shortcuts (M5d). None fires while focus is in a text field.
@@ -182,6 +191,12 @@ export function PlayScreen() {
           setLogOpen((open) => !open);
           return;
         case " ":
+          // In "Pass with playable cards left?", a second Space passes (M5d).
+          if (confirming === "pass") {
+            e.preventDefault();
+            confirmYes();
+            return;
+          }
           // Space is the main button: Pass, when no choice, dialog or overlay is open.
           if (choice || confirming || overlay || historyAt !== null || !pass)
             return;
@@ -200,7 +215,11 @@ export function PlayScreen() {
         <NewGame
           mode={mode}
           onStart={(seed, picked, seats) =>
-            game.startSession(newSession(seed, picked, seats), true)
+            game.startSession(
+              // Human seats confirm every target pick, even a single one (M5d).
+              newSession(seed, picked, seats, { confirmTargets: true }),
+              true,
+            )
           }
           onLoad={(file) => game.importRecord(file, true)}
         />
@@ -278,7 +297,7 @@ export function PlayScreen() {
         </button>
       </div>
     ) : state.result ? (
-      <div>
+      <div className={styles.promptBody}>
         <div data-testid="game-over">
           Game over: {state.result.winner ? name(state.result.winner) : "draw"}{" "}
           ({state.result.reason})
@@ -287,120 +306,128 @@ export function PlayScreen() {
       </div>
     ) : (
       <div className={styles.promptBody}>
-        <div data-testid="prompt-step">
-          <strong>{STEP_NAMES[stepPhase(state.currentStep)]}</strong> ·{" "}
-          {name(state.turnPlayer) === "You"
-            ? "your turn"
-            : `${name(state.turnPlayer)}'s turn`}
+        <div className={styles.promptRow}>
+          <span data-testid="prompt-step">
+            <strong>{STEP_NAMES[stepPhase(state.currentStep)]}</strong> ·{" "}
+            {name(state.turnPlayer) === "You"
+              ? "your turn"
+              : `${name(state.turnPlayer)}'s turn`}
+          </span>
+          <span className={styles.muted} data-testid="turn-flags">
+            Invasion {flags.invasionUsed ? "used" : "unused"} · Monster{" "}
+            {flags.monsterPlayed ? "played" : "not played"}
+          </span>
         </div>
-        <div className={styles.muted} data-testid="turn-flags">
-          Invasion {flags.invasionUsed ? "used" : "unused"} · Monster{" "}
-          {flags.monsterPlayed ? "played" : "not played"}
-        </div>
-        {game.botToMove && seat?.kind === "bot" ? (
-          <>
-            <div data-testid="bot-thinking">
-              {game.thinking
-                ? `Bot (${difficultyName(seat.difficulty)}) is thinking… ${(
-                    Math.max(0, game.now - game.thinking.started) / 1000
-                  ).toFixed(1)} s`
-                : game.playing
-                  ? `Bot (${difficultyName(seat.difficulty)}) is about to move…`
-                  : `Paused: Bot (${difficultyName(seat.difficulty)}) is to move.`}
+        <div className={styles.promptRow}>
+          {game.botToMove && seat?.kind === "bot" ? (
+            <>
+              <div data-testid="bot-thinking">
+                {game.thinking
+                  ? `Bot (${difficultyName(seat.difficulty)}) is thinking… ${(
+                      Math.max(0, game.now - game.thinking.started) / 1000
+                    ).toFixed(1)} s`
+                  : game.playing
+                    ? `Bot (${difficultyName(seat.difficulty)}) is about to move…`
+                    : `Paused: Bot (${difficultyName(seat.difficulty)}) is to move.`}
+              </div>
+              {game.botSeats.length === 2 && (
+                <button
+                  type="button"
+                  className={styles.button}
+                  data-testid={game.playing ? "bot-pause" : "bot-play"}
+                  onClick={() => game.setPlaying(!game.playing)}
+                >
+                  {game.playing ? "Pause" : "Play"}
+                </button>
+              )}
+            </>
+          ) : choice && showModal ? (
+            <div className={styles.muted} data-testid="prompt-choice">
+              {choiceHeading(state, name)}
             </div>
-            {game.botSeats.length === 2 && (
+          ) : (
+            pass && (
               <button
                 type="button"
                 className={styles.button}
-                data-testid={game.playing ? "bot-pause" : "bot-play"}
-                onClick={() => game.setPlaying(!game.playing)}
+                data-testid="pass"
+                onClick={takePass}
               >
-                {game.playing ? "Pause" : "Play"}
+                Pass [Space]
               </button>
-            )}
-          </>
-        ) : choice && showModal ? (
-          <div className={styles.muted} data-testid="prompt-choice">
-            {choiceHeading(state, name)}
-          </div>
-        ) : (
-          pass && (
+            )
+          )}
+          {concedeFor && (
             <button
               type="button"
-              className={styles.button}
-              data-testid="pass"
-              onClick={takePass}
+              className={styles.linkButton}
+              data-testid="concede"
+              onClick={() => setConfirming("concede")}
             >
-              Pass [Space]
+              Concede
             </button>
-          )
-        )}
-        {concedeFor && (
-          <button
-            type="button"
-            className={styles.linkButton}
-            data-testid="concede"
-            onClick={() => setConfirming("concede")}
-          >
-            Concede
-          </button>
-        )}
+          )}
+        </div>
       </div>
     );
 
   const settingsPanel = (
-    <details className={`${styles.panel} ${styles.settings}`}>
+    <details className={styles.settings}>
       <summary data-testid="settings">Settings</summary>
-      <label>
-        Bot delay{" "}
-        <input
-          type="range"
-          min={0}
-          max={3000}
-          step={100}
-          data-testid="setting-bot-delay"
-          value={settings.botDelay}
-          onChange={(e) => updateSettings({ botDelay: Number(e.target.value) })}
-        />{" "}
-        {settings.botDelay} ms
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          data-testid="setting-rules"
-          checked={settings.showRules}
-          onChange={(e) => updateSettings({ showRules: e.target.checked })}
-        />{" "}
-        Show rule numbers in the log
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          data-testid="setting-confirm-pass"
-          checked={settings.confirmPass}
-          onChange={(e) => updateSettings({ confirmPass: e.target.checked })}
-        />{" "}
-        Confirm before Pass
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          data-testid="setting-hotseat-cover"
-          checked={settings.hotseatCover}
-          onChange={(e) => updateSettings({ hotseatCover: e.target.checked })}
-        />{" "}
-        Hotseat privacy cover
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          data-testid="setting-expanded-hand"
-          checked={settings.expandedHand}
-          onChange={(e) => updateSettings({ expandedHand: e.target.checked })}
-        />{" "}
-        Expanded hand on H
-      </label>
-      <div className={styles.muted}>Press ? for the shortcut list.</div>
+      <div className={styles.settingsPanel}>
+        <label>
+          Bot delay{" "}
+          <input
+            type="range"
+            min={0}
+            max={3000}
+            step={100}
+            data-testid="setting-bot-delay"
+            value={settings.botDelay}
+            onChange={(e) =>
+              updateSettings({ botDelay: Number(e.target.value) })
+            }
+          />{" "}
+          {settings.botDelay} ms
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            data-testid="setting-rules"
+            checked={settings.showRules}
+            onChange={(e) => updateSettings({ showRules: e.target.checked })}
+          />{" "}
+          Show rule numbers in the log
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            data-testid="setting-confirm-pass"
+            checked={settings.confirmPass}
+            onChange={(e) => updateSettings({ confirmPass: e.target.checked })}
+          />{" "}
+          Confirm before Pass
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            data-testid="setting-hotseat-cover"
+            checked={settings.hotseatCover}
+            onChange={(e) => updateSettings({ hotseatCover: e.target.checked })}
+          />{" "}
+          Hotseat privacy cover
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            data-testid="setting-expanded-hand"
+            checked={settings.expandedHand}
+            onChange={(e) => updateSettings({ expandedHand: e.target.checked })}
+          />{" "}
+          Expanded hand on H
+        </label>
+        <div className={styles.muted}>Press ? for the shortcut list.</div>
+      </div>
     </details>
   );
   const handCards =
@@ -539,14 +566,9 @@ export function PlayScreen() {
                 type="button"
                 className={styles.button}
                 data-testid="confirm-yes"
-                onClick={() => {
-                  setConfirming(null);
-                  if (confirming === "pass" && pass) game.takeAction(pass);
-                  if (confirming === "concede" && concedeFor)
-                    game.takeAction({ type: "concede", player: concedeFor });
-                }}
+                onClick={confirmYes}
               >
-                {confirming === "pass" ? "Pass" : "Concede"}
+                {confirming === "pass" ? "Pass [Space]" : "Concede"}
               </button>
               <button
                 type="button"
@@ -554,7 +576,7 @@ export function PlayScreen() {
                 data-testid="confirm-cancel"
                 onClick={() => setConfirming(null)}
               >
-                Cancel
+                Cancel [Esc]
               </button>
             </div>
           </div>

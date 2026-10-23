@@ -1,43 +1,59 @@
 /*
- * Board layout (M5a, M5b). Every color, spacing value and card size comes from theme.css. Every
- * card on the board and every mat cell is one size, `--card-w` by `--card-h`, derived from the
- * window size.
+ * Board layout (M5a, M5b, M5d). Every color, spacing value and card size comes from theme.css.
+ * Every card on the board and every mat cell is one size, `--card-w` by `--card-h`, derived from
+ * the window size. M5d: a top bar over the board, and the right column for the battle log.
  */
 
 .layout {
   display: flex;
-  min-height: 100vh;
-}
-
-.sidebar,
-.sidebarCollapsed {
-  flex: none;
-  padding: var(--space-2);
-  border-right: 1px solid var(--color-border);
-  background: var(--color-panel-alt);
-}
-
-/* The sidebar fills the window height; the battle log takes the space left and scrolls. */
-.sidebar {
-  position: sticky;
-  top: 0;
-  display: flex;
-  flex-direction: column;
-  width: var(--sidebar-width);
   height: 100vh;
 }
 
-.sidebarCollapsed {
-  width: var(--sidebar-collapsed-width);
+/* The right column: the battle log, which the card preview covers while a card is previewed. */
+.rightColumn {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  width: calc(var(--side-column-width) + 2 * var(--space-4));
+  height: 100vh;
+  padding: var(--space-2) var(--space-4);
+  border-left: 1px solid var(--color-border);
+  background: var(--color-panel-alt);
 }
 
-.collapse {
-  display: block;
-  margin-left: auto;
+/* The compact top bar (M5d): prompt, phase tracker and settings, two lines high. */
+.topBar {
+  flex: none;
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+  height: var(--top-bar-height);
+}
+
+.topPrompt,
+.topPhase {
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  overflow: hidden;
+  background: var(--color-panel);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  background: var(--color-panel);
-  cursor: pointer;
+}
+
+.topPrompt {
+  flex: 1;
+}
+
+.topPhase {
+  flex: none;
+}
+
+.promptRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 22px;
+  white-space: nowrap;
 }
 
 .main {
@@ -64,13 +80,6 @@
 
 .muted {
   color: var(--color-muted);
-}
-
-/* The mat and the right column, which is kept free for the card preview. */
-.fieldRow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--side-column-width);
-  gap: var(--space-2);
 }
 
 /*
@@ -221,12 +230,12 @@
 }
 
 /* One card: the full printed card image at the board's one card size. */
+/* Not clipped, so the change badge's hover list can reach past the card (M5d). */
 .card {
   position: relative;
   width: var(--card-w);
   height: var(--card-h);
   border-radius: var(--radius);
-  overflow: hidden;
   background: var(--color-panel);
   box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
 }
@@ -242,12 +251,15 @@
   inset: 0;
   width: 100%;
   height: 100%;
+  border-radius: inherit;
   object-fit: cover;
 }
 
 .cardFallback {
   position: absolute;
   inset: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   padding: var(--space-1);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
@@ -341,8 +353,10 @@
   background: var(--color-panel);
 }
 
+/* Centered under the mat (M5d); a large hand overlaps instead of scrolling. */
 .handCards {
   display: grid;
+  justify-content: center;
   column-gap: var(--space-1);
   /* Room for the lit and selected outlines inside the clipped strip. */
   padding: var(--space-1);
@@ -437,6 +451,12 @@
   line-height: 1.35;
 }
 
+.previewChanges {
+  margin: var(--space-1) 0;
+  padding-left: var(--space-4);
+  color: var(--color-text);
+}
+
 .errata {
   margin: var(--space-1) 0;
   color: var(--color-illegal);
@@ -478,12 +498,12 @@
   cursor: pointer;
 }
 
-/* M5c: the prompt panel. */
+/* M5c: the prompt panel (M5d: in the top bar, two rows). */
 .promptBody {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-1);
+  gap: 2px;
 }
 
 .linkButton {
@@ -495,8 +515,33 @@
   cursor: pointer;
 }
 
+/* Settings: a button in the top bar that opens a panel under it. */
 .settings {
+  position: relative;
+  flex: none;
+  align-self: center;
   font-size: var(--font-size-sm);
+}
+
+.settings > summary {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  cursor: pointer;
+}
+
+.settingsPanel {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 25;
+  width: 260px;
+  padding: var(--space-2);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
 .settings label {
@@ -684,12 +729,13 @@
   pointer-events: none;
 }
 
-/* M5d: the battle log. */
+/* M5d: the battle log, the right column's full height. */
 .logPanel {
   display: flex;
   flex-direction: column;
   flex: 1;
-  min-height: 120px;
+  min-height: 0;
+  margin: 0;
 }
 
 .log {
@@ -732,12 +778,21 @@
   cursor: pointer;
 }
 
-/* The phase tracker: the four phases with their steps, the step in progress lit. */
-.tracker {
+/* The phase tracker: the four phases with their steps in a row, the step in progress lit. */
+.trackerBody {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-top: var(--space-1);
+}
+
+.trackerLine {
+  min-height: 20px;
+  white-space: nowrap;
+}
+
+.tracker {
+  display: flex;
+  gap: var(--space-1);
 }
 
 .trackerPhase,
@@ -757,7 +812,7 @@
 }
 
 .trackerName {
-  width: 64px;
+  margin-right: 2px;
 }
 
 .trackerStep,
@@ -778,13 +833,12 @@
   font-weight: bold;
 }
 
-/* Board numbers on a card: the Burst rank change, a strategy card's turn mark. */
-.burstBadge,
+/* A strategy card's turn mark. */
 .turnMark {
   position: absolute;
-  z-index: 1;
-  left: 2px;
+  top: 2px;
   right: 2px;
+  z-index: 1;
   padding: 0 2px;
   border-radius: 4px;
   background: var(--color-highlight);
@@ -795,20 +849,86 @@
   text-align: center;
 }
 
-.burstBadge {
+/*
+ * The change badge (M5d): one chip per change in force (Burst, stat modifiers, statuses, how it
+ * was played), under the top badges. Hovering it lists every change in full.
+ */
+.changes {
+  position: absolute;
   top: 20px;
-}
-
-.turnMark {
-  top: 2px;
-  left: auto;
+  left: 2px;
   right: 2px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
+  cursor: help;
 }
 
-/* The history view's banner over the board. */
+.changeChip {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: var(--color-highlight);
+  color: var(--color-text);
+  font-size: 9px;
+  font-weight: bold;
+  line-height: 12px;
+  text-align: center;
+}
+
+.changeList {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: max-content;
+  max-width: 240px;
+  margin-top: 2px;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  font-size: var(--font-size-sm);
+  line-height: 1.35;
+}
+
+.changes:hover .changeList {
+  display: block;
+}
+
+/* A hovered card's layer rises over its neighbors, so the change list shows whole. */
+.layer:hover {
+  z-index: 5;
+}
+
+/* A choice option: where the target is (M5d), above its card. */
+.choiceOption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.choiceLocation {
+  font-weight: bold;
+  text-align: center;
+}
+
+/* The hovered target's place on the mat, ringed above the choice modal's backdrop. */
+.targetRing {
+  position: fixed;
+  border-radius: var(--radius);
+  outline: 3px solid var(--color-highlight);
+  outline-offset: 2px;
+  box-shadow: 0 0 16px var(--color-highlight);
+  pointer-events: none;
+}
+
+/* The history view's banner, at the bottom over the (locked) hand. */
 .historyBanner {
   position: fixed;
-  top: var(--space-2);
+  bottom: var(--space-2);
   left: 50%;
   z-index: 26;
   translate: -50% 0;

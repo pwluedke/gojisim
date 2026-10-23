@@ -16,6 +16,8 @@ export * from "./geometry";
 export { nextMonsterCandidates } from "./counter";
 export {
   activeMonster,
+  type CardChange,
+  cardChanges,
   counterPowerOf,
   getCounterPower,
   getRank,

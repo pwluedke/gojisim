@@ -23,8 +23,8 @@ export function visibleCards(model: BoardModel): Map<string, CardInstance> {
 
 /**
  * The card preview panel (M5b): fixed over the right column. The full image, the text in force
- * with the errata flag, traits, and current values (counter power with its modifier, rank,
- * threat). It looks cards up in the bottom player's view, so a hidden card can't be shown.
+ * with the errata flag, traits, current values (counter power with its modifier, rank,
+ * threat), and every change in force on it (M5d). It looks cards up in the bottom player's view, so a hidden card can't be shown.
  */
 export function Preview({
   model,
@@ -98,6 +98,13 @@ export function Preview({
           </>
         ) : null}
       </div>
+      {card && model.changes[card.instanceId] && (
+        <ul className={styles.previewChanges} data-testid="preview-changes">
+          {model.changes[card.instanceId]?.map((change) => (
+            <li key={`${change.kind}-${change.label}`}>{change.detail}</li>
+          ))}
+        </ul>
+      )}
       {text.hasErrata && (
         <div className={styles.errata} data-testid="preview-errata">
           Errata: the text below is the corrected wording.

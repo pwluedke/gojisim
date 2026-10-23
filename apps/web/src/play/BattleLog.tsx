@@ -4,7 +4,7 @@ import type { LogLine } from "./logLines";
 import { useInteraction } from "./interaction";
 
 /**
- * The battle log (M5d) in the sidebar: plain-language lines under turn markers, newest at the
+ * The battle log (M5d) in the right column: plain-language lines under turn markers, newest at the
  * bottom. Card names are links that open the preview. Clicking a line shows the board at that
  * moment, read-only; the line being viewed is marked.
  */
