@@ -48,6 +48,18 @@ const STEP_NAMES: Record<string, string> = {
   end: "End phase",
 };
 
+/** Cards in one mat cell: the first at the cell's place, later ones offset so each shows. */
+function Layer({ index, children }: { index: number; children: ReactNode }) {
+  return (
+    <div
+      className={styles.layer}
+      style={{ translate: `${index * 6}px ${index * 6}px` }}
+    >
+      {children}
+    </div>
+  );
+}
+
 function ZoneCell({
   model,
   player,
@@ -62,57 +74,59 @@ function ZoneCell({
   const monsterHere = player.monsterPosition === zone;
   const monsterCards = player.invadingMonsterZone.cards ?? [];
   const monster = monsterCards[monsterCards.length - 1];
-  const monsterData = monster && view.cards[monster.cardId];
   const own = player.id === model.bottom;
   const monsterView = monster && (
-    <>
-      <CardFace card={monster} data={monsterData} />
-      {monsterCards.length > 1 && (
-        <div className={styles.stackNote}>stack of {monsterCards.length}</div>
-      )}
-    </>
+    <CardFace
+      card={monster}
+      data={view.cards[monster.cardId]}
+      threat={model.threat[player.id]}
+      stack={monsterCards.length}
+    />
   );
   return (
     <Slot
       own={own}
       dest={`zone:${zone}`}
-      className={`${styles.zone} ${monsterHere ? styles.zoneMonster : ""} ${zone === 8 ? styles.zone8 : ""}`}
+      className={`${styles.cell} ${monsterHere ? styles.zoneMonster : ""}`}
       testId={`zone-${player.id}-${zone}`}
     >
-      <div className={styles.zoneLabel} data-testid="zone-label">
+      <div className={styles.cellLabel} data-testid="zone-label">
         Z{zone}
       </div>
-      {monsterHere &&
-        monster &&
-        (own ? (
-          <Target
-            dest="monster"
-            className={styles.monster}
-            testId={`monster-${player.id}`}
-          >
-            {monsterView}
-          </Target>
-        ) : (
-          <div className={styles.monster} data-testid={`monster-${player.id}`}>
-            {monsterView}
-          </div>
-        ))}
-      {stacks.map((stack) => {
+      {stacks.map((stack, i) => {
         const top = stack[stack.length - 1];
         if (!top) return null;
         return (
-          <div key={top.instanceId}>
+          <Layer key={top.instanceId} index={i}>
             <CardFace
               card={top}
               data={view.cards[top.cardId]}
               counterPower={model.counterPower[top.instanceId]}
+              stack={stack.length}
             />
-            {stack.length > 1 && (
-              <div className={styles.stackNote}>{stack.length - 1} under</div>
-            )}
-          </div>
+          </Layer>
         );
       })}
+      {monsterHere && monster && (
+        <Layer index={stacks.length}>
+          {own ? (
+            <Target
+              dest="monster"
+              className={styles.monster}
+              testId={`monster-${player.id}`}
+            >
+              {monsterView}
+            </Target>
+          ) : (
+            <div
+              className={styles.monster}
+              data-testid={`monster-${player.id}`}
+            >
+              {monsterView}
+            </div>
+          )}
+        </Layer>
+      )}
     </Slot>
   );
 }
@@ -192,16 +206,14 @@ function StrategyZone({
     <Slot
       own={player.id === model.bottom}
       dest={`strategy:${index}`}
-      className={styles.strategyZone}
+      className={styles.cell}
       testId={`strategy-${player.id}-${index}`}
     >
-      <div className={styles.zoneLabel}>Strategy {index}</div>
-      {(zone?.cards ?? []).map((p) => (
-        <CardFace
-          key={p.card.instanceId}
-          card={p.card}
-          data={model.view.cards[p.card.cardId]}
-        />
+      <div className={styles.cellLabel}>Strategy {index}</div>
+      {(zone?.cards ?? []).map((p, i) => (
+        <Layer key={p.card.instanceId} index={i}>
+          <CardFace card={p.card} data={model.view.cards[p.card.cardId]} />
+        </Layer>
       ))}
     </Slot>
   );
@@ -256,10 +268,16 @@ function Pile({
   testId: string;
 }) {
   return (
-    <div className={styles.pile}>
-      <div className={styles.zoneLabel}>{label}</div>
-      {count > 0 && <CardBack testId="pile-back" />}
-      <strong data-testid={testId}>{count}</strong>
+    <div className={styles.cell}>
+      <div className={styles.cellLabel}>{label}</div>
+      {count > 0 && (
+        <Layer index={0}>
+          <CardBack testId="pile-back" />
+        </Layer>
+      )}
+      <span className={styles.countBadge} data-testid={testId}>
+        {count}
+      </span>
     </div>
   );
 }
@@ -277,16 +295,21 @@ function Discard({
     <Slot
       own={player.id === model.bottom}
       dest="discard"
-      className={styles.pile}
+      className={styles.cell}
       testId={`discard-${player.id}`}
     >
-      <div className={styles.zoneLabel}>
-        Discard{" "}
-        <strong data-testid={`discard-count-${player.id}`}>
-          {player.discard.count}
-        </strong>
-      </div>
-      {top && <CardFace card={top} data={model.view.cards[top.cardId]} />}
+      <div className={styles.cellLabel}>Discard</div>
+      {top && (
+        <Layer index={0}>
+          <CardFace card={top} data={model.view.cards[top.cardId]} />
+        </Layer>
+      )}
+      <span
+        className={styles.countBadge}
+        data-testid={`discard-count-${player.id}`}
+      >
+        {player.discard.count}
+      </span>
     </Slot>
   );
 }
@@ -328,6 +351,49 @@ function MatCell({
     case "discard":
       return <Discard model={model} player={player} />;
   }
+}
+
+/** Where each zone sits in `MAT`, for the path arrows. */
+const ZONE_AT = new Map(
+  MAT.flatMap(({ area, col, row }) =>
+    area.kind === "zone" ? [[area.zone, { col, row }] as const] : [],
+  ),
+);
+
+const ARROWS: Record<string, string> = {
+  "1,0": "→",
+  "-1,0": "←",
+  "0,1": "↓",
+  "0,-1": "↑",
+  "1,1": "↘",
+  "-1,-1": "↖",
+  "1,-1": "↗",
+  "-1,1": "↙",
+};
+
+/**
+ * The arrow into zone `zone` from the zone before it on the monster's path (1 to 8, like the
+ * official mat), on the edge or corner of this cell that faces the previous zone.
+ */
+function PathArrow({ zone, flip }: { zone: ZoneNumber; flip: boolean }) {
+  const from = ZONE_AT.get((zone - 1) as ZoneNumber);
+  const to = ZONE_AT.get(zone);
+  if (!from || !to) return null;
+  const sign = flip ? -1 : 1;
+  const dx = Math.sign(to.col - from.col) * sign;
+  const dy = Math.sign(to.row - from.row) * sign;
+  const edge = (d: number) => (d > 0 ? "0%" : d < 0 ? "100%" : "50%");
+  return (
+    <span
+      className={styles.pathArrow}
+      style={{ left: edge(dx), top: edge(dy) }}
+      data-testid="path-arrow"
+      data-to={zone}
+      aria-hidden
+    >
+      {ARROWS[`${dx},${dy}`]}
+    </span>
+  );
 }
 
 /**
@@ -377,6 +443,9 @@ function Mat({
               opponent={opponent}
               area={area}
             />
+            {area.kind === "zone" && area.zone > 1 && (
+              <PathArrow zone={area.zone} flip={side === "opp"} />
+            )}
           </div>
         );
       })}
@@ -584,11 +653,14 @@ export function BoardView({
               {Array.from({ length: opp.hand.count }, (_, i) => {
                 const shown = opp.hand.cards?.[i];
                 return shown ? (
-                  <div key={i} className={styles.revealed}>
-                    <CardFace card={shown} data={view.cards[shown.cardId]} />
-                  </div>
+                  <CardFace
+                    key={i}
+                    card={shown}
+                    data={view.cards[shown.cardId]}
+                    small
+                  />
                 ) : (
-                  <CardBack key={i} testId="opponent-card-back" />
+                  <CardBack key={i} testId="opponent-card-back" small />
                 );
               })}
             </div>
@@ -639,7 +711,6 @@ export function BoardView({
               <CardFace
                 card={draggedCard}
                 data={view.cards[draggedCard.cardId]}
-                fill
               />
             </div>
           ) : null}

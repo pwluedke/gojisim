@@ -297,3 +297,10 @@ Accepted by Monarch in the M5b review (PR #26).
 199. The hand is locked whenever the bottom player isn't the human who must decide.
 200. Hand e2e seeds: hotseat seed 2 plus one Pass gives P1 turn 2 with all five hand actions; seed 1 with 8 passes gives P1 a hand of 10 on turn 9.
 201. The "human vs Easy" card-back count in `bots.spec.ts` polls until backs minus hand equals 3, fixing a race with the bot's moves.
+
+Accepted by Monarch in the PR #26 playmat review (decision 1, mat thumbnails shrinking with the window, was rejected by Paul and replaced by the M5b fix).
+
+202. Hand cards whose only actions are invade or gain rage look plain (no outline, full opacity) and can still be selected and dragged; cards with no action are dimmed. Hand cards carry `data-hand-lit`.
+203. The Rage zone shows rage, threat, and total counter power vs the opponent's threat. Monster rank is shown in the preview, not on the board.
+204. The deck and monster deck cells show a card back and their count; the discard cell shows its top card, which can be previewed.
+205. Grid positions with no mat area (the holes in the 7 × 3 grid) are left blank, with no box drawn.
