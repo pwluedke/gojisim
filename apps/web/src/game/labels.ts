@@ -120,56 +120,90 @@ function currentEffect(state: GameState): Effect | undefined {
   return effect;
 }
 
+/** What the chooser of the pending choice is doing, e.g. "searching their deck for Heat Ray". */
+function choiceWhat(state: GameState): string {
+  const choice = state.pendingChoice;
+  if (!choice) return "";
+  const who = choice.player;
+  const source = state.resolution
+    ? (state.cards[state.resolution.standby.sourceCardId]?.name ?? "")
+    : "";
+  const by = source ? ` for ${source}` : "";
+  switch (choice.kind) {
+    case "standbyOrder":
+      return "choosing which ability resolves first";
+    case "nextMonster":
+      return "choosing their next monster";
+    case "zone":
+      return `choosing a zone${by}`;
+    case "confirm":
+      return `deciding whether to use${source ? ` ${source}'s` : ""} ability`;
+    case "replacementOrder":
+      return "choosing which replacement applies";
+    case "manual":
+      return "resolving a card by hand (manual override)";
+  }
+  const effect = currentEffect(state);
+  if (choice.rule === "5.7.2" && effect?.effect === "discardDownTo") {
+    const picked = state.resolution?.chosen.length ?? 0;
+    const hand = state.players.find((p) => p.id === who)?.hand.length ?? 0;
+    const left = hand - effect.size - picked;
+    return `choosing what to discard${by}, down to ${effect.size} card${effect.size === 1 ? "" : "s"} (discard ${left} more)`;
+  }
+  if (choice.rule === "5.7.1") return `choosing a card to discard${by}`;
+  if (choice.rule === "5.8.1" || choice.rule === "12.6.2")
+    return `searching their deck${by}`;
+  if (choice.rule === "5.17") return "choosing a card to evolve";
+  if (choice.rule === "5.11.1") return `choosing a card to play${by}`;
+  return `choosing a target${by}`;
+}
+
 /**
  * Who is deciding and what, e.g. "P2 is choosing which cards to keep (the rest are discarded)
  * during P1's turn". A choice can belong to the player whose turn it isn't.
  */
 export function decisionHeading(state: GameState): string {
   if (state.result) return "Game over";
+  if (!state.pendingChoice)
+    return `${state.turnPlayer}'s turn: choose an action`;
+  return choiceHeading(state, (id) => id);
+}
+
+/**
+ * The choice modal's heading (M5c, PR #19 pattern): who is choosing, what for, and during whose
+ * turn, with seat names from `name` ("You", "Bot", "P2"), e.g. "You are choosing what to discard
+ * for Godzilla (2023), down to 6 cards (discard 1 more) during Bot's turn".
+ */
+export function choiceHeading(
+  state: GameState,
+  name: (playerId: string) => string,
+): string {
   const choice = state.pendingChoice;
-  if (!choice) return `${state.turnPlayer}'s turn: choose an action`;
-  const who = choice.player;
-  const source = state.resolution
-    ? (state.cards[state.resolution.standby.sourceCardId]?.name ?? "")
-    : "";
-  const by = source ? ` for ${source}` : "";
-  let what: string;
-  switch (choice.kind) {
-    case "standbyOrder":
-      what = "choosing which ability resolves first";
-      break;
-    case "nextMonster":
-      what = "choosing their next monster";
-      break;
-    case "zone":
-      what = `choosing a zone${by}`;
-      break;
-    case "confirm":
-      what = `deciding whether to use${source ? ` ${source}'s` : ""} ability`;
-      break;
-    case "replacementOrder":
-      what = "choosing which replacement applies";
-      break;
-    case "manual":
-      what = "resolving a card by hand (manual override)";
-      break;
-    default: {
-      const effect = currentEffect(state);
-      if (choice.rule === "5.7.2" && effect?.effect === "discardDownTo") {
-        const picked = state.resolution?.chosen.length ?? 0;
-        const hand = state.players.find((p) => p.id === who)?.hand.length ?? 0;
-        const left = hand - effect.size - picked;
-        what = `choosing what to discard${by}, down to ${effect.size} card${effect.size === 1 ? "" : "s"} (discard ${left} more)`;
-      } else if (choice.rule === "5.7.1")
-        what = `choosing a card to discard${by}`;
-      else if (choice.rule === "5.8.1" || choice.rule === "12.6.2")
-        what = `searching their deck${by}`;
-      else if (choice.rule === "5.17") what = "choosing a card to evolve";
-      else if (choice.rule === "5.11.1") what = `choosing a card to play${by}`;
-      else what = `choosing a target${by}`;
-    }
-  }
+  if (!choice) return "";
+  const who = name(choice.player);
+  const you = who === "You";
+  const what = choiceWhat(state);
+  const turn = name(state.turnPlayer);
   const during =
-    who === state.turnPlayer ? "" : ` during ${state.turnPlayer}'s turn`;
-  return `${who} is ${what}${during}`;
+    choice.player === state.turnPlayer
+      ? ""
+      : ` during ${turn === "You" ? "your" : `${turn}'s`} turn`;
+  return `${who} ${you ? "are" : "is"} ${you ? what.replace(/\btheir\b/g, "your") : what}${during}`;
+}
+
+/** The card (or rule) that caused the pending choice, for the modal's source line (M5c). */
+export function choiceSource(state: GameState): string | null {
+  const choice = state.pendingChoice;
+  if (!choice) return null;
+  const named = (cardId: number | null | undefined) => {
+    const card =
+      cardId === null || cardId === undefined ? undefined : state.cards[cardId];
+    return card ? `${card.name} [${card.cardNumber}]` : null;
+  };
+  if (state.resolution) return named(state.resolution.standby.sourceCardId);
+  if (choice.kind === "manual") return named(choice.options[0]?.cardId);
+  if (choice.kind === "nextMonster") return "The counter (5.15.1.2)";
+  if (choice.kind === "standbyOrder")
+    return "Abilities waiting to resolve (10.4.3.2)";
+  return null;
 }

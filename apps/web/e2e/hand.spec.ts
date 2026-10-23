@@ -1,6 +1,17 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { passTurn } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
+
+// These tests follow P1's hand: an opponent choice (an [enter] discard) must not cover the board.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() =>
+    window.localStorage.setItem(
+      "gojisim.settings",
+      JSON.stringify({ hotseatCover: false }),
+    ),
+  );
+});
 
 /**
  * Hotseat with a fixed seed. Seed 2: P2 starts; after one Pass, P1's turn 2 offers all five hand
@@ -11,9 +22,7 @@ async function hotseat(page: Page, seed: number, passes: number) {
   await page.getByTestId("seed-input").fill(String(seed));
   await page.getByTestId("start-game").click();
   for (let i = 0; i < passes; i++) {
-    const turn = Number(await page.getByTestId("turn").textContent());
-    await page.getByTestId("pass").click();
-    await expect(page.getByTestId("turn")).toHaveText(String(turn + 1));
+    await passTurn(page);
   }
   await expect(page.getByTestId("board")).toHaveAttribute("data-bottom", "P1");
 }

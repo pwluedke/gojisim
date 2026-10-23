@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { passTurn } from "./helpers";
 
 /**
  * The M5b fix (godzilla-sim formatting): every card is the full card image at one size derived
@@ -10,9 +11,7 @@ async function handOfTen(page: Page) {
   await page.getByTestId("seed-input").fill("1");
   await page.getByTestId("start-game").click();
   for (let i = 0; i < 8; i++) {
-    const turn = Number(await page.getByTestId("turn").textContent());
-    await page.getByTestId("pass").click();
-    await expect(page.getByTestId("turn")).toHaveText(String(turn + 1));
+    await passTurn(page);
   }
   await expect(page.getByTestId("board")).toHaveAttribute("data-bottom", "P1");
   await expect(page.getByTestId("your-hand-count")).toHaveText("10");

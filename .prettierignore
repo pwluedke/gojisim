@@ -15,3 +15,4 @@ docs/abilities/survey.json
 docs/abilities/format.md
 bot-reports/
 docs/ui/board-design.md
+apps/web/e2e/fixtures/*.json

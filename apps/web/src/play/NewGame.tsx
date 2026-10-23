@@ -44,8 +44,11 @@ function Legality({ option }: { option: DeckOption }) {
 export function NewGame({
   mode,
   onStart,
+  onLoad,
 }: {
   mode: Mode;
+  /** Loads an exported game record (M5c); returns an error message, or `null`. */
+  onLoad: (file: File) => Promise<string | null>;
   onStart: (
     seed: number,
     picked: [DeckOption, DeckOption],
@@ -58,6 +61,7 @@ export function NewGame({
     P2: "official:ESD02",
   });
   const [seats, setSeats] = useState(() => presetSeats(mode));
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [seed, setSeed] = useState(() => String(randomSeed()));
   const byKey = (key: string) =>
     options.find((o) => o.key === key) ?? (options[0] as DeckOption);
@@ -182,6 +186,25 @@ export function NewGame({
       <button type="submit" className={styles.start} data-testid="start-game">
         Start
       </button>
+      <div>
+        <label>
+          Or load a game record{" "}
+          <input
+            type="file"
+            accept="application/json,.json"
+            data-testid="load-record"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (file) setLoadError(await onLoad(file));
+            }}
+          />
+        </label>
+        {loadError && (
+          <div className={styles.illegal} data-testid="load-error">
+            {loadError}
+          </div>
+        )}
+      </div>
     </form>
   );
 }

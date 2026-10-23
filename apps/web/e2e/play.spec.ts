@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { passTurn } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -148,7 +149,7 @@ test("hotseat: after Pass, the board flips to the next decider", async ({
   const board = page.getByTestId("board");
   const first = await board.getAttribute("data-bottom");
   const turnPlayer = first === "P1" ? "P2" : "P1";
-  await page.getByTestId("pass").click();
+  await passTurn(page);
   await expect(board).toHaveAttribute("data-bottom", turnPlayer);
   await expect(page.getByTestId("turn")).toHaveText("2");
 });

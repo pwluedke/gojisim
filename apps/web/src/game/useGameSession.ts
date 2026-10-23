@@ -204,12 +204,16 @@ export function useGameSession(options: GameSessionOptions = {}) {
   };
 
   /**
-   * Loads an exported game record. It opens paused: replays never re-run a bot; press Play to
-   * continue. Returns an error message, or `null`.
+   * Loads an exported game record. In `/debug` it opens paused (replays never re-run a bot; press
+   * Play to continue); `/play` passes `autoPlay` so its bot seats carry on. Returns an error
+   * message, or `null`.
    */
-  const importRecord = async (file: File): Promise<string | null> => {
+  const importRecord = async (
+    file: File,
+    autoPlay = false,
+  ): Promise<string | null> => {
     try {
-      startSession(sessionFromRecord(await file.text()), false);
+      startSession(sessionFromRecord(await file.text()), autoPlay);
       return null;
     } catch (err) {
       return String(err);
