@@ -110,7 +110,7 @@ for (const [width, height] of [
       await noScroll(page);
     });
 
-    test("M5d layout: the top bar over the opponent's hand, the log in the right column, the hand centered under the mat", async ({
+    test("M5d layout: prompt, phase and settings in the left column, the log in the right column, the hand centered under the mat", async ({
       page,
     }) => {
       await handOfTen(page);
@@ -120,18 +120,23 @@ for (const [width, height] of [
         if (!b) throw new Error(`no ${id}`);
         return b;
       };
-      const bar = await box("top-bar");
+      const leftColumn = await box("left-column");
       const oppHand = await box("opponent-hand");
       const mat = await box("mat-you");
       const log = await box("log-panel");
       const right = await box("right-column");
-      // The top bar holds the prompt, the phase tracker and settings, above the opponent's hand.
+      // The left column holds the prompt, the phase tracker and settings, left of the board.
+      expect(leftColumn.x).toBeLessThanOrEqual(1);
+      expect(leftColumn.height).toBeGreaterThan(height * 0.95);
       for (const id of ["prompt", "phase-tracker", "settings"]) {
         const b = await box(id);
-        expect(b.y).toBeGreaterThanOrEqual(bar.y - 1);
-        expect(b.y + b.height).toBeLessThanOrEqual(bar.y + bar.height + 1);
+        expect(b.x).toBeGreaterThanOrEqual(leftColumn.x);
+        expect(b.x + b.width).toBeLessThanOrEqual(
+          leftColumn.x + leftColumn.width + 1,
+        );
       }
-      expect(bar.y + bar.height).toBeLessThanOrEqual(oppHand.y);
+      expect(oppHand.x).toBeGreaterThanOrEqual(leftColumn.x + leftColumn.width);
+      expect(mat.x).toBeGreaterThanOrEqual(leftColumn.x + leftColumn.width);
       // The log fills the right column, right of the mats.
       expect(log.x).toBeGreaterThanOrEqual(mat.x + mat.width);
       expect(log.x).toBeGreaterThanOrEqual(right.x);

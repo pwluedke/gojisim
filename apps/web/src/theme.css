@@ -47,22 +47,22 @@
   --font-size-xl: 24px;
 
   /*
-   * One card size for the whole board (M5b fix, godzilla-sim formatting): the top bar, both mats
-   * (6 rows), the hand row and the opponent's half-height hand row fit the window height, and the
-   * 7 mat columns fit beside the right column (M5d). Cards keep the printed 63:88 aspect.
+   * One card size for the whole board (M5b fix, godzilla-sim formatting): both mats (6 rows), the
+   * hand row and the opponent's half-height hand row fit the window height, and the 7 mat columns
+   * fit between the left column and the right column (M5d). Cards keep the printed 63:88 aspect.
    * `--board-chrome` is everything else in the height: paddings, gaps, the center line, the hand
-   * panel's label and padding, and the top bar with its gap.
+   * panel's label and padding.
    */
   /* Wide enough for the playmat's arrows between zones. */
   --mat-gap: 12px;
-  --top-bar-height: 56px;
-  --board-chrome: calc(104px + var(--top-bar-height) + 4 * var(--mat-gap));
+  --left-column-width: 260px;
+  --board-chrome: calc(96px + 4 * var(--mat-gap));
   --card-h: min(
     (100vh - var(--board-chrome)) / 7.5,
     (
         (
-            100vw - var(--side-column-width) - 2 * var(--space-4) - 1px - 2 *
-              var(--space-4) - 6 * var(--mat-gap)
+            100vw - var(--left-column-width) - var(--side-column-width) - 4 *
+              var(--space-4) - 2px - 6 * var(--mat-gap)
           ) /
           7
       ) *

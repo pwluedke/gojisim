@@ -50,8 +50,8 @@ import { Preview } from "./Preview";
  * M5c: zones offered by a zone choice light up on either mat, and the bot's last move is
  * highlighted briefly where it landed.
  *
- * M5d layout (Paul's play-testing): a compact top bar (prompt, phase tracker, settings) above the
- * opponent's hand row, and the battle log in the right column, which the card preview covers
+ * M5d layout (Paul's play-testing): prompt, phase tracker and settings in the left column, the
+ * board in the middle, and the battle log in the right column, which the card preview covers
  * while a card is previewed.
  */
 
@@ -719,16 +719,18 @@ export function BoardView({
           data-testid="board"
           data-bottom={model.bottom}
         >
+          <aside className={styles.leftColumn} data-testid="left-column">
+            <section className={styles.panel} data-testid="prompt">
+              <div className={styles.panelTitle}>Prompt</div>
+              {prompt}
+            </section>
+            <section className={styles.panel} data-testid="phase-tracker">
+              <div className={styles.panelTitle}>Phase</div>
+              <PhaseTracker view={view} name={name} />
+            </section>
+            {settings}
+          </aside>
           <main className={styles.main}>
-            <header className={styles.topBar} data-testid="top-bar">
-              <section className={styles.topPrompt} data-testid="prompt">
-                {prompt}
-              </section>
-              <section className={styles.topPhase} data-testid="phase-tracker">
-                <PhaseTracker view={view} name={name} />
-              </section>
-              {settings}
-            </header>
             <div className={styles.handBacks} data-testid="opponent-hand">
               <span className={styles.muted}>
                 {opp.id} hand (

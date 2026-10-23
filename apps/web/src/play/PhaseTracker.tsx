@@ -11,7 +11,7 @@ const PHASES = [
 /**
  * The phase tracker (M5d): Start, Main, Counter and End with their steps (7.2 to 7.5), the step
  * in progress lit (`currentStep`, not `step`, which names the next one), the turn number, and the
- * turn player and opponent by name. Two lines, for the top bar.
+ * turn player and opponent by name.
  */
 export function PhaseTracker({
   view,
@@ -25,7 +25,7 @@ export function PhaseTracker({
   const opponent = view.players.find((p) => p.id !== view.turnPlayer)?.id ?? "";
   return (
     <div className={styles.trackerBody}>
-      <div className={styles.trackerLine}>
+      <div>
         Turn <strong data-testid="turn">{view.turn}</strong>
         <span data-testid="tracker-players">
           {" "}
