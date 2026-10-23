@@ -60,55 +60,95 @@
   color: var(--color-muted);
 }
 
-/* Strategy zones (one zone wide), five zone columns, the right column. */
+/* The mat and the right column, which is kept free for the card preview. */
 .fieldRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 5fr) var(--side-column-width);
+  grid-template-columns: minmax(0, 1fr) var(--side-column-width);
   gap: var(--space-2);
-  align-items: start;
 }
 
-.strategyColumn {
+/*
+ * The official playmat: 7 columns by 3 rows per side. Every cell is one column wide (the Rage
+ * zone spans 2 by 2), and a row is as tall as a zone holding one card.
+ */
+.mat {
   container-type: inline-size;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.strategyZone {
-  min-height: calc((100cqw - 20px) / var(--thumb-aspect) + var(--zone-chrome));
-  padding: var(--space-1);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-zone);
-}
-
-.zones {
-  container-type: inline-size;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.zoneRow {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: var(--space-2);
+}
+
+/*
+ * Thumbnail height of a card on the mat: from the column width, capped so the 6 rows, both hands
+ * and the gaps fit the window height. A short window hides the thumbnails.
+ */
+.matCell {
+  --zone-thumb-height: max(
+    0px,
+    min(
+      ((100cqw - 6 * var(--space-2)) / 7 - 20px) / var(--thumb-aspect),
+      (100vh - var(--board-fixed-height)) / 6 - var(--zone-chrome)
+    )
+  );
+
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+@media (max-height: 960px) {
+  .matCell {
+    --zone-thumb-height: 0px;
+  }
+
+  .matCell .thumb {
+    display: none;
+  }
+}
+
+.matCell .thumb {
+  height: var(--zone-thumb-height);
+  aspect-ratio: auto;
+}
+
+.matCell > * {
+  flex: 1;
 }
 
 .zone,
-.zoneEmpty {
-  min-height: calc(
-    ((100cqw - 4 * var(--space-2)) / 5 - 20px) / var(--thumb-aspect) +
-      var(--zone-chrome)
-  );
+.strategyZone,
+.rageZone,
+.pile {
+  min-height: calc(var(--zone-thumb-height) + var(--zone-chrome));
+  padding: var(--space-1);
   border-radius: var(--radius);
 }
 
 .zone {
-  padding: var(--space-1);
   border: 1px solid var(--color-border);
   background: var(--color-zone);
+}
+
+.strategyZone,
+.pile {
+  border: 1px dashed var(--color-border);
+  background: var(--color-zone);
+}
+
+.pile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.rageZone {
+  border: 1px solid var(--color-border);
+  background: var(--color-zone-rage);
+}
+
+.rageCount {
+  margin: var(--space-2) 0;
+  font-size: var(--font-size-xl);
 }
 
 .zoneMonster {
@@ -134,12 +174,6 @@
 .stackNote {
   font-size: var(--font-size-sm);
   color: var(--color-muted);
-}
-
-.discard {
-  margin: 0 calc(-1 * var(--space-1));
-  padding: var(--space-1);
-  border-radius: var(--radius);
 }
 
 .centerLine {
@@ -268,6 +302,11 @@
 
 .playable {
   outline: 2px solid var(--color-lit);
+  cursor: pointer;
+}
+
+/* Can only invade or gain rage: not lit, but it can still be selected and dragged. */
+.unlit {
   cursor: pointer;
 }
 

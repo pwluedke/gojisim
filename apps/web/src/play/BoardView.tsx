@@ -23,22 +23,18 @@ import {
   cardDestinations,
   type DestinationKey,
   type HandAction,
+  isLit,
   playableCards,
 } from "./destinations";
 import { Hand } from "./Hand";
-import {
-  type Interaction,
-  InteractionContext,
-  Target,
-  useInteraction,
-} from "./interaction";
+import { type Interaction, InteractionContext, Target } from "./interaction";
 import type { BoardModel } from "./model";
 import { Preview } from "./Preview";
 
 /**
- * The read-only board at `/play` (M5a, docs/ui/board-design.md): a collapsible sidebar, the
- * opponent mirrored on top, the bottom player's side below the center line, zones in spec
- * geometry (4.4.5) with the two zone 8s facing each other. It renders only from a `BoardModel`
+ * The board at `/play` (M5a, docs/ui/board-design.md): a collapsible sidebar, the opponent's
+ * mat rotated on top, the bottom player's mat below the center line, laid out like the official
+ * playmat with the two zone 8s facing each other. It renders only from a `BoardModel`
  * (the bottom player's view plus public numbers), so hidden cards never reach it.
  *
  * M5b: the hand strip, click to highlight and drag and drop (`@dnd-kit/core`) for the five hand
@@ -146,149 +142,73 @@ function Slot({
   );
 }
 
-const Empty = () => <div className={styles.zoneEmpty} />;
+/** One area of a player's mat. */
+type MatArea =
+  | { kind: "zone"; zone: ZoneNumber }
+  | { kind: "strategy"; index: 1 | 2 }
+  | { kind: "rage" }
+  | { kind: "deck" }
+  | { kind: "discard" }
+  | { kind: "monsterDeck" };
 
 /**
- * One player's zones. Top side (the opponent): back row Z5 to Z1, front row Z6, Z7, Z8 under
- * Z5, Z4, Z3. Bottom side: near row Z8, Z7, Z6 over Z3, Z4, Z5, far row Z1 to Z5. Same-column
- * zones line up (4.4.5.4) and the zone 8s face each other.
+ * The official playmat (Paul's request, Oct 23, 2026): 7 columns by 3 rows per side, in the
+ * owner's own coordinates, row 0 nearest the center line. Cells not listed are empty.
  */
-function Zones({
-  model,
-  player,
-  side,
-}: {
-  model: BoardModel;
-  player: PlayerAreasView;
-  side: "opp" | "you";
-}) {
-  const cell = (zone: ZoneNumber) => (
-    <ZoneCell key={zone} model={model} player={player} zone={zone} />
-  );
-  const back = <>{([5, 4, 3, 2, 1] as const).map(cell)}</>;
-  const oppFront = (
-    <>
-      {cell(6)}
-      {cell(7)}
-      {cell(8)}
-      <Empty />
-      <Empty />
-    </>
-  );
-  const youNear = (
-    <>
-      <Empty />
-      <Empty />
-      {cell(8)}
-      {cell(7)}
-      {cell(6)}
-    </>
-  );
-  const youFar = <>{([1, 2, 3, 4, 5] as const).map(cell)}</>;
-  return side === "opp" ? (
-    <div className={styles.zones}>
-      <div className={styles.zoneRow} data-testid="row-opp-back">
-        {back}
-      </div>
-      <div className={styles.zoneRow} data-testid="row-opp-front">
-        {oppFront}
-      </div>
-    </div>
-  ) : (
-    <div className={styles.zones}>
-      <div className={styles.zoneRow} data-testid="row-you-near">
-        {youNear}
-      </div>
-      <div className={styles.zoneRow} data-testid="row-you-far">
-        {youFar}
-      </div>
-    </div>
-  );
-}
+const MAT: readonly {
+  area: MatArea;
+  col: number;
+  row: number;
+  cols?: number;
+  rows?: number;
+}[] = [
+  { area: { kind: "strategy", index: 1 }, col: 0, row: 0 },
+  { area: { kind: "rage" }, col: 1, row: 0, cols: 2, rows: 2 },
+  { area: { kind: "zone", zone: 8 }, col: 3, row: 0 },
+  { area: { kind: "strategy", index: 2 }, col: 0, row: 1 },
+  { area: { kind: "zone", zone: 7 }, col: 4, row: 1 },
+  { area: { kind: "zone", zone: 6 }, col: 5, row: 1 },
+  { area: { kind: "deck" }, col: 6, row: 1 },
+  { area: { kind: "monsterDeck" }, col: 0, row: 2 },
+  ...([1, 2, 3, 4, 5] as const).map((zone) => ({
+    area: { kind: "zone", zone } as const,
+    col: zone,
+    row: 2,
+  })),
+  { area: { kind: "discard" }, col: 6, row: 2 },
+];
 
-function StrategyZones({
+function StrategyZone({
   model,
   player,
+  index,
 }: {
   model: BoardModel;
   player: PlayerAreasView;
+  index: 1 | 2;
 }) {
+  const zone = player.strategyZones[index - 1];
   return (
-    <div className={styles.strategyColumn}>
-      {player.strategyZones.map((zone, i) => (
-        <Slot
-          key={i}
-          own={player.id === model.bottom}
-          dest={`strategy:${i + 1}`}
-          className={styles.strategyZone}
-          testId={`strategy-${player.id}-${i + 1}`}
-        >
-          <div className={styles.zoneLabel}>Strategy {i + 1}</div>
-          {(zone.cards ?? []).map((p) => (
-            <CardFace
-              key={p.card.instanceId}
-              card={p.card}
-              data={model.view.cards[p.card.cardId]}
-            />
-          ))}
-        </Slot>
+    <Slot
+      own={player.id === model.bottom}
+      dest={`strategy:${index}`}
+      className={styles.strategyZone}
+      testId={`strategy-${player.id}-${index}`}
+    >
+      <div className={styles.zoneLabel}>Strategy {index}</div>
+      {(zone?.cards ?? []).map((p) => (
+        <CardFace
+          key={p.card.instanceId}
+          card={p.card}
+          data={model.view.cards[p.card.cardId]}
+        />
       ))}
-    </div>
+    </Slot>
   );
 }
 
-function Piles({
-  model,
-  player,
-}: {
-  model: BoardModel;
-  player: PlayerAreasView;
-}) {
-  const { preview } = useInteraction();
-  const discard = player.discard.cards ?? [];
-  const top = discard[discard.length - 1];
-  return (
-    <div className={styles.panel} data-testid={`piles-${player.id}`}>
-      <div className={styles.panelTitle}>Piles</div>
-      <div>
-        Deck{" "}
-        <strong data-testid={`deck-count-${player.id}`}>
-          {player.deck.count}
-        </strong>
-      </div>
-      <Slot
-        own={player.id === model.bottom}
-        dest="discard"
-        className={styles.discard}
-        testId={`discard-${player.id}`}
-      >
-        Discard{" "}
-        <strong data-testid={`discard-count-${player.id}`}>
-          {player.discard.count}
-        </strong>
-        {top && (
-          <span
-            className={styles.muted}
-            data-testid="discard-top"
-            onMouseEnter={() => preview(top.instanceId)}
-            onMouseLeave={() => preview(null)}
-          >
-            {" "}
-            · top: {model.view.cards[top.cardId]?.name}
-          </span>
-        )}
-      </Slot>
-      <div>
-        Monster deck{" "}
-        <strong data-testid={`monster-deck-count-${player.id}`}>
-          {player.monsterDeck.count}
-        </strong>
-      </div>
-    </div>
-  );
-}
-
-function Stats({
+/** The Rage zone: rage, the monster's threat, and total counter power vs the opponent's threat. */
+function RageZone({
   model,
   player,
   opponent,
@@ -297,22 +217,20 @@ function Stats({
   player: PlayerAreasView;
   opponent: string;
 }) {
-  const rank = model.monsterRank[player.id];
   return (
     <Slot
       own={player.id === model.bottom}
       dest="rage"
-      className={styles.panel}
-      testId={`stats-${player.id}`}
+      className={styles.rageZone}
+      testId={`rage-zone-${player.id}`}
     >
-      <div className={styles.panelTitle}>Stats · {player.id}</div>
-      <div>
-        Monster rank <strong>{rank ?? "-"}</strong> · zone{" "}
-        <strong>{player.monsterPosition ?? "-"}</strong>
+      <div className={styles.zoneLabel}>Rage zone</div>
+      <div className={styles.rageCount}>
+        <strong data-testid={`rage-${player.id}`}>{player.rage}</strong>
+        <span className={styles.muted}> rage</span>
       </div>
       <div>
-        Rage <strong data-testid={`rage-${player.id}`}>{player.rage}</strong> ·
-        threat{" "}
+        Threat{" "}
         <strong data-testid={`threat-${player.id}`}>
           {model.threat[player.id]}
         </strong>
@@ -328,7 +246,96 @@ function Stats({
   );
 }
 
-function Side({
+function Pile({
+  label,
+  count,
+  testId,
+}: {
+  label: string;
+  count: number;
+  testId: string;
+}) {
+  return (
+    <div className={styles.pile}>
+      <div className={styles.zoneLabel}>{label}</div>
+      {count > 0 && <CardBack testId="pile-back" />}
+      <strong data-testid={testId}>{count}</strong>
+    </div>
+  );
+}
+
+function Discard({
+  model,
+  player,
+}: {
+  model: BoardModel;
+  player: PlayerAreasView;
+}) {
+  const discard = player.discard.cards ?? [];
+  const top = discard[discard.length - 1];
+  return (
+    <Slot
+      own={player.id === model.bottom}
+      dest="discard"
+      className={styles.pile}
+      testId={`discard-${player.id}`}
+    >
+      <div className={styles.zoneLabel}>
+        Discard{" "}
+        <strong data-testid={`discard-count-${player.id}`}>
+          {player.discard.count}
+        </strong>
+      </div>
+      {top && <CardFace card={top} data={model.view.cards[top.cardId]} />}
+    </Slot>
+  );
+}
+
+function MatCell({
+  model,
+  player,
+  opponent,
+  area,
+}: {
+  model: BoardModel;
+  player: PlayerAreasView;
+  opponent: string;
+  area: MatArea;
+}) {
+  switch (area.kind) {
+    case "zone":
+      return <ZoneCell model={model} player={player} zone={area.zone} />;
+    case "strategy":
+      return <StrategyZone model={model} player={player} index={area.index} />;
+    case "rage":
+      return <RageZone model={model} player={player} opponent={opponent} />;
+    case "deck":
+      return (
+        <Pile
+          label="Deck"
+          count={player.deck.count}
+          testId={`deck-count-${player.id}`}
+        />
+      );
+    case "monsterDeck":
+      return (
+        <Pile
+          label="Monster deck"
+          count={player.monsterDeck.count}
+          testId={`monster-deck-count-${player.id}`}
+        />
+      );
+    case "discard":
+      return <Discard model={model} player={player} />;
+  }
+}
+
+/**
+ * One player's mat. The bottom player's mat reads as `MAT`; the opponent's is rotated 180°, like
+ * across a real table (column c becomes 6 - c, the rows mirror). So the two zone 8s face each
+ * other in column 3, and same-column zones (4.4.5.4) line up: your Z1 under their Z5 and Z6.
+ */
+function Mat({
   model,
   player,
   opponent,
@@ -340,22 +347,54 @@ function Side({
   side: "opp" | "you";
 }) {
   return (
-    <div className={styles.fieldRow} data-testid={`side-${side}`}>
-      <StrategyZones model={model} player={player} />
-      <Zones model={model} player={player} side={side} />
-      <div className={styles.sideColumn}>
-        {side === "opp" ? (
-          <>
-            <Piles model={model} player={player} />
-            <Stats model={model} player={player} opponent={opponent} />
-          </>
-        ) : (
-          <>
-            <Stats model={model} player={player} opponent={opponent} />
-            <Piles model={model} player={player} />
-          </>
-        )}
-      </div>
+    <div className={styles.mat} data-testid={`mat-${side}`}>
+      {MAT.map(({ area, col, row, cols = 1, rows = 1 }) => {
+        const c = side === "you" ? col : 6 - (col + cols - 1);
+        const r = side === "you" ? row : 2 - (row + rows - 1);
+        return (
+          <div
+            key={`${area.kind}-${col}-${row}`}
+            className={styles.matCell}
+            style={{
+              gridColumn: `${c + 1} / span ${cols}`,
+              gridRow: `${r + 1} / span ${rows}`,
+            }}
+            data-testid="mat-cell"
+            data-area={
+              area.kind === "zone"
+                ? `Z${area.zone}`
+                : area.kind === "strategy"
+                  ? `Strategy ${area.index}`
+                  : area.kind
+            }
+            data-col={c}
+            data-row={r}
+            data-rows={rows}
+          >
+            <MatCell
+              model={model}
+              player={player}
+              opponent={opponent}
+              area={area}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** One side: the mat, and the right column, kept free for the card preview. */
+function Side(props: {
+  model: BoardModel;
+  player: PlayerAreasView;
+  opponent: string;
+  side: "opp" | "you";
+}) {
+  return (
+    <div className={styles.fieldRow} data-testid={`side-${props.side}`}>
+      <Mat {...props} />
+      <div />
     </div>
   );
 }
@@ -405,6 +444,10 @@ export function BoardView({
   const playable = useMemo(
     () => (locked ? new Set<string>() : playableCards(actions)),
     [actions, locked],
+  );
+  const lit = useMemo(
+    () => new Set([...playable].filter((id) => isLit(id, actions))),
+    [actions, playable],
   );
   // A selection only lasts while its card still has actions (instance ids change on every move).
   const active =
@@ -556,6 +599,7 @@ export function BoardView({
               model={model}
               player={you}
               playable={playable}
+              lit={lit}
               selected={active}
               locked={locked}
               onSelect={(id) => {

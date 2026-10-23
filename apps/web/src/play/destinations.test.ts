@@ -1,6 +1,11 @@
 import type { Action } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
-import { cardDestinations, destinationOf, playableCards } from "./destinations";
+import {
+  cardDestinations,
+  destinationOf,
+  isLit,
+  playableCards,
+} from "./destinations";
 
 const P = "P1";
 const battle: Action = {
@@ -33,7 +38,7 @@ describe("action to destination mapping (M5b)", () => {
   it("playMonster goes to the player's invading monster (8.5)", () => {
     expect(destinationOf(monster)).toBe("monster");
   });
-  it("gainRage goes to the Stats panel, rage (8.4)", () => {
+  it("gainRage goes to the Rage zone (8.4)", () => {
     expect(destinationOf(rage)).toBe("rage");
   });
   it("invade goes to the discard pile (8.6)", () => {
@@ -50,7 +55,7 @@ describe("action to destination mapping (M5b)", () => {
     expect(playableCards(others).size).toBe(0);
   });
 
-  it("lit hand cards: every card with a hand action", () => {
+  it("selectable hand cards: every card with a hand action", () => {
     const actions: Action[] = [
       battle,
       strategy,
@@ -76,5 +81,36 @@ describe("action to destination mapping (M5b)", () => {
     // Two actions at one destination stay together (the board shows a menu for them).
     const twice = cardDestinations([battle, { ...battle }], "c1");
     expect(twice.get("zone:8")).toHaveLength(2);
+  });
+
+  it("lit hand cards: only cards that can be played to a zone (8.2, 8.3, 8.5)", () => {
+    const actions: Action[] = [battle, strategy, monster, rage, invade];
+    expect(isLit("c1", actions)).toBe(true);
+    expect(isLit("c2", actions)).toBe(true);
+    expect(isLit("c3", actions)).toBe(true);
+    expect(isLit("c9", actions)).toBe(false);
+  });
+
+  it("a battle card above the rank limit (8.2.1) is not lit: it can only invade (8.6)", () => {
+    const actions: Action[] = [
+      { type: "invade", player: P, cardInstanceId: "c5" },
+      { type: "pass", player: P },
+    ];
+    expect(isLit("c5", actions)).toBe(false);
+    expect(playableCards(actions).has("c5")).toBe(true);
+    expect([...cardDestinations(actions, "c5").keys()]).toEqual(["discard"]);
+  });
+
+  it("a monster card usable only for rage (8.4) is not lit", () => {
+    const actions: Action[] = [
+      { type: "gainRage", player: P, cardInstanceId: "c6" },
+      { type: "invade", player: P, cardInstanceId: "c6" },
+    ];
+    expect(isLit("c6", actions)).toBe(false);
+    expect(playableCards(actions).has("c6")).toBe(true);
+    expect([...cardDestinations(actions, "c6").keys()]).toEqual([
+      "rage",
+      "discard",
+    ]);
   });
 });

@@ -237,3 +237,24 @@ test("while the bot decides, the hand is locked: dimmed, no selection", async ({
       .count(),
   ).toBeGreaterThan(0);
 });
+
+test("a card that can only invade or gain rage is not lit, but selecting it still lights the discard pile", async ({
+  page,
+}) => {
+  await hotseat(page, 2, 1);
+  // Seed 2, turn 2: Godzilla (2023) R5 battle cards are above the rank limit (8.2.1).
+  const unlit = handCards(page).and(
+    page.locator('[data-playable="true"][data-hand-lit="false"]'),
+  );
+  expect(await unlit.count()).toBeGreaterThan(0);
+  expect(
+    await handCards(page).and(page.locator('[data-hand-lit="true"]')).count(),
+  ).toBeGreaterThan(0);
+  await unlit.first().click();
+  await expect(unlit.first()).toHaveAttribute("data-selected", "true");
+  const targets = await lit(page).evaluateAll((els) =>
+    els.map((el) => el.getAttribute("data-target")),
+  );
+  expect(targets.length).toBeGreaterThan(0);
+  for (const target of targets) expect(["discard", "rage"]).toContain(target);
+});

@@ -12,6 +12,7 @@
   --color-border: #c9ced8;
   --color-zone: #fafbfc;
   --color-zone-monster: #fde8e8;
+  --color-zone-rage: #fff4e0;
   --color-center-line: #1d2330;
   --color-accent: #0066cc;
   --color-modifier-up: #0066cc;
@@ -43,6 +44,8 @@
    */
   --thumb-aspect: 1.8;
   --zone-chrome: 90px;
+  /* Everything but the 6 mat rows: both hands, the center line, the gaps. */
+  --board-fixed-height: 320px;
   --hand-card-min: 96px;
   --hand-card-max: clamp(112px, 8.5vw, 168px);
   --card-back-width: 30px;

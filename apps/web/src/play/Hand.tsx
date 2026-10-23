@@ -9,6 +9,7 @@ function HandCard({
   card,
   model,
   playable,
+  lit,
   selected,
   locked,
   onSelect,
@@ -16,6 +17,7 @@ function HandCard({
   card: CardInstance;
   model: BoardModel;
   playable: boolean;
+  lit: boolean;
   selected: boolean;
   locked: boolean;
   onSelect: () => void;
@@ -24,19 +26,23 @@ function HandCard({
     id: card.instanceId,
     disabled: !playable || locked,
   });
+  const usable = playable && !locked;
   const state = selected
     ? styles.selected
-    : playable && !locked
+    : usable && lit
       ? styles.playable
-      : styles.dimmed;
+      : usable
+        ? styles.unlit
+        : styles.dimmed;
   return (
     <div
       ref={setNodeRef}
       className={`${styles.handCard} ${state} ${isDragging ? styles.dragging : ""}`}
       data-testid="hand-card"
-      data-playable={playable && !locked ? "true" : "false"}
+      data-playable={usable ? "true" : "false"}
+      data-hand-lit={usable && lit ? "true" : "false"}
       data-selected={selected ? "true" : undefined}
-      onClick={playable && !locked ? onSelect : undefined}
+      onClick={usable ? onSelect : undefined}
       {...attributes}
       {...listeners}
     >
@@ -48,13 +54,16 @@ function HandCard({
 /**
  * The tucked hand strip (M5b): the full width of the board. Cards shrink as the hand grows, then
  * overlap: columns may shrink below a card's minimum width, so each card runs under the next one
- * (the last card is right-aligned over its neighbor) and the strip never scrolls. Cards with a legal action are lit, the rest
- * dimmed; while a bot decides (or the game is over) the hand is locked.
+ * (the last card is right-aligned over its neighbor) and the strip never scrolls. A card is lit
+ * when it can be played to a zone (`isLit`); a card that can only invade or gain rage is unlit but
+ * still selectable; a card with no action is dimmed. While a bot decides (or the game is over)
+ * the hand is locked.
  */
 export function Hand({
   model,
   player,
   playable,
+  lit,
   selected,
   locked,
   onSelect,
@@ -62,6 +71,7 @@ export function Hand({
   model: BoardModel;
   player: PlayerAreasView;
   playable: ReadonlySet<string>;
+  lit: ReadonlySet<string>;
   selected: string | null;
   locked: boolean;
   onSelect: (instanceId: string) => void;
@@ -90,6 +100,7 @@ export function Hand({
             card={card}
             model={model}
             playable={playable.has(card.instanceId)}
+            lit={lit.has(card.instanceId)}
             selected={selected === card.instanceId}
             locked={locked}
             onSelect={() => onSelect(card.instanceId)}
