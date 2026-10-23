@@ -34,6 +34,7 @@ export {
   END_PHASE_HAND_SIZE,
   isAtPlayTiming,
   isWaiting,
+  stepPhase,
 } from "./phases";
 export {
   buildLoopReport,

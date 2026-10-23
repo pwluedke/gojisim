@@ -1,5 +1,6 @@
 import { type Card, getCardAbilities } from "@gojisim/cards";
 import type { CardInstance } from "@gojisim/engine";
+import type { ReactNode } from "react";
 import styles from "./Board.module.css";
 import { useInteraction } from "./interaction";
 
@@ -34,6 +35,7 @@ export function CardFace({
   threat,
   stack = 1,
   small = false,
+  extra = null,
 }: {
   card: CardInstance;
   data: Card | undefined;
@@ -45,6 +47,8 @@ export function CardFace({
   stack?: number;
   /** A revealed card in the opponent's hand: half size, like the card backs there. */
   small?: boolean;
+  /** More overlays (M5d): the Burst rank change, the strategy card's turn mark. */
+  extra?: ReactNode;
 }) {
   const { preview } = useInteraction();
   if (!data) return <CardBack small={small} />;
@@ -98,6 +102,7 @@ export function CardFace({
           )}
         </span>
       )}
+      {extra}
       {threat !== undefined && (
         <span className={styles.chip} data-testid="threat-chip">
           Threat {threat}

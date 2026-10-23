@@ -297,6 +297,12 @@ export interface GameState {
   phase: Phase;
   /** The next engine step to run. */
   step: Step;
+  /**
+   * The step in progress, for display (M5d): the step that ran last (its check timing may still
+   * be open, waiting for a choice), or 7.3.2 once a main-phase action is taken. `step` names the
+   * next one, so a choice from a counter (5.15) shows 7.4.3 or 7.4.4 here, not 7.5.1.
+   */
+  currentStep: Step;
   turnFlags: {
     /** Invasion is once per turn (8.6.2). */
     invasionUsed: boolean;

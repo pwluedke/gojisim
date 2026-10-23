@@ -17,8 +17,14 @@
   background: var(--color-panel-alt);
 }
 
+/* The sidebar fills the window height; the battle log takes the space left and scrolls. */
 .sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
   width: var(--sidebar-width);
+  height: 100vh;
 }
 
 .sidebarCollapsed {
@@ -676,4 +682,175 @@
   color: var(--color-chip-text);
   box-shadow: var(--shadow);
   pointer-events: none;
+}
+
+/* M5d: the battle log. */
+.logPanel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 120px;
+}
+
+.log {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.logTurn {
+  margin-top: var(--space-2);
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--color-border);
+  font-weight: bold;
+}
+
+.logLine {
+  padding: 1px var(--space-1);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.logLine:hover {
+  background: var(--color-panel-alt);
+}
+
+.logViewing {
+  background: var(--color-lit-bg);
+  outline: 1px solid var(--color-lit);
+}
+
+.cardLink {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* The phase tracker: the four phases with their steps, the step in progress lit. */
+.tracker {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--space-1);
+}
+
+.trackerPhase,
+.trackerPhaseOn {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px var(--space-1);
+  border-radius: 3px;
+  color: var(--color-muted);
+}
+
+.trackerPhaseOn {
+  background: var(--color-lit-bg);
+  color: var(--color-text);
+  font-weight: bold;
+}
+
+.trackerName {
+  width: 64px;
+}
+
+.trackerStep,
+.trackerStepOn {
+  min-width: 18px;
+  padding: 0 3px;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  font-size: var(--font-size-sm);
+  font-weight: normal;
+  text-align: center;
+}
+
+.trackerStepOn {
+  border-color: var(--color-lit);
+  background: var(--color-lit);
+  color: var(--color-button-text);
+  font-weight: bold;
+}
+
+/* Board numbers on a card: the Burst rank change, a strategy card's turn mark. */
+.burstBadge,
+.turnMark {
+  position: absolute;
+  z-index: 1;
+  left: 2px;
+  right: 2px;
+  padding: 0 2px;
+  border-radius: 4px;
+  background: var(--color-highlight);
+  color: var(--color-text);
+  font-size: 9px;
+  font-weight: bold;
+  line-height: 12px;
+  text-align: center;
+}
+
+.burstBadge {
+  top: 20px;
+}
+
+.turnMark {
+  top: 2px;
+  left: auto;
+  right: 2px;
+}
+
+/* The history view's banner over the board. */
+.historyBanner {
+  position: fixed;
+  top: var(--space-2);
+  left: 50%;
+  z-index: 26;
+  translate: -50% 0;
+  padding: var(--space-1) var(--space-3);
+  border: 2px solid var(--color-lit);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  box-shadow: var(--shadow);
+}
+
+/* The expanded hand (H): full-size cards over most of the board, read-only. */
+.expandedHand {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+  max-width: 92vw;
+  max-height: 86vh;
+  overflow: auto;
+  padding: var(--space-4);
+}
+
+/* Strategy cards are landscape: show every card whole, the name only if its image is missing. */
+.expandedCard .cardImage {
+  object-fit: contain;
+}
+
+.expandedCard .cardFallback {
+  visibility: hidden;
+}
+
+.expandedCard {
+  position: relative;
+  width: calc(var(--card-w) * 2.4);
+  height: calc(var(--card-h) * 2.4);
+}
+
+.modalBackdrop {
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.shortcuts td {
+  padding: 2px var(--space-2);
 }

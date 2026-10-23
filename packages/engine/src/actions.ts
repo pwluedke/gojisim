@@ -6,7 +6,7 @@ import { getRank } from "./stats";
 import { activeMonster, makeInvadingMonster } from "./counter";
 import { resetLoopGuard } from "./loop";
 import { markLoss, resolveLosses } from "./losses";
-import { cloneState, isAtPlayTiming } from "./phases";
+import { cloneState, isAtPlayTiming, syncCurrentStep } from "./phases";
 import {
   cardOf,
   checkTiming,
@@ -436,5 +436,6 @@ export function applyAction(state: GameState, action: Action): GameState {
     checkTiming(next, "10.4.4.1");
     resolveLosses(next);
   }
+  syncCurrentStep(next);
   return next;
 }

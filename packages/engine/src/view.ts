@@ -61,6 +61,7 @@ export interface PlayerView {
   turnPlayer: PlayerId;
   phase: GameState["phase"];
   step: GameState["step"];
+  currentStep: GameState["currentStep"];
   turnFlags: GameState["turnFlags"];
   standby: GameState["standby"];
   continuousEffects: GameState["continuousEffects"];
@@ -184,6 +185,7 @@ export function getPlayerView(state: GameState, viewer: Viewer): PlayerView {
     turnPlayer: state.turnPlayer,
     phase: state.phase,
     step: state.step,
+    currentStep: state.currentStep,
     turnFlags: { ...state.turnFlags },
     standby: cloneJson(state.standby),
     continuousEffects: cloneJson(state.continuousEffects),

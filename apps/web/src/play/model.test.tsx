@@ -99,4 +99,30 @@ describe("/play board model (M5a)", () => {
     // The zone 8 City of Tokyo: printed 0, then +5000 from the one in zone 1 (Awakening 6).
     expect(html).toContain("|0| +5000|");
   });
+
+  it("12.5 a Burst monster shows its rank change and the end-phase discard reminder", () => {
+    const state = game();
+    const p1 = state.players[0];
+    const monster = p1.invadingMonsterZone[p1.invadingMonsterZone.length - 1];
+    if (!monster) throw new Error("no monster");
+    const under = { ...monster, instanceId: "c990003" };
+    p1.invadingMonsterZone = [under, monster];
+    const plain = renderToStaticMarkup(
+      <BoardView model={boardModel(state, "P1")} prompt={null} />,
+    );
+    expect(plain).not.toContain('data-testid="burst-badge"');
+    state.timedTriggers = [
+      {
+        kind: "burstDiscard",
+        sourceInstanceId: monster.instanceId,
+        sourceCardId: monster.cardId,
+        master: "P1",
+      },
+    ];
+    const html = renderToStaticMarkup(
+      <BoardView model={boardModel(state, "P1")} prompt={null} />,
+    );
+    expect(html).toContain('data-testid="burst-badge"');
+    expect(html).toContain("discard at end phase");
+  });
 });

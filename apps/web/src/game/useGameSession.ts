@@ -26,6 +26,11 @@ export interface GameSessionOptions {
    * for Play) or `"always"` (`/play`, which has no Play button before a game starts).
    */
   autoPlay?: "humanVsBot" | "always";
+  /**
+   * While true (`/play` history view, M5d), a bot keeps thinking but its answer waits, and is
+   * applied once `hold` is false again.
+   */
+  hold?: boolean;
 }
 
 /**
@@ -52,6 +57,10 @@ export function useGameSession(options: GameSessionOptions = {}) {
   // Pause also drops a decision already in flight, so no new bot action lands after it.
   const runningRef = useRef(false);
   runningRef.current = playing || stepping;
+  const heldRef = useRef<{
+    reply: BotResponse;
+    job: { id: number; posted: boolean; key: number };
+  } | null>(null);
 
   const state = session
     ? (session.states[session.position] as GameState)
@@ -71,6 +80,7 @@ export function useGameSession(options: GameSessionOptions = {}) {
 
   const startSession = (next: Session, autoPlay: boolean) => {
     jobRef.current = null;
+    heldRef.current = null;
     setThinking(null);
     setBotMs([]);
     setBotError(null);
@@ -84,6 +94,55 @@ export function useGameSession(options: GameSessionOptions = {}) {
     setStepping(false);
     optionsRef.current.onStart?.(next);
   };
+
+  /** Applies a bot's answer, unless the game has moved on since it was asked. */
+  const applyReply = (
+    reply: Extract<BotResponse, { action: unknown }>,
+    job: { id: number; posted: boolean; key: number },
+  ) => {
+    setBotMs((ms) => [...ms, reply.ms]);
+    setStepping(false);
+    setSession((prev) => {
+      if (
+        !prev ||
+        prev.position !== job.key ||
+        prev.record.actions.length !== job.key
+      )
+        return prev;
+      const current = prev.states[prev.position] as GameState;
+      const who = current.pendingChoice?.player ?? current.turnPlayer;
+      const seat = prev.seats[who as PlayerId];
+      if (seat?.kind !== "bot") return prev;
+      try {
+        return withAction(
+          prev,
+          reply.action,
+          botLabel(
+            current,
+            reply.action,
+            seat.difficulty,
+            optionsRef.current.privateLabels?.() ?? true,
+          ),
+        );
+      } catch (err) {
+        setBotError(String(err));
+        setPlaying(false);
+        return prev;
+      }
+    });
+  };
+  const applyReplyRef = useRef(applyReply);
+  applyReplyRef.current = applyReply;
+
+  // Back to live: apply the answer that arrived while viewing history.
+  const hold = options.hold ?? false;
+  useEffect(() => {
+    const held = heldRef.current;
+    if (hold || !held) return;
+    heldRef.current = null;
+    jobRef.current = null;
+    if ("action" in held.reply) applyReplyRef.current(held.reply, held.job);
+  }, [hold]);
 
   // The worker answers one decision at a time; a stale answer (the game moved on) is dropped.
   useEffect(() => {
@@ -102,36 +161,13 @@ export function useGameSession(options: GameSessionOptions = {}) {
         setPlaying(false);
         return;
       }
-      setBotMs((ms) => [...ms, reply.ms]);
-      setStepping(false);
-      setSession((prev) => {
-        if (
-          !prev ||
-          prev.position !== job.key ||
-          prev.record.actions.length !== job.key
-        )
-          return prev;
-        const current = prev.states[prev.position] as GameState;
-        const who = current.pendingChoice?.player ?? current.turnPlayer;
-        const seat = prev.seats[who as PlayerId];
-        if (seat?.kind !== "bot") return prev;
-        try {
-          return withAction(
-            prev,
-            reply.action,
-            botLabel(
-              current,
-              reply.action,
-              seat.difficulty,
-              optionsRef.current.privateLabels?.() ?? true,
-            ),
-          );
-        } catch (err) {
-          setBotError(String(err));
-          setPlaying(false);
-          return prev;
-        }
-      });
+      if (optionsRef.current.hold) {
+        // Viewing history: keep the answer, and the job, until back to live.
+        heldRef.current = { reply, job };
+        jobRef.current = job;
+        return;
+      }
+      applyReply(reply, job);
     };
     workerRef.current = worker;
     return () => worker.terminate();

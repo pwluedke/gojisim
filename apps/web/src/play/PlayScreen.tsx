@@ -1,5 +1,10 @@
-import { type Action, type GameState, getLegalActions } from "@gojisim/engine";
-import { useEffect, useState } from "react";
+import {
+  type Action,
+  type GameState,
+  getLegalActions,
+  stepPhase,
+} from "@gojisim/engine";
+import { useEffect, useMemo, useState } from "react";
 import "../theme.css";
 import { botLabel, difficultyName } from "../game/bots";
 import { actionLabel, choiceHeading, choiceSource } from "../game/labels";
@@ -7,6 +12,8 @@ import { newSession, type PlayerId, type Session } from "../game/session";
 import { useGameSession } from "../game/useGameSession";
 import styles from "./Board.module.css";
 import { BoardView, STEP_NAMES } from "./BoardView";
+import { BattleLog } from "./BattleLog";
+import { buildLog } from "./logLines";
 import { ChoiceModal } from "./ChoiceModal";
 import { isLit, playableCards } from "./destinations";
 import { type Mode, NewGame } from "./NewGame";
@@ -42,6 +49,19 @@ function landing(before: GameState, action: Action): Set<string> {
   }
 }
 
+/** The keyboard shortcuts (M5d), as the ? list shows them. */
+const SHORTCUTS: [string, string][] = [
+  ["Space", "Pass (the prompt panel's main button)"],
+  ["1 to 9", "Pick an option in a choice"],
+  ["H", "Expand / close the hand"],
+  [
+    "Esc",
+    "Cancel the selected card, close the expanded hand, a dialog or the preview",
+  ],
+  ["L", "Show / hide the battle log"],
+  ["?", "Show / hide this list"],
+];
+
 /** The last bot move: its toast line and, for the delay time, where it landed. */
 interface BotMove {
   id: number;
@@ -62,15 +82,40 @@ export function PlayScreen() {
   const [cleared, setCleared] = useState<string | null>(null);
   const [botMove, setBotMove] = useState<BotMove | null>(null);
   const [confirming, setConfirming] = useState<"pass" | "concede" | null>(null);
+  // M5d: the read-only history view (a session position), the log (L), and the overlays (H, ?).
+  const [historyAt, setHistoryAt] = useState<number | null>(null);
+  const [logOpen, setLogOpen] = useState(true);
+  const [overlay, setOverlay] = useState<"hand" | "shortcuts" | null>(null);
   // `/play` never shows hidden cards, so bot labels always keep private choices private.
   // Bot seats play at once, two bots included (`/play` has no Play button before a game).
   const game = useGameSession({
     privateLabels: () => true,
     autoPlay: "always",
-    onStart: (next: Session) =>
-      setCleared(deciderOf(next.states[next.position] as GameState)),
+    onStart: (next: Session) => {
+      setCleared(deciderOf(next.states[next.position] as GameState));
+      setHistoryAt(null);
+    },
+    // While the history view is open, a bot's answer waits (nothing is applied).
+    hold: historyAt !== null,
   });
   const { session, state } = game;
+  const { setDelay } = game;
+  useEffect(() => setDelay(settings.botDelay), [setDelay, settings.botDelay]);
+
+  const hotseat = game.humanSeats.length === 2;
+  const name = (id: string) =>
+    hotseat
+      ? id
+      : session?.seats[id as PlayerId]?.kind === "human"
+        ? "You"
+        : "Bot";
+  const liveBottom =
+    state && session ? bottomPlayer(state, session.seats) : null;
+  const lines = useMemo(
+    () => (session && liveBottom ? buildLog(session, liveBottom, name) : []),
+    // `name` follows the seats, which belong to the session.
+    [session, liveBottom],
+  );
 
   // Each bot action shows a one-line toast, and lights where it landed for the delay time.
   const count = session?.record.actions.length ?? 0;
@@ -113,18 +158,37 @@ export function PlayScreen() {
     else game.takeAction(pass);
   };
 
-  // Space is the main button: Pass, when no choice or dialog is open.
+  // Keyboard shortcuts (M5d). None fires while focus is in a text field.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== " " || choice || confirming || !pass) return;
-      if (
-        (e.target as HTMLElement | null)?.closest(
-          "input, select, textarea, button",
-        )
-      )
-        return;
-      e.preventDefault();
-      takePass();
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, select, textarea, [contenteditable]")) return;
+      if (e.ctrlKey || e.metaKey || e.altKey || !session) return;
+      switch (e.key) {
+        case "Escape":
+          setOverlay(null);
+          setConfirming(null);
+          return;
+        case "?":
+          setOverlay((o) => (o === "shortcuts" ? null : "shortcuts"));
+          return;
+        case "h":
+        case "H":
+          if (settings.expandedHand)
+            setOverlay((o) => (o === "hand" ? null : "hand"));
+          return;
+        case "l":
+        case "L":
+          setLogOpen((open) => !open);
+          return;
+        case " ":
+          // Space is the main button: Pass, when no choice, dialog or overlay is open.
+          if (choice || confirming || overlay || historyAt !== null || !pass)
+            return;
+          if (target?.closest("button")) return;
+          e.preventDefault();
+          takePass();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -143,14 +207,15 @@ export function PlayScreen() {
       </div>
     );
 
-  const hotseat = game.humanSeats.length === 2;
-  const name = (id: string) =>
-    hotseat
-      ? id
-      : session.seats[id as PlayerId]?.kind === "human"
-        ? "You"
-        : "Bot";
-  const model = boardModel(state, bottomPlayer(state, session.seats));
+  // The history view shows an earlier state from the live viewer's side, read-only.
+  const viewing =
+    historyAt !== null && historyAt < session.states.length - 1
+      ? historyAt
+      : null;
+  const shown = (
+    viewing === null ? state : session.states[viewing]
+  ) as GameState;
+  const model = boardModel(shown, liveBottom ?? "P1");
 
   // Hotseat privacy cover: when the decider changes (a new turn, or a choice for the other
   // player, private ones included), the cover replaces the board, so nothing hidden is rendered
@@ -179,11 +244,12 @@ export function PlayScreen() {
 
   // The bottom player plays hand cards on the board (M5b) when it is their decision; otherwise
   // (a bot decides, or the game is over) the hand is locked.
-  const locked = decider !== model.bottom || !human;
+  const locked = viewing !== null || decider !== model.bottom || !human;
   const concedeFor = hotseat
     ? model.bottom
     : (game.humanSeats[0] as PlayerId | undefined);
-  const showModal = human && choice !== null && decider === model.bottom;
+  const showModal =
+    viewing === null && human && choice !== null && decider === model.bottom;
   const zoneChoice = new Map<string, Action>(
     showModal && choice?.kind === "zone"
       ? actions.flatMap((a) =>
@@ -195,101 +261,150 @@ export function PlayScreen() {
   );
   const flags = state.turnFlags;
 
-  const prompt = state.result ? (
-    <div>
-      <div data-testid="game-over">
-        Game over: {state.result.winner ? name(state.result.winner) : "draw"} (
-        {state.result.reason})
+  const prompt =
+    viewing !== null ? (
+      <div className={styles.promptBody} data-testid="history-prompt">
+        <div>
+          Viewing the board on turn {shown.turn} (
+          {STEP_NAMES[stepPhase(shown.currentStep)]}). Read-only.
+        </div>
+        <button
+          type="button"
+          className={styles.button}
+          data-testid="back-to-live"
+          onClick={() => setHistoryAt(null)}
+        >
+          Back to live
+        </button>
       </div>
-      <a href={`/play?mode=${mode}`}>New game</a>
-    </div>
-  ) : (
-    <div className={styles.promptBody}>
-      <div data-testid="prompt-step">
-        <strong>{STEP_NAMES[state.phase] ?? state.phase}</strong> ·{" "}
-        {name(state.turnPlayer) === "You"
-          ? "your turn"
-          : `${name(state.turnPlayer)}'s turn`}
+    ) : state.result ? (
+      <div>
+        <div data-testid="game-over">
+          Game over: {state.result.winner ? name(state.result.winner) : "draw"}{" "}
+          ({state.result.reason})
+        </div>
+        <a href={`/play?mode=${mode}`}>New game</a>
       </div>
-      <div className={styles.muted} data-testid="turn-flags">
-        Invasion {flags.invasionUsed ? "used" : "unused"} · Monster{" "}
-        {flags.monsterPlayed ? "played" : "not played"}
-      </div>
-      {game.botToMove && seat?.kind === "bot" ? (
-        <>
-          <div data-testid="bot-thinking">
-            {game.thinking
-              ? `Bot (${difficultyName(seat.difficulty)}) is thinking… ${(
-                  Math.max(0, game.now - game.thinking.started) / 1000
-                ).toFixed(1)} s`
-              : game.playing
-                ? `Bot (${difficultyName(seat.difficulty)}) is about to move…`
-                : `Paused: Bot (${difficultyName(seat.difficulty)}) is to move.`}
+    ) : (
+      <div className={styles.promptBody}>
+        <div data-testid="prompt-step">
+          <strong>{STEP_NAMES[stepPhase(state.currentStep)]}</strong> ·{" "}
+          {name(state.turnPlayer) === "You"
+            ? "your turn"
+            : `${name(state.turnPlayer)}'s turn`}
+        </div>
+        <div className={styles.muted} data-testid="turn-flags">
+          Invasion {flags.invasionUsed ? "used" : "unused"} · Monster{" "}
+          {flags.monsterPlayed ? "played" : "not played"}
+        </div>
+        {game.botToMove && seat?.kind === "bot" ? (
+          <>
+            <div data-testid="bot-thinking">
+              {game.thinking
+                ? `Bot (${difficultyName(seat.difficulty)}) is thinking… ${(
+                    Math.max(0, game.now - game.thinking.started) / 1000
+                  ).toFixed(1)} s`
+                : game.playing
+                  ? `Bot (${difficultyName(seat.difficulty)}) is about to move…`
+                  : `Paused: Bot (${difficultyName(seat.difficulty)}) is to move.`}
+            </div>
+            {game.botSeats.length === 2 && (
+              <button
+                type="button"
+                className={styles.button}
+                data-testid={game.playing ? "bot-pause" : "bot-play"}
+                onClick={() => game.setPlaying(!game.playing)}
+              >
+                {game.playing ? "Pause" : "Play"}
+              </button>
+            )}
+          </>
+        ) : choice && showModal ? (
+          <div className={styles.muted} data-testid="prompt-choice">
+            {choiceHeading(state, name)}
           </div>
-          {game.botSeats.length === 2 && (
+        ) : (
+          pass && (
             <button
               type="button"
               className={styles.button}
-              data-testid={game.playing ? "bot-pause" : "bot-play"}
-              onClick={() => game.setPlaying(!game.playing)}
+              data-testid="pass"
+              onClick={takePass}
             >
-              {game.playing ? "Pause" : "Play"}
+              Pass [Space]
             </button>
-          )}
-        </>
-      ) : choice && showModal ? (
-        <div className={styles.muted} data-testid="prompt-choice">
-          {choiceHeading(state, name)}
-        </div>
-      ) : (
-        pass && (
+          )
+        )}
+        {concedeFor && (
           <button
             type="button"
-            className={styles.button}
-            data-testid="pass"
-            onClick={takePass}
+            className={styles.linkButton}
+            data-testid="concede"
+            onClick={() => setConfirming("concede")}
           >
-            Pass [Space]
+            Concede
           </button>
-        )
-      )}
-      {concedeFor && (
-        <button
-          type="button"
-          className={styles.linkButton}
-          data-testid="concede"
-          onClick={() => setConfirming("concede")}
-        >
-          Concede
-        </button>
-      )}
-      <details className={styles.settings}>
-        <summary>Settings</summary>
-        <label>
-          <input
-            type="checkbox"
-            data-testid="setting-confirm-pass"
-            checked={settings.confirmPass}
-            onChange={(e) => updateSettings({ confirmPass: e.target.checked })}
-          />{" "}
-          Confirm before Pass
-        </label>
-        {hotseat && (
-          <label>
-            <input
-              type="checkbox"
-              data-testid="setting-hotseat-cover"
-              checked={settings.hotseatCover}
-              onChange={(e) =>
-                updateSettings({ hotseatCover: e.target.checked })
-              }
-            />{" "}
-            Hotseat privacy cover
-          </label>
         )}
-      </details>
-    </div>
+      </div>
+    );
+
+  const settingsPanel = (
+    <details className={`${styles.panel} ${styles.settings}`}>
+      <summary data-testid="settings">Settings</summary>
+      <label>
+        Bot delay{" "}
+        <input
+          type="range"
+          min={0}
+          max={3000}
+          step={100}
+          data-testid="setting-bot-delay"
+          value={settings.botDelay}
+          onChange={(e) => updateSettings({ botDelay: Number(e.target.value) })}
+        />{" "}
+        {settings.botDelay} ms
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          data-testid="setting-rules"
+          checked={settings.showRules}
+          onChange={(e) => updateSettings({ showRules: e.target.checked })}
+        />{" "}
+        Show rule numbers in the log
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          data-testid="setting-confirm-pass"
+          checked={settings.confirmPass}
+          onChange={(e) => updateSettings({ confirmPass: e.target.checked })}
+        />{" "}
+        Confirm before Pass
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          data-testid="setting-hotseat-cover"
+          checked={settings.hotseatCover}
+          onChange={(e) => updateSettings({ hotseatCover: e.target.checked })}
+        />{" "}
+        Hotseat privacy cover
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          data-testid="setting-expanded-hand"
+          checked={settings.expandedHand}
+          onChange={(e) => updateSettings({ expandedHand: e.target.checked })}
+        />{" "}
+        Expanded hand on H
+      </label>
+      <div className={styles.muted}>Press ? for the shortcut list.</div>
+    </details>
   );
+  const handCards =
+    model.view.players.find((p) => p.id === model.bottom)?.hand.cards ?? [];
 
   const manualCards = [...visibleCards(model).values()].map((card) => ({
     card,
@@ -304,9 +419,96 @@ export function PlayScreen() {
         locked={locked}
         onAction={game.takeAction}
         labelOf={(action) => actionLabel(state, action)}
-        zoneChoice={zoneChoice}
-        highlight={botMove?.highlight ?? new Set()}
+        zoneChoice={viewing === null ? zoneChoice : new Map()}
+        highlight={
+          viewing === null ? (botMove?.highlight ?? new Set()) : new Set()
+        }
+        name={name}
+        settings={settingsPanel}
+        log={
+          logOpen ? (
+            <BattleLog
+              lines={lines}
+              viewing={viewing}
+              showRules={settings.showRules}
+              onSelect={(position) =>
+                setHistoryAt(
+                  position >= session.states.length - 1 ? null : position,
+                )
+              }
+            />
+          ) : null
+        }
       />
+      {viewing !== null && (
+        <div className={styles.historyBanner} data-testid="history-banner">
+          History: turn {shown.turn}, read-only.{" "}
+          <button
+            type="button"
+            className={styles.button}
+            onClick={() => setHistoryAt(null)}
+          >
+            Back to live
+          </button>
+        </div>
+      )}
+      {overlay === "hand" && (
+        // Read-only (Paul's rule): clicking a card here does nothing; H or Esc closes it.
+        <div className={styles.modalBackdrop} data-testid="expanded-hand">
+          <div className={styles.expandedHand}>
+            {handCards.map((card) => {
+              const data = model.view.cards[card.cardId];
+              return (
+                <div
+                  key={card.instanceId}
+                  className={styles.expandedCard}
+                  data-testid="expanded-card"
+                  data-card-id={data?.id}
+                >
+                  <div className={styles.cardFallback}>{data?.name}</div>
+                  <img
+                    className={styles.cardImage}
+                    src={`/cards/${card.cardId}-full.webp`}
+                    alt={data?.name ?? ""}
+                    draggable={false}
+                    onError={(e) => {
+                      // Missing image: show the name instead.
+                      e.currentTarget.style.visibility = "hidden";
+                      const fallback = e.currentTarget
+                        .previousElementSibling as HTMLElement | null;
+                      if (fallback) fallback.style.visibility = "visible";
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <div className={styles.muted}>H or Esc closes the hand.</div>
+        </div>
+      )}
+      {overlay === "shortcuts" && (
+        <div
+          className={styles.modalBackdrop}
+          data-testid="shortcut-list"
+          onClick={() => setOverlay(null)}
+        >
+          <div className={styles.modal}>
+            <div className={styles.modalHeading}>Keyboard shortcuts</div>
+            <table className={styles.shortcuts}>
+              <tbody>
+                {SHORTCUTS.map(([key, what]) => (
+                  <tr key={key}>
+                    <td>
+                      <kbd>{key}</kbd>
+                    </td>
+                    <td>{what}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
       {showModal && (
         <ChoiceModal
           key={choice?.id}

@@ -10,6 +10,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
+import type { Card } from "@gojisim/cards";
 import type {
   Action,
   CardStack,
@@ -34,6 +35,7 @@ import {
   useInteraction,
 } from "./interaction";
 import type { BoardModel } from "./model";
+import { PhaseTracker } from "./PhaseTracker";
 import { Preview } from "./Preview";
 
 /**
@@ -84,12 +86,33 @@ function ZoneCell({
   const monster = monsterCards[monsterCards.length - 1];
   const own = player.id === model.bottom;
   const monsterLit = useInteraction().highlight.has(`${player.id}|monster`);
+  // A Burst play (12.5): the rank change, and the reminder that it is discarded at the end phase.
+  const burst =
+    monster &&
+    view.timedTriggers.some(
+      (t) =>
+        t.kind === "burstDiscard" && t.sourceInstanceId === monster.instanceId,
+    );
+  const under = monsterCards[monsterCards.length - 2];
+  const fromRank = under ? view.cards[under.cardId]?.rank : undefined;
   const monsterView = monster && (
     <CardFace
       card={monster}
       data={view.cards[monster.cardId]}
       threat={model.threat[player.id]}
       stack={monsterCards.length}
+      extra={
+        burst && (
+          <span
+            className={styles.burstBadge}
+            data-testid="burst-badge"
+            title="Burst (12.5): this card is discarded at its master's next end phase (12.5.2)"
+          >
+            Burst R{fromRank ?? "?"}→R{model.monsterRank[player.id] ?? "?"} ·
+            discard at end phase
+          </span>
+        )
+      }
     />
   );
   return (
@@ -254,7 +277,24 @@ function StrategyZone({
       <div className={styles.cellLabel}>Strategy {index}</div>
       {(zone?.cards ?? []).map((p, i) => (
         <Layer key={p.card.instanceId} index={i}>
-          <CardFace card={p.card} data={model.view.cards[p.card.cardId]} />
+          <CardFace
+            card={p.card}
+            data={model.view.cards[p.card.cardId]}
+            extra={
+              <span
+                className={styles.turnMark}
+                data-testid="strategy-mark"
+                data-this-turn={
+                  p.placedOnTurn === model.view.turn ? "true" : "false"
+                }
+                title={`Placed on turn ${p.placedOnTurn}; it leaves at its owner's next start phase (7.2.3)`}
+              >
+                {p.placedOnTurn === model.view.turn
+                  ? "New"
+                  : `T${p.placedOnTurn}`}
+              </span>
+            }
+          />
         </Layer>
       ))}
     </Slot>
@@ -571,6 +611,9 @@ export function BoardView({
   labelOf = (action) => action.type,
   zoneChoice = new Map(),
   highlight = new Set(),
+  name = (id) => id,
+  log = null,
+  settings = null,
 }: {
   model: BoardModel;
   /** The prompt panel's content (M5c: the step, Pass, turn flags, Concede, the bot's state). */
@@ -586,12 +629,19 @@ export function BoardView({
   zoneChoice?: ReadonlyMap<string, Action>;
   /** Where the bot's last move landed (M5c), as `<player>|<destination>`. */
   highlight?: ReadonlySet<string>;
+  /** Seat names for the phase tracker (M5d): "You", "Bot", or the player id. */
+  name?: (playerId: string) => string;
+  /** The battle log panel (M5d), or `null` while it is hidden (L). */
+  log?: ReactNode;
+  /** The settings panel (M5d). */
+  settings?: ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [menu, setMenu] = useState<HandAction[] | null>(null);
   const [previewed, setPreviewed] = useState<string | null>(null);
+  const [previewedCard, setPreviewedCard] = useState<Card | null>(null);
   const { view } = model;
   const you = view.players.find(
     (p) => p.id === model.bottom,
@@ -638,6 +688,7 @@ export function BoardView({
       setSelected(null);
       setMenu(null);
       setPreviewed(null);
+      setPreviewedCard(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -666,6 +717,7 @@ export function BoardView({
     preview: (id) => {
       if (!dragging) setPreviewed(id);
     },
+    previewCard: setPreviewedCard,
     zoneChoice,
     highlight,
     act: onAction,
@@ -707,31 +759,24 @@ export function BoardView({
             </button>
             {!collapsed && (
               <>
-                <section className={styles.panel}>
-                  <div className={styles.panelTitle}>Battle log</div>
-                  <div className={styles.muted}>Coming in M5d.</div>
-                </section>
+                {log && (
+                  <section
+                    className={`${styles.panel} ${styles.logPanel}`}
+                    data-testid="log-panel"
+                  >
+                    <div className={styles.panelTitle}>Battle log</div>
+                    {log}
+                  </section>
+                )}
                 <section className={styles.panel} data-testid="prompt">
                   <div className={styles.panelTitle}>Prompt</div>
                   {prompt}
                 </section>
                 <section className={styles.panel} data-testid="phase-tracker">
                   <div className={styles.panelTitle}>Phase</div>
-                  <div>
-                    Turn <strong data-testid="turn">{view.turn}</strong> ·{" "}
-                    <strong>{view.turnPlayer}</strong>
-                    {view.turnPlayer === model.bottom ? " (you)" : ""}
-                  </div>
-                  <div>
-                    {STEP_NAMES[view.phase] ?? view.phase} · step {view.step}
-                  </div>
-                  {view.result && (
-                    <div data-testid="result">
-                      Game over: {view.result.winner ?? "draw"} (
-                      {view.result.reason})
-                    </div>
-                  )}
+                  <PhaseTracker view={view} name={name} />
                 </section>
+                {settings}
               </>
             )}
           </aside>
@@ -794,7 +839,13 @@ export function BoardView({
               </div>
             )}
           </main>
-          {previewed && <Preview model={model} instanceId={previewed} />}
+          {(previewed || previewedCard) && (
+            <Preview
+              model={model}
+              instanceId={previewed}
+              card={previewedCard}
+            />
+          )}
         </div>
         <DragOverlay dropAnimation={null}>
           {draggedCard ? (

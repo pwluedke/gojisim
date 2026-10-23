@@ -67,6 +67,23 @@ function beginningOf(state: GameState, phase: Phase, rule: string): void {
   checkTiming(state, rule);
 }
 
+/**
+ * Once the engine waits at the main phase play timing with no choice open, the play timing is
+ * the step in progress (M5d `currentStep`).
+ */
+export function syncCurrentStep(state: GameState): void {
+  if (state.step === "7.3.2" && state.pendingChoice === null)
+    state.currentStep = "7.3.2";
+}
+
+/** The phase a step belongs to (7.2 start, 7.3 main, 7.4 counter, 7.5 end). */
+export function stepPhase(step: Step): Phase {
+  if (step.startsWith("7.2.")) return "start";
+  if (step.startsWith("7.3.")) return "main";
+  if (step.startsWith("7.4.")) return "counter";
+  return "end";
+}
+
 /** Runs one engine step and sets `state.step` to the next one. Mutates `state`. */
 const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
   "7.2.1": (state) => {
@@ -243,9 +260,11 @@ export function advance(state: GameState): GameState {
   if (state.result !== null) throw new Error("game over");
   if (isWaiting(state)) return state;
   const next = cloneState(state);
+  next.currentStep = next.step;
   STEP_RUNNERS[next.step](next);
   resolveLosses(next);
   guardLoop(next);
+  syncCurrentStep(next);
   return next;
 }
 

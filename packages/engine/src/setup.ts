@@ -75,6 +75,7 @@ export function createGame(options: CreateGameOptions): GameState {
     turnPlayer: a.id,
     phase: "start",
     step: "7.2.1",
+    currentStep: "7.2.1",
     turnFlags: { invasionUsed: false, monsterPlayed: false },
     standby: [],
     continuousEffects: [],
