@@ -1095,7 +1095,8 @@
 
 .flight {
   position: fixed;
-  transform-origin: 0 0;
+  /* Moves scale uniformly about the card's center (M5f fix). */
+  transform-origin: 50% 50%;
   border-radius: var(--radius);
   background: var(--color-panel);
   box-shadow: var(--shadow);

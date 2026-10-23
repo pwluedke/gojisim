@@ -634,3 +634,202 @@ test.describe("collapsible battle log", () => {
       expect(box.x).toBeGreaterThan(w / 2);
     });
 });
+
+/** One sampled frame of a moving card. */
+interface Sample {
+  t: number;
+  cardId: string | null;
+  shatter: boolean;
+  box: { x: number; y: number; width: number; height: number };
+  from: number[];
+  to: number[];
+  /** The shards' combined box (a destroy). */
+  shards: { x: number; y: number; width: number; height: number } | null;
+  elapsed: number;
+  moveAt: number;
+  moveMs: number;
+}
+
+/** Samples every flight on every animation frame, from page load. */
+async function sampleFlights(page: Page) {
+  await page.addInitScript(() => {
+    const samples: unknown[] = [];
+    (window as unknown as { samples: unknown[] }).samples = samples;
+    const frame = () => {
+      const now = performance.now();
+      document
+        .querySelectorAll<HTMLElement>('[data-testid="flight"]')
+        .forEach((el) => {
+          const r = el.getBoundingClientRect();
+          const pieces = [...el.querySelectorAll("[data-piece]")].map((p) =>
+            p.getBoundingClientRect(),
+          );
+          const shards =
+            pieces.length > 0
+              ? (() => {
+                  const x = Math.min(...pieces.map((p) => p.left));
+                  const y = Math.min(...pieces.map((p) => p.top));
+                  return {
+                    x,
+                    y,
+                    width: Math.max(...pieces.map((p) => p.right)) - x,
+                    height: Math.max(...pieces.map((p) => p.bottom)) - y,
+                  };
+                })()
+              : null;
+          samples.push({
+            t: now,
+            cardId: el.dataset["cardId"] ?? null,
+            shatter: el.dataset["shatter"] === "true",
+            box: { x: r.x, y: r.y, width: r.width, height: r.height },
+            from: (el.dataset["from"] ?? "").split(",").map(Number),
+            to: (el.dataset["to"] ?? "").split(",").map(Number),
+            shards,
+            elapsed: now - Number(el.dataset["started"] ?? now),
+            moveAt: Number(el.dataset["moveAt"] ?? 0),
+            moveMs: Number(el.dataset["moveMs"] ?? 0),
+          });
+        });
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  });
+}
+
+const samplesOf = (page: Page) =>
+  page.evaluate(
+    () => (window as unknown as { samples: Sample[] }).samples,
+  ) as Promise<Sample[]>;
+
+const inside = (
+  p: { x: number; y: number },
+  b: { x: number; y: number; width: number; height: number } | null,
+) =>
+  !!b &&
+  p.x >= b.x &&
+  p.x <= b.x + b.width &&
+  p.y >= b.y &&
+  p.y <= b.y + b.height;
+
+test("moving cards keep the card's shape and size: draws on both sides, a bot play and a hand-to-discard move", async ({
+  page,
+}) => {
+  await settings(page, { botDelay: 0 });
+  await sampleFlights(page);
+  await page.goto("/play?mode=bot");
+  await page.getByTestId("seed-input").fill("3");
+  await startGame(page);
+  const box = async (id: string) => page.getByTestId(id).boundingBox();
+  const places = async () => ({
+    yourHand: await box("your-hand"),
+    yourDiscard: await box("discard-P1"),
+    oppHand: await box("opponent-hand"),
+    oppMat: await box("mat-opp"),
+  });
+  const seen = new Set<string>();
+  const kinds = async () => {
+    const at = await places();
+    for (const s of await samplesOf(page)) {
+      const [x = 0, y = 0, w = 0, h = 0] = s.to;
+      const end = { x: x + w / 2, y: y + h / 2 };
+      if (s.cardId === null && inside(end, at.oppHand))
+        seen.add("opponent draw");
+      else if (s.cardId && inside(end, at.yourHand)) seen.add("your draw");
+      else if (s.cardId && inside(end, at.oppMat)) seen.add("bot play");
+      else if (s.cardId && inside(end, at.yourDiscard))
+        seen.add("hand to discard");
+    }
+    return seen.size;
+  };
+  // Play until all four kinds of move have flown: gain rage when you can, else pass.
+  await expect
+    .poll(
+      async () => {
+        const pass = page.getByTestId("pass");
+        if (await pass.isVisible()) {
+          if (!seen.has("hand to discard")) {
+            const cards = page.getByTestId("hand-card");
+            for (const card of await cards.all()) {
+              await card.click();
+              const rage = page.locator('[data-lit][data-target="rage"]');
+              if (await rage.count()) {
+                await rage.first().click();
+                break;
+              }
+              await page.keyboard.press("Escape");
+            }
+          } else {
+            await pass.click();
+            const yes = page.getByTestId("confirm-yes");
+            if (await yes.isVisible()) await yes.click();
+          }
+        }
+        return kinds();
+      },
+      { timeout: 40_000, intervals: [300] },
+    )
+    .toBe(4);
+  const ratio = 63 / 88;
+  const samples = await samplesOf(page);
+  expect(samples.length).toBeGreaterThan(20);
+  for (const s of samples) {
+    const r = s.box.width / s.box.height;
+    // Portrait or landscape, always the card's ratio (within 2 %).
+    const off = Math.min(Math.abs(r / ratio - 1), Math.abs(r * ratio - 1));
+    expect(off, `ratio ${r} for card ${s.cardId}`).toBeLessThan(0.02);
+    const start = Math.max(s.from[2] ?? 0, s.from[3] ?? 0);
+    const end = Math.max(s.to[2] ?? 0, s.to[3] ?? 0);
+    const size = Math.max(s.box.width, s.box.height);
+    expect(size).toBeGreaterThanOrEqual(Math.min(start, end) - 1);
+    expect(size).toBeLessThanOrEqual(Math.max(start, end) + 1);
+  }
+});
+
+test("a destroy explodes, hangs, then reassembles in flight: halfway, the shards are between the zone and the discard pile", async ({
+  page,
+}) => {
+  await sampleFlights(page);
+  await loadFixture(page, "single-target");
+  const option = page.getByTestId("choice-option").first();
+  const cardId = await option.getAttribute("data-card-id");
+  await option.click();
+  await settled(page);
+  const samples = (await samplesOf(page)).filter((s) => s.shatter && s.shards);
+  expect(samples.length).toBeGreaterThan(10);
+  const first = samples[0] as Sample;
+  const [fx = 0, fy = 0, fw = 0, fh = 0] = first.from;
+  const [tx = 0, ty = 0, tw = 0, th = 0] = first.to;
+  const source = { x: fx, y: fy, width: fw, height: fh };
+  const a = { x: fx + fw / 2, y: fy + fh / 2 };
+  const b = { x: tx + tw / 2, y: ty + th / 2 };
+  const span = Math.hypot(b.x - a.x, b.y - a.y);
+  const centerOf = (s: Sample) => ({
+    x: (s.shards?.x ?? 0) + (s.shards?.width ?? 0) / 2,
+    y: (s.shards?.y ?? 0) + (s.shards?.height ?? 0) / 2,
+  });
+  // While hanging (after the explosion, before the move), the shards are still at the zone.
+  const hanging = samples.filter(
+    (s) => s.elapsed > s.moveAt - 150 && s.elapsed < s.moveAt - 20,
+  );
+  expect(hanging.length).toBeGreaterThan(0);
+  for (const s of hanging) expect(inside(centerOf(s), source)).toBe(true);
+  // Halfway through the reassembly they are in between, no longer over the zone.
+  const mid = first.moveAt + first.moveMs / 2;
+  const halfway = samples.reduce((best, s) =>
+    Math.abs(s.elapsed - mid) < Math.abs(best.elapsed - mid) ? s : best,
+  );
+  expect(Math.abs(halfway.elapsed - mid)).toBeLessThan(60);
+  const c = centerOf(halfway);
+  expect(inside(c, source)).toBe(false);
+  const along =
+    ((c.x - a.x) * (b.x - a.x) + (c.y - a.y) * (b.y - a.y)) / (span * span);
+  expect(along).toBeGreaterThan(0.2);
+  expect(along).toBeLessThan(0.8);
+  // At the end, one card is in the discard pile.
+  await expect(page.getByTestId("discard-P2").getByTestId("card")).toHaveCount(
+    1,
+  );
+  await expect(
+    page.getByTestId("discard-P2").getByTestId("card"),
+  ).toHaveAttribute("data-card-id", cardId ?? "");
+});

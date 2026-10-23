@@ -72,6 +72,32 @@ const boxOf = (el: Element): Box => {
   return { x: r.x, y: r.y, width: r.width, height: r.height };
 };
 
+/** A `width` x `height` box centered on `box`. */
+export function centered(box: Box, width: number, height: number): Box {
+  return {
+    x: box.x + (box.width - width) / 2,
+    y: box.y + (box.height - height) / 2,
+    width,
+    height,
+  };
+}
+
+/**
+ * How a card moves from `from` to `to` (M5f fix): its centers line up, and one uniform scale
+ * matches the cards' longer sides, so it keeps the card's shape and never grows past the larger
+ * of the two sizes. (A strategy card from a landscape zone stays landscape.)
+ */
+export function moveTransform(
+  from: Box,
+  to: Box,
+): { x: number; y: number; scale: number } {
+  return {
+    x: to.x + to.width / 2 - (from.x + from.width / 2),
+    y: to.y + to.height / 2 - (from.y + from.height / 2),
+    scale: Math.max(to.width, to.height) / Math.max(from.width, from.height),
+  };
+}
+
 /** Reads the board under `root` (rendered from `model`). */
 export function snapshot(
   root: HTMLElement,
@@ -90,19 +116,55 @@ export function snapshot(
         box: boxOf(el),
       });
     });
+  // Piles are measured as one card where a card sits there, never as their container (a hand
+  // row or a pile cell), so a moving card keeps its shape (M5f fix).
+  const zone = root.querySelector('[data-testid$="-1"][data-testid^="zone-"]');
+  const boardCard = zone ? boxOf(zone) : { x: 0, y: 0, width: 63, height: 88 };
   const anchors: Record<string, Box> = {};
   const counts: Record<string, number> = {};
   for (const player of model.view.players) {
     const own = player.id === model.bottom;
-    const places: Record<(typeof PILES)[number], string> = {
-      hand: own ? "hand-strip" : "opponent-hand",
-      deck: `deck-${player.id}`,
-      monsterDeck: `monster-deck-${player.id}`,
-      discard: `discard-${player.id}`,
+    const places: Record<
+      (typeof PILES)[number],
+      { area: string; card: string; size: number }
+    > = {
+      hand: own
+        ? { area: "hand-strip", card: '[data-testid="hand-card"]', size: 1 }
+        : {
+            area: "opponent-hand",
+            card: '[data-testid="opponent-card-back"], [data-testid="card"]',
+            size: 0.5,
+          },
+      deck: {
+        area: `deck-${player.id}`,
+        card: '[data-testid="pile-back"]',
+        size: 1,
+      },
+      monsterDeck: {
+        area: `monster-deck-${player.id}`,
+        card: '[data-testid="pile-back"]',
+        size: 1,
+      },
+      discard: {
+        area: `discard-${player.id}`,
+        card: '[data-testid="card"]',
+        size: 1,
+      },
     };
     for (const pile of PILES) {
-      const el = root.querySelector(`[data-testid="${places[pile]}"]`);
-      if (el) anchors[`${player.id}|${pile}`] = boxOf(el);
+      const { area, card, size } = places[pile];
+      const el = root.querySelector(`[data-testid="${area}"]`);
+      if (el) {
+        const cards = el.querySelectorAll(card);
+        const last = cards[cards.length - 1];
+        anchors[`${player.id}|${pile}`] = last
+          ? boxOf(last)
+          : centered(
+              boxOf(el),
+              boardCard.width * size,
+              boardCard.height * size,
+            );
+      }
       counts[`${player.id}|${pile}`] = player[pile].count;
     }
   }
@@ -252,12 +314,17 @@ export function planFlights(
 }
 
 /** Durations in ms for a speed: the move, and each half of a destroy's break (apart, together). */
+/**
+ * Durations in ms for a speed (M5f). A destroy explodes, hangs with its shards spread (Paul's
+ * change: about 300 ms at Normal), then reassembles in flight over the move.
+ */
 export function durations(speed: AnimationSpeed): {
   move: number;
-  shatter: number;
+  explode: number;
+  hang: number;
 } {
-  if (speed === "fast") return { move: 220, shatter: 160 };
-  return { move: 450, shatter: 320 };
+  if (speed === "fast") return { move: 220, explode: 160, hang: 150 };
+  return { move: 450, explode: 320, hang: 300 };
 }
 
 /** The total time a set of flights takes. */
@@ -266,8 +333,10 @@ export function flightsTime(
   speed: AnimationSpeed,
 ): number {
   if (flights.length === 0 || speed === "off") return 0;
-  const { move, shatter } = durations(speed);
-  return Math.max(...flights.map((f) => (f.shatter ? 2 * shatter : 0) + move));
+  const { move, explode, hang } = durations(speed);
+  return Math.max(
+    ...flights.map((f) => (f.shatter ? explode + hang : 0) + move),
+  );
 }
 
 /** The flying cards, drawn over the board (pointer events pass through). */
@@ -282,16 +351,20 @@ export function FlightLayer({
 }) {
   const refs = useRef(new Map<string, HTMLDivElement>());
   useEffect(() => {
-    const { move, shatter } = durations(speed);
+    const { move, explode, hang } = durations(speed);
     const running: Animation[] = [];
     for (const flight of flights) {
       const el = refs.current.get(flight.id);
       if (!el) continue;
       const { from, to } = flight;
-      const shift = `translate(${to.x - from.x}px, ${to.y - from.y}px) scale(${
-        to.width / from.width
-      }, ${to.height / from.height})`;
-      const delay = flight.shatter ? 2 * shatter : 0;
+      const t = moveTransform(from, to);
+      const shift = `translate(${t.x}px, ${t.y}px) scale(${t.scale})`;
+      // A destroyed card moves only once its shards have exploded and hung; they reassemble on
+      // the way, so it never sits whole where it was destroyed.
+      const delay = flight.shatter ? explode + hang : 0;
+      el.dataset["started"] = String(performance.now());
+      el.dataset["moveAt"] = String(delay);
+      el.dataset["moveMs"] = String(move);
       running.push(
         el.animate([{ transform: "none" }, { transform: shift }], {
           duration: move,
@@ -312,14 +385,21 @@ export function FlightLayer({
         const length = Math.hypot(dx, dy) || 1;
         const out = shard.distance * from.width;
         const apart = `translate(${(dx / length) * out}px, ${(dy / length) * out}px) rotate(${shard.turn}deg)`;
+        // Explode, hang spread out, then converge while the card flies to its destination.
+        const total = explode + hang + move;
         running.push(
           piece.animate(
             [
-              { transform: "none" },
-              { transform: apart, offset: 0.5 },
+              { transform: "none", easing: "ease-out" },
+              { transform: apart, offset: explode / total },
+              {
+                transform: apart,
+                offset: (explode + hang) / total,
+                easing: "ease-in-out",
+              },
               { transform: "none" },
             ],
-            { duration: 2 * shatter, easing: "ease-in-out" },
+            { duration: total, fill: "forwards" },
           ),
         );
       });
@@ -347,6 +427,13 @@ export function FlightLayer({
             data-card-id={card?.id}
             data-shatter={flight.shatter ? "true" : undefined}
             data-seed={flight.shatter ? flight.seed : undefined}
+            data-from={[from.x, from.y, from.width, from.height].join(",")}
+            data-to={[
+              flight.to.x,
+              flight.to.y,
+              flight.to.width,
+              flight.to.height,
+            ].join(",")}
             style={{
               left: from.x,
               top: from.y,

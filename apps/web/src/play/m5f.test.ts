@@ -2,6 +2,8 @@ import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it } from "vitest";
 import {
   type CardSpot,
+  centered,
+  moveTransform,
   destroyedCards,
   flightsTime,
   planFlights,
@@ -181,7 +183,8 @@ describe("card movement flights (M5f)", () => {
     ]);
     expect(flights[1]?.to).toEqual(anchors["P2|discard"]);
     // They play together: the total is one shatter plus one move.
-    expect(flightsTime(flights, "normal")).toBe(2 * 320 + 450);
+    // Explode 320 ms, hang 300 ms, then reassemble over the 450 ms move.
+    expect(flightsTime(flights, "normal")).toBe(320 + 300 + 450);
     expect(flightsTime(flights, "off")).toBe(0);
   });
 
@@ -253,5 +256,25 @@ describe("destroy shards (M5f)", () => {
     expect(shardLayout("c12")).toEqual(shardLayout("c12"));
     expect(shardLayout("c12")).not.toEqual(shardLayout("c13"));
     expect(clipPath(shardLayout("c12")[0] as never)).toMatch(/^polygon\(/);
+  });
+});
+
+describe("moving cards keep their shape (M5f fix)", () => {
+  it("one uniform scale, centers lined up, never past the larger card", () => {
+    const from = { x: 100, y: 100, width: 63, height: 88 };
+    const to = { x: 500, y: 300, width: 94.5, height: 132 };
+    expect(moveTransform(from, to)).toEqual({ x: 415.75, y: 222, scale: 1.5 });
+    // A landscape strategy card to a portrait pile: it scales by the longer sides only.
+    const landscape = { x: 0, y: 0, width: 88, height: 63 };
+    expect(moveTransform(landscape, from).scale).toBe(1);
+  });
+
+  it("a pile with no card shows a card-sized spot at its center", () => {
+    expect(centered({ x: 0, y: 0, width: 600, height: 50 }, 25, 35)).toEqual({
+      x: 287.5,
+      y: 7.5,
+      width: 25,
+      height: 35,
+    });
   });
 });
