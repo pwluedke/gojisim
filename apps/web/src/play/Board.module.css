@@ -471,3 +471,209 @@
   background: var(--color-panel);
   cursor: pointer;
 }
+
+/* M5c: the prompt panel. */
+.promptBody {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.linkButton {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-illegal);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.settings {
+  font-size: var(--font-size-sm);
+}
+
+.settings label {
+  display: block;
+}
+
+/* Where the bot's last move landed, for the delay time. */
+.highlight {
+  outline: 3px solid var(--color-highlight);
+  outline-offset: 1px;
+  box-shadow: 0 0 12px var(--color-highlight);
+}
+
+/* The choice modal: over the board, which an eye button shows while held. */
+.modalBackdrop,
+.modalBackdropHidden {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-backdrop);
+}
+
+.modalBackdropHidden {
+  background: transparent;
+  pointer-events: none;
+}
+
+.modal {
+  max-width: min(90vw, 1100px);
+  max-height: 90vh;
+  overflow: auto;
+  padding: var(--space-4);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.modalHeading {
+  font-size: var(--font-size-lg);
+  font-weight: bold;
+  margin-bottom: var(--space-1);
+}
+
+.modalButtons {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.modalButtons .choiceButton {
+  display: inline-block;
+  width: auto;
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+}
+
+/* Card options at twice the board's card size. */
+.choiceCards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.choiceCard {
+  position: relative;
+  width: calc(var(--card-w) * 2);
+  height: calc(var(--card-h) * 2);
+  padding: 0;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--color-panel);
+  cursor: pointer;
+}
+
+.choiceCard:hover,
+.choiceCard:focus-visible {
+  border-color: var(--color-selected);
+  outline: 2px solid var(--color-selected);
+}
+
+.keyBadge {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--color-chip);
+  color: var(--color-chip-text);
+  font-size: var(--font-size-sm);
+  font-weight: bold;
+  text-align: center;
+}
+
+.choiceCard .keyBadge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 1;
+}
+
+.eye {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 31;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-panel);
+  font-size: 20px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/*
+ * A zone choice: the zones light up on the mat, and this banner sits in the right column at the
+ * center line, under the preview (which opens over it while a card is hovered).
+ */
+.choiceBanner {
+  position: fixed;
+  top: 50%;
+  right: var(--space-4);
+  z-index: 9;
+  translate: 0 -50%;
+  width: var(--side-column-width);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-panel);
+  border: 2px solid var(--color-lit);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.bannerOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.bannerOptions .choiceButton {
+  display: inline-block;
+  width: auto;
+  margin: 0;
+}
+
+/* The hotseat privacy cover replaces the board until the next player clicks. */
+.cover {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 100vh;
+  border: none;
+  background: var(--color-cover);
+  color: var(--color-button-text);
+  font-size: var(--font-size-lg);
+  cursor: pointer;
+}
+
+.coverTitle {
+  font-size: var(--font-size-xl);
+  font-weight: bold;
+}
+
+/* The bot's last move, one line. */
+.toast {
+  position: fixed;
+  bottom: calc(var(--card-h) + 56px);
+  left: 50%;
+  z-index: 20;
+  translate: -50% 0;
+  padding: var(--space-1) var(--space-3);
+  border-radius: 999px;
+  background: var(--color-chip);
+  color: var(--color-chip-text);
+  box-shadow: var(--shadow);
+  pointer-events: none;
+}

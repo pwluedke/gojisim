@@ -14,6 +14,9 @@
   --color-zone-monster-outline: #e8a0a0;
   --color-cell-outline: #d5d9e1;
   --color-arrow: #6b7280;
+  --color-highlight: #f5a623;
+  --color-backdrop: rgb(20 24 33 / 45%);
+  --color-cover: #1d2330;
   --color-arrow-counter: #9aa3b2;
   --color-chip: rgb(20 24 33 / 85%);
   --color-chip-text: #ffffff;

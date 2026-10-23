@@ -27,7 +27,12 @@ import {
   playableCards,
 } from "./destinations";
 import { Hand } from "./Hand";
-import { type Interaction, InteractionContext, Target } from "./interaction";
+import {
+  type Interaction,
+  InteractionContext,
+  Target,
+  useInteraction,
+} from "./interaction";
 import type { BoardModel } from "./model";
 import { Preview } from "./Preview";
 
@@ -39,9 +44,12 @@ import { Preview } from "./Preview";
  *
  * M5b: the hand strip, click to highlight and drag and drop (`@dnd-kit/core`) for the five hand
  * actions, and the card preview panel. The UI only offers actions that `getLegalActions` lists.
+ *
+ * M5c: zones offered by a zone choice light up on either mat, and the bot's last move is
+ * highlighted briefly where it landed.
  */
 
-const STEP_NAMES: Record<string, string> = {
+export const STEP_NAMES: Record<string, string> = {
   start: "Start phase",
   main: "Main phase",
   counter: "Counter phase",
@@ -75,6 +83,7 @@ function ZoneCell({
   const monsterCards = player.invadingMonsterZone.cards ?? [];
   const monster = monsterCards[monsterCards.length - 1];
   const own = player.id === model.bottom;
+  const monsterLit = useInteraction().highlight.has(`${player.id}|monster`);
   const monsterView = monster && (
     <CardFace
       card={monster}
@@ -85,6 +94,7 @@ function ZoneCell({
   );
   return (
     <Slot
+      playerId={player.id}
       own={own}
       dest={`zone:${zone}`}
       className={`${styles.cell} ${monsterHere ? styles.zoneMonster : ""}`}
@@ -112,15 +122,17 @@ function ZoneCell({
           {own ? (
             <Target
               dest="monster"
-              className={styles.monster}
+              className={`${styles.monster} ${monsterLit ? styles.highlight : ""}`}
               testId={`monster-${player.id}`}
+              highlight={monsterLit}
             >
               {monsterView}
             </Target>
           ) : (
             <div
-              className={styles.monster}
+              className={`${styles.monster} ${monsterLit ? styles.highlight : ""}`}
               data-testid={`monster-${player.id}`}
+              data-highlight={monsterLit ? "true" : undefined}
             >
               {monsterView}
             </div>
@@ -131,26 +143,55 @@ function ZoneCell({
   );
 }
 
-/** A destination on the bottom side; the same box, inert, on the top side. */
+/**
+ * A mat area: a destination for hand cards on the bottom side (inert on the top side), a lit
+ * zone while a zone choice offers it (either side, M5c), and briefly highlighted where the bot's
+ * last move landed (M5c).
+ */
 function Slot({
   own,
+  playerId,
   dest,
   className,
   testId,
   children,
 }: {
   own: boolean;
+  playerId: string;
   dest: DestinationKey;
   className: string | undefined;
   testId: string;
   children: ReactNode;
 }) {
+  const { zoneChoice, highlight, act } = useInteraction();
+  const lit = highlight.has(`${playerId}|${dest}`);
+  const classes = `${className ?? ""} ${lit ? styles.highlight : ""}`;
+  const zoneKey = dest.startsWith("zone:")
+    ? `${playerId}:${dest.slice(5)}`
+    : null;
+  const choice = zoneKey ? zoneChoice.get(zoneKey) : undefined;
+  if (choice)
+    return (
+      <div
+        className={`${classes} ${styles.lit}`}
+        data-testid={testId}
+        data-zone-choice={zoneKey}
+        data-highlight={lit ? "true" : undefined}
+        onClick={() => act(choice)}
+      >
+        {children}
+      </div>
+    );
   return own ? (
-    <Target dest={dest} className={className} testId={testId}>
+    <Target dest={dest} className={classes} testId={testId} highlight={lit}>
       {children}
     </Target>
   ) : (
-    <div className={className} data-testid={testId}>
+    <div
+      className={classes}
+      data-testid={testId}
+      data-highlight={lit ? "true" : undefined}
+    >
       {children}
     </div>
   );
@@ -204,6 +245,7 @@ function StrategyZone({
   const zone = player.strategyZones[index - 1];
   return (
     <Slot
+      playerId={player.id}
       own={player.id === model.bottom}
       dest={`strategy:${index}`}
       className={styles.cell}
@@ -231,6 +273,7 @@ function RageZone({
 }) {
   return (
     <Slot
+      playerId={player.id}
       own={player.id === model.bottom}
       dest="rage"
       className={styles.rageZone}
@@ -293,6 +336,7 @@ function Discard({
   const top = discard[discard.length - 1];
   return (
     <Slot
+      playerId={player.id}
       own={player.id === model.bottom}
       dest="discard"
       className={styles.cell}
@@ -525,9 +569,11 @@ export function BoardView({
   locked = true,
   onAction = () => {},
   labelOf = (action) => action.type,
+  zoneChoice = new Map(),
+  highlight = new Set(),
 }: {
   model: BoardModel;
-  /** The prompt panel's content (M5a: a temporary Pass button and choice buttons). */
+  /** The prompt panel's content (M5c: the step, Pass, turn flags, Concede, the bot's state). */
   prompt: ReactNode;
   /** The bottom player's legal actions (M5b); empty while they can't act. */
   actions?: readonly Action[];
@@ -536,6 +582,10 @@ export function BoardView({
   onAction?: (action: Action) => void;
   /** Words for an action in the destination menu. */
   labelOf?: (action: Action) => string;
+  /** Zones a zone choice offers (M5c), by `<player>:<zone>`, with the action each one takes. */
+  zoneChoice?: ReadonlyMap<string, Action>;
+  /** Where the bot's last move landed (M5c), as `<player>|<destination>`. */
+  highlight?: ReadonlySet<string>;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
@@ -616,6 +666,9 @@ export function BoardView({
     preview: (id) => {
       if (!dragging) setPreviewed(id);
     },
+    zoneChoice,
+    highlight,
+    act: onAction,
   };
   const draggedCard = dragging
     ? (you.hand.cards ?? []).find((c) => c.instanceId === dragging)

@@ -10,9 +10,14 @@ import { useState } from "react";
 
 const box = { border: "2px solid #b60", padding: 6, margin: 4 } as const;
 
+export interface ManualCard {
+  card: CardInstance;
+  label: string;
+}
+
 /** Every card instance in the game, labelled with where it is. */
-function allCards(state: GameState): { card: CardInstance; label: string }[] {
-  const list: { card: CardInstance; label: string }[] = [];
+export function allCards(state: GameState): ManualCard[] {
+  const list: ManualCard[] = [];
   const add = (card: CardInstance, where: string) =>
     list.push({
       card,
@@ -51,17 +56,21 @@ const DESTINATIONS: { label: string; to: ManualDestination }[] = [
 /**
  * Manual override (spec "Manual override", format.md change 10): shown while a manual card's
  * window is open. Either player can act; every action is logged. "Done" is in the action panel.
+ * `/play` (M5c) passes only the cards its viewer may see, and `compact` for its choice modal.
  */
 export function ManualPanel({
   state,
   onAction,
+  cards = allCards(state),
+  compact = false,
 }: {
   state: GameState;
   onAction: (action: Action) => void;
+  cards?: ManualCard[];
+  compact?: boolean;
 }) {
   const choice = state.pendingChoice;
   const [actor, setActor] = useState<string>(choice?.player ?? "");
-  const cards = allCards(state);
   const [cardIndex, setCardIndex] = useState(0);
   const [destination, setDestination] = useState(0);
   if (choice?.kind !== "manual") return null;
@@ -76,7 +85,7 @@ export function ManualPanel({
     onAction({ type: "manual", player: actor || choice.player, op });
   const selected = cards[cardIndex]?.card;
   return (
-    <div data-testid="manual-panel" style={box}>
+    <div data-testid="manual-panel" style={compact ? { fontSize: 12 } : box}>
       <div>
         <strong>Manual override</strong>: {cause?.name ?? "?"} [
         {cause?.cardNumber ?? "?"}] ({String(reason ?? "")}). Resolve its text
