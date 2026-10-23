@@ -374,7 +374,7 @@ function Discard({
       <div className={styles.cellLabel}>Discard</div>
       {top && (
         <Layer index={0}>
-          <CardFace card={top} data={model.view.cards[top.cardId]} />
+          <CardFace card={top} data={model.view.cards[top.cardId]} rotate />
         </Layer>
       )}
       <span

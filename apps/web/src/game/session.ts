@@ -3,11 +3,15 @@ import {
   type Action,
   advanceToDecision,
   applyAction,
+  canUndo,
   deckLegalityFor,
+  type FirstPick,
   type GameRecord,
   type GameState,
+  type MatchMode,
   replayAll,
   startGame,
+  undoLast,
 } from "@gojisim/engine";
 import { type SeatConfig, seatFromRecord, seatRecord } from "./bots";
 import type { DeckOption } from "./decks";
@@ -68,15 +72,25 @@ export function randomSeed(): number {
   return Math.floor(Math.random() * 2 ** 31);
 }
 
-/**
- * A new game. With `confirmTargets` (`/play`), human seats confirm every target pick, even a
- * single legal target (M5d, `GameState.confirmSingleTarget`); bots never do.
- */
+/** Options for a `/play` game (M5d, M5e). `/debug` passes none. */
+export interface NewGameOptions {
+  /**
+   * Human seats confirm every choice, even one with a single option (M5e,
+   * `GameState.confirmSingleOption`; M5d had target picks only); bots never do.
+   */
+  confirmTargets?: boolean;
+  /** The First / Second pick; without it 6.3.1.4 picks the first player at random. */
+  firstPick?: FirstPick;
+  /** Casual (undo allowed) or Tournament (no undo). */
+  mode?: MatchMode;
+}
+
+/** A new game. */
 export function newSession(
   seed: number,
   picked: [DeckOption, DeckOption],
   seats: Record<PlayerId, SeatConfig>,
-  { confirmTargets = false }: { confirmTargets?: boolean } = {},
+  { confirmTargets = false, firstPick, mode }: NewGameOptions = {},
 ): Session {
   const humans = PLAYER_IDS.filter((id) => seats[id].kind === "human");
   const named = picked.map((option) => option.build(seed));
@@ -94,8 +108,10 @@ export function newSession(
     seats: { P1: seatRecord(seats.P1), P2: seatRecord(seats.P2) },
     botSeed: `${seed}-bots`,
     ...(confirmTargets && humans.length > 0
-      ? { confirmSingleTarget: humans }
+      ? { confirmSingleOption: humans }
       : {}),
+    ...(firstPick ? { firstPick } : {}),
+    ...(mode ? { mode } : {}),
   };
   return {
     record,
@@ -142,12 +158,43 @@ export function sessionFromRecord(text: string): Session {
       ...(record.confirmSingleTarget
         ? { confirmSingleTarget: record.confirmSingleTarget }
         : {}),
+      ...(record.confirmSingleOption
+        ? { confirmSingleOption: record.confirmSingleOption }
+        : {}),
+      ...(record.firstPick ? { firstPick: record.firstPick } : {}),
+      ...(record.mode ? { mode: record.mode } : {}),
     },
     states,
     position,
     seats,
     botSeed,
     labels: [],
+  };
+}
+
+/**
+ * Whether `player` may undo now (M5e): a Casual game (records without a mode count as Casual),
+ * viewed live, whose last action is `player`'s own and crossed no undo boundary.
+ */
+export function canUndoSession(session: Session, player: PlayerId): boolean {
+  if (session.record.mode === "tournament") return false;
+  if (session.position !== session.record.actions.length) return false;
+  return canUndo(session.record, session.states, player);
+}
+
+/**
+ * Takes back the last action (M5e): the record is replayed without it, so the record keeps the
+ * final line only. The undo itself is not a game action.
+ */
+export function undoSession(session: Session): Session {
+  const { record, state } = undoLast(session.record);
+  const n = record.actions.length;
+  return {
+    ...session,
+    record,
+    states: [...session.states.slice(0, n), state],
+    position: n,
+    labels: session.labels.filter((l) => l.afterSeq < state.log.length),
   };
 }
 

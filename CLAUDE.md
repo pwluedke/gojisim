@@ -329,3 +329,27 @@ Accepted by Monarch in the M5c review (PR #28).
 222. Concede is offered to the player at the board in hotseat, and to the human at any time against a bot (1.2.3).
 223. `/play` settings are saved in the browser under `gojisim.settings`, with try/catch.
 224. The hand e2e spec turns the hotseat cover off (it follows P1's hand); `passTurn` in `e2e/helpers.ts` handles the Pass confirm and the cover elsewhere.
+
+Accepted by Monarch in the M5d review (PR #29).
+
+225. `currentStep` is the step that ran last, or 7.3.2 once the engine waits at the play timing with no choice open; a choice from a played card's [enter] stays at 7.3.2. The golden 10-turn hash matches M4g with the field removed.
+226. Battle log lines start with "You:", "Bot (Medium):", or "P1:"/"P2:" in hotseat. Confirm, standby order, replacement order and manual choices use log wording instead of `actionLabel`. Lines that would repeat their action line are left out: rage and invasion discards (8.4, 8.6) and hand plays' `place`.
+227. With "Show rule numbers" on, action lines show 8.2 to 8.6 for hand actions, 1.2.3 for concession and the choice's own rule for choices; Pass has none.
+228. The history view shows the board after the clicked line's action, from the live viewer's side (hotseat never flips to the other hand). Clicking the newest line returns to live. The choice modal and zone banner are hidden while viewing, and the log can't be clicked while a choice modal is open.
+229. `useGameSession` takes a `hold` option: a bot reply that arrives while it is on is kept and applied once it is off, if the game hasn't moved on.
+230. The strategy card mark reads "New" when placed this turn, otherwise "T<turn placed>"; its tooltip says it leaves at its owner's next start phase (7.2.3).
+231. The Burst badge (from the view's timed triggers) reads "Burst R<under>→R<now> · discard at end phase".
+232. The expanded hand shows full WebPs at 2.4× the card size, letterboxed; H or Esc closes it, and a click does nothing.
+233. Shortcuts are ignored in input, select, textarea and contenteditable, and with Ctrl / Cmd / Alt held. Space is also ignored while a button has focus, or while a choice, dialog, overlay or history view is open.
+234. The battle log takes the free height and follows the newest line while live.
+235. Target location labels add "(opponent)" for the other side's cards (`Z2 (opponent)`); a card in your hand reads `Hand`, the invading monster `Monster`, a searched monster deck `Monster deck (searched)`. The mat ring also shows whose zone it is.
+236. Location labels and the ring apply to `target` and `nextMonster` choices; standby and replacement order options aren't places.
+237. `confirmSingleTarget` covers every `pickCards` pick with N or fewer targets, not only destroys (Monarch: keep it on for every case). M5e extends it to every choice kind as `confirmSingleOption`.
+238. A loaded game record keeps the confirm option it was recorded with, so it replays exactly; the older fixtures have it off and new `/play` games have it on.
+239. The counter power chip at the card's bottom edge stays; the change badge lists `CP +N` as well, so the badge is the full list.
+240. `playedVia: burst` shows no chip of its own: the Burst chip covers it while the discard is pending.
+241. Change chips are short (`CP`, `Can't engage`, `By effect`); the hover list and the preview give the full wording with rule numbers. New statuses must add a label to a `Record<CardStatus, …>`, so the compiler forces it.
+242. The history banner sits at the bottom of the screen, over the locked hand.
+243. Cards don't clip their contents, so the change list can reach past the card edge; a hovered card's layer rises above its neighbors.
+244. `docs/ui/board-design.md` keeps the approved M5a diagram, with notes above it for each later layout change. The README describes the current layout.
+245. Prompt, phase tracker and Settings are a fixed left column with no collapse button (Paul's correction of the "top bar" wording); Settings opens in place. The battle log is the right column, and the card preview covers it while open.

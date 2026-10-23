@@ -13,7 +13,7 @@ import {
   type Trigger,
   type ZoneSet,
 } from "@gojisim/cards";
-import { requireChoice } from "./choices";
+import { confirmsSingleOption, requireChoice } from "./choices";
 import {
   behind,
   inFrontOf,
@@ -895,7 +895,7 @@ const located = (state: GameState, ids: string[]) =>
  * Picks cards for an effect (10.5.3), one choice per card. Exactly N picks as many as possible,
  * with no choice when there are N or fewer (10.5.3.1), unless the area is hidden and the search
  * may find nothing (`mayFindNothing`, 5.8.1.2) or the chooser confirms every pick
- * (`confirmSingleTarget`, M5d); "up to N" adds a `done` option. Returns the picked cards, or
+ * (`confirmSingleTarget`, M5d, or `confirmSingleOption`, M5e); "up to N" adds a `done` option. Returns the picked cards, or
  * "paused" while a choice is pending.
  */
 function pickCards(
@@ -919,7 +919,7 @@ function pickCards(
   const limit = "exact" in count ? count.exact : count.upTo;
   const remaining = limit - chosen.length;
   const canStop = "upTo" in count || options.mayFindNothing === true;
-  const confirm = state.confirmSingleTarget?.includes(chooser) === true;
+  const confirm = confirmsSingleOption(state, chooser, "target");
   if (!canStop && left.length <= remaining && !confirm)
     return [...chosen, ...left];
   if (remaining <= 0 || left.length === 0 || r.chosen.includes("done"))
@@ -1139,10 +1139,13 @@ function perform(state: GameState, effect: Effect): Outcome {
         { mayFindNothing: true, hidden: true },
       );
       if (found === "paused") return "paused";
+      // What was searched for is public (the card's text), so the log names it (M5e search modal).
       appendLog(state, "search", searcher.id, {
         rule: "5.8.1",
         found: found.length,
         abilityId,
+        filter: effect.filter,
+        count: effect.count,
       });
       if (effect.reveal)
         for (const f of found) {
@@ -1193,7 +1196,10 @@ function perform(state: GameState, effect: Effect): Outcome {
         if (legal.length === 0) {
           zones.push(null);
           r.zonePicks.push("none");
-        } else if (legal.length === 1) {
+        } else if (
+          legal.length === 1 &&
+          !confirmsSingleOption(state, me.id, "other")
+        ) {
           zones.push(legal[0] as ZoneNumber);
           r.zonePicks.push(`${me.id}:${legal[0]}`);
         } else {
@@ -1334,15 +1340,16 @@ function perform(state: GameState, effect: Effect): Outcome {
       // 2. Search the deck for 1 battle card with the trait and rank N or lower, which may find
       // nothing (12.6.2, 5.8.1.2).
       const me = getPlayer(state, ctx.master);
+      const filter: Selector = {
+        owner: "you",
+        area: "deck",
+        type: "Battle",
+        traits: [evolution.trait],
+        rank: { op: "<=", value: evolution.rank },
+      };
       const found = pickCards(
         ctx,
-        select(ctx, {
-          owner: "you",
-          area: "deck",
-          type: "Battle",
-          traits: [evolution.trait],
-          rank: { op: "<=", value: evolution.rank },
-        }),
+        select(ctx, filter),
         { exact: 1 },
         me.id,
         "12.6.2",
@@ -1353,6 +1360,8 @@ function perform(state: GameState, effect: Effect): Outcome {
         rule: "12.6.2",
         found: found.length,
         abilityId,
+        filter,
+        count: { exact: 1 },
       });
       const [card] = found;
       if (card) {
@@ -1430,7 +1439,11 @@ function perform(state: GameState, effect: Effect): Outcome {
       const [picked] = r.zonePicks;
       if (picked === undefined) {
         if (destinations.length === 0) return "done";
-        if (destinations.length > 1 || effect.optional) {
+        if (
+          destinations.length > 1 ||
+          effect.optional ||
+          confirmsSingleOption(state, owner.id, "other")
+        ) {
           requireChoice(state, owner.id, "zone", "5.2.1", [
             ...destinations.map((zone) => ({
               id: `${owner.id}:${zone}`,

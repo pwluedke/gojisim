@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { type ManualCard, ManualPanel } from "../debug/ManualPanel";
 import styles from "./Board.module.css";
 import { targetLocation } from "./locations";
+import { abilityText } from "../game/labels";
 
 type Choose = Extract<Action, { type: "choose" }>;
 
@@ -18,6 +19,8 @@ type Choose = Extract<Action, { type: "choose" }>;
  * - Holding the eye button hides the modal, to look at the board behind it.
  * - M5d: each target card shows where it is (`Z3`, `Discard pile`, ...) above its image, and
  *   hovering it rings that place on the mat, above the backdrop.
+ * - M5e: ability-order choices (standby and replacement order) show each ability's printed text
+ *   above its card.
  * It only ever opens for the viewer's own choice, so private options are theirs to see.
  */
 export function ChoiceModal({
@@ -193,8 +196,18 @@ export function ChoiceModal({
                   : null,
               );
             };
+            const ordering =
+              kind === "standbyOrder" || kind === "replacementOrder";
             return (
               <div key={action.optionId} className={styles.choiceOption}>
+                {ordering && option?.abilityId && (
+                  <div
+                    className={styles.abilityText}
+                    data-testid="choice-ability-text"
+                  >
+                    {abilityText(state, option.abilityId)}
+                  </div>
+                )}
                 {location && (
                   <div
                     className={styles.choiceLocation}

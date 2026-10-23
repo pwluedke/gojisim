@@ -4,6 +4,7 @@ import { normalizeSeed, randomInt, shuffleInPlace } from "./rng";
 import { appendLog, drawCards, moved, newInstance } from "./state";
 import type {
   CardInstance,
+  FirstPick,
   GameState,
   PlayerId,
   PlayerState,
@@ -22,6 +23,13 @@ export interface CreateGameOptions {
   players: [PlayerSetup, PlayerSetup];
   /** Players who confirm every target pick, even a single legal target (M5d). */
   confirmSingleTarget?: PlayerId[];
+  /** Players who confirm every single-option choice (M5e, `GameState.confirmSingleOption`). */
+  confirmSingleOption?: PlayerId[];
+  /**
+   * The First / Second pick (M5e). Without it the first player is picked at random, as before;
+   * both use the same single RNG draw, so the rest of the game's random stream is unchanged.
+   */
+  firstPick?: FirstPick;
 }
 
 export const STARTING_HAND_SIZE = 5;
@@ -99,6 +107,8 @@ export function createGame(options: CreateGameOptions): GameState {
   };
   if (options.confirmSingleTarget?.length)
     state.confirmSingleTarget = [...options.confirmSingleTarget];
+  if (options.confirmSingleOption?.length)
+    state.confirmSingleOption = [...options.confirmSingleOption];
   const setups = new Map(options.players.map((p) => [p.id, p]));
   const setupOf = (player: PlayerState) => setups.get(player.id) as PlayerSetup;
 
@@ -135,11 +145,32 @@ export function createGame(options: CreateGameOptions): GameState {
     });
   }
 
-  // 6.3.1.4 Random first player.
-  const first = state.players[randomInt(state, 2)] as PlayerState;
+  // 6.3.1.4 The first player, decided in a random manner. One RNG draw either picks a player, or
+  // shuffles the two face-down First / Second cards: `firstCard` is the one that reads First.
+  const draw = randomInt(state, 2);
+  const pick = options.firstPick;
+  if (pick && !setups.has(pick.player))
+    throw new Error(`First pick by unknown player ${pick.player}`);
+  const first = pick
+    ? (state.players.find((p) =>
+        pick.card === draw ? p.id === pick.player : p.id !== pick.player,
+      ) as PlayerState)
+    : (state.players[draw] as PlayerState);
   state.firstPlayer = first.id;
   state.turnPlayer = first.id;
-  appendLog(state, "chooseFirstPlayer", first.id, { rule: "6.3.1.4" });
+  appendLog(
+    state,
+    "chooseFirstPlayer",
+    first.id,
+    pick
+      ? {
+          rule: "6.3.1.4",
+          pickedBy: pick.player,
+          card: pick.card,
+          firstCard: draw,
+        }
+      : { rule: "6.3.1.4" },
+  );
 
   // 6.3.1.5 Draw the top 5 cards.
   for (const player of state.players) {

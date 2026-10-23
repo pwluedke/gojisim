@@ -92,6 +92,14 @@ The opponent's mat is rotated 180°, like a real table: column `c` becomes `6 - 
 - An eye button hides the modal while held, to look at the board behind it.
 - Hotseat privacy cover (approved, on for hotseat, off against a bot): before a private choice or a turn change in hotseat, a "Pass to P2" cover hides the screen until clicked.
 
+**M5e additions (match rules and clarity)**
+- First / Second pick: every new `/play` game starts with two face-down cards, one First and one Second, shuffled by the seeded RNG at 6.3.1.4. The human picks against a bot, P2 picks in hotseat, two bots skip it. The record stores the pick (`firstPick`).
+- Casual / Tournament on the new-game screen, stored in the record (`mode`). Casual has Undo [U] in the prompt panel: it takes back your own actions one at a time, never past a draw, search, reveal, shuffle, random result, opponent action or the end of the game. Undo replays the record without the last action. Tournament has no undo.
+- Every human decision shows its modal, even with one option (`confirmSingleOption`): target picks, a single next monster, a single zone for an effect play, a single destination for a move.
+- Every deck search by a human seat ends in a search modal, found or not: the searching card, what it searched for, the cards found or "0 found", and Confirm [Space]. Bot searches stay a log line.
+- Standby and replacement order options show each ability's printed text above its card.
+- Strategy cards turn 90° clockwise in the hand (tucked and expanded) and on top of the discard pile, so the whole landscape card fills the portrait slot. Strategy zones, modals and the preview keep them horizontal.
+
 **Bot moves**
 - Each bot action shows for the delay time (600 ms default) as a short highlight on the card that moved and its destination, plus a log line.
 
@@ -153,6 +161,7 @@ The opponent's mat is rotated 180°, like a real table: column `c` becomes `6 - 
 2. **M5b hand and movement:** tucked hand strip, lit and dimmed cards, click to highlight, drag and drop for all 5 actions, card preview panel.
 3. **M5c prompts and choices:** prompt panel, choice modal for every `pendingChoice` kind, hotseat privacy cover, bot thinking state and move highlight, Concede for human seats.
 4. **M5d log, tracker, shortcuts:** plain-language battle log with card links and read-only rewind, phase tracker, all board numbers, keyboard shortcuts, settings, expanded hand.
+5. **M5e match rules and clarity:** First / Second pick, Casual undo and Tournament, the search modal, a modal for every human decision, ability text in order modals, rotated strategy cards.
 
 **M5 exit criteria**
 - Paul plays a full game against the Hard bot at `/play` without opening `/debug`.

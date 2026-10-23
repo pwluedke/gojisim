@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { passTurn } from "./helpers";
+import { passTurn, startGame } from "./helpers";
 
 /**
  * The M5b fix (godzilla-sim formatting): every card is the full card image at one size derived
@@ -9,7 +9,7 @@ import { passTurn } from "./helpers";
 async function handOfTen(page: Page) {
   await page.goto("/play?mode=hotseat");
   await page.getByTestId("seed-input").fill("1");
-  await page.getByTestId("start-game").click();
+  await startGame(page);
   for (let i = 0; i < 8; i++) {
     await passTurn(page);
   }

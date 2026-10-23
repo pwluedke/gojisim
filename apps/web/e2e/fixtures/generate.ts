@@ -2,7 +2,9 @@
  * Writes the M5c choice fixtures: game records that stop at a pending choice for P1 (a human
  * seat), found by playing seeded games with the weighted policy. Each record replays exactly in
  * `/play` ("Load a game record"). Run: `pnpm --filter @gojisim/web e2e:fixtures`. The
- * single-target fixture records `confirmSingleTarget` for P1, so its replay asks the same choices.
+ * single-target fixture records `confirmSingleTarget` for P1, so its replay asks the same choices;
+ * the M5e fixtures record `confirmSingleOption` for P1, as new `/play` games do. Fixtures with
+ * `matchPlay` stop at P1's main phase play timing instead of a choice.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import type { Card } from "@gojisim/cards";
@@ -40,6 +42,13 @@ const twoRankII: Deck = {
   monsterDeck: [byId(3), byId(5), byId(676), byId(7), byId(8)],
   mainDeck: esd01.mainDeck,
 };
+/** P1's deck holds no rank III Godzilla (2023) with Burst, so ESD01-002's search finds nothing. */
+const noBurstIII: Deck = {
+  monsterDeck: esd01.monsterDeck,
+  mainDeck: esd01.mainDeck.map((c) =>
+    c.deckCardNumber === "ESD01-006" ? byId(7) : c,
+  ),
+};
 /** P1 plays EBP01-017, which has no ability data yet: it opens a manual window. */
 const withManual: Deck = {
   monsterDeck: esd01.monsterDeck,
@@ -58,8 +67,12 @@ interface Fixture {
   note: string;
   decks: (game: number) => [Deck, Deck];
   match: (choice: PendingChoice, state: GameState) => boolean;
-  /** P1 confirms every target pick, as human seats do in `/play` (M5d). */
+  /** P1 confirms every target pick, as human seats did in `/play` in M5d. */
   confirmSingleTarget?: boolean;
+  /** P1 confirms every single-option choice, as human seats do in `/play` (M5e). */
+  confirmSingleOption?: boolean;
+  /** Stop at P1's play timing (no choice open) when this holds, instead of at a choice. */
+  matchPlay?: (state: GameState) => boolean;
 }
 
 const official = (): [Deck, Deck] => [esd01, esd02];
@@ -138,6 +151,32 @@ const FIXTURES: Fixture[] = [
       ),
   },
   {
+    name: "single-next-monster",
+    note: "P1 confirms their only next monster after a counter (5.15.1.2, confirmSingleOption)",
+    decks: official,
+    confirmSingleOption: true,
+    match: (c) => c.kind === "nextMonster" && c.options.length === 1,
+  },
+  {
+    name: "search-none",
+    note: "P1 can invade with ESD01-002, whose search will find nothing (5.8.1.2)",
+    decks: () => [noBurstIII, esd02],
+    confirmSingleOption: true,
+    match: () => false,
+    matchPlay: (s) => {
+      const p1 = s.players.find((p) => p.id === "P1");
+      const top = p1?.invadingMonsterZone.at(-1);
+      return (
+        !!p1 &&
+        !!top &&
+        s.cards[top.cardId]?.deckCardNumber === "ESD01-002" &&
+        (p1.monsterPosition ?? 9) <= 4 &&
+        !s.turnFlags.invasionUsed &&
+        getLegalActions(s, "P1").some((a) => a.type === "invade")
+      );
+    },
+  },
+  {
     name: "manual",
     note: "P1 resolves EBP01-017 by hand: a manual override window",
     decks: () => [withManual, esd02],
@@ -145,7 +184,11 @@ const FIXTURES: Fixture[] = [
   },
 ];
 
-for (const fixture of FIXTURES) {
+// `pnpm e2e:fixtures name ...` writes only the named fixtures, so existing ones stay as they are.
+const only = process.argv.slice(2);
+for (const fixture of FIXTURES.filter(
+  (f) => only.length === 0 || only.includes(f.name),
+)) {
   let found: GameRecord | null = null;
   for (let g = 0; g < 2000 && !found; g++) {
     const [a, b] = fixture.decks(g);
@@ -163,12 +206,22 @@ for (const fixture of FIXTURES) {
       },
       botSeed: `${g}-bots`,
       ...(fixture.confirmSingleTarget ? { confirmSingleTarget: ["P1"] } : {}),
+      ...(fixture.confirmSingleOption ? { confirmSingleOption: ["P1"] } : {}),
     };
     let state = startGame(record);
     const pick = rng(g);
     for (let i = 0; i < 4000 && !state.result; i++) {
       const choice = state.pendingChoice;
       if (choice?.player === "P1" && fixture.match(choice, state)) {
+        found = record;
+        break;
+      }
+      if (
+        !choice &&
+        state.turnPlayer === "P1" &&
+        state.step === "7.3.2" &&
+        fixture.matchPlay?.(state)
+      ) {
         found = record;
         break;
       }

@@ -40,6 +40,7 @@ export function CardFace({
   small = false,
   changes = [],
   extra = null,
+  rotate = false,
 }: {
   card: CardInstance;
   data: Card | undefined;
@@ -55,6 +56,11 @@ export function CardFace({
   changes?: readonly CardChange[] | undefined;
   /** More overlays (M5d): the strategy card's turn mark. */
   extra?: ReactNode;
+  /**
+   * Turn a landscape strategy card 90° clockwise to fill the portrait slot (M5e): in the hand and
+   * on top of the discard pile. Strategy zones, modals and the preview keep it horizontal.
+   */
+  rotate?: boolean;
 }) {
   const { preview } = useInteraction();
   if (!data) return <CardBack small={small} />;
@@ -62,10 +68,12 @@ export function CardFace({
   const modifier =
     counterPower !== undefined && printed !== null ? counterPower - printed : 0;
   const manual = getCardAbilities(data.deckCardNumber).status === "manual";
+  const rotated = rotate && data.type === "Strategy";
   return (
     <div
-      className={small ? styles.cardSmall : styles.card}
+      className={`${small ? styles.cardSmall : styles.card}${rotated ? ` ${styles.rotated}` : ""}`}
       data-testid="card"
+      data-rotated={rotated ? "true" : undefined}
       data-instance-id={card.instanceId}
       data-card-id={data.id}
       title={`${data.name} [${data.cardNumber}]`}

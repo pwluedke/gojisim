@@ -471,6 +471,12 @@
   cursor: pointer;
 }
 
+/* Undo with nothing to take back (M5e). */
+.button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .choiceButton {
   display: block;
   width: 100%;
@@ -947,4 +953,53 @@
 
 .shortcuts td {
   padding: 2px var(--space-2);
+}
+
+/* The search modal (M5e): the searching card beside what it searched for, then the result. */
+.searchSource {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin-top: var(--space-3);
+}
+
+.searchCard {
+  position: relative;
+  flex: none;
+  width: calc(var(--card-w) * 2);
+  height: calc(var(--card-h) * 2);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--color-panel);
+}
+
+.searchNone {
+  padding: var(--space-4);
+  font-size: var(--font-size-lg);
+  font-weight: bold;
+}
+
+/* The ability-order modal (M5e): each ability's printed text above its card. */
+.abilityText {
+  max-width: calc(var(--card-w) * 2);
+  font-size: var(--font-size-sm);
+}
+
+/*
+ * Strategy cards are printed landscape (M5e): in the hand and on top of the discard pile the
+ * image turns 90° clockwise to fill the portrait slot whole. The card is a size container, so the
+ * image takes the slot's height as its width.
+ */
+.rotated {
+  container-type: size;
+}
+
+.rotated .cardImage {
+  inset: auto;
+  top: 50%;
+  left: 50%;
+  width: 100cqh;
+  height: 100cqw;
+  transform: translate(-50%, -50%) rotate(90deg);
 }

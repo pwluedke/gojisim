@@ -1,4 +1,12 @@
-import { type Card, type Effect, getCardAbilities } from "@gojisim/cards";
+import {
+  type Card,
+  type Count,
+  type Effect,
+  getCardAbilities,
+  getCardText,
+  type Op,
+  type Selector,
+} from "@gojisim/cards";
 import type { Action, CardInstance, GameState } from "@gojisim/engine";
 
 export function cardData(
@@ -206,4 +214,79 @@ export function choiceSource(state: GameState): string | null {
   if (choice.kind === "standbyOrder")
     return "Abilities waiting to resolve (10.4.3.2)";
   return null;
+}
+
+/** A card in the game by its deck card number (the first print in the catalog). */
+export function cardByNumber(
+  state: GameState,
+  deckCardNumber: string,
+): Card | undefined {
+  return Object.values(state.cards).find(
+    (c) => c.deckCardNumber === deckCardNumber,
+  );
+}
+
+/**
+ * The printed text of one ability (M5e ability-order modal), e.g. ESD01-011's "When this card
+ * is [destroy], place this card on the bottom of your deck instead." for `ESD01-011#bottom-instead`.
+ * A card's text has one line per ability, in ability-data order; keyword abilities the engine
+ * expands (Evolution) use their keyword's line. Falls back to the whole text.
+ */
+export function abilityText(state: GameState, abilityId: string): string {
+  const [number = "", id = ""] = abilityId.split("#");
+  const card = cardByNumber(state, number);
+  if (!card) return "";
+  const text = getCardText(card).text;
+  const lines = text.split("\n").filter((l) => l.trim() !== "");
+  const keyword = lines.find((l) => l.toLowerCase().includes(`[${id}`));
+  if (keyword) return keyword;
+  const ids = getCardAbilities(number).abilities.flatMap((a) =>
+    "id" in a ? [a.id] : [],
+  );
+  const index = ids.indexOf(id);
+  return index >= 0 && lines.length >= ids.length
+    ? (lines[index] as string)
+    : text;
+}
+
+const KIND_WORDS: Record<string, string> = {
+  Battle: "battle card",
+  Monster: "monster card",
+  Strategy: "strategy card",
+};
+
+const RANK_WORDS: Record<Op, (rank: number) => string> = {
+  "<": (r) => `below rank ${r}`,
+  "<=": (r) => `of rank ${r} or lower`,
+  "=": (r) => `of rank ${r}`,
+  "!=": (r) => `not of rank ${r}`,
+  ">=": (r) => `of rank ${r} or higher`,
+  ">": (r) => `above rank ${r}`,
+};
+
+/**
+ * What a search looks for (M5e search modal), from the `search` log entry's filter and count,
+ * e.g. "up to 1 card named Godzilla (2023) of rank 3 with Burst".
+ */
+export function describeSearch(filter: Selector, count: Count): string {
+  const amount =
+    count === "all"
+      ? "all"
+      : count === "anyNumber"
+        ? "any number of"
+        : "upTo" in count
+          ? `up to ${count.upTo}`
+          : String(count.exact);
+  const parts = [`${amount} ${filter.type ? KIND_WORDS[filter.type] : "card"}`];
+  if (filter.name) parts.push(`named ${filter.name}`);
+  if (filter.traits?.length)
+    parts.push(`with the ${filter.traits.join(" and ")} trait`);
+  if (filter.rank && typeof filter.rank.value === "number")
+    parts.push(RANK_WORDS[filter.rank.op](filter.rank.value));
+  if (filter.keyword)
+    parts.push(
+      `with ${filter.keyword.charAt(0).toUpperCase()}${filter.keyword.slice(1)}`,
+    );
+  if (filter.colors?.length) parts.push(`(${filter.colors.join(" or ")})`);
+  return parts.join(" ");
 }

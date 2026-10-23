@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { loadFixture, passTurn } from "./helpers";
+import { loadFixture, passTurn, startGame } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -73,7 +73,7 @@ test("while viewing history the bot keeps thinking, but nothing is applied until
   // After the human's Pass, the bot plays its turn.
   await page.goto("/play?mode=bot");
   await page.getByTestId("seed-input").fill("1");
-  await page.getByTestId("start-game").click();
+  await startGame(page);
   await passTurn(page);
   // The first line (the opening draw) is in the past now.
   await logLines(page).first().click();
@@ -114,7 +114,7 @@ test("currentStep: a choice from a counter-triggered [enter] shows the counter p
 async function hotseat(page: Page, seed: number) {
   await page.goto("/play?mode=hotseat");
   await page.getByTestId("seed-input").fill(String(seed));
-  await page.getByTestId("start-game").click();
+  await startGame(page);
   await expect(page.getByTestId("board")).toBeVisible();
 }
 

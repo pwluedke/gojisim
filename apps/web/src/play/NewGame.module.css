@@ -53,3 +53,51 @@
   font-size: var(--font-size-lg);
   cursor: pointer;
 }
+
+.note {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* The First / Second pick (M5e): two face-down cards, card sized. */
+.pickCards {
+  display: flex;
+  gap: var(--space-6);
+  margin: var(--space-4) 0;
+}
+
+.pickBack,
+.pickFace {
+  width: 126px;
+  height: 176px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: var(--font-size-lg);
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.pickBack {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-card-back-1),
+    var(--color-card-back-1) 6px,
+    var(--color-card-back-2) 6px,
+    var(--color-card-back-2) 12px
+  );
+  color: var(--color-button-text);
+}
+
+.pickBack:hover {
+  outline: 3px solid var(--color-selected);
+}
+
+.pickFace {
+  background: var(--color-panel-alt);
+  color: inherit;
+  cursor: default;
+}
+
+.pickFace[data-picked="true"] {
+  outline: 3px solid var(--color-selected);
+}

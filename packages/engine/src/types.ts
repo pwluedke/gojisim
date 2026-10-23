@@ -342,6 +342,22 @@ export interface GameState {
    * option per remaining target. Omitted when empty, as for bots, stress and `/debug`.
    */
   confirmSingleTarget?: PlayerId[];
+  /**
+   * Players who confirm every choice the engine would otherwise make alone (M5e, Paul's ruling:
+   * every decision a human makes shows a modal). It covers `confirmSingleTarget`'s target picks
+   * plus a single next monster (5.15.1.2), a single legal zone for an effect play (5.11.1) and a
+   * single destination for a move (5.2.1). Omitted when empty.
+   */
+  confirmSingleOption?: PlayerId[];
+}
+
+/**
+ * The First / Second pick (M5e): two face-down cards, one First and one Second, shuffled by the
+ * seeded RNG at 6.3.1.4. `player` picks `card` (0 or 1); whoever ends up with First goes first.
+ */
+export interface FirstPick {
+  player: PlayerId;
+  card: 0 | 1;
 }
 
 /** One of a player's two strategy zones (4.5.2). */
