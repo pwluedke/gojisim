@@ -3,6 +3,7 @@ import {
   type GameState,
   getCounterPower,
   getPlayerView,
+  getRank,
   getThreat,
   type PlayerView,
   ZONE_NUMBERS,
@@ -41,6 +42,8 @@ export interface BoardModel {
   threat: Record<string, number>;
   /** Each player's total counter power for their next counter phase (7.4.2). */
   totalCounterPower: Record<string, number>;
+  /** Each player's invading monster's rank with effects (`getRank`), null without a monster. */
+  monsterRank: Record<string, number | null>;
 }
 
 export function boardModel(state: GameState, bottom: PlayerId): BoardModel {
@@ -48,6 +51,7 @@ export function boardModel(state: GameState, bottom: PlayerId): BoardModel {
   const counterPower: Record<string, number> = {};
   const threat: Record<string, number> = {};
   const totalCounterPower: Record<string, number> = {};
+  const monsterRank: Record<string, number | null> = {};
   for (const player of state.players) {
     for (const zone of ZONE_NUMBERS)
       for (const stack of player.zones[zone]) {
@@ -56,6 +60,9 @@ export function boardModel(state: GameState, bottom: PlayerId): BoardModel {
       }
     threat[player.id] = getThreat(state, player.id);
     totalCounterPower[player.id] = counterPowerOf(state, player);
+    const monster =
+      player.invadingMonsterZone[player.invadingMonsterZone.length - 1];
+    monsterRank[player.id] = monster ? getRank(state, monster) : null;
   }
   return {
     bottom,
@@ -64,5 +71,6 @@ export function boardModel(state: GameState, bottom: PlayerId): BoardModel {
     counterPower,
     threat,
     totalCounterPower,
+    monsterRank,
   };
 }

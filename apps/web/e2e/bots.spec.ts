@@ -58,12 +58,23 @@ test("human vs Easy: the bot takes its turns, and its hidden cards show as card 
   // The bot played its own turns (each of its actions has a log label).
   await expect(page.getByTestId("bot-label").first()).toBeVisible();
   expect(await page.getByTestId("bot-label").count()).toBeGreaterThan(0);
-  // Its hand is face down: one card back per card.
-  const hand = Number(await page.getByTestId("hand-count-P2").textContent());
-  expect(hand).toBeGreaterThan(0);
-  await expect(
-    page.getByTestId("player-P2").getByTestId("card-back"),
-  ).toHaveCount(hand + 3);
+  // Its hand is face down: one card back per card, plus the 3 other backs on its side. The bot
+  // may still be playing, so read the count and the backs together until they agree.
+  expect(
+    Number(await page.getByTestId("hand-count-P2").textContent()),
+  ).toBeGreaterThan(0);
+  await expect
+    .poll(async () => {
+      const hand = Number(
+        await page.getByTestId("hand-count-P2").textContent(),
+      );
+      const backs = await page
+        .getByTestId("player-P2")
+        .getByTestId("card-back")
+        .count();
+      return backs - hand;
+    })
+    .toBe(3);
   // Unhiding shows its cards.
   await page.getByTestId("hide-hidden").uncheck();
   await expect(

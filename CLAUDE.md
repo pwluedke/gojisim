@@ -275,3 +275,14 @@ Accepted by Monarch in the M6c review (PR #22).
 183. The weighted policy reads a `Board` accessor (a view, or a state in rollouts). The search budget uses `Date.now()`.
 184. `ismcts` reads `iterations`, `maxMs`, `exploration`, `rollout`, `rolloutTurns`, `rolloutDecisions`, `temperature`, `blunder`; `easy`, `medium`, `hard` are registered bots, a `difficulty` setting overrides the level, explicit settings override the mapping. Blunder is rolled before the search.
 185. `pnpm bots --workers N` runs shards in child processes and merges them in game order; results match a single process.
+
+Accepted by Monarch in the M5a review (PR #25).
+
+186. Web game code shared by `/debug` and `/play` lives in `apps/web/src/game/` (`bots`, `botWorker`, `decks`, `labels`, `session`, `useGameSession`). `useGameSession` takes `privateLabels()` and `onStart` so `/debug` keeps its hide toggle.
+187. The `/play` board renders only from a `BoardModel`: the bottom player's `getPlayerView` plus public numbers computed from the real state (counter power of zone-top cards, threats, totals). Every rendered card carries `data-instance-id`. With two bot seats, the bottom is P1.
+188. Until M5c, the `/play` prompt offers Pass and the human's pending choices (labels from `actionLabel`). A bot's turn shows "Bot (Medium) is thinking… 1.2 s".
+189. Routes: `/play?mode=bot|hotseat` (a missing or unknown mode means bot). The menu uses plain links and the path router; `/play` is lazy-loaded like `/debug`.
+190. `theme.css` is scoped to a `.gojisim` wrapper, so `/debug` keeps its plain look. Outside `/debug`, `main.tsx` adds `gojisim-body` to `<body>` to remove the page margin.
+191. The new-game screen lists the same decks as `/debug` (official starters, random test decks, imported decks), each with a legality badge. The seed is random but editable.
+192. The App unit test checks the menu: the "GojiSim" heading plus the three links.
+193. `/play` starts every game with its bot seats playing (`autoPlay: "always"`), and bot vs bot there has Pause/Play. `/debug` keeps `"humanVsBot"`; full spectator controls stay in `/debug` until M13.

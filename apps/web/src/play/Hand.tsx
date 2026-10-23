@@ -1,0 +1,101 @@
+import { useDraggable } from "@dnd-kit/core";
+import type { CardInstance, PlayerAreasView } from "@gojisim/engine";
+import type { CSSProperties } from "react";
+import styles from "./Board.module.css";
+import { CardFace } from "./CardFace";
+import type { BoardModel } from "./model";
+
+function HandCard({
+  card,
+  model,
+  playable,
+  selected,
+  locked,
+  onSelect,
+}: {
+  card: CardInstance;
+  model: BoardModel;
+  playable: boolean;
+  selected: boolean;
+  locked: boolean;
+  onSelect: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: card.instanceId,
+    disabled: !playable || locked,
+  });
+  const state = selected
+    ? styles.selected
+    : playable && !locked
+      ? styles.playable
+      : styles.dimmed;
+  return (
+    <div
+      ref={setNodeRef}
+      className={`${styles.handCard} ${state} ${isDragging ? styles.dragging : ""}`}
+      data-testid="hand-card"
+      data-playable={playable && !locked ? "true" : "false"}
+      data-selected={selected ? "true" : undefined}
+      onClick={playable && !locked ? onSelect : undefined}
+      {...attributes}
+      {...listeners}
+    >
+      <CardFace card={card} data={model.view.cards[card.cardId]} fill />
+    </div>
+  );
+}
+
+/**
+ * The tucked hand strip (M5b): the full width of the board. Cards shrink as the hand grows, then
+ * overlap: columns may shrink below a card's minimum width, so each card runs under the next one
+ * (the last card is right-aligned over its neighbor) and the strip never scrolls. Cards with a legal action are lit, the rest
+ * dimmed; while a bot decides (or the game is over) the hand is locked.
+ */
+export function Hand({
+  model,
+  player,
+  playable,
+  selected,
+  locked,
+  onSelect,
+}: {
+  model: BoardModel;
+  player: PlayerAreasView;
+  playable: ReadonlySet<string>;
+  selected: string | null;
+  locked: boolean;
+  onSelect: (instanceId: string) => void;
+}) {
+  const cards = player.hand.cards ?? [];
+  const columns = `repeat(${Math.max(1, cards.length)}, minmax(0, var(--hand-card-max)))`;
+  return (
+    <div
+      className={styles.hand}
+      data-testid="your-hand"
+      data-locked={locked ? "true" : "false"}
+    >
+      <div className={styles.muted}>
+        Your hand ({player.id},{" "}
+        <span data-testid="your-hand-count">{player.hand.count}</span>)
+        {locked ? " · waiting" : ""}
+      </div>
+      <div
+        className={styles.handCards}
+        data-testid="hand-strip"
+        style={{ gridTemplateColumns: columns } as CSSProperties}
+      >
+        {cards.map((card) => (
+          <HandCard
+            key={card.instanceId}
+            card={card}
+            model={model}
+            playable={playable.has(card.instanceId)}
+            selected={selected === card.instanceId}
+            locked={locked}
+            onSelect={() => onSelect(card.instanceId)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}

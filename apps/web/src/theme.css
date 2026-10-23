@@ -36,20 +36,36 @@
   --font-size-lg: 16px;
   --font-size-xl: 24px;
 
-  --card-width: 84px;
-  --card-height: 118px;
-  --card-thumb-height: 62px;
-  --zone-width: 104px;
-  --zone-height: 136px;
-  --hand-card-width: 96px;
+  /*
+   * Card and zone sizes come from the available width (M5b): zones and strategy zones share the
+   * space between the sidebar and the right column, cards fill their zone, and thumbnails keep
+   * this aspect ratio. `--zone-chrome` is the height of a zone's label and a card's text.
+   */
+  --thumb-aspect: 1.8;
+  --zone-chrome: 90px;
+  --hand-card-min: 96px;
+  --hand-card-max: clamp(112px, 8.5vw, 168px);
+  --card-back-width: 30px;
+  --card-back-height: 42px;
   --sidebar-width: 280px;
   --sidebar-collapsed-width: 44px;
-  --side-column-width: 200px;
+  /* Wide enough for the card preview, which opens over this column. */
+  --side-column-width: clamp(260px, 20vw, 380px);
+  --color-lit: #1a7f37;
+  --color-lit-bg: #e6f4ea;
+  --color-selected: #0066cc;
+  --shadow: 0 4px 16px rgb(0 0 0 / 20%);
 }
 
 /* The menu and board fill the window (main.tsx adds this to <body> outside /debug). */
 .gojisim-body {
   margin: 0;
+}
+
+.gojisim *,
+.gojisim *::before,
+.gojisim *::after {
+  box-sizing: border-box;
 }
 
 .gojisim {

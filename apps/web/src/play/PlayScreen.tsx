@@ -9,7 +9,7 @@ import { BoardView } from "./BoardView";
 import { type Mode, NewGame } from "./NewGame";
 import { boardModel, bottomPlayer } from "./model";
 
-/** `/play` (M5a): the new-game screen, then the read-only board. */
+/** `/play` (M5a, M5b): the new-game screen, then the board. */
 export function PlayScreen() {
   const mode: Mode =
     new URLSearchParams(window.location.search).get("mode") === "hotseat"
@@ -38,7 +38,11 @@ export function PlayScreen() {
   const model = boardModel(state, bottomPlayer(state, session.seats));
   const decider = game.decider;
   const seat = decider ? session.seats[decider] : null;
-  // Temporary prompt (M5a): Pass and the human's choices as buttons; M5b and M5c replace it.
+  // The bottom player plays hand cards on the board (M5b) when it is their decision; otherwise
+  // (a bot decides, or the game is over) the hand is locked.
+  const locked =
+    decider !== model.bottom || seat?.kind !== "human" || state.result !== null;
+  // Temporary prompt (M5a): Pass and the human's choices as buttons until M5c.
   const actions =
     decider && seat?.kind === "human" && !state.result
       ? getLegalActions(state, decider).filter((a) => a.type !== "concede")
@@ -77,7 +81,7 @@ export function PlayScreen() {
       <div className={styles.muted}>
         {decider} to act
         {state.pendingChoice ? ` (${state.pendingChoice.kind})` : ""}. Temporary
-        controls until M5b/M5c.
+        controls until M5c.
       </div>
       {choices.map((action, i) => (
         <button
@@ -104,7 +108,14 @@ export function PlayScreen() {
   );
   return (
     <div className="gojisim">
-      <BoardView model={model} prompt={prompt} />
+      <BoardView
+        model={model}
+        prompt={prompt}
+        actions={locked ? [] : actions}
+        locked={locked}
+        onAction={game.takeAction}
+        labelOf={(action) => actionLabel(state, action)}
+      />
     </div>
   );
 }

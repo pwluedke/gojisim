@@ -1,19 +1,48 @@
-import { type Card, getCardAbilities } from "@gojisim/cards";
+import {
+  type CollisionDetection,
+  DndContext,
+  type DragEndEvent,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  pointerWithin,
+  rectIntersection,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
 import type {
-  CardInstance,
+  Action,
   CardStack,
   PlayerAreasView,
   ZoneNumber,
 } from "@gojisim/engine";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import styles from "./Board.module.css";
+import { CardBack, CardFace } from "./CardFace";
+import {
+  cardDestinations,
+  type DestinationKey,
+  type HandAction,
+  playableCards,
+} from "./destinations";
+import { Hand } from "./Hand";
+import {
+  type Interaction,
+  InteractionContext,
+  Target,
+  useInteraction,
+} from "./interaction";
 import type { BoardModel } from "./model";
+import { Preview } from "./Preview";
 
 /**
  * The read-only board at `/play` (M5a, docs/ui/board-design.md): a collapsible sidebar, the
  * opponent mirrored on top, the bottom player's side below the center line, zones in spec
  * geometry (4.4.5) with the two zone 8s facing each other. It renders only from a `BoardModel`
  * (the bottom player's view plus public numbers), so hidden cards never reach it.
+ *
+ * M5b: the hand strip, click to highlight and drag and drop (`@dnd-kit/core`) for the five hand
+ * actions, and the card preview panel. The UI only offers actions that `getLegalActions` lists.
  */
 
 const STEP_NAMES: Record<string, string> = {
@@ -22,68 +51,6 @@ const STEP_NAMES: Record<string, string> = {
   counter: "Counter phase",
   end: "End phase",
 };
-
-function CardBack({ testId = "card-back" }: { testId?: string }) {
-  return <div className={styles.cardBack} data-testid={testId} />;
-}
-
-/** One card face: thumbnail, name, rank, type, and counter power (with its modifier) or threat. */
-export function CardFace({
-  card,
-  data,
-  counterPower,
-  small = false,
-}: {
-  card: CardInstance;
-  data: Card | undefined;
-  /** Counter power with effects (10.8.1); the difference to the printed value shows in color. */
-  counterPower?: number | undefined;
-  small?: boolean;
-}) {
-  if (!data) return <CardBack />;
-  const printed = data.counterOrThreat;
-  const modifier =
-    counterPower !== undefined && printed !== null ? counterPower - printed : 0;
-  const manual = getCardAbilities(data.deckCardNumber).status === "manual";
-  return (
-    <div
-      className={small ? styles.cardSmall : styles.card}
-      data-testid="card"
-      data-instance-id={card.instanceId}
-      title={`${data.name} [${data.cardNumber}]`}
-    >
-      <img
-        className={styles.thumb}
-        src={`/cards/${data.id}-thumb.webp`}
-        alt=""
-        onError={(e) => {
-          e.currentTarget.style.visibility = "hidden";
-        }}
-      />
-      <div className={styles.cardName}>{data.name}</div>
-      <div className={styles.cardMeta}>
-        {data.type}
-        {data.rank !== null ? ` · R${data.rank}` : ""}
-        {manual ? <span className={styles.manualBadge}> manual</span> : null}
-      </div>
-      {printed !== null && (
-        <div className={styles.cardValue}>
-          {printed}
-          {modifier !== 0 && (
-            <span
-              className={modifier > 0 ? styles.modifierUp : styles.modifierDown}
-              data-testid="counter-power-modifier"
-            >
-              {" "}
-              {modifier > 0 ? "+" : ""}
-              {modifier}
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function ZoneCell({
   model,
@@ -100,24 +67,40 @@ function ZoneCell({
   const monsterCards = player.invadingMonsterZone.cards ?? [];
   const monster = monsterCards[monsterCards.length - 1];
   const monsterData = monster && view.cards[monster.cardId];
+  const own = player.id === model.bottom;
+  const monsterView = monster && (
+    <>
+      <CardFace card={monster} data={monsterData} />
+      {monsterCards.length > 1 && (
+        <div className={styles.stackNote}>stack of {monsterCards.length}</div>
+      )}
+    </>
+  );
   return (
-    <div
+    <Slot
+      own={own}
+      dest={`zone:${zone}`}
       className={`${styles.zone} ${monsterHere ? styles.zoneMonster : ""} ${zone === 8 ? styles.zone8 : ""}`}
-      data-testid={`zone-${player.id}-${zone}`}
+      testId={`zone-${player.id}-${zone}`}
     >
       <div className={styles.zoneLabel} data-testid="zone-label">
         Z{zone}
       </div>
-      {monsterHere && monster && (
-        <div className={styles.monster} data-testid={`monster-${player.id}`}>
-          <CardFace card={monster} data={monsterData} small />
-          {monsterCards.length > 1 && (
-            <div className={styles.stackNote}>
-              stack of {monsterCards.length}
-            </div>
-          )}
-        </div>
-      )}
+      {monsterHere &&
+        monster &&
+        (own ? (
+          <Target
+            dest="monster"
+            className={styles.monster}
+            testId={`monster-${player.id}`}
+          >
+            {monsterView}
+          </Target>
+        ) : (
+          <div className={styles.monster} data-testid={`monster-${player.id}`}>
+            {monsterView}
+          </div>
+        ))}
       {stacks.map((stack) => {
         const top = stack[stack.length - 1];
         if (!top) return null;
@@ -127,7 +110,6 @@ function ZoneCell({
               card={top}
               data={view.cards[top.cardId]}
               counterPower={model.counterPower[top.instanceId]}
-              small
             />
             {stack.length > 1 && (
               <div className={styles.stackNote}>{stack.length - 1} under</div>
@@ -135,6 +117,31 @@ function ZoneCell({
           </div>
         );
       })}
+    </Slot>
+  );
+}
+
+/** A destination on the bottom side; the same box, inert, on the top side. */
+function Slot({
+  own,
+  dest,
+  className,
+  testId,
+  children,
+}: {
+  own: boolean;
+  dest: DestinationKey;
+  className: string | undefined;
+  testId: string;
+  children: ReactNode;
+}) {
+  return own ? (
+    <Target dest={dest} className={className} testId={testId}>
+      {children}
+    </Target>
+  ) : (
+    <div className={className} data-testid={testId}>
+      {children}
     </div>
   );
 }
@@ -209,10 +216,12 @@ function StrategyZones({
   return (
     <div className={styles.strategyColumn}>
       {player.strategyZones.map((zone, i) => (
-        <div
+        <Slot
           key={i}
+          own={player.id === model.bottom}
+          dest={`strategy:${i + 1}`}
           className={styles.strategyZone}
-          data-testid={`strategy-${player.id}-${i + 1}`}
+          testId={`strategy-${player.id}-${i + 1}`}
         >
           <div className={styles.zoneLabel}>Strategy {i + 1}</div>
           {(zone.cards ?? []).map((p) => (
@@ -220,10 +229,9 @@ function StrategyZones({
               key={p.card.instanceId}
               card={p.card}
               data={model.view.cards[p.card.cardId]}
-              small
             />
           ))}
-        </div>
+        </Slot>
       ))}
     </div>
   );
@@ -236,6 +244,7 @@ function Piles({
   model: BoardModel;
   player: PlayerAreasView;
 }) {
+  const { preview } = useInteraction();
   const discard = player.discard.cards ?? [];
   const top = discard[discard.length - 1];
   return (
@@ -247,18 +256,28 @@ function Piles({
           {player.deck.count}
         </strong>
       </div>
-      <div>
+      <Slot
+        own={player.id === model.bottom}
+        dest="discard"
+        className={styles.discard}
+        testId={`discard-${player.id}`}
+      >
         Discard{" "}
         <strong data-testid={`discard-count-${player.id}`}>
           {player.discard.count}
         </strong>
         {top && (
-          <span className={styles.muted}>
+          <span
+            className={styles.muted}
+            data-testid="discard-top"
+            onMouseEnter={() => preview(top.instanceId)}
+            onMouseLeave={() => preview(null)}
+          >
             {" "}
             · top: {model.view.cards[top.cardId]?.name}
           </span>
         )}
-      </div>
+      </Slot>
       <div>
         Monster deck{" "}
         <strong data-testid={`monster-deck-count-${player.id}`}>
@@ -278,11 +297,14 @@ function Stats({
   player: PlayerAreasView;
   opponent: string;
 }) {
-  const monsterCards = player.invadingMonsterZone.cards ?? [];
-  const monster = monsterCards[monsterCards.length - 1];
-  const rank = monster ? model.view.cards[monster.cardId]?.rank : null;
+  const rank = model.monsterRank[player.id];
   return (
-    <div className={styles.panel} data-testid={`stats-${player.id}`}>
+    <Slot
+      own={player.id === model.bottom}
+      dest="rage"
+      className={styles.panel}
+      testId={`stats-${player.id}`}
+    >
       <div className={styles.panelTitle}>Stats · {player.id}</div>
       <div>
         Monster rank <strong>{rank ?? "-"}</strong> · zone{" "}
@@ -302,7 +324,7 @@ function Stats({
         </strong>{" "}
         <span className={styles.muted}>vs threat {model.threat[opponent]}</span>
       </div>
-    </div>
+    </Slot>
   );
 }
 
@@ -338,108 +360,247 @@ function Side({
   );
 }
 
+/**
+ * Collisions for a drop: the target under the pointer (keyboard drags fall back to overlap), and
+ * the monster before the zone it sits in.
+ */
+const collisions: CollisionDetection = (args) => {
+  const hits = pointerWithin(args);
+  const found = hits.length > 0 ? hits : rectIntersection(args);
+  return [...found].sort(
+    (a, b) => Number(b.id === "monster") - Number(a.id === "monster"),
+  );
+};
+
 export function BoardView({
   model,
   prompt,
+  actions = [],
+  locked = true,
+  onAction = () => {},
+  labelOf = (action) => action.type,
 }: {
   model: BoardModel;
   /** The prompt panel's content (M5a: a temporary Pass button and choice buttons). */
   prompt: ReactNode;
+  /** The bottom player's legal actions (M5b); empty while they can't act. */
+  actions?: readonly Action[];
+  /** True while the bottom player can't act (a bot decides, or the game is over). */
+  locked?: boolean;
+  onAction?: (action: Action) => void;
+  /** Words for an action in the destination menu. */
+  labelOf?: (action: Action) => string;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [menu, setMenu] = useState<HandAction[] | null>(null);
+  const [previewed, setPreviewed] = useState<string | null>(null);
   const { view } = model;
   const you = view.players.find(
     (p) => p.id === model.bottom,
   ) as PlayerAreasView;
   const opp = view.players.find((p) => p.id === model.top) as PlayerAreasView;
+
+  const playable = useMemo(
+    () => (locked ? new Set<string>() : playableCards(actions)),
+    [actions, locked],
+  );
+  // A selection only lasts while its card still has actions (instance ids change on every move).
+  const active =
+    dragging ?? (selected && playable.has(selected) ? selected : null);
+  const destinations = useMemo(
+    () =>
+      active
+        ? cardDestinations(actions, active)
+        : new Map<DestinationKey, HandAction[]>(),
+    [actions, active],
+  );
+
+  const cancel = () => {
+    setSelected(null);
+    setMenu(null);
+  };
+  const take = (action: Action) => {
+    cancel();
+    onAction(action);
+  };
+  const chooseDestination = (key: DestinationKey) => {
+    const options = destinations.get(key);
+    if (!options?.length) return;
+    if (options.length === 1) take(options[0] as Action);
+    else setMenu(options);
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setSelected(null);
+      setMenu(null);
+      setPreviewed(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const sensors = useSensors(
+    // A small move starts a drag, so a click still selects.
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor),
+  );
+  const onDragEnd = (event: DragEndEvent) => {
+    const key = event.over?.id as DestinationKey | undefined;
+    const options = key
+      ? cardDestinations(actions, String(event.active.id)).get(key)
+      : undefined;
+    setDragging(null);
+    if (!options?.length) return; // Dropped anywhere else: the card goes back to the hand.
+    setSelected(String(event.active.id));
+    if (options.length === 1) take(options[0] as Action);
+    else setMenu(options);
+  };
+
+  const interaction: Interaction = {
+    lit: new Set(destinations.keys()),
+    chooseDestination,
+    preview: (id) => {
+      if (!dragging) setPreviewed(id);
+    },
+  };
+  const draggedCard = dragging
+    ? (you.hand.cards ?? []).find((c) => c.instanceId === dragging)
+    : undefined;
+
   return (
-    <div
-      className={styles.layout}
-      data-testid="board"
-      data-bottom={model.bottom}
-    >
-      <aside
-        className={collapsed ? styles.sidebarCollapsed : styles.sidebar}
-        data-testid="sidebar"
+    <InteractionContext.Provider value={interaction}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={collisions}
+        onDragStart={(e) => {
+          setDragging(String(e.active.id));
+          setPreviewed(null);
+          setMenu(null);
+        }}
+        onDragEnd={onDragEnd}
+        onDragCancel={() => setDragging(null)}
       >
-        <button
-          type="button"
-          className={styles.collapse}
-          data-testid="sidebar-toggle"
-          onClick={() => setCollapsed((c) => !c)}
-          title={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
+        <div
+          className={styles.layout}
+          data-testid="board"
+          data-bottom={model.bottom}
         >
-          {collapsed ? "»" : "«"}
-        </button>
-        {!collapsed && (
-          <>
-            <section className={styles.panel}>
-              <div className={styles.panelTitle}>Battle log</div>
-              <div className={styles.muted}>Coming in M5d.</div>
-            </section>
-            <section className={styles.panel} data-testid="prompt">
-              <div className={styles.panelTitle}>Prompt</div>
-              {prompt}
-            </section>
-            <section className={styles.panel} data-testid="phase-tracker">
-              <div className={styles.panelTitle}>Phase</div>
-              <div>
-                Turn <strong data-testid="turn">{view.turn}</strong> ·{" "}
-                <strong>{view.turnPlayer}</strong>
-                {view.turnPlayer === model.bottom ? " (you)" : ""}
+          <aside
+            className={collapsed ? styles.sidebarCollapsed : styles.sidebar}
+            data-testid="sidebar"
+          >
+            <button
+              type="button"
+              className={styles.collapse}
+              data-testid="sidebar-toggle"
+              onClick={() => setCollapsed((c) => !c)}
+              title={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
+            >
+              {collapsed ? "»" : "«"}
+            </button>
+            {!collapsed && (
+              <>
+                <section className={styles.panel}>
+                  <div className={styles.panelTitle}>Battle log</div>
+                  <div className={styles.muted}>Coming in M5d.</div>
+                </section>
+                <section className={styles.panel} data-testid="prompt">
+                  <div className={styles.panelTitle}>Prompt</div>
+                  {prompt}
+                </section>
+                <section className={styles.panel} data-testid="phase-tracker">
+                  <div className={styles.panelTitle}>Phase</div>
+                  <div>
+                    Turn <strong data-testid="turn">{view.turn}</strong> ·{" "}
+                    <strong>{view.turnPlayer}</strong>
+                    {view.turnPlayer === model.bottom ? " (you)" : ""}
+                  </div>
+                  <div>
+                    {STEP_NAMES[view.phase] ?? view.phase} · step {view.step}
+                  </div>
+                  {view.result && (
+                    <div data-testid="result">
+                      Game over: {view.result.winner ?? "draw"} (
+                      {view.result.reason})
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
+          </aside>
+          <main className={styles.main}>
+            <div className={styles.handBacks} data-testid="opponent-hand">
+              <span className={styles.muted}>
+                {opp.id} hand (
+                <span data-testid="opponent-hand-count">{opp.hand.count}</span>)
+              </span>
+              {Array.from({ length: opp.hand.count }, (_, i) => {
+                const shown = opp.hand.cards?.[i];
+                return shown ? (
+                  <div key={i} className={styles.revealed}>
+                    <CardFace card={shown} data={view.cards[shown.cardId]} />
+                  </div>
+                ) : (
+                  <CardBack key={i} testId="opponent-card-back" />
+                );
+              })}
+            </div>
+            <Side model={model} player={opp} opponent={you.id} side="opp" />
+            <div className={styles.centerLine} />
+            <Side model={model} player={you} opponent={opp.id} side="you" />
+            <Hand
+              model={model}
+              player={you}
+              playable={playable}
+              selected={active}
+              locked={locked}
+              onSelect={(id) => {
+                setMenu(null);
+                setSelected((s) => (s === id ? null : id));
+              }}
+            />
+            {menu && (
+              <div className={styles.menu} data-testid="action-menu">
+                <div className={styles.panelTitle}>Which one?</div>
+                {menu.map((action, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className={styles.choiceButton}
+                    data-testid="action-menu-item"
+                    onClick={() => take(action)}
+                  >
+                    {labelOf(action)}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className={styles.button}
+                  onClick={cancel}
+                >
+                  Cancel
+                </button>
               </div>
-              <div>
-                {STEP_NAMES[view.phase] ?? view.phase} · step {view.step}
-              </div>
-              {view.result && (
-                <div data-testid="result">
-                  Game over: {view.result.winner ?? "draw"} (
-                  {view.result.reason})
-                </div>
-              )}
-            </section>
-          </>
-        )}
-      </aside>
-      <main className={styles.main}>
-        <div className={styles.handBacks} data-testid="opponent-hand">
-          <span className={styles.muted}>
-            {opp.id} hand (
-            <span data-testid="opponent-hand-count">{opp.hand.count}</span>)
-          </span>
-          {Array.from({ length: opp.hand.count }, (_, i) => {
-            const shown = opp.hand.cards?.[i];
-            return shown ? (
-              <CardFace
-                key={i}
-                card={shown}
-                data={view.cards[shown.cardId]}
-                small
-              />
-            ) : (
-              <CardBack key={i} testId="opponent-card-back" />
-            );
-          })}
+            )}
+          </main>
+          {previewed && <Preview model={model} instanceId={previewed} />}
         </div>
-        <Side model={model} player={opp} opponent={you.id} side="opp" />
-        <div className={styles.centerLine} />
-        <Side model={model} player={you} opponent={opp.id} side="you" />
-        <div className={styles.hand} data-testid="your-hand">
-          <div className={styles.muted}>
-            Your hand ({you.id},{" "}
-            <span data-testid="your-hand-count">{you.hand.count}</span>)
-          </div>
-          <div className={styles.handCards}>
-            {(you.hand.cards ?? []).map((card) => (
+        <DragOverlay dropAnimation={null}>
+          {draggedCard ? (
+            <div className={`${styles.handCard} ${styles.dragOverlay}`}>
               <CardFace
-                key={card.instanceId}
-                card={card}
-                data={view.cards[card.cardId]}
+                card={draggedCard}
+                data={view.cards[draggedCard.cardId]}
+                fill
               />
-            ))}
-          </div>
-        </div>
-      </main>
-    </div>
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+    </InteractionContext.Provider>
   );
 }
