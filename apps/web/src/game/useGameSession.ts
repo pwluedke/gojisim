@@ -21,6 +21,11 @@ export interface GameSessionOptions {
   privateLabels?: () => boolean;
   /** Called whenever a new session starts (a new game or an import). */
   onStart?: (session: Session) => void;
+  /**
+   * Which new games start with bots playing: `"humanVsBot"` (default, `/debug`: two bots wait
+   * for Play) or `"always"` (`/play`, which has no Play button before a game starts).
+   */
+  autoPlay?: "humanVsBot" | "always";
 }
 
 /**
@@ -73,8 +78,9 @@ export function useGameSession(options: GameSessionOptions = {}) {
     const bots = PLAYER_IDS.filter(
       (id) => next.seats[id].kind === "bot",
     ).length;
-    // Human vs bot: the bot plays at once. Bot vs bot: press Play.
-    setPlaying(autoPlay && bots === 1);
+    // Human vs bot: the bot plays at once. Bot vs bot: press Play, unless the screen says always.
+    const always = optionsRef.current.autoPlay === "always";
+    setPlaying(autoPlay && (bots === 1 || (always && bots === 2)));
     setStepping(false);
     optionsRef.current.onStart?.(next);
   };

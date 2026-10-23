@@ -16,7 +16,11 @@ export function PlayScreen() {
       ? "hotseat"
       : "bot";
   // `/play` never shows hidden cards, so bot labels always keep private choices private.
-  const game = useGameSession({ privateLabels: () => true });
+  // Bot seats play at once, two bots included (`/play` has no Play button before a game).
+  const game = useGameSession({
+    privateLabels: () => true,
+    autoPlay: "always",
+  });
   const { session, state } = game;
 
   if (!session || !state)
@@ -47,11 +51,26 @@ export function PlayScreen() {
       <a href={`/play?mode=${mode}`}>New game</a>
     </div>
   ) : game.botToMove && seat?.kind === "bot" ? (
-    <div data-testid="bot-thinking">
-      Bot ({difficultyName(seat.difficulty)}) is thinking…
-      {game.thinking
-        ? ` ${(Math.max(0, game.now - game.thinking.started) / 1000).toFixed(1)} s`
-        : ""}
+    <div>
+      <div data-testid="bot-thinking">
+        {game.thinking
+          ? `Bot (${difficultyName(seat.difficulty)}) is thinking… ${(
+              Math.max(0, game.now - game.thinking.started) / 1000
+            ).toFixed(1)} s`
+          : game.playing
+            ? `Bot (${difficultyName(seat.difficulty)}) is about to move…`
+            : `Paused: Bot (${difficultyName(seat.difficulty)}) is to move.`}
+      </div>
+      {game.botSeats.length === 2 && (
+        <button
+          type="button"
+          className={styles.button}
+          data-testid={game.playing ? "bot-pause" : "bot-play"}
+          onClick={() => game.setPlaying(!game.playing)}
+        >
+          {game.playing ? "Pause" : "Play"}
+        </button>
+      )}
     </div>
   ) : (
     <div>

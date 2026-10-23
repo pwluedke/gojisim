@@ -102,3 +102,28 @@ test("hotseat: after Pass, the board flips to the next decider", async ({
   await expect(board).toHaveAttribute("data-bottom", turnPlayer);
   await expect(page.getByTestId("turn")).toHaveText("2");
 });
+
+test("bot vs bot on /play plays by itself, and Pause stops it", async ({
+  page,
+}) => {
+  await page.goto("/play?mode=bot");
+  await page.getByTestId("seat-P1").selectOption("bot");
+  await page.getByTestId("preset-P1-easy").click();
+  await page.getByTestId("preset-P2-easy").click();
+  await page.getByTestId("seed-input").fill("20261022");
+  await page.getByTestId("start-game").click();
+  await expect
+    .poll(async () => Number(await page.getByTestId("turn").textContent()), {
+      timeout: 60_000,
+    })
+    .toBeGreaterThanOrEqual(3);
+  await page.getByTestId("bot-pause").click();
+  await expect(page.getByTestId("bot-thinking")).toContainText("Paused");
+  const turn = await page.getByTestId("turn").textContent();
+  const step = await page.getByTestId("phase-tracker").textContent();
+  await page.waitForTimeout(1500);
+  await expect(page.getByTestId("turn")).toHaveText(turn ?? "");
+  await expect(page.getByTestId("phase-tracker")).toHaveText(step ?? "");
+  await page.getByTestId("bot-play").click();
+  await expect(page.getByTestId("bot-pause")).toBeVisible();
+});
