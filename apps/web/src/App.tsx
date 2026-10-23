@@ -1,3 +1,30 @@
+import "./theme.css";
+import styles from "./Menu.module.css";
+
+/** The `/` menu (M5a): Play vs bot, Hotseat, Debug. */
 export function App() {
-  return <h1>GojiSim</h1>;
+  return (
+    <div className="gojisim">
+      <main className={styles.menu}>
+        <h1 className={styles.title}>GojiSim</h1>
+        <a
+          className={styles.item}
+          href="/play?mode=bot"
+          data-testid="menu-play-bot"
+        >
+          Play vs bot
+        </a>
+        <a
+          className={styles.item}
+          href="/play?mode=hotseat"
+          data-testid="menu-hotseat"
+        >
+          Hotseat
+        </a>
+        <a className={styles.debug} href="/debug" data-testid="menu-debug">
+          Debug
+        </a>
+      </main>
+    </div>
+  );
 }

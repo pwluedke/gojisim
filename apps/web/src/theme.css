@@ -1,0 +1,62 @@
+/*
+ * GojiSim theme (M5a): every color, spacing value and card size is a variable here, so the M15
+ * kaiju theme can swap them without touching components. Scoped to `.gojisim` (the menu and the
+ * board), so `/debug` keeps its own plain look.
+ */
+.gojisim {
+  --color-bg: #f4f5f7;
+  --color-panel: #ffffff;
+  --color-panel-alt: #eef1f6;
+  --color-text: #1d2330;
+  --color-muted: #6b7280;
+  --color-border: #c9ced8;
+  --color-zone: #fafbfc;
+  --color-zone-monster: #fde8e8;
+  --color-center-line: #1d2330;
+  --color-accent: #0066cc;
+  --color-modifier-up: #0066cc;
+  --color-modifier-down: #c0392b;
+  --color-button: #1d2330;
+  --color-button-text: #ffffff;
+  --color-card-back-1: #33445a;
+  --color-card-back-2: #44566e;
+  --color-legal: #1a7f37;
+  --color-illegal: #b42318;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+
+  --radius: 6px;
+  --font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-size-sm: 11px;
+  --font-size-md: 13px;
+  --font-size-lg: 16px;
+  --font-size-xl: 24px;
+
+  --card-width: 84px;
+  --card-height: 118px;
+  --card-thumb-height: 62px;
+  --zone-width: 104px;
+  --zone-height: 136px;
+  --hand-card-width: 96px;
+  --sidebar-width: 280px;
+  --sidebar-collapsed-width: 44px;
+  --side-column-width: 200px;
+}
+
+/* The menu and board fill the window (main.tsx adds this to <body> outside /debug). */
+.gojisim-body {
+  margin: 0;
+}
+
+.gojisim {
+  display: flow-root;
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+}

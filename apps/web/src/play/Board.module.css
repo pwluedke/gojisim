@@ -1,0 +1,237 @@
+/* Board layout (M5a). Every color, spacing value and card size comes from theme.css. */
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar,
+.sidebarCollapsed {
+  flex: none;
+  padding: var(--space-2);
+  border-right: 1px solid var(--color-border);
+  background: var(--color-panel-alt);
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+}
+
+.sidebarCollapsed {
+  width: var(--sidebar-collapsed-width);
+}
+
+.collapse {
+  display: block;
+  margin-left: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  cursor: pointer;
+}
+
+.main {
+  flex: 1;
+  padding: var(--space-2) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.panel {
+  margin: var(--space-2) 0;
+  padding: var(--space-2);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.panelTitle {
+  font-weight: bold;
+  margin-bottom: var(--space-1);
+}
+
+.muted {
+  color: var(--color-muted);
+}
+
+.fieldRow {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+
+.strategyColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: var(--zone-width);
+}
+
+.strategyZone {
+  min-height: var(--zone-height);
+  padding: var(--space-1);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-zone);
+}
+
+.zones {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.zoneRow {
+  display: grid;
+  grid-template-columns: repeat(5, var(--zone-width));
+  gap: var(--space-2);
+}
+
+.zone,
+.zoneEmpty {
+  min-height: var(--zone-height);
+  border-radius: var(--radius);
+}
+
+.zone {
+  padding: var(--space-1);
+  border: 1px solid var(--color-border);
+  background: var(--color-zone);
+}
+
+.zoneMonster {
+  background: var(--color-zone-monster);
+}
+
+.zone8 {
+  border-width: 2px;
+}
+
+.zoneLabel {
+  font-size: var(--font-size-sm);
+  font-weight: bold;
+  color: var(--color-muted);
+}
+
+.monster {
+  margin-bottom: var(--space-1);
+}
+
+.stackNote {
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+}
+
+.sideColumn {
+  width: var(--side-column-width);
+}
+
+.centerLine {
+  border-top: 3px solid var(--color-center-line);
+}
+
+.card,
+.cardSmall {
+  box-sizing: border-box;
+  padding: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  font-size: var(--font-size-sm);
+  overflow: hidden;
+}
+
+.card {
+  width: var(--hand-card-width);
+}
+
+.cardSmall {
+  width: var(--card-width);
+}
+
+.thumb {
+  display: block;
+  width: 100%;
+  height: var(--card-thumb-height);
+  object-fit: cover;
+  border-radius: calc(var(--radius) / 2);
+}
+
+.cardName {
+  font-weight: bold;
+  line-height: 1.2;
+}
+
+.cardMeta,
+.cardValue {
+  line-height: 1.3;
+}
+
+.manualBadge {
+  color: var(--color-illegal);
+}
+
+.modifierUp {
+  color: var(--color-modifier-up);
+  font-weight: bold;
+}
+
+.modifierDown {
+  color: var(--color-modifier-down);
+  font-weight: bold;
+}
+
+.cardBack {
+  flex: none;
+  width: calc(var(--card-width) / 2);
+  height: calc(var(--card-height) / 2);
+  border-radius: var(--radius);
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-card-back-1),
+    var(--color-card-back-1) 6px,
+    var(--color-card-back-2) 6px,
+    var(--color-card-back-2) 12px
+  );
+}
+
+.handBacks {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: calc(var(--card-height) / 2);
+}
+
+.hand {
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+}
+
+.handCards {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+}
+
+.button {
+  padding: var(--space-1) var(--space-3);
+  border: none;
+  border-radius: var(--radius);
+  background: var(--color-button);
+  color: var(--color-button-text);
+  cursor: pointer;
+}
+
+.choiceButton {
+  display: block;
+  width: 100%;
+  margin: var(--space-1) 0;
+  text-align: left;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  cursor: pointer;
+}

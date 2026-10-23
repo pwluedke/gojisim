@@ -1,0 +1,31 @@
+.menu {
+  max-width: 420px;
+  margin: 10vh auto;
+  padding: var(--space-6);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+.title {
+  font-size: var(--font-size-xl);
+  margin: 0 0 var(--space-6);
+}
+
+.item {
+  display: block;
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: var(--color-button);
+  color: var(--color-button-text);
+  font-size: var(--font-size-lg);
+  text-decoration: none;
+}
+
+.debug {
+  composes: item;
+  background: var(--color-panel-alt);
+  color: var(--color-text);
+}
