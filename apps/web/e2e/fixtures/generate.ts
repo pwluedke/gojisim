@@ -12,6 +12,7 @@ import { parseDeckList } from "@gojisim/cards/deck-lists";
 import { buildTestDeck } from "@gojisim/cards/test-decks";
 import { stateBoard, weightedPick } from "@gojisim/bot";
 import {
+  type Action,
   advanceToDecision,
   applyAction,
   getLegalActions,
@@ -73,7 +74,20 @@ interface Fixture {
   confirmSingleOption?: boolean;
   /** Stop at P1's play timing (no choice open) when this holds, instead of at a choice. */
   matchPlay?: (state: GameState) => boolean;
+  /**
+   * Stop before a P1 action whose step (to the next decision) this matches; the record keeps
+   * that action as `next`, for the spec to take through the UI (M5f).
+   */
+  matchNext?: (before: GameState, action: Action, after: GameState) => boolean;
 }
+
+/** Zone top cards (instance ids) on the field. */
+const zoneTops = (state: GameState) =>
+  state.players.flatMap((p) =>
+    Object.values(p.zones).flatMap((stacks) =>
+      stacks.map((stack) => stack[stack.length - 1]?.instanceId),
+    ),
+  );
 
 const official = (): [Deck, Deck] => [esd01, esd02];
 const randomDecks = (g: number): [Deck, Deck] =>
@@ -177,6 +191,25 @@ const FIXTURES: Fixture[] = [
     },
   },
   {
+    name: "multi-destroy",
+    note: "P1's next action (`next`) destroys 2 or more zone cards at once (M5f animation)",
+    decks: randomDecks,
+    confirmSingleOption: true,
+    match: () => false,
+    matchNext: (before, action, after) => {
+      if (action.player !== "P1" || action.type === "concede") return false;
+      if (!["playBattle", "playMonster", "choose"].includes(action.type))
+        return false;
+      const destroyed = after.log
+        .slice(before.log.length)
+        .filter((e) => e.type === "destroy" && e.payload["zone"] !== undefined);
+      const gone = zoneTops(before).filter(
+        (id) => !zoneTops(after).includes(id),
+      );
+      return destroyed.length >= 2 && gone.length >= 2 && !after.result;
+    },
+  },
+  {
     name: "manual",
     note: "P1 resolves EBP01-017 by hand: a manual override window",
     decks: () => [withManual, esd02],
@@ -190,6 +223,7 @@ for (const fixture of FIXTURES.filter(
   (f) => only.length === 0 || only.includes(f.name),
 )) {
   let found: GameRecord | null = null;
+  let next: Action | null = null;
   for (let g = 0; g < 2000 && !found; g++) {
     const [a, b] = fixture.decks(g);
     const record: GameRecord = {
@@ -232,8 +266,14 @@ for (const fixture of FIXTURES.filter(
       const action = weightedPick(stateBoard(state), legal, (n) =>
         Math.floor(pick() * n),
       );
+      const after = advanceToDecision(applyAction(state, action));
+      if (who === "P1" && fixture.matchNext?.(state, action, after)) {
+        found = record;
+        next = action;
+        break;
+      }
       record.actions.push(action);
-      state = advanceToDecision(applyAction(state, action));
+      state = after;
     }
   }
   if (!found) {
@@ -241,7 +281,10 @@ for (const fixture of FIXTURES.filter(
     continue;
   }
   const path = new URL(`./${fixture.name}.json`, import.meta.url);
-  writeFileSync(path, `${JSON.stringify({ note: fixture.note, ...found })}\n`);
+  writeFileSync(
+    path,
+    `${JSON.stringify({ note: fixture.note, ...found, ...(next ? { next } : {}) })}\n`,
+  );
   console.log(
     `${fixture.name}: seed ${found.seed}, ${found.actions.length} actions`,
   );

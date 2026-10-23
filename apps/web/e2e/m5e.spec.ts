@@ -73,7 +73,7 @@ test.describe("undo", () => {
     await page.addInitScript(() =>
       window.localStorage.setItem(
         "gojisim.settings",
-        JSON.stringify({ hotseatCover: false }),
+        JSON.stringify({ animation: "off", hotseatCover: false }),
       ),
     );
   });

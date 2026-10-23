@@ -1,7 +1,10 @@
 import { useState } from "react";
 
+/** Card movement animation speed (M5f). */
+export type AnimationSpeed = "off" | "normal" | "fast";
+
 /**
- * `/play` settings (M5c, M5d), saved in this browser under `gojisim.settings`. Storage
+ * `/play` settings (M5c, M5d, M5f), saved in this browser under `gojisim.settings`. Storage
  * can be missing or blocked, so every read and write is guarded and the defaults always work.
  */
 export interface Settings {
@@ -15,6 +18,10 @@ export interface Settings {
   showRules: boolean;
   /** H opens the expanded hand (M5d, default on). */
   expandedHand: boolean;
+  /** Card movement and destroy animations (M5f, default normal). */
+  animation: AnimationSpeed;
+  /** The turn player's mat border glows in their monster's colors (M5f, default on). */
+  turnGlow: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -23,6 +30,8 @@ export const DEFAULT_SETTINGS: Settings = {
   botDelay: 600,
   showRules: false,
   expandedHand: true,
+  animation: "normal",
+  turnGlow: true,
 };
 
 const STORAGE_KEY = "gojisim.settings";

@@ -100,6 +100,12 @@ The opponent's mat is rotated 180°, like a real table: column `c` becomes `6 - 
 - Standby and replacement order options show each ability's printed text above its card.
 - Strategy cards turn 90° clockwise in the hand (tucked and expanded) and on top of the discard pile, so the whole landscape card fills the portrait slot. Strategy zones, modals and the preview keep them horizontal.
 
+**M5f additions (board polish)**
+- Card moves animate from the before and after board snapshots (FLIP): a card that left one place is paired with a new card of the same card id elsewhere (instance ids change on every move), and an unpaired card flies from or to the pile whose count changed. Destroyed cards break into pieces that pull back together, then move; all moves of one step play together. Input is locked and the bot waits while they play. A history jump, an undo or a hotseat flip shows at once.
+- The turn player's mat border glows in their invading monster's colors, each in turn, then grey.
+- A custom mat image (IndexedDB) sits behind both mats, the opponent's turned 180°, with scale and position.
+- The mat's outer columns are landscape (one card height wide): column 0 holds the strategy zones, so strategy cards show whole, and column 6 the deck and discard pile, centered. Both mats share the template, so columns still line up across the center line.
+
 **Bot moves**
 - Each bot action shows for the delay time (600 ms default) as a short highlight on the card that moved and its destination, plus a log line.
 
@@ -162,6 +168,7 @@ The opponent's mat is rotated 180°, like a real table: column `c` becomes `6 - 
 3. **M5c prompts and choices:** prompt panel, choice modal for every `pendingChoice` kind, hotseat privacy cover, bot thinking state and move highlight, Concede for human seats.
 4. **M5d log, tracker, shortcuts:** plain-language battle log with card links and read-only rewind, phase tracker, all board numbers, keyboard shortcuts, settings, expanded hand.
 5. **M5e match rules and clarity:** First / Second pick, Casual undo and Tournament, the search modal, a modal for every human decision, ability text in order modals, rotated strategy cards.
+6. **M5f board polish:** card movement and destroy animations, custom mat image, turn glow, landscape strategy zones.
 
 **M5 exit criteria**
 - Paul plays a full game against the Hard bot at `/play` without opening `/debug`.

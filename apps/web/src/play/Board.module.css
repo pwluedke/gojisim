@@ -70,12 +70,59 @@
  * The official playmat: 7 by 3 card-shaped cells per side, each `--card-w` by `--card-h` (the
  * Rage zone spans 2 by 2). A cell is a faint outline with its label until a card covers it.
  */
+/*
+ * One player's mat. The outer columns are landscape, one card height wide (M5f): column 0 holds
+ * the strategy zones, so strategy cards show whole, and column 6 the deck and discard pile. Both
+ * mats share the template, so the opponent's mirrored mat lines up column for column. The border
+ * glows in the turn player's monster colors (M5f), set inline.
+ */
 .mat {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(7, var(--card-w));
+  grid-template-columns: var(--card-h) repeat(5, var(--card-w)) var(--card-h);
   grid-template-rows: repeat(3, var(--card-h));
   gap: var(--mat-gap);
   justify-content: center;
+  /* As wide as its grid, so the glow and the mat image hug the zones. */
+  align-self: center;
+  border-radius: var(--radius);
+  transition: box-shadow 0.6s;
+}
+
+/* A custom mat image (M5f) behind the zone grid; cells get a light backing to stay readable. */
+.matImage {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+.matCustom .cell,
+.matCustom .rageZone {
+  background-color: rgb(255 255 255 / 60%);
+}
+
+/* Strategy zones are landscape slots: a card height wide, a card width tall. */
+.matCell.matCellStrategy {
+  align-items: center;
+}
+
+.matCell.matCellStrategy > * {
+  flex: none;
+  width: 100%;
+  height: var(--card-w);
+}
+
+/* Piles keep a portrait slot, centered in their landscape column. */
+.matCell.matCellNarrow {
+  justify-content: center;
+}
+
+.matCell.matCellNarrow > * {
+  flex: none;
+  width: var(--card-w);
 }
 
 .matCell {
@@ -222,6 +269,12 @@
   border-radius: var(--radius);
   background: var(--color-panel);
   box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
+}
+
+.cardLandscape {
+  composes: card;
+  width: var(--card-h);
+  height: var(--card-w);
 }
 
 .cardSmall {
@@ -1002,4 +1055,66 @@
   width: 100cqh;
   height: 100cqw;
   transform: translate(-50%, -50%) rotate(90deg);
+}
+
+/* Card movement (M5f): flying cards over the board, and the lock that holds input meanwhile. */
+.flightLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.flight {
+  position: fixed;
+  transform-origin: 0 0;
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  box-shadow: var(--shadow);
+}
+
+.flightBack {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-card-back-1),
+    var(--color-card-back-1) 6px,
+    var(--color-card-back-2) 6px,
+    var(--color-card-back-2) 12px
+  );
+}
+
+/* A destroyed card's pieces (M5f): parts of the card image that fly apart and back. */
+.piece {
+  position: absolute;
+  background-color: var(--color-panel-alt);
+  border: 1px solid rgb(0 0 0 / 15%);
+}
+
+.flight:has(.piece) {
+  background: transparent;
+  box-shadow: none;
+}
+
+.animationLock {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  cursor: progress;
+}
+
+/* The mat image setting (M5f). */
+.matSettings {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.matSettings label {
+  display: block;
+}
+
+.error {
+  color: var(--color-illegal);
+  font-size: var(--font-size-sm);
 }

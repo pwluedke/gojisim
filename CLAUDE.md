@@ -353,3 +353,17 @@ Accepted by Monarch in the M5d review (PR #29).
 243. Cards don't clip their contents, so the change list can reach past the card edge; a hovered card's layer rises above its neighbors.
 244. `docs/ui/board-design.md` keeps the approved M5a diagram, with notes above it for each later layout change. The README describes the current layout.
 245. Prompt, phase tracker and Settings are a fixed left column with no collapse button (Paul's correction of the "top bar" wording); Settings opens in place. The battle log is the right column, and the card preview covers it while open.
+
+Accepted by Monarch in the M5e review (PR #30).
+
+246. The First / Second pick uses the single 6.3.1.4 RNG draw: picking the card with your own seat's index gives the old random first player, so old seeds keep their first players. Games with no pick (two bots, `/debug`, older records) stay random. `chooseFirstPlayer` logs `pickedBy`, `card` and `firstCard`.
+247. Undo boundaries include the end of the game (a concession or a win can't be undone). An open search pick counts as a search: the searcher has seen the deck before the `search` log entry.
+248. Undo is offered only to the human who decides now, for their own last action, and never in the history view; when blocked the button is greyed out with a tooltip. Records with no `mode` load as Casual.
+249. `confirmSingleTarget` stays readable (target picks only), so older records replay exactly; new `/play` games write `confirmSingleOption`.
+250. A single ability in standby (or interchangeable copies, decision 79) and a single destroy replacement get no modal: they aren't decisions. `confirm` always has two options. Confirmed by Monarch.
+251. A one-option zone choice uses the zone banner, like every zone choice (decision 218).
+252. The search modal is UI only, not a record action; bots wait while it is open. `search` log entries carry the searched `filter` and `count` (public card text). In hotseat it shows only to the player at the board, before the cover.
+253. Evolution searches (12.6.2) get the search modal too.
+254. Ability text in order modals is the card's text line for that ability, in ability-data order, or the keyword's line for Evolution; it falls back to the whole text.
+255. The opponent's revealed half-size hand cards are not rotated.
+256. Decisions 234, 242 and 244 were reworded to the final left-column layout in the M5e PR.

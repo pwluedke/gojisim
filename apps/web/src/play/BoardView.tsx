@@ -17,7 +17,8 @@ import type {
   PlayerAreasView,
   ZoneNumber,
 } from "@gojisim/engine";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type Box, FlightLayer, useMoveAnimations } from "./animation";
 import styles from "./Board.module.css";
 import { CardBack, CardFace } from "./CardFace";
 import {
@@ -36,7 +37,17 @@ import {
 } from "./interaction";
 import type { BoardModel } from "./model";
 import { PhaseTracker } from "./PhaseTracker";
+import { GLOW_COLORS, glowCycle, useGlow } from "./glow";
 import { Preview } from "./Preview";
+import type { AnimationSpeed } from "./settings";
+
+/** A custom mat image (M5f) as the board draws it: an object URL plus its scale and position. */
+export interface MatView {
+  url: string;
+  scale: number;
+  x: number;
+  y: number;
+}
 
 /**
  * The board at `/play` (M5a, docs/ui/board-design.md): the opponent's mat rotated on top, the
@@ -53,6 +64,9 @@ import { Preview } from "./Preview";
  * M5d layout (Paul's play-testing): prompt, phase tracker and settings in the left column, the
  * board in the middle, and the battle log in the right column, which the card preview covers
  * while a card is previewed.
+ *
+ * M5f: card moves animate (`useMoveAnimations`), the turn player's mat glows in their monster's
+ * colors, a custom mat image can sit behind the zones, and strategy zones are landscape slots.
  */
 
 export const STEP_NAMES: Record<string, string> = {
@@ -266,6 +280,7 @@ function StrategyZone({
             card={p.card}
             data={model.view.cards[p.card.cardId]}
             changes={model.changes[p.card.instanceId]}
+            landscape
             extra={
               <span
                 className={styles.turnMark}
@@ -505,21 +520,58 @@ function Mat({
   player,
   opponent,
   side,
+  glow,
+  mat,
 }: {
   model: BoardModel;
   player: PlayerAreasView;
   opponent: string;
   side: "opp" | "you";
+  /** The turn glow's current color name (M5f), or `null` when this mat doesn't glow. */
+  glow: string | null;
+  /** The custom mat image (M5f), drawn behind the zones; the opponent's is turned 180°. */
+  mat: MatView | null;
 }) {
+  const color = glow ? GLOW_COLORS[glow] : undefined;
   return (
-    <div className={styles.mat} data-testid={`mat-${side}`}>
+    <div
+      className={`${styles.mat}${mat ? ` ${styles.matCustom}` : ""}`}
+      data-testid={`mat-${side}`}
+      data-player={player.id}
+      data-glow={glow ?? undefined}
+      style={
+        color
+          ? { boxShadow: `0 0 0 3px ${color}, 0 0 18px 4px ${color}` }
+          : undefined
+      }
+    >
+      {mat && (
+        <div
+          className={styles.matImage}
+          data-testid="mat-image"
+          style={{
+            backgroundImage: `url(${mat.url})`,
+            backgroundSize: `${mat.scale}% auto`,
+            backgroundPosition: `${mat.x}% ${mat.y}%`,
+            rotate: side === "opp" ? "180deg" : undefined,
+          }}
+        />
+      )}
       {MAT.map(({ area, col, row, cols = 1, rows = 1 }) => {
         const c = side === "you" ? col : 6 - (col + cols - 1);
         const r = side === "you" ? row : 2 - (row + rows - 1);
         return (
           <div
             key={`${area.kind}-${col}-${row}`}
-            className={styles.matCell}
+            className={
+              area.kind === "strategy"
+                ? `${styles.matCell} ${styles.matCellStrategy}`
+                : area.kind === "monsterDeck" ||
+                    area.kind === "deck" ||
+                    area.kind === "discard"
+                  ? `${styles.matCell} ${styles.matCellNarrow}`
+                  : styles.matCell
+            }
             style={{
               gridColumn: `${c + 1} / span ${cols}`,
               gridRow: `${r + 1} / span ${rows}`,
@@ -590,6 +642,11 @@ export function BoardView({
   name = (id) => id,
   log = null,
   settings = null,
+  step = null,
+  animation = "off",
+  onAnimating,
+  turnGlow = false,
+  mat = null,
 }: {
   model: BoardModel;
   /** The prompt panel's content (M5c: the step, Pass, turn flags, Concede, the bot's state). */
@@ -611,6 +668,19 @@ export function BoardView({
   log?: ReactNode;
   /** The settings panel (M5d). */
   settings?: ReactNode;
+  /**
+   * The shown state's action count while live, `null` in the history view (M5f): a change of
+   * exactly one step animates, anything else shows at once.
+   */
+  step?: number | null;
+  /** Animation speed (M5f setting). */
+  animation?: AnimationSpeed;
+  /** Called when card animations start and end, so input and the bot wait for them. */
+  onAnimating?: (animating: boolean) => void;
+  /** Glow the turn player's mat border in their monster's colors (M5f setting). */
+  turnGlow?: boolean;
+  /** A custom mat image behind both mats (M5f), or `null` for the default mat. */
+  mat?: MatView | null;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -622,6 +692,33 @@ export function BoardView({
     (p) => p.id === model.bottom,
   ) as PlayerAreasView;
   const opp = view.players.find((p) => p.id === model.top) as PlayerAreasView;
+
+  // M5f: card movement animations, locked input while they play, and the turn glow.
+  const mainRef = useRef<HTMLElement | null>(null);
+  const dropRef = useRef<{ instanceId: string; box: Box; at: number } | null>(
+    null,
+  );
+  const [animating, setAnimating] = useState(false);
+  const flights = useMoveAnimations({
+    root: mainRef,
+    model,
+    step,
+    speed: animation,
+    drop: dropRef,
+    onAnimating: (on) => {
+      setAnimating(on);
+      onAnimating?.(on);
+    },
+  });
+  const turnPlayer = view.players.find((p) => p.id === view.turnPlayer);
+  const turnMonster = turnPlayer?.invadingMonsterZone.cards?.at(-1);
+  const glow = useGlow(
+    turnGlow && turnMonster
+      ? glowCycle(view.cards[turnMonster.cardId]?.colors ?? [])
+      : null,
+  );
+  const glowFor = (player: PlayerAreasView) =>
+    player.id === view.turnPlayer ? glow : null;
 
   const playable = useMemo(
     () => (locked ? new Set<string>() : playableCards(actions)),
@@ -676,6 +773,16 @@ export function BoardView({
   );
   const onDragEnd = (event: DragEndEvent) => {
     const key = event.over?.id as DestinationKey | undefined;
+    // The card settles into its slot from where it was let go (M5f).
+    const at = event.active.rect.current.translated;
+    if (at) {
+      const instanceId = String(event.active.id);
+      dropRef.current = {
+        instanceId,
+        box: { x: at.left, y: at.top, width: at.width, height: at.height },
+        at: performance.now(),
+      };
+    }
     const options = key
       ? cardDestinations(actions, String(event.active.id)).get(key)
       : undefined;
@@ -730,7 +837,7 @@ export function BoardView({
             </section>
             {settings}
           </aside>
-          <main className={styles.main}>
+          <main className={styles.main} ref={mainRef}>
             <div className={styles.handBacks} data-testid="opponent-hand">
               <span className={styles.muted}>
                 {opp.id} hand (
@@ -750,9 +857,23 @@ export function BoardView({
                 );
               })}
             </div>
-            <Mat model={model} player={opp} opponent={you.id} side="opp" />
+            <Mat
+              model={model}
+              player={opp}
+              opponent={you.id}
+              side="opp"
+              glow={glowFor(opp)}
+              mat={mat}
+            />
             <div className={styles.centerLine} />
-            <Mat model={model} player={you} opponent={opp.id} side="you" />
+            <Mat
+              model={model}
+              player={you}
+              opponent={opp.id}
+              side="you"
+              glow={glowFor(you)}
+              mat={mat}
+            />
             <Hand
               model={model}
               player={you}
@@ -800,6 +921,20 @@ export function BoardView({
               </section>
             )}
           </aside>
+          {flights.length > 0 && (
+            <FlightLayer
+              flights={flights}
+              speed={animation}
+              cards={view.cards}
+            />
+          )}
+          {animating && (
+            // Input waits while cards move (M5f).
+            <div
+              className={styles.animationLock}
+              data-testid="animation-lock"
+            />
+          )}
           {(previewed || previewedCard) && (
             <Preview
               model={model}

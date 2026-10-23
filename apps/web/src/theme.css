@@ -57,16 +57,16 @@
   --mat-gap: 12px;
   --left-column-width: 260px;
   --board-chrome: calc(96px + 4 * var(--mat-gap));
+  /* The mat is 5 portrait columns plus 2 landscape ones (M5f): 5w + 2h wide, w = 63h/88. */
   --card-h: min(
     (100vh - var(--board-chrome)) / 7.5,
     (
-        (
-            100vw - var(--left-column-width) - var(--side-column-width) - 4 *
-              var(--space-4) - 2px - 6 * var(--mat-gap)
-          ) /
-          7
-      ) *
-      88 / 63
+      (
+          100vw - var(--left-column-width) - var(--side-column-width) - 4 *
+            var(--space-4) - 2px - 6 * var(--mat-gap)
+        ) *
+        88 / 491
+    )
   );
   --card-w: calc(var(--card-h) * 63 / 88);
   /* Wide enough for the card preview, which opens over this column. */
