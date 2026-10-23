@@ -1,5 +1,5 @@
 import { getCardTraits } from "@gojisim/cards";
-import { requireChoice } from "./choices";
+import { confirmsSingleOption, requireChoice } from "./choices";
 import { behind } from "./geometry";
 import { markLoss } from "./losses";
 import { cardOf, crushAndDestroy, topOf } from "./rules";
@@ -52,8 +52,9 @@ export function makeInvadingMonster(
 
 /**
  * Counter (5.15): a monster in zone 6, 7 or 8 moves to the zone behind (5.15.1.1; not a
- * retreat). Its master then picks the next monster: one candidate is taken automatically, several
- * make a `nextMonster` choice, none means that player loses (5.15.1.2.1).
+ * retreat). Its master then picks the next monster: one candidate is taken automatically (unless
+ * that player confirms single options, M5e), several make a `nextMonster` choice, none means that
+ * player loses (5.15.1.2.1).
  */
 export function counterMonster(state: GameState, countered: PlayerState): void {
   appendLog(state, "counter", countered.id, { rule: "5.15.1" });
@@ -72,7 +73,11 @@ export function counterMonster(state: GameState, countered: PlayerState): void {
   const [only] = candidates;
   if (candidates.length === 0) {
     markLoss(state, countered.id, "victoryThroughCountering", "5.15.1.2.1");
-  } else if (candidates.length === 1 && only) {
+  } else if (
+    candidates.length === 1 &&
+    only &&
+    !confirmsSingleOption(state, countered.id, "other")
+  ) {
     makeInvadingMonster(state, countered, only.instanceId);
   } else {
     requireChoice(

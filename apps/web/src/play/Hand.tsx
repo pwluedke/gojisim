@@ -46,7 +46,7 @@ function HandCard({
       {...attributes}
       {...listeners}
     >
-      <CardFace card={card} data={model.view.cards[card.cardId]} />
+      <CardFace card={card} data={model.view.cards[card.cardId]} rotate />
     </div>
   );
 }

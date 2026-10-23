@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { passTurn } from "./helpers";
+import { passTurn, startGame } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -20,7 +20,7 @@ test.beforeEach(async ({ page }) => {
 async function hotseat(page: Page, seed: number, passes: number) {
   await page.goto("/play?mode=hotseat");
   await page.getByTestId("seed-input").fill(String(seed));
-  await page.getByTestId("start-game").click();
+  await startGame(page);
   for (let i = 0; i < passes; i++) {
     await passTurn(page);
   }
@@ -204,7 +204,7 @@ test("while the bot decides, the hand is locked: dimmed, no selection", async ({
 }) => {
   await page.goto("/play?mode=bot");
   await page.getByTestId("seed-input").fill("2");
-  await page.getByTestId("start-game").click();
+  await startGame(page);
   // Seed 2: the bot (P2) starts.
   await expect(page.getByTestId("your-hand")).toHaveAttribute(
     "data-locked",

@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { passTurn } from "./helpers";
+import { passTurn, startGame } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -27,7 +27,7 @@ async function startFromMenu(
   await page.goto("/");
   await page.getByTestId(entry).click();
   await page.getByTestId("seed-input").fill("20261022");
-  await page.getByTestId("start-game").click();
+  await startGame(page);
   await expect(page.getByTestId("board")).toBeVisible();
 }
 
@@ -162,7 +162,7 @@ test("bot vs bot on /play plays by itself, and Pause stops it", async ({
   await page.getByTestId("preset-P1-easy").click();
   await page.getByTestId("preset-P2-easy").click();
   await page.getByTestId("seed-input").fill("20261022");
-  await page.getByTestId("start-game").click();
+  await startGame(page);
   await expect
     .poll(async () => Number(await page.getByTestId("turn").textContent()), {
       timeout: 60_000,

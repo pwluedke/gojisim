@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { loadFixture, passTurn } from "./helpers";
+import { loadFixture, passTurn, startGame } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -153,7 +153,7 @@ test("holding the eye button hides the modal", async ({ page }) => {
 async function hotseat(page: Page, seed: number) {
   await page.goto("/play?mode=hotseat");
   await page.getByTestId("seed-input").fill(String(seed));
-  await page.getByTestId("start-game").click();
+  await startGame(page);
   await expect(page.getByTestId("board")).toBeVisible();
 }
 
@@ -206,13 +206,13 @@ test("Concede is shown for human seats only, with a confirm step", async ({
 }) => {
   await page.goto("/play?mode=bot");
   await page.getByTestId("seat-P1").selectOption("bot");
-  await page.getByTestId("start-game").click();
+  await startGame(page);
   await expect(page.getByTestId("board")).toBeVisible();
   await expect(page.getByTestId("concede")).toHaveCount(0);
 
   await page.goto("/play?mode=bot");
   await page.getByTestId("seed-input").fill("1");
-  await page.getByTestId("start-game").click();
+  await startGame(page);
   await page.getByTestId("concede").click();
   await expect(page.getByTestId("confirm-dialog")).toContainText(
     "Concede the game?",
@@ -228,7 +228,7 @@ test("bot moves: a toast names the action and the destination lights up", async 
   // Seed 2: the bot (P2) starts and plays cards on its turn.
   await page.goto("/play?mode=bot");
   await page.getByTestId("seed-input").fill("2");
-  await page.getByTestId("start-game").click();
+  await startGame(page);
   await expect
     .poll(
       () =>

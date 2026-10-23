@@ -37,3 +37,21 @@ export async function loadFixture(page: Page, name: string): Promise<void> {
     );
   await expect(page.getByTestId("board")).toBeVisible();
 }
+
+/**
+ * Starts the game set up on the new-game screen. The First / Second pick (M5e) picks the card
+ * with the picker's own seat index unless `card` is given, which keeps the first player each seed
+ * had before M5e. Two bot seats skip the pick.
+ */
+export async function startGame(page: Page, card?: 0 | 1): Promise<void> {
+  await page.getByTestId("start-game").click();
+  const pick = page.getByTestId("first-pick");
+  await expect(pick.or(page.getByTestId("board"))).toBeVisible();
+  if (!(await pick.isVisible())) return;
+  const picker = await pick.getAttribute("data-picker");
+  await page
+    .getByTestId(`first-pick-card-${card ?? (picker === "P2" ? 1 : 0)}`)
+    .click();
+  await page.getByTestId("first-pick-continue").click();
+  await expect(page.getByTestId("board")).toBeVisible();
+}

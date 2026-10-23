@@ -53,11 +53,13 @@ export {
   type DeckLegality,
   deckLegalityFor,
   type GameRecord,
+  type MatchMode,
   replay,
   type SeatRecord,
   replayAll,
   startGame,
 } from "./record";
+export { canUndo, type UndoBoundary, undoBoundary, undoLast } from "./undo";
 export { isFreezeGuardOn, setFreezeGuard } from "./freeze";
 export { normalizeSeed } from "./rng";
 export { type CreateGameOptions, createGame, type PlayerSetup } from "./setup";

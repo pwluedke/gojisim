@@ -25,3 +25,19 @@ export function requireChoice(
     optionCount: options.length,
   });
 }
+
+/**
+ * Whether `player` is asked a choice with a single legal option, which the engine would otherwise
+ * make alone: every kind with `confirmSingleOption` (M5e), target picks only with the older
+ * `confirmSingleTarget` (M5d), so records made with it replay unchanged.
+ */
+export function confirmsSingleOption(
+  state: GameState,
+  player: PlayerId,
+  kind: "target" | "other",
+): boolean {
+  if (state.confirmSingleOption?.includes(player)) return true;
+  return (
+    kind === "target" && state.confirmSingleTarget?.includes(player) === true
+  );
+}

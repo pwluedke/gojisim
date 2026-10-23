@@ -2,19 +2,31 @@ import {
   type Action,
   type GameState,
   getLegalActions,
+  type MatchMode,
   stepPhase,
 } from "@gojisim/engine";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "../theme.css";
 import { botLabel, difficultyName } from "../game/bots";
 import { actionLabel, choiceHeading, choiceSource } from "../game/labels";
-import { newSession, type PlayerId, type Session } from "../game/session";
+import type { SeatConfig } from "../game/bots";
+import type { DeckOption } from "../game/decks";
+import {
+  canUndoSession,
+  newSession,
+  type PlayerId,
+  type Session,
+  undoSession,
+} from "../game/session";
 import { useGameSession } from "../game/useGameSession";
 import styles from "./Board.module.css";
 import { BoardView, STEP_NAMES } from "./BoardView";
 import { BattleLog } from "./BattleLog";
 import { buildLog } from "./logLines";
 import { ChoiceModal } from "./ChoiceModal";
+import { FirstPick } from "./FirstPick";
+import { SearchModal } from "./SearchModal";
+import { type SearchResult, searchResults } from "./searches";
 import { isLit, playableCards } from "./destinations";
 import { type Mode, NewGame } from "./NewGame";
 import { boardModel, bottomPlayer } from "./model";
@@ -59,6 +71,10 @@ const SHORTCUTS: [string, string][] = [
     "Cancel the selected card, close the expanded hand, a dialog or the preview",
   ],
   ["L", "Show / hide the battle log"],
+  [
+    "U",
+    "Undo your last action (Casual games, back to the last draw, search, reveal, shuffle, random result or opponent action)",
+  ],
   ["?", "Show / hide this list"],
 ];
 
@@ -69,9 +85,19 @@ interface BotMove {
   highlight: Set<string>;
 }
 
+/** A game set up on the new-game screen, waiting for the First / Second pick (M5e). */
+interface PendingGame {
+  seed: number;
+  picked: [DeckOption, DeckOption];
+  seats: Record<PlayerId, SeatConfig>;
+  matchMode: MatchMode;
+  picker: PlayerId;
+}
+
 /**
- * `/play` (M5a to M5c): the new-game screen, then the board, with the prompt panel, the choice
- * modal, the hotseat privacy cover and the bot's move toast.
+ * `/play` (M5a to M5e): the new-game screen and the First / Second pick, then the board, with the
+ * prompt panel (and Casual undo), the choice and search modals, the hotseat privacy cover and the
+ * bot's move toast.
  */
 export function PlayScreen() {
   const mode: Mode =
@@ -86,17 +112,25 @@ export function PlayScreen() {
   const [historyAt, setHistoryAt] = useState<number | null>(null);
   const [logOpen, setLogOpen] = useState(true);
   const [overlay, setOverlay] = useState<"hand" | "shortcuts" | null>(null);
+  // M5e: the game waiting for its First / Second pick, and human searches waiting for Confirm.
+  const [pending, setPending] = useState<PendingGame | null>(null);
+  const [searches, setSearches] = useState<SearchResult[]>([]);
+  // Log entries already checked for searches (a loaded record's searches are history).
+  const seenLog = useRef(0);
   // `/play` never shows hidden cards, so bot labels always keep private choices private.
   // Bot seats play at once, two bots included (`/play` has no Play button before a game).
   const game = useGameSession({
     privateLabels: () => true,
     autoPlay: "always",
     onStart: (next: Session) => {
-      setCleared(deciderOf(next.states[next.position] as GameState));
+      const start = next.states[next.position] as GameState;
+      setCleared(deciderOf(start));
       setHistoryAt(null);
+      setSearches([]);
+      seenLog.current = start.log.length;
     },
-    // While the history view is open, a bot's answer waits (nothing is applied).
-    hold: historyAt !== null,
+    // While the history view or a search result is open, a bot's answer waits.
+    hold: historyAt !== null || searches.length > 0,
   });
   const { session, state } = game;
   const { setDelay } = game;
@@ -116,6 +150,23 @@ export function PlayScreen() {
     // `name` follows the seats, which belong to the session.
     [session, liveBottom],
   );
+
+  // A deck search by a human seat, found or not, opens the search modal (M5e). An undo shortens
+  // the log, so its searches are never shown again.
+  useEffect(() => {
+    if (!session || !state) return;
+    if (session.position !== session.record.actions.length) return;
+    const seen = seenLog.current;
+    seenLog.current = state.log.length;
+    if (state.log.length <= seen) return;
+    // In hotseat only the player at the board sees their own search.
+    const found = searchResults(
+      session,
+      seen,
+      hotseat && settings.hotseatCover && cleared ? [cleared] : game.humanSeats,
+    );
+    if (found.length) setSearches((queue) => [...queue, ...found]);
+  }, [session, state]);
 
   // Each bot action shows a one-line toast, and lights where it landed for the delay time.
   const count = session?.record.actions.length ?? 0;
@@ -151,6 +202,15 @@ export function PlayScreen() {
   const pass = actions.find((a) => a.type === "pass");
   const hasLit = [...playableCards(actions)].some((id) => isLit(id, actions));
   const choice = state?.pendingChoice ?? null;
+  // Casual undo (M5e): the deciding human takes back their own last action.
+  const undoFor = human && decider ? decider : null;
+  const undoable = !!undoFor && !!session && canUndoSession(session, undoFor);
+  const undo = () => {
+    if (!session || !undoable) return;
+    setConfirming(null);
+    game.setSession(undoSession(session));
+  };
+  const casual = session?.record.mode !== "tournament";
 
   const takePass = () => {
     if (!pass) return;
@@ -190,6 +250,11 @@ export function PlayScreen() {
         case "L":
           setLogOpen((open) => !open);
           return;
+        case "u":
+        case "U":
+          if (overlay || historyAt !== null || searches.length) return;
+          undo();
+          return;
         case " ":
           // In "Pass with playable cards left?", a second Space passes (M5d).
           if (confirming === "pass") {
@@ -198,7 +263,14 @@ export function PlayScreen() {
             return;
           }
           // Space is the main button: Pass, when no choice, dialog or overlay is open.
-          if (choice || confirming || overlay || historyAt !== null || !pass)
+          if (
+            choice ||
+            confirming ||
+            overlay ||
+            historyAt !== null ||
+            searches.length ||
+            !pass
+          )
             return;
           if (target?.closest("button")) return;
           e.preventDefault();
@@ -209,20 +281,60 @@ export function PlayScreen() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  // Human seats confirm every choice, even one with a single option (M5d, M5e).
+  const build = (
+    setup: Omit<PendingGame, "picker">,
+    picker?: PlayerId,
+    card?: 0 | 1,
+  ) =>
+    newSession(setup.seed, setup.picked, setup.seats, {
+      confirmTargets: true,
+      mode: setup.matchMode,
+      ...(picker && card !== undefined
+        ? { firstPick: { player: picker, card } }
+        : {}),
+    });
+
   if (!session || !state)
     return (
       <div className="gojisim">
-        <NewGame
-          mode={mode}
-          onStart={(seed, picked, seats) =>
-            game.startSession(
-              // Human seats confirm every target pick, even a single one (M5d).
-              newSession(seed, picked, seats, { confirmTargets: true }),
-              true,
-            )
-          }
-          onLoad={(file) => game.importRecord(file, true)}
-        />
+        {pending ? (
+          <FirstPick
+            picker={pending.picker}
+            pickerName={
+              pending.seats.P1.kind === "human" &&
+              pending.seats.P2.kind === "human"
+                ? pending.picker
+                : "You"
+            }
+            heading={
+              pending.seats.P1.kind === "human" &&
+              pending.seats.P2.kind === "human"
+                ? `${pending.picker} picks First or Second`
+                : "Pick First or Second"
+            }
+            build={(card) => build(pending, pending.picker, card)}
+            onStart={(next) => {
+              setPending(null);
+              game.startSession(next, true);
+            }}
+          />
+        ) : (
+          <NewGame
+            mode={mode}
+            onStart={(seed, picked, seats, matchMode) => {
+              const setup = { seed, picked, seats, matchMode };
+              // Against a bot the human picks; in hotseat P2 picks; two bots skip the pick.
+              const humans = (["P1", "P2"] as const).filter(
+                (id) => seats[id].kind === "human",
+              );
+              const picker = humans.length === 2 ? "P2" : humans[0];
+              if (picker) setPending({ ...setup, picker });
+              else game.startSession(build(setup), true);
+            }}
+            onLoad={(file) => game.importRecord(file, true)}
+          />
+        )}
       </div>
     );
 
@@ -240,12 +352,15 @@ export function PlayScreen() {
   // player, private ones included), the cover replaces the board, so nothing hidden is rendered
   // until the next player clicks.
   const now = deciderOf(state);
+  // A search result shows to its searcher first, before the cover passes the board on.
+  const search = viewing === null ? (searches[0] ?? null) : null;
   if (
     hotseat &&
     settings.hotseatCover &&
     !state.result &&
     cleared !== null &&
-    now !== cleared
+    now !== cleared &&
+    !search
   )
     return (
       <div className="gojisim">
@@ -356,6 +471,22 @@ export function PlayScreen() {
                 Pass [Space]
               </button>
             )
+          )}
+          {casual && human && decider === model.bottom && (
+            <button
+              type="button"
+              className={styles.button}
+              data-testid="undo"
+              disabled={!undoable}
+              title={
+                undoable
+                  ? "Take back your last action [U]"
+                  : "Nothing to undo: undo stops at a draw, search, reveal, shuffle, random result or opponent action"
+              }
+              onClick={undo}
+            >
+              Undo [U]
+            </button>
           )}
           {concedeFor && (
             <button
@@ -485,11 +616,14 @@ export function PlayScreen() {
           <div className={styles.expandedHand}>
             {handCards.map((card) => {
               const data = model.view.cards[card.cardId];
+              // Strategy cards turn 90° clockwise here too (M5e).
+              const rotated = data?.type === "Strategy";
               return (
                 <div
                   key={card.instanceId}
-                  className={styles.expandedCard}
+                  className={`${styles.expandedCard}${rotated ? ` ${styles.rotated}` : ""}`}
                   data-testid="expanded-card"
+                  data-rotated={rotated ? "true" : undefined}
                   data-card-id={data?.id}
                 >
                   <div className={styles.cardFallback}>{data?.name}</div>
@@ -536,7 +670,15 @@ export function PlayScreen() {
           </div>
         </div>
       )}
-      {showModal && (
+      {search && (
+        <SearchModal
+          key={search.seq}
+          result={search}
+          cards={state.cards}
+          onConfirm={() => setSearches((queue) => queue.slice(1))}
+        />
+      )}
+      {showModal && !search && (
         <ChoiceModal
           key={choice?.id}
           state={state}

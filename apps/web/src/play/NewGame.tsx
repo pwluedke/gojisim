@@ -1,4 +1,5 @@
 import { PRESETS } from "@gojisim/bot";
+import type { MatchMode } from "@gojisim/engine";
 import { useState } from "react";
 import { difficultyName, type SeatConfig } from "../game/bots";
 import {
@@ -39,7 +40,8 @@ function Legality({ option }: { option: DeckOption }) {
 /**
  * The `/play` new-game screen (M5a): a deck for each seat (the official starters, random test
  * decks, and decks imported in `/debug`, with a legality badge), Human or Bot per seat, and the
- * difficulty slider with its presets.
+ * difficulty slider with its presets. M5e: Casual (undo allowed) or Tournament (no undo), stored
+ * in the game record.
  */
 export function NewGame({
   mode,
@@ -53,6 +55,7 @@ export function NewGame({
     seed: number,
     picked: [DeckOption, DeckOption],
     seats: Record<PlayerId, SeatConfig>,
+    matchMode: MatchMode,
   ) => void;
 }) {
   const options = deckOptions(loadImportedDecks());
@@ -63,6 +66,7 @@ export function NewGame({
   const [seats, setSeats] = useState(() => presetSeats(mode));
   const [loadError, setLoadError] = useState<string | null>(null);
   const [seed, setSeed] = useState(() => String(randomSeed()));
+  const [matchMode, setMatchMode] = useState<MatchMode>("casual");
   const byKey = (key: string) =>
     options.find((o) => o.key === key) ?? (options[0] as DeckOption);
   return (
@@ -70,7 +74,12 @@ export function NewGame({
       className={styles.screen}
       onSubmit={(e) => {
         e.preventDefault();
-        onStart(Number(seed), [byKey(keys.P1), byKey(keys.P2)], seats);
+        onStart(
+          Number(seed),
+          [byKey(keys.P1), byKey(keys.P2)],
+          seats,
+          matchMode,
+        );
       }}
     >
       <h1 className={styles.title}>
@@ -182,6 +191,25 @@ export function NewGame({
             onChange={(e) => setSeed(e.target.value)}
           />
         </label>
+      </div>
+      <div className={styles.row} role="radiogroup" aria-label="Match type">
+        {(
+          [
+            ["casual", "Casual", "undo allowed"],
+            ["tournament", "Tournament", "no undo"],
+          ] as const
+        ).map(([value, label, note]) => (
+          <label key={value}>
+            <input
+              type="radio"
+              name="match-mode"
+              data-testid={`match-mode-${value}`}
+              checked={matchMode === value}
+              onChange={() => setMatchMode(value)}
+            />{" "}
+            {label} <span className={styles.note}>({note})</span>
+          </label>
+        ))}
       </div>
       <button type="submit" className={styles.start} data-testid="start-game">
         Start

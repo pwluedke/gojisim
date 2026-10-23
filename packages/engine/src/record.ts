@@ -2,7 +2,7 @@ import { applyAction } from "./actions";
 import { advanceToDecision } from "./phases";
 import { createGame, type PlayerSetup } from "./setup";
 import { failedRules, validateDeck } from "@gojisim/cards";
-import type { Action, GameState, PlayerId } from "./types";
+import type { Action, FirstPick, GameState, PlayerId } from "./types";
 
 /**
  * Everything needed to rebuild a game: the seed, both decks and every action taken. The engine is
@@ -31,7 +31,18 @@ export interface GameRecord {
    * which choices are asked, so replay needs it; older records have none.
    */
   confirmSingleTarget?: PlayerId[];
+  /** Players who confirm every single-option choice (M5e, `GameState.confirmSingleOption`). */
+  confirmSingleOption?: PlayerId[];
+  /** The First / Second pick (M5e); replay needs it. Without it, 6.3.1.4 picks at random. */
+  firstPick?: FirstPick;
+  /**
+   * Casual or Tournament (M5e). Casual allows undo in `/play`; an undo removes actions from the
+   * record, so the record keeps the final line only. Information only for the engine.
+   */
+  mode?: MatchMode;
 }
+
+export type MatchMode = "casual" | "tournament";
 
 /** One seat of a recorded game (M6d). */
 export type SeatRecord =
@@ -71,7 +82,14 @@ export function deckLegalityFor(
 
 /** A new game, advanced to its first decision. */
 export function startGame(
-  record: Pick<GameRecord, "seed" | "decks" | "confirmSingleTarget">,
+  record: Pick<
+    GameRecord,
+    | "seed"
+    | "decks"
+    | "confirmSingleTarget"
+    | "confirmSingleOption"
+    | "firstPick"
+  >,
 ): GameState {
   return advanceToDecision(
     createGame({
@@ -80,6 +98,10 @@ export function startGame(
       ...(record.confirmSingleTarget
         ? { confirmSingleTarget: record.confirmSingleTarget }
         : {}),
+      ...(record.confirmSingleOption
+        ? { confirmSingleOption: record.confirmSingleOption }
+        : {}),
+      ...(record.firstPick ? { firstPick: record.firstPick } : {}),
     }),
   );
 }
