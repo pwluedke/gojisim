@@ -1,7 +1,7 @@
 /*
- * Board layout (M5a, M5b). Every color, spacing value and card size comes from theme.css. Zone
- * and card sizes follow the available width: zones split the space between the sidebar and the
- * right column, and their height follows from the thumbnail aspect ratio.
+ * Board layout (M5a, M5b). Every color, spacing value and card size comes from theme.css. Every
+ * card on the board and every mat cell is one size, `--card-w` by `--card-h`, derived from the
+ * window size.
  */
 
 .layout {
@@ -68,112 +68,134 @@
 }
 
 /*
- * The official playmat: 7 columns by 3 rows per side. Every cell is one column wide (the Rage
- * zone spans 2 by 2), and a row is as tall as a zone holding one card.
+ * The official playmat: 7 by 3 card-shaped cells per side, each `--card-w` by `--card-h` (the
+ * Rage zone spans 2 by 2). A cell is a faint outline with its label until a card covers it.
  */
 .mat {
-  container-type: inline-size;
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: var(--space-2);
+  grid-template-columns: repeat(7, var(--card-w));
+  grid-template-rows: repeat(3, var(--card-h));
+  gap: var(--mat-gap);
+  justify-content: center;
 }
 
-/*
- * Thumbnail height of a card on the mat: from the column width, capped so the 6 rows, both hands
- * and the gaps fit the window height. A short window hides the thumbnails.
- */
 .matCell {
-  --zone-thumb-height: max(
-    0px,
-    min(
-      ((100cqw - 6 * var(--space-2)) / 7 - 20px) / var(--thumb-aspect),
-      (100vh - var(--board-fixed-height)) / 6 - var(--zone-chrome)
-    )
-  );
-
+  position: relative;
   display: flex;
-  flex-direction: column;
   min-width: 0;
-}
-
-@media (max-height: 960px) {
-  .matCell {
-    --zone-thumb-height: 0px;
-  }
-
-  .matCell .thumb {
-    display: none;
-  }
-}
-
-.matCell .thumb {
-  height: var(--zone-thumb-height);
-  aspect-ratio: auto;
 }
 
 .matCell > * {
   flex: 1;
 }
 
-.zone,
-.strategyZone,
-.rageZone,
-.pile {
-  min-height: calc(var(--zone-thumb-height) + var(--zone-chrome));
-  padding: var(--space-1);
+.cell,
+.rageZone {
+  position: relative;
   border-radius: var(--radius);
 }
 
-.zone {
-  border: 1px solid var(--color-border);
-  background: var(--color-zone);
+.cell {
+  border: 1px solid var(--color-cell-outline);
 }
 
-.strategyZone,
-.pile {
-  border: 1px dashed var(--color-border);
-  background: var(--color-zone);
-}
-
-.pile {
+.cellLabel {
+  position: absolute;
+  inset: 0;
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.rageZone {
-  border: 1px solid var(--color-border);
-  background: var(--color-zone-rage);
-}
-
-.rageCount {
-  margin: var(--space-2) 0;
-  font-size: var(--font-size-xl);
-}
-
-.zoneMonster {
-  background: var(--color-zone-monster);
-}
-
-.zone8 {
-  border-width: 2px;
-}
-
-.zoneLabel {
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1);
+  text-align: center;
   font-size: var(--font-size-sm);
   font-weight: bold;
   line-height: 1.2;
   color: var(--color-muted);
 }
 
+/* A card in a cell, at the cell's place (offset when the cell holds more than one). */
+.layer {
+  position: absolute;
+  inset: -1px;
+}
+
+.zoneMonster {
+  border-color: var(--color-zone-monster-outline);
+}
+
 .monster {
-  margin-bottom: var(--space-1);
+  width: 100%;
+  height: 100%;
   border-radius: var(--radius);
 }
 
-.stackNote {
+.rageZone {
+  padding: var(--space-2);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-zone-rage);
+}
+
+.zoneLabel {
   font-size: var(--font-size-sm);
+  font-weight: bold;
   color: var(--color-muted);
+}
+
+.rageCount {
+  margin: var(--space-1) 0;
+  font-size: var(--font-size-xl);
+}
+
+.countBadge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 2;
+  min-width: 20px;
+  padding: 0 var(--space-1);
+  border-radius: 999px;
+  background: var(--color-chip);
+  color: var(--color-chip-text);
+  font-size: var(--font-size-sm);
+  font-weight: bold;
+  text-align: center;
+}
+
+/*
+ * The playmat's chevrons, in the gap between two zones and under the cards: solid for the path
+ * (1 to 8), dotted and lighter for counter moves (front zone to the zone behind it). A box with
+ * two borders, turned to point right, then rotated to its direction.
+ */
+.pathArrow,
+.counterArrow {
+  position: absolute;
+  z-index: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.pathArrow::before,
+.counterArrow::before {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  translate: -65% -50%;
+  rotate: -45deg;
+  border-right: 2px solid var(--color-arrow);
+  border-bottom: 2px solid var(--color-arrow);
+}
+
+.counterArrow::before {
+  border-right: 3px dotted var(--color-arrow-counter);
+  border-bottom: 3px dotted var(--color-arrow-counter);
+}
+
+/* Cards cover the arrows. */
+.layer {
+  z-index: 1;
 }
 
 .centerLine {
@@ -192,43 +214,72 @@
   outline-color: var(--color-selected);
 }
 
-.card,
-.cardFill {
+/* One card: the full printed card image at the board's one card size. */
+.card {
+  position: relative;
+  width: var(--card-w);
+  height: var(--card-h);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--color-panel);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
+}
+
+.cardSmall {
+  composes: card;
+  width: calc(var(--card-w) / 2);
+  height: calc(var(--card-h) / 2);
+}
+
+.cardImage {
+  position: absolute;
+  inset: 0;
   width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cardFallback {
+  position: absolute;
+  inset: 0;
   padding: var(--space-1);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  background: var(--color-panel);
   font-size: var(--font-size-sm);
-  overflow: hidden;
-}
-
-.thumb {
-  display: block;
-  width: 100%;
-  aspect-ratio: var(--thumb-aspect);
-  object-fit: cover;
-  border-radius: calc(var(--radius) / 2);
-}
-
-.cardName {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-  min-height: 2.4em;
   font-weight: bold;
-  line-height: 1.2;
 }
 
-.cardMeta,
-.cardValue {
-  line-height: 1.25;
+/* Overlay chips: counter power or threat at the bottom edge, "×N" for a stack. */
+.chip,
+.stackBadge,
+.manualBadge {
+  position: absolute;
+  z-index: 1;
+  padding: 0 var(--space-1);
+  border-radius: 999px;
+  background: var(--color-chip);
+  color: var(--color-chip-text);
+  font-size: var(--font-size-sm);
+  font-weight: bold;
+  line-height: 16px;
   white-space: nowrap;
 }
 
+.chip {
+  bottom: 2px;
+  left: 50%;
+  translate: -50% 0;
+}
+
+.stackBadge {
+  top: 2px;
+  right: 2px;
+}
+
 .manualBadge {
-  color: var(--color-illegal);
+  top: 2px;
+  left: 2px;
+  background: var(--color-illegal);
 }
 
 .modifierUp {
@@ -241,10 +292,19 @@
   font-weight: bold;
 }
 
-.cardBack {
+.chipUp {
+  color: var(--color-modifier-up-on-chip);
+}
+
+.chipDown {
+  color: var(--color-modifier-down-on-chip);
+}
+
+.cardBack,
+.cardBackSmall {
   flex: none;
-  width: var(--card-back-width);
-  height: var(--card-back-height);
+  width: var(--card-w);
+  height: var(--card-h);
   border-radius: var(--radius);
   background: repeating-linear-gradient(
     45deg,
@@ -255,20 +315,21 @@
   );
 }
 
+.cardBackSmall {
+  width: calc(var(--card-w) / 2);
+  height: calc(var(--card-h) / 2);
+}
+
 .handBacks {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  min-height: var(--card-back-height);
-}
-
-.revealed {
-  width: var(--hand-card-min);
+  height: calc(var(--card-h) / 2);
 }
 
 /* The tucked hand strip (M5b): the full width of the board, never scrolling. */
 .hand {
-  padding: var(--space-2);
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   background: var(--color-panel);
@@ -276,7 +337,7 @@
 
 .handCards {
   display: grid;
-  column-gap: var(--space-2);
+  column-gap: var(--space-1);
   /* Room for the lit and selected outlines inside the clipped strip. */
   padding: var(--space-1);
   overflow: hidden;
@@ -284,8 +345,8 @@
 
 .handCard {
   position: relative;
-  width: 100%;
-  min-width: var(--hand-card-min);
+  width: var(--card-w);
+  height: var(--card-h);
   border-radius: var(--radius);
   background: var(--color-panel);
   transition: transform 0.1s;
@@ -326,7 +387,7 @@
 }
 
 .dragOverlay {
-  width: var(--hand-card-max);
+  width: var(--card-w);
   box-shadow: var(--shadow);
   cursor: grabbing;
 }

@@ -46,17 +46,17 @@ function HandCard({
       {...attributes}
       {...listeners}
     >
-      <CardFace card={card} data={model.view.cards[card.cardId]} fill />
+      <CardFace card={card} data={model.view.cards[card.cardId]} />
     </div>
   );
 }
 
 /**
- * The tucked hand strip (M5b): the full width of the board. Cards shrink as the hand grows, then
- * overlap: columns may shrink below a card's minimum width, so each card runs under the next one
- * (the last card is right-aligned over its neighbor) and the strip never scrolls. A card is lit
- * when it can be played to a zone (`isLit`); a card that can only invade or gain rage is unlit but
- * still selectable; a card with no action is dimmed. While a bot decides (or the game is over)
+ * The tucked hand strip (M5b): the full width of the board, full cards at the board's one card
+ * size. A large hand overlaps: columns may shrink below the card width, so each card runs under
+ * the next one with its left edge showing (the last card is right-aligned over its neighbor), and
+ * the strip never scrolls. A card is lit when it can be played to a zone (`isLit`); a card that
+ * can only invade or gain rage is unlit but still selectable; a card with no action is dimmed. While a bot decides (or the game is over)
  * the hand is locked.
  */
 export function Hand({
@@ -77,7 +77,7 @@ export function Hand({
   onSelect: (instanceId: string) => void;
 }) {
   const cards = player.hand.cards ?? [];
-  const columns = `repeat(${Math.max(1, cards.length)}, minmax(0, var(--hand-card-max)))`;
+  const columns = `repeat(${Math.max(1, cards.length)}, minmax(0, var(--card-w)))`;
   return (
     <div
       className={styles.hand}

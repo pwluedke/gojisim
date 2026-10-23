@@ -40,13 +40,15 @@ The opponent's mat is rotated 180°, like a real table: column `c` becomes `6 - 
 
 - Zones follow the spec geometry (4.4.5): same-column zones line up, and the two zone 8s (`*`) face each other across the center line.
 - Each invading monster sits in the zone it occupies, as its stack's top card, with rage and threat beside it in Stats.
+- Card display (M5b fix, godzilla-sim formatting): every card on the board, mat zones, monster stacks, strategy zones, discard top and the hand, is the full printed card image (the 300 px thumb), with no text rows under or over it. All cards and mat cells share one size, `--card-w` by `--card-h` (63:88): the card height comes from the window height so both mats, the hand row and the half-height opponent hand row fit without scrolling. Empty cells show a faint outline with their label; small arrows in the gaps, under the cards, mark the path between zones (solid, 1 to 8) and where a countered monster moves (dotted, 8 to 3, 7 to 4, 6 to 5; 5.15.1.1).
+- Overlay chips replace the text rows: a counter power chip at the bottom edge of a battle card (printed value plus the colored modifier), a threat chip on the invading monster, a count badge on pile cells, and "×N" on a stack.
 - The card preview is a fixed panel that opens over the right column when any card is hovered. It never covers the hand or the zones.
 - The sidebar collapses to icons for more board space.
 
 ## Hand and card movement
 
 **Tucked hand (default)**
-- The hand strip spans the board width. As the hand grows, cards shrink and overlap, but each always shows its name, rank, type and counter power or threat.
+- The hand strip spans the board width. Hand cards are full cards at `--card-h`; a large hand overlaps but every card stays whole, with its left edge showing.
 - Lit = can be played to a zone (battle, strategy or monster play), from `getLegalActions`. A card whose only actions are invade or gain rage stays unlit, but selecting or dragging it still lights the discard pile and the Rage zone.
 
 **Click to highlight.** One click on a hand card selects it and lights every legal destination:
@@ -95,7 +97,7 @@ The opponent's mat is rotated 180°, like a real table: column `c` becomes `6 - 
 
 | Shown | Where | Source |
 | --- | --- | --- |
-| Counter power of each battle card: printed value plus a colored modifier when an ability changed it (PR #24 pattern) | Under the card | `getCounterPower` |
+| Counter power of each battle card: printed value plus a colored modifier when an ability changed it (PR #24 pattern) | Chip on the card | `getCounterPower` |
 | Total counter power for the next counter phase vs the opponent's threat | Stats panel, both sides | 7.4.2, `getThreat` |
 | Monster rank, rage and threat | On the monster and in Stats | `getRank`, rage, `getThreat` |
 | Rank change from Burst, with the end-phase discard reminder | On the monster | 12.5 |

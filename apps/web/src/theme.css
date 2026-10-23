@@ -10,9 +10,15 @@
   --color-text: #1d2330;
   --color-muted: #6b7280;
   --color-border: #c9ced8;
-  --color-zone: #fafbfc;
-  --color-zone-monster: #fde8e8;
   --color-zone-rage: #fff4e0;
+  --color-zone-monster-outline: #e8a0a0;
+  --color-cell-outline: #d5d9e1;
+  --color-arrow: #6b7280;
+  --color-arrow-counter: #9aa3b2;
+  --color-chip: rgb(20 24 33 / 85%);
+  --color-chip-text: #ffffff;
+  --color-modifier-up-on-chip: #7cc4ff;
+  --color-modifier-down-on-chip: #ff9b8f;
   --color-center-line: #1d2330;
   --color-accent: #0066cc;
   --color-modifier-up: #0066cc;
@@ -38,18 +44,27 @@
   --font-size-xl: 24px;
 
   /*
-   * Card and zone sizes come from the available width (M5b): zones and strategy zones share the
-   * space between the sidebar and the right column, cards fill their zone, and thumbnails keep
-   * this aspect ratio. `--zone-chrome` is the height of a zone's label and a card's text.
+   * One card size for the whole board (M5b fix, godzilla-sim formatting): both mats (6 rows), the
+   * hand row and the opponent's half-height hand row fit the window height, and the 7 mat
+   * columns fit beside the sidebar and the preview column. Cards keep the printed 63:88 aspect.
+   * `--board-chrome` is everything else in the height: paddings, gaps, the center line, the hand
+   * panel's label and padding.
    */
-  --thumb-aspect: 1.8;
-  --zone-chrome: 90px;
-  /* Everything but the 6 mat rows: both hands, the center line, the gaps. */
-  --board-fixed-height: 320px;
-  --hand-card-min: 96px;
-  --hand-card-max: clamp(112px, 8.5vw, 168px);
-  --card-back-width: 30px;
-  --card-back-height: 42px;
+  /* Wide enough for the playmat's arrows between zones. */
+  --mat-gap: 12px;
+  --board-chrome: calc(96px + 4 * var(--mat-gap));
+  --card-h: min(
+    (100vh - var(--board-chrome)) / 7.5,
+    (
+        (
+            100vw - var(--sidebar-width) - var(--side-column-width) - 48px - 6 *
+              var(--mat-gap)
+          ) /
+          7
+      ) *
+      88 / 63
+  );
+  --card-w: calc(var(--card-h) * 63 / 88);
   --sidebar-width: 280px;
   --sidebar-collapsed-width: 44px;
   /* Wide enough for the card preview, which opens over this column. */
