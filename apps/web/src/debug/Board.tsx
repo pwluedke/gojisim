@@ -7,6 +7,7 @@ import {
 import {
   type CardInstance,
   type GameState,
+  getCounterPower,
   getThreat,
   type PlayerState,
   type ZoneNumber,
@@ -32,6 +33,11 @@ export function CardView({
   onSelect: Select;
 }) {
   const data = cardData(state, card);
+  // Counter power the engine adds to (or takes from) a battle card's printed value.
+  const bonus =
+    data?.type === "Battle"
+      ? getCounterPower(state, card) - (data.counterOrThreat ?? 0)
+      : 0;
   // A hidden card (cardId -1): the viewer sees only its back (M6d).
   if (card.cardId === -1)
     return (
@@ -82,7 +88,21 @@ export function CardView({
         {data?.type}{" "}
         {data?.rank !== null && data?.rank !== undefined ? `R${data.rank}` : ""}
       </div>
-      <div>{data?.counterOrThreat ?? ""}</div>
+      <div>
+        {data?.counterOrThreat ?? ""}
+        {bonus !== 0 && (
+          // Continuous effects on this card (10.8.1), e.g. City of Tokyo's +5000.
+          <span
+            data-testid="counter-power-bonus"
+            title={`Counter power with effects: ${(data?.counterOrThreat ?? 0) + bonus}`}
+            style={{ color: "#06c", fontWeight: "bold" }}
+          >
+            {" "}
+            {bonus > 0 ? "+" : ""}
+            {bonus}
+          </span>
+        )}
+      </div>
       {card.statuses?.length ? <div>{card.statuses.join(", ")}</div> : null}
     </button>
   );
