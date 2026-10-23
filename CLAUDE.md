@@ -304,3 +304,14 @@ Accepted by Monarch in the PR #26 playmat review (decision 1, mat thumbnails shr
 203. The Rage zone shows rage, threat, and total counter power vs the opponent's threat. Monster rank is shown in the preview, not on the board.
 204. The deck and monster deck cells show a card back and their count; the discard cell shows its top card, which can be previewed.
 205. Grid positions with no mat area (the holes in the 7 × 3 grid) are left blank, with no box drawn.
+
+Accepted by Monarch in the M5b fix review (PR #27).
+
+206. `--card-h` is also capped by the window width, so the 7 mat columns fit beside the sidebar and the preview column (neither 1440 × 900 nor 1920 × 1080 reaches the cap).
+207. The mat is centered in the space left of the preview column; the hand strip stays full width and left-aligned.
+208. Several cards in one mat cell (an overloaded zone, the monster plus a battle card, two strategy cards) are offset 6 px down and right each, so every card shows.
+209. Cards whose abilities are manual keep a small `M` badge in the top-left corner.
+210. The deck and monster deck cells show a full-size card back with the count badge; the cell label shows only while the pile is empty.
+211. A card whose image fails to load (as on CI) shows its name inside the card box; with images present no text shows.
+212. Revealed cards in the opponent's hand show as half-size faces next to the backs; the one-card-size test leaves the opponent's hand row out.
+213. Choice modals (M5c) use the same `CardFace` at the same size.

@@ -110,4 +110,42 @@ for (const [width, height] of [
       expect(Math.abs((z1?.height ?? 0) - first.height)).toBeLessThanOrEqual(1);
       await noScroll(page);
     });
+
+    test("the playmat's arrows sit in the gaps, clear of every card and chip", async ({
+      page,
+    }) => {
+      await handOfTen(page);
+      // Path 1 to 8 (7 arrows) and counter moves 8 to 3, 7 to 4, 6 to 5, on both mats.
+      await expect(page.getByTestId("path-arrow")).toHaveCount(14);
+      await expect(page.getByTestId("counter-arrow")).toHaveCount(6);
+      const cards = page.locator(
+        '[data-testid^="mat-"] [data-testid="card"], [data-testid^="mat-"] [data-testid="pile-back"]',
+      );
+      const boxes: ({
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      } | null)[] = [];
+      for (let i = 0; i < (await cards.count()); i++)
+        boxes.push(await cards.nth(i).boundingBox());
+      expect(boxes.length).toBeGreaterThan(4);
+      const arrows = page.locator(
+        '[data-testid="path-arrow"], [data-testid="counter-arrow"]',
+      );
+      for (let i = 0; i < (await arrows.count()); i++) {
+        const point = await arrows.nth(i).boundingBox();
+        if (!point) throw new Error(`no arrow ${i}`);
+        // The chevron reaches about 4 px around its point.
+        for (const box of boxes) {
+          if (!box) continue;
+          const inside =
+            point.x > box.x - 4 &&
+            point.x < box.x + box.width + 4 &&
+            point.y > box.y - 4 &&
+            point.y < box.y + box.height + 4;
+          expect(inside).toBe(false);
+        }
+      }
+    });
   });

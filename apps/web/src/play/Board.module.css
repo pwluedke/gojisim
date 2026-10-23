@@ -162,21 +162,40 @@
   text-align: center;
 }
 
-/* Path arrows between zones (1 to 8), on the cell edge facing the zone before. */
-.pathArrow {
+/*
+ * The playmat's chevrons, in the gap between two zones and under the cards: solid for the path
+ * (1 to 8), dotted and lighter for counter moves (front zone to the zone behind it). A box with
+ * two borders, turned to point right, then rotated to its direction.
+ */
+.pathArrow,
+.counterArrow {
   position: absolute;
-  z-index: 3;
-  translate: -50% -50%;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--color-panel);
-  border: 1px solid var(--color-cell-outline);
-  color: var(--color-muted);
-  font-size: 10px;
-  line-height: 14px;
-  text-align: center;
+  z-index: 0;
+  width: 0;
+  height: 0;
   pointer-events: none;
+}
+
+.pathArrow::before,
+.counterArrow::before {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  translate: -65% -50%;
+  rotate: -45deg;
+  border-right: 2px solid var(--color-arrow);
+  border-bottom: 2px solid var(--color-arrow);
+}
+
+.counterArrow::before {
+  border-right: 3px dotted var(--color-arrow-counter);
+  border-bottom: 3px dotted var(--color-arrow-counter);
+}
+
+/* Cards cover the arrows. */
+.layer {
+  z-index: 1;
 }
 
 .centerLine {

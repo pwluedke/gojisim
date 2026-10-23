@@ -13,6 +13,8 @@
   --color-zone-rage: #fff4e0;
   --color-zone-monster-outline: #e8a0a0;
   --color-cell-outline: #d5d9e1;
+  --color-arrow: #6b7280;
+  --color-arrow-counter: #9aa3b2;
   --color-chip: rgb(20 24 33 / 85%);
   --color-chip-text: #ffffff;
   --color-modifier-up-on-chip: #7cc4ff;
@@ -48,8 +50,9 @@
    * `--board-chrome` is everything else in the height: paddings, gaps, the center line, the hand
    * panel's label and padding.
    */
-  --mat-gap: 4px;
-  --board-chrome: 112px;
+  /* Wide enough for the playmat's arrows between zones. */
+  --mat-gap: 12px;
+  --board-chrome: calc(96px + 4 * var(--mat-gap));
   --card-h: min(
     (100vh - var(--board-chrome)) / 7.5,
     (

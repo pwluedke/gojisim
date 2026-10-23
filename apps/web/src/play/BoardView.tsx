@@ -360,39 +360,63 @@ const ZONE_AT = new Map(
   ),
 );
 
-const ARROWS: Record<string, string> = {
-  "1,0": "→",
-  "-1,0": "←",
-  "0,1": "↓",
-  "0,-1": "↑",
-  "1,1": "↘",
-  "-1,-1": "↖",
-  "1,-1": "↗",
-  "-1,1": "↙",
-};
+/**
+ * The playmat's arrows, as (from, to) zone pairs. Path arrows (solid) follow the monster's path
+ * 1 to 8; counter arrows (dotted) point from each front zone to the zone behind it, where a
+ * countered monster moves (5.15.1.1).
+ */
+const PATH: readonly [ZoneNumber, ZoneNumber][] = [
+  [1, 2],
+  [2, 3],
+  [3, 4],
+  [4, 5],
+  [5, 6],
+  [6, 7],
+  [7, 8],
+];
+const COUNTER: readonly [ZoneNumber, ZoneNumber][] = [
+  [8, 3],
+  [7, 4],
+  [6, 5],
+];
 
 /**
- * The arrow into zone `zone` from the zone before it on the monster's path (1 to 8, like the
- * official mat), on the edge or corner of this cell that faces the previous zone.
+ * A chevron from zone `from` to zone `to`, drawn in the destination cell at the midpoint between
+ * the two cells' centers: in the gap for neighbors, in the empty cell for 8 to 3. It sits under
+ * the cards, so it never covers a chip.
  */
-function PathArrow({ zone, flip }: { zone: ZoneNumber; flip: boolean }) {
-  const from = ZONE_AT.get((zone - 1) as ZoneNumber);
-  const to = ZONE_AT.get(zone);
-  if (!from || !to) return null;
+function MatArrow({
+  from,
+  to,
+  flip,
+  kind,
+}: {
+  from: ZoneNumber;
+  to: ZoneNumber;
+  flip: boolean;
+  kind: "path" | "counter";
+}) {
+  const a = ZONE_AT.get(from);
+  const b = ZONE_AT.get(to);
+  if (!a || !b) return null;
   const sign = flip ? -1 : 1;
-  const dx = Math.sign(to.col - from.col) * sign;
-  const dy = Math.sign(to.row - from.row) * sign;
-  const edge = (d: number) => (d > 0 ? "0%" : d < 0 ? "100%" : "50%");
+  const dx = (b.col - a.col) * sign;
+  const dy = (b.row - a.row) * sign;
+  const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
   return (
     <span
-      className={styles.pathArrow}
-      style={{ left: edge(dx), top: edge(dy) }}
-      data-testid="path-arrow"
-      data-to={zone}
+      className={kind === "path" ? styles.pathArrow : styles.counterArrow}
+      style={{
+        // Counter arrows sit a quarter card to the side, clear of the 5 to 6 path arrow.
+        left: `calc(50% - ${dx / 2} * (var(--card-w) + var(--mat-gap)) + ${kind === "counter" ? sign / 4 : 0} * var(--card-w))`,
+        top: `calc(50% - ${dy / 2} * (var(--card-h) + var(--mat-gap)))`,
+        rotate: `${angle}deg`,
+      }}
+      data-testid={`${kind}-arrow`}
+      data-from={from}
+      data-to={to}
       aria-hidden
-    >
-      {ARROWS[`${dx},${dy}`]}
-    </span>
+    />
   );
 }
 
@@ -443,9 +467,23 @@ function Mat({
               opponent={opponent}
               area={area}
             />
-            {area.kind === "zone" && area.zone > 1 && (
-              <PathArrow zone={area.zone} flip={side === "opp"} />
-            )}
+            {area.kind === "zone" &&
+              [
+                ...PATH.filter(([, to]) => to === area.zone).map(
+                  ([from]) => [from, "path"] as const,
+                ),
+                ...COUNTER.filter(([, to]) => to === area.zone).map(
+                  ([from]) => [from, "counter"] as const,
+                ),
+              ].map(([from, kind]) => (
+                <MatArrow
+                  key={`${kind}-${from}`}
+                  from={from}
+                  to={area.zone}
+                  flip={side === "opp"}
+                  kind={kind}
+                />
+              ))}
           </div>
         );
       })}
