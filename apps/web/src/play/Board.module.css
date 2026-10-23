@@ -15,7 +15,7 @@
   flex: none;
   display: flex;
   flex-direction: column;
-  width: calc(var(--side-column-width) + 2 * var(--space-4));
+  width: var(--right-column-width);
   height: 100vh;
   padding: var(--space-2) var(--space-4);
   border-left: 1px solid var(--color-border);
@@ -70,12 +70,61 @@
  * The official playmat: 7 by 3 card-shaped cells per side, each `--card-w` by `--card-h` (the
  * Rage zone spans 2 by 2). A cell is a faint outline with its label until a card covers it.
  */
+/*
+ * One player's mat. The outer columns are landscape, one card height wide (M5f): column 0 holds
+ * the strategy zones, so strategy cards show whole, and column 6 the deck and discard pile. Both
+ * mats share the template, so the opponent's mirrored mat lines up column for column. The border
+ * glows in the turn player's monster colors (M5f), set inline.
+ */
 .mat {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(7, var(--card-w));
+  grid-template-columns: var(--card-h) repeat(5, var(--card-w)) var(--card-h);
   grid-template-rows: repeat(3, var(--card-h));
   gap: var(--mat-gap);
+  /* The zones keep clear of the mat's edge; the glow is on the border, outside this padding. */
+  padding: var(--mat-pad);
   justify-content: center;
+  /* As wide as its grid plus the padding, so the glow and the mat image frame the zones. */
+  align-self: center;
+  border-radius: var(--radius);
+  transition: box-shadow 0.6s;
+}
+
+/* A custom mat image (M5f) behind the zone grid; cells get a light backing to stay readable. */
+.matImage {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+.matCustom .cell,
+.matCustom .rageZone {
+  background-color: rgb(255 255 255 / 60%);
+}
+
+/* Strategy zones are landscape slots: a card height wide, a card width tall. */
+.matCell.matCellStrategy {
+  align-items: center;
+}
+
+.matCell.matCellStrategy > * {
+  flex: none;
+  width: 100%;
+  height: var(--card-w);
+}
+
+/* Piles keep a portrait slot, centered in their landscape column. */
+.matCell.matCellNarrow {
+  justify-content: center;
+}
+
+.matCell.matCellNarrow > * {
+  flex: none;
+  width: var(--card-w);
 }
 
 .matCell {
@@ -224,6 +273,12 @@
   box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
 }
 
+.cardLandscape {
+  composes: card;
+  width: var(--card-h);
+  height: var(--card-w);
+}
+
 .cardSmall {
   composes: card;
   width: calc(var(--card-w) / 2);
@@ -330,20 +385,46 @@
 }
 
 /* The tucked hand strip (M5b): the full width of the board, never scrolling. */
+/*
+ * M5f: the hand takes the height left under the mats, and its cards fill it, with --hand-gap above
+ * and below. The hand is a size container, so its cards size from its height (rotated strategy
+ * cards too); width follows the 63:88 card ratio.
+ */
 .hand {
-  padding: var(--space-1) var(--space-2);
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  container-type: size;
+  padding: var(--hand-gap) var(--space-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   background: var(--color-panel);
 }
 
+/* The hand's count, over its top-left corner, so the cards keep the full height. */
+.handLabel {
+  position: absolute;
+  top: 0;
+  left: var(--space-2);
+  z-index: 3;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius);
+  background: rgb(255 255 255 / 80%);
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+  pointer-events: none;
+}
+
 /* Centered under the mat (M5d); a large hand overlaps instead of scrolling. */
 .handCards {
+  --card-h: 100cqh;
+  --card-w: calc(100cqh * 63 / 88);
   display: grid;
   justify-content: center;
   column-gap: var(--space-1);
-  /* Room for the lit and selected outlines inside the clipped strip. */
-  padding: var(--space-1);
+  height: 100%;
+  /* Room for the lit and selected outlines at the sides of the clipped strip. */
+  padding: 0 var(--space-1);
   overflow: hidden;
 }
 
@@ -1002,4 +1083,101 @@
   width: 100cqh;
   height: 100cqw;
   transform: translate(-50%, -50%) rotate(90deg);
+}
+
+/* Card movement (M5f): flying cards over the board, and the lock that holds input meanwhile. */
+.flightLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.flight {
+  position: fixed;
+  /* Moves scale uniformly about the card's center (M5f fix). */
+  transform-origin: 50% 50%;
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  box-shadow: var(--shadow);
+}
+
+.flightBack {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-card-back-1),
+    var(--color-card-back-1) 6px,
+    var(--color-card-back-2) 6px,
+    var(--color-card-back-2) 12px
+  );
+}
+
+/*
+ * A destroyed card's shards (M5f): each is the whole card image clipped to one angular polygon
+ * (`shards.ts`), so together they show the card until they fly apart.
+ */
+.piece {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  background-color: var(--color-panel-alt);
+  background-size: 100% 100%;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 35%));
+}
+
+.flight:has(.piece) {
+  background: transparent;
+  box-shadow: none;
+}
+
+.animationLock {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  cursor: progress;
+}
+
+/* The mat image setting (M5f). */
+.matSettings {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.matSettings label {
+  display: block;
+}
+
+.error {
+  color: var(--color-illegal);
+  font-size: var(--font-size-sm);
+}
+
+/* The collapsed battle log (M5f): a thin strip with the expand button. */
+.rightColumnCollapsed {
+  composes: rightColumn;
+  align-items: center;
+  padding: var(--space-2) 0;
+}
+
+.logToggle {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.logTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* With the log collapsed, the preview and the zone banner open over the right side of the board. */
+:global(.log-collapsed) .preview,
+:global(.log-collapsed) .choiceBanner {
+  right: calc(var(--log-strip-width) + var(--space-2));
 }

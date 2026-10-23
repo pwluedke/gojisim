@@ -100,6 +100,15 @@ The opponent's mat is rotated 180°, like a real table: column `c` becomes `6 - 
 - Standby and replacement order options show each ability's printed text above its card.
 - Strategy cards turn 90° clockwise in the hand (tucked and expanded) and on top of the discard pile, so the whole landscape card fills the portrait slot. Strategy zones, modals and the preview keep them horizontal.
 
+**M5f additions (board polish)**
+- Card moves animate from the before and after board snapshots (FLIP): a card that left one place is paired with a new card of the same card id elsewhere (instance ids change on every move), and an unpaired card flies from or to the pile whose count changed, measured as one card there (the last card in a hand row, the pile's top or back, or a card-sized spot at its center), never the container. A moving card keeps the card's shape: its centers line up and one uniform scale matches the longer sides. Destroyed cards break into angular shards (triangles and 4 or 5 sided polygons, `shards.ts`, seeded by the card's instance id so a replay breaks the same way) that hang spread out for a moment, then reassemble in flight, arriving whole at the destination (never whole where it was destroyed); all moves of one step play together. Input is locked and the bot waits while they play. A history jump, an undo or a hotseat flip shows at once.
+- The turn player's mat border glows in their invading monster's colors, each in turn, then grey.
+- A custom mat image (IndexedDB) sits behind both mats, the opponent's turned 180°, with scale and position.
+- The mat's outer columns are landscape (one card height wide): column 0 holds the strategy zones, so strategy cards show whole, and column 6 the deck and discard pile, centered. Both mats share the template, so columns still line up across the center line.
+- `--mat-pad` (12 px, like `--mat-gap`) keeps every zone, strategy zone and pile clear of the mat's edge; the turn glow is on the mat border, outside that padding.
+- The hand row takes the height left under the mats; its cards fill it, with `--hand-gap` (4 px) above and below, and overlap as before.
+- The battle log column collapses to a thin strip with an expand button (its button or L, saved in settings); `--right-column-width` shrinks, so `--card-h` recomputes, and the preview opens over the board's right side.
+
 **Bot moves**
 - Each bot action shows for the delay time (600 ms default) as a short highlight on the card that moved and its destination, plus a log line.
 
@@ -162,6 +171,7 @@ The opponent's mat is rotated 180°, like a real table: column `c` becomes `6 - 
 3. **M5c prompts and choices:** prompt panel, choice modal for every `pendingChoice` kind, hotseat privacy cover, bot thinking state and move highlight, Concede for human seats.
 4. **M5d log, tracker, shortcuts:** plain-language battle log with card links and read-only rewind, phase tracker, all board numbers, keyboard shortcuts, settings, expanded hand.
 5. **M5e match rules and clarity:** First / Second pick, Casual undo and Tournament, the search modal, a modal for every human decision, ability text in order modals, rotated strategy cards.
+6. **M5f board polish:** card movement and destroy animations, custom mat image, turn glow, landscape strategy zones.
 
 **M5 exit criteria**
 - Paul plays a full game against the Hard bot at `/play` without opening `/debug`.

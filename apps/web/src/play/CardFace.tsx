@@ -41,6 +41,7 @@ export function CardFace({
   changes = [],
   extra = null,
   rotate = false,
+  landscape = false,
 }: {
   card: CardInstance;
   data: Card | undefined;
@@ -61,6 +62,8 @@ export function CardFace({
    * on top of the discard pile. Strategy zones, modals and the preview keep it horizontal.
    */
   rotate?: boolean;
+  /** A strategy card in its landscape strategy zone slot (M5f): drawn landscape, whole. */
+  landscape?: boolean;
 }) {
   const { preview } = useInteraction();
   if (!data) return <CardBack small={small} />;
@@ -71,9 +74,10 @@ export function CardFace({
   const rotated = rotate && data.type === "Strategy";
   return (
     <div
-      className={`${small ? styles.cardSmall : styles.card}${rotated ? ` ${styles.rotated}` : ""}`}
+      className={`${small ? styles.cardSmall : landscape ? styles.cardLandscape : styles.card}${rotated ? ` ${styles.rotated}` : ""}`}
       data-testid="card"
       data-rotated={rotated ? "true" : undefined}
+      data-owner={card.owner}
       data-instance-id={card.instanceId}
       data-card-id={data.id}
       title={`${data.name} [${data.cardNumber}]`}

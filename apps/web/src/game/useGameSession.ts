@@ -31,6 +31,11 @@ export interface GameSessionOptions {
    * applied once `hold` is false again.
    */
   hold?: boolean;
+  /**
+   * While true (`/play` card animations, M5f), no new bot decision starts; the bot's delay
+   * starts once it is false, so the delay runs after its last move's animation.
+   */
+  pause?: boolean;
 }
 
 /**
@@ -136,6 +141,7 @@ export function useGameSession(options: GameSessionOptions = {}) {
 
   // Back to live: apply the answer that arrived while viewing history.
   const hold = options.hold ?? false;
+  const pause = options.pause ?? false;
   useEffect(() => {
     const held = heldRef.current;
     if (hold || !held) return;
@@ -179,6 +185,7 @@ export function useGameSession(options: GameSessionOptions = {}) {
     if (!session || !state || !botToMove || state.result) return;
     if (session.position !== session.record.actions.length) return;
     if (!playing && !stepping) return;
+    if (pause) return;
     if (jobRef.current) return;
     const who = decider as PlayerId;
     const seat = session.seats[who];
@@ -212,7 +219,7 @@ export function useGameSession(options: GameSessionOptions = {}) {
       clearTimeout(timer);
       if (jobRef.current === job && !job.posted) jobRef.current = null;
     };
-  }, [session, state, botToMove, decider, playing, stepping, delay]);
+  }, [session, state, botToMove, decider, playing, stepping, delay, pause]);
 
   // The thinking indicator's clock.
   useEffect(() => {

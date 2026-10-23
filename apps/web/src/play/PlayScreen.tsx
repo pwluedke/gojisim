@@ -31,7 +31,9 @@ import { isLit, playableCards } from "./destinations";
 import { type Mode, NewGame } from "./NewGame";
 import { boardModel, bottomPlayer } from "./model";
 import { visibleCards } from "./Preview";
-import { useSettings } from "./settings";
+import { type AnimationSpeed, useSettings } from "./settings";
+import { MAT_MAX_BYTES } from "./matStore";
+import { useCustomMat } from "./useCustomMat";
 
 /** Who must decide now: the hotseat cover shows when this changes. */
 const deciderOf = (state: GameState) =>
@@ -70,7 +72,7 @@ const SHORTCUTS: [string, string][] = [
     "Esc",
     "Cancel the selected card, close the expanded hand, a dialog or the preview",
   ],
-  ["L", "Show / hide the battle log"],
+  ["L", "Collapse / expand the battle log"],
   [
     "U",
     "Undo your last action (Casual games, back to the last draw, search, reveal, shuffle, random result or opponent action)",
@@ -110,13 +112,15 @@ export function PlayScreen() {
   const [confirming, setConfirming] = useState<"pass" | "concede" | null>(null);
   // M5d: the read-only history view (a session position), the log (L), and the overlays (H, ?).
   const [historyAt, setHistoryAt] = useState<number | null>(null);
-  const [logOpen, setLogOpen] = useState(true);
   const [overlay, setOverlay] = useState<"hand" | "shortcuts" | null>(null);
   // M5e: the game waiting for its First / Second pick, and human searches waiting for Confirm.
   const [pending, setPending] = useState<PendingGame | null>(null);
   const [searches, setSearches] = useState<SearchResult[]>([]);
   // Log entries already checked for searches (a loaded record's searches are history).
   const seenLog = useRef(0);
+  // M5f: card animations lock input and hold the bot; the custom mat image setting.
+  const [animating, setAnimating] = useState(false);
+  const customMat = useCustomMat();
   // `/play` never shows hidden cards, so bot labels always keep private choices private.
   // Bot seats play at once, two bots included (`/play` has no Play button before a game).
   const game = useGameSession({
@@ -131,6 +135,8 @@ export function PlayScreen() {
     },
     // While the history view or a search result is open, a bot's answer waits.
     hold: historyAt !== null || searches.length > 0,
+    // While cards move, no bot decision starts; its delay starts after the animation.
+    pause: animating,
   });
   const { session, state } = game;
   const { setDelay } = game;
@@ -232,6 +238,8 @@ export function PlayScreen() {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target?.closest("input, select, textarea, [contenteditable]")) return;
+      // Input waits while cards move (M5f).
+      if (animating) return;
       if (e.ctrlKey || e.metaKey || e.altKey || !session) return;
       switch (e.key) {
         case "Escape":
@@ -248,7 +256,7 @@ export function PlayScreen() {
           return;
         case "l":
         case "L":
-          setLogOpen((open) => !open);
+          updateSettings({ logCollapsed: !settings.logCollapsed });
           return;
         case "u":
         case "U":
@@ -378,12 +386,18 @@ export function PlayScreen() {
 
   // The bottom player plays hand cards on the board (M5b) when it is their decision; otherwise
   // (a bot decides, or the game is over) the hand is locked.
-  const locked = viewing !== null || decider !== model.bottom || !human;
+  const locked =
+    viewing !== null || decider !== model.bottom || !human || animating;
   const concedeFor = hotseat
     ? model.bottom
     : (game.humanSeats[0] as PlayerId | undefined);
+  // Choice and search modals open once the cards have landed (M5f).
   const showModal =
-    viewing === null && human && choice !== null && decider === model.bottom;
+    viewing === null &&
+    human &&
+    choice !== null &&
+    decider === model.bottom &&
+    !animating;
   const zoneChoice = new Map<string, Action>(
     showModal && choice?.kind === "zone"
       ? actions.flatMap((a) =>
@@ -557,6 +571,88 @@ export function PlayScreen() {
           />{" "}
           Expanded hand on H
         </label>
+        <label>
+          Animation speed{" "}
+          <select
+            data-testid="setting-animation"
+            value={settings.animation}
+            onChange={(e) =>
+              updateSettings({ animation: e.target.value as AnimationSpeed })
+            }
+          >
+            <option value="off">Off</option>
+            <option value="normal">Normal</option>
+            <option value="fast">Fast</option>
+          </select>
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            data-testid="setting-turn-glow"
+            checked={settings.turnGlow}
+            onChange={(e) => updateSettings({ turnGlow: e.target.checked })}
+          />{" "}
+          Turn glow
+        </label>
+        <fieldset
+          className={styles.matSettings}
+          data-testid="mat-settings"
+          data-mat-stored={customMat.stored ? "true" : "false"}
+        >
+          <legend>Mat image</legend>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            data-testid="mat-upload"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) customMat.upload(file);
+              e.target.value = "";
+            }}
+          />
+          <div className={styles.muted}>
+            PNG, JPG or WebP, up to {MAT_MAX_BYTES / 1024 / 1024} MB.
+          </div>
+          {customMat.error && (
+            <div className={styles.error} data-testid="mat-error">
+              {customMat.error}
+            </div>
+          )}
+          {customMat.mat && (
+            <>
+              {(
+                [
+                  ["scale", "Scale", 25, 300],
+                  ["x", "X position", 0, 100],
+                  ["y", "Y position", 0, 100],
+                ] as const
+              ).map(([key, label, min, max]) => (
+                <label key={key}>
+                  {label}{" "}
+                  <input
+                    type="range"
+                    min={min}
+                    max={max}
+                    data-testid={`mat-${key}`}
+                    value={customMat.mat?.[key] ?? 0}
+                    onChange={(e) =>
+                      customMat.adjust({ [key]: Number(e.target.value) })
+                    }
+                  />{" "}
+                  {customMat.mat?.[key]}%
+                </label>
+              ))}
+              <button
+                type="button"
+                className={styles.button}
+                data-testid="mat-reset"
+                onClick={customMat.reset}
+              >
+                Reset to default
+              </button>
+            </>
+          )}
+        </fieldset>
         <div className={styles.muted}>Press ? for the shortcut list.</div>
       </div>
     </details>
@@ -569,7 +665,8 @@ export function PlayScreen() {
     label: `${card.owner}: ${state.cards[card.cardId]?.name ?? card.cardId}`,
   }));
   return (
-    <div className="gojisim">
+    // A collapsed log frees its column, so --card-h recomputes on this wrapper (M5f).
+    <div className={`gojisim${settings.logCollapsed ? " log-collapsed" : ""}`}>
       <BoardView
         model={model}
         prompt={prompt}
@@ -583,19 +680,26 @@ export function PlayScreen() {
         }
         name={name}
         settings={settingsPanel}
+        step={viewing === null ? session.position : null}
+        animation={settings.animation}
+        onAnimating={setAnimating}
+        turnGlow={settings.turnGlow}
+        mat={customMat.view}
         log={
-          logOpen ? (
-            <BattleLog
-              lines={lines}
-              viewing={viewing}
-              showRules={settings.showRules}
-              onSelect={(position) =>
-                setHistoryAt(
-                  position >= session.states.length - 1 ? null : position,
-                )
-              }
-            />
-          ) : null
+          <BattleLog
+            lines={lines}
+            viewing={viewing}
+            showRules={settings.showRules}
+            onSelect={(position) =>
+              setHistoryAt(
+                position >= session.states.length - 1 ? null : position,
+              )
+            }
+          />
+        }
+        logCollapsed={settings.logCollapsed}
+        onToggleLog={() =>
+          updateSettings({ logCollapsed: !settings.logCollapsed })
         }
       />
       {viewing !== null && (
@@ -670,7 +774,7 @@ export function PlayScreen() {
           </div>
         </div>
       )}
-      {search && (
+      {search && !animating && (
         <SearchModal
           key={search.seq}
           result={search}
@@ -678,7 +782,7 @@ export function PlayScreen() {
           onConfirm={() => setSearches((queue) => queue.slice(1))}
         />
       )}
-      {showModal && !search && (
+      {showModal && !(search && !animating) && (
         <ChoiceModal
           key={choice?.id}
           state={state}
