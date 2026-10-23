@@ -32,6 +32,27 @@ export function CardView({
   onSelect: Select;
 }) {
   const data = cardData(state, card);
+  // A hidden card (cardId -1): the viewer sees only its back (M6d).
+  if (card.cardId === -1)
+    return (
+      <div
+        data-testid="card-back"
+        title="Hidden card"
+        style={{
+          ...box,
+          display: "inline-block",
+          width: 96,
+          height: 60,
+          verticalAlign: "top",
+          background:
+            "repeating-linear-gradient(45deg, #345, #345 6px, #456 6px, #456 12px)",
+          color: "#fff",
+          fontSize: 11,
+        }}
+      >
+        Card back
+      </div>
+    );
   return (
     <button
       type="button"

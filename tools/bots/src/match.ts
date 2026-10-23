@@ -158,6 +158,8 @@ export interface MatchSummary {
   games: number;
   seed: string;
   decks: DeckSource;
+  /** Search bots ran without a time budget, so the run depends only on its seed. */
+  deterministic?: boolean;
   wins: { a: number; b: number; draws: number };
   winRate: {
     a: { rate: number; ci95: [number, number] };

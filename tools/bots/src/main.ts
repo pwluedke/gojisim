@@ -23,6 +23,9 @@ const { values } = parseArgs({
     // Bot settings as comma-separated key=value pairs, e.g. --a-settings samples=4.
     "a-settings": { type: "string", default: "" },
     "b-settings": { type: "string", default: "" },
+    // Turn the time budget (maxMs) off, so search bots stop on iterations only and a run depends
+    // only on its seed, not on the machine's speed (M6c review).
+    deterministic: { type: "boolean", default: false },
     games: { type: "string", default: "100" },
     seed: { type: "string", default: "1" },
     decks: { type: "string", default: "official" },
@@ -54,11 +57,15 @@ function parseSettings(text: string): BotSettings {
       }),
   );
 }
-const aSettings = parseSettings(values["a-settings"]);
-const bSettings = parseSettings(values["b-settings"]);
+const noClock: BotSettings = values.deterministic
+  ? { maxMs: Number.MAX_SAFE_INTEGER }
+  : {};
+const aSettings = { ...parseSettings(values["a-settings"]), ...noClock };
+const bSettings = { ...parseSettings(values["b-settings"]), ...noClock };
 const label = (name: string, settings: BotSettings) =>
-  Object.keys(settings).length
+  Object.keys(settings).some((k) => k !== "maxMs")
     ? `${name}(${Object.entries(settings)
+        .filter(([k]) => k !== "maxMs")
         .map(([k, v]) => `${k}=${v}`)
         .join(",")})`
     : name;
@@ -143,6 +150,7 @@ if (workers > 1 && !shard) {
 const summary = summarize(a, b, values.seed, decks, results);
 summary.a = label(a.name, aSettings);
 summary.b = label(b.name, bSettings);
+if (values.deterministic) summary.deterministic = true;
 console.log(JSON.stringify(summary, null, 2));
 const dir = `${values.out}/bot-reports`;
 await mkdir(dir, { recursive: true });

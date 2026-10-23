@@ -265,3 +265,13 @@ Accepted by Monarch in the M6b review (PR #21).
 176. `greedy` evaluates at the first decision point after the action, whoever it belongs to, or at the game's end; a single legal action is played without searching; ties within 1e-12 go to the seeded rng.
 177. `@gojisim/bot` uses `rootDir: "."` and includes `data/*.json` for the weights file.
 178. `pnpm bots` takes `--a-settings`/`--b-settings` as `key=value` pairs; reports label bots with their settings.
+
+Accepted by Monarch in the M6c review (PR #22).
+
+179. The must-block test plays the bot's whole turn and checks its zone 8 at the end (it may invade first, which neither wins from zone 5 nor ends the turn).
+180. ISMCTS action keys: type + card id (+ zone or strategy zone) for plays; kind + ability id + option card id (or the option id when it names no card) for choices. Two copies of a card share a node.
+181. ISMCTS tree values are stored from the side of the player who chose the move into the node; exploration 0.7; an unvisited available child is expanded first, at random; a new child starts with availability 1.
+182. `rolloutTurns` counts opponent turns that end during a rollout (default 1); a rollout also stops at the game's end or after `rolloutDecisions` (60).
+183. The weighted policy reads a `Board` accessor (a view, or a state in rollouts). The search budget uses `Date.now()`.
+184. `ismcts` reads `iterations`, `maxMs`, `exploration`, `rollout`, `rolloutTurns`, `rolloutDecisions`, `temperature`, `blunder`; `easy`, `medium`, `hard` are registered bots, a `difficulty` setting overrides the level, explicit settings override the mapping. Blunder is rolled before the search.
+185. `pnpm bots --workers N` runs shards in child processes and merges them in game order; results match a single process.
