@@ -16,7 +16,7 @@ import { Fragment, useEffect } from "react";
 
 /** Width of the card detail drawer; the page reserves this much space while it is open. */
 export const CARD_DETAIL_WIDTH = 400;
-import { cardData } from "./labels";
+import { cardData } from "../game/labels";
 
 type Select = (card: CardInstance) => void;
 

@@ -1,6 +1,6 @@
 import { type Action, type GameState, getLegalActions } from "@gojisim/engine";
 import { useEffect, useRef } from "react";
-import { actionLabel, decisionHeading } from "./labels";
+import { actionLabel, decisionHeading } from "../game/labels";
 
 const box = { border: "1px solid #888", padding: 6, margin: 4 } as const;
 

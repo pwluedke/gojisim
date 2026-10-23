@@ -6,29 +6,23 @@ import {
   parseDeckList,
 } from "@gojisim/cards/deck-lists";
 import {
-  type Action,
-  advanceToDecision,
-  applyAction,
   type CardInstance,
   type GameRecord,
-  type GameState,
   buildLoopReport,
-  deckLegalityFor,
-  replayAll,
-  startGame,
 } from "@gojisim/engine";
-import { botInput, decklistsOf, PRESETS } from "@gojisim/bot";
-import { useEffect, useRef, useState } from "react";
+import { PRESETS } from "@gojisim/bot";
+import { useRef, useState } from "react";
+import { difficultyName, displayState, type SeatConfig } from "../game/bots";
 import {
-  type BotRequest,
-  type BotResponse,
-  botLabel,
-  difficultyName,
-  displayState,
-  type SeatConfig,
-  seatFromRecord,
-  seatRecord,
-} from "./bots";
+  downloadJson,
+  downloadRecord,
+  downloadText,
+  newSession,
+  PLAYER_IDS,
+  type PlayerId,
+  randomSeed,
+} from "../game/session";
+import { useGameSession } from "../game/useGameSession";
 import { CARD_DETAIL_WIDTH, CardDetail, Field, PlayerAreas } from "./Board";
 import {
   checkDeck,
@@ -36,87 +30,9 @@ import {
   deckOptions,
   loadImportedDecks,
   saveImportedDecks,
-} from "./decks";
+} from "../game/decks";
 import { ManualPanel } from "./ManualPanel";
 import { ActionPanel, LogPanel, StatusBar } from "./Panels";
-
-/** A record plus the action index the viewer was at when it was exported. */
-interface ExportedRecord extends GameRecord {
-  position?: number;
-}
-
-interface Session {
-  record: GameRecord;
-  /** `states[i]` is the state after `i` actions. */
-  states: GameState[];
-  position: number;
-  /** Who plays each seat (M6d). */
-  seats: Record<PlayerId, SeatConfig>;
-  /** Seed for the bots' random choices; each decision uses `<botSeed>-<action index>`. */
-  botSeed: string;
-  /** Bot action labels for the log (M6d). */
-  labels: { afterSeq: number; text: string }[];
-}
-
-type PlayerId = (typeof PLAYER_IDS)[number];
-
-/** Applies an action at the end of the session (or at its position, dropping later actions). */
-function withAction(session: Session, action: Action, label?: string): Session {
-  const state = session.states[session.position] as GameState;
-  const next = advanceToDecision(applyAction(state, action));
-  const actions = [
-    ...session.record.actions.slice(0, session.position),
-    action,
-  ];
-  const keptLabels = session.labels.filter(
-    (l) => l.afterSeq < state.log.length,
-  );
-  return {
-    ...session,
-    record: { ...session.record, actions },
-    states: [...session.states.slice(0, session.position + 1), next],
-    position: session.position + 1,
-    labels: label
-      ? [...keptLabels, { afterSeq: state.log.length, text: label }]
-      : keptLabels,
-  };
-}
-
-const PLAYER_IDS = ["P1", "P2"] as const;
-
-function randomSeed(): number {
-  return Math.floor(Math.random() * 2 ** 31);
-}
-
-function newSession(
-  seed: number,
-  picked: [DeckOption, DeckOption],
-  seats: Record<PlayerId, SeatConfig>,
-): Session {
-  const named = picked.map((option) => option.build(seed));
-  const decks = PLAYER_IDS.map((id, i) => {
-    const deck = named[i] as NamedDeck;
-    return { id, monsterDeck: deck.monsterDeck, mainDeck: deck.mainDeck };
-  }) as GameRecord["decks"];
-  const record: GameRecord = {
-    version: 1,
-    seed,
-    decks,
-    actions: [],
-    // Illegal decks are allowed, with a warning (Paul's ruling, Oct 21, 2026).
-    deckLegality: deckLegalityFor(decks, new Date()),
-    seats: { P1: seatRecord(seats.P1), P2: seatRecord(seats.P2) },
-    botSeed: `${seed}-bots`,
-  };
-  return {
-    record,
-    states: [startGame(record)],
-    position: 0,
-    seats,
-    botSeed: `${seed}-bots`,
-    labels: [],
-  };
-}
 
 /** Human or Bot, and for a bot the difficulty slider with its presets (M6d). */
 function SeatPicker({
@@ -372,261 +288,49 @@ function IllegalDeckBanner({ record }: { record: GameRecord }) {
   );
 }
 
-function downloadText(text: string, filename: string): void {
-  const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-function downloadJson(data: unknown, filename: string): void {
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-function download(record: ExportedRecord): void {
-  downloadJson(record, `gojisim-${record.seed}-${record.actions.length}.json`);
-}
-
 /**
  * Debug viewer: every legal action as a button, both players' hidden information visible unless
  * a bot seat's game hides it. Bot seats think in a Web Worker (M6d).
  */
 export function DebugViewer() {
-  const [session, setSession] = useState<Session | null>(null);
   const [selected, setSelected] = useState<Card | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-  // Bot play (M6d).
-  const [playing, setPlaying] = useState(false);
-  const [stepping, setStepping] = useState(false);
-  const [delay, setDelay] = useState(600);
   const [hideHidden, setHideHidden] = useState(true);
   const [spectatorView, setSpectatorView] = useState(false);
-  const [thinking, setThinking] = useState<{
-    player: PlayerId;
-    started: number;
-    difficulty: number;
-  } | null>(null);
-  const [now, setNow] = useState(0);
-  const [botMs, setBotMs] = useState<number[]>([]);
-  const [botError, setBotError] = useState<string | null>(null);
-  const workerRef = useRef<Worker | null>(null);
-  const jobRef = useRef<{ id: number; posted: boolean; key: number } | null>(
-    null,
-  );
-  const nextJobId = useRef(1);
   const hideRef = useRef(hideHidden);
   hideRef.current = hideHidden;
-  // Pause also drops a decision already in flight, so no new bot action lands after it.
-  const runningRef = useRef(false);
-  runningRef.current = playing || stepping;
+  const game = useGameSession({
+    privateLabels: () => hideRef.current,
+    // Human vs bot hides the bot's cards; other games show everything.
+    onStart: (next) =>
+      setHideHidden(
+        PLAYER_IDS.filter((id) => next.seats[id].kind === "bot").length === 1,
+      ),
+  });
+  const {
+    session,
+    setSession,
+    state,
+    decider,
+    botToMove,
+    botSeats,
+    humanSeats,
+    startSession,
+    takeAction,
+    playing,
+    setPlaying,
+    stepping,
+    setStepping,
+    delay,
+    setDelay,
+    thinking,
+    now,
+    botMs,
+    botError,
+  } = game;
 
-  const state = session
-    ? (session.states[session.position] as GameState)
-    : null;
-
-  const seats = session?.seats;
-  const botSeats = seats
-    ? PLAYER_IDS.filter((id) => seats[id].kind === "bot")
-    : [];
-  const humanSeats = seats
-    ? PLAYER_IDS.filter((id) => seats[id].kind === "human")
-    : [];
-  const decider = state
-    ? (state.pendingChoice?.player ?? state.turnPlayer)
-    : null;
-  const botToMove =
-    !!state &&
-    !!seats &&
-    decider !== null &&
-    seats[decider as PlayerId]?.kind === "bot";
-
-  const startSession = (next: Session, autoPlay: boolean) => {
-    jobRef.current = null;
-    setThinking(null);
-    setBotMs([]);
-    setBotError(null);
-    setSession(next);
-    const bots = PLAYER_IDS.filter(
-      (id) => next.seats[id].kind === "bot",
-    ).length;
-    // Human vs bot: the bot plays at once and hides its cards. Bot vs bot: press Play.
-    setPlaying(autoPlay && bots === 1);
-    setStepping(false);
-    setHideHidden(bots === 1);
-  };
-
-  // The worker answers one decision at a time; a stale answer (the game moved on) is dropped.
-  useEffect(() => {
-    const worker = new Worker(new URL("./botWorker.ts", import.meta.url), {
-      type: "module",
-    });
-    worker.onmessage = (event: MessageEvent<BotResponse>) => {
-      const reply = event.data;
-      const job = jobRef.current;
-      if (!job || job.id !== reply.id) return;
-      jobRef.current = null;
-      setThinking(null);
-      if (!runningRef.current) return;
-      if ("error" in reply) {
-        setBotError(reply.error);
-        setPlaying(false);
-        return;
-      }
-      setBotMs((ms) => [...ms, reply.ms]);
-      setStepping(false);
-      setSession((prev) => {
-        if (
-          !prev ||
-          prev.position !== job.key ||
-          prev.record.actions.length !== job.key
-        )
-          return prev;
-        const current = prev.states[prev.position] as GameState;
-        const who = current.pendingChoice?.player ?? current.turnPlayer;
-        const seat = prev.seats[who as PlayerId];
-        if (seat?.kind !== "bot") return prev;
-        try {
-          return withAction(
-            prev,
-            reply.action,
-            botLabel(current, reply.action, seat.difficulty, hideRef.current),
-          );
-        } catch (err) {
-          setBotError(String(err));
-          setPlaying(false);
-          return prev;
-        }
-      });
-    };
-    workerRef.current = worker;
-    return () => worker.terminate();
-  }, []);
-
-  // When a bot seat must decide (at the end of the record, while playing or stepping), ask the
-  // worker after the delay. The worker gets the bot's input only, never the real state.
-  useEffect(() => {
-    if (!session || !state || !botToMove || state.result) return;
-    if (session.position !== session.record.actions.length) return;
-    if (!playing && !stepping) return;
-    if (jobRef.current) return;
-    const who = decider as PlayerId;
-    const seat = session.seats[who];
-    if (seat.kind !== "bot") return;
-    const key = session.record.actions.length;
-    const job = { id: nextJobId.current++, posted: false, key };
-    jobRef.current = job;
-    const timer = setTimeout(() => {
-      const { rng: _rng, ...input } = botInput(
-        state,
-        who,
-        decklistsOf(session.record.decks),
-        () => 0,
-        { difficulty: seat.difficulty },
-      );
-      job.posted = true;
-      setThinking({
-        player: who,
-        started: performance.now(),
-        difficulty: seat.difficulty,
-      });
-      const request: BotRequest = {
-        id: job.id,
-        input,
-        seed: `${session.botSeed}-${key}`,
-        difficulty: seat.difficulty,
-      };
-      workerRef.current?.postMessage(request);
-    }, delay);
-    return () => {
-      clearTimeout(timer);
-      if (jobRef.current === job && !job.posted) jobRef.current = null;
-    };
-  }, [session, state, botToMove, decider, playing, stepping, delay]);
-
-  // The thinking indicator's clock.
-  useEffect(() => {
-    if (!thinking) return;
-    const timer = setInterval(() => setNow(performance.now()), 100);
-    return () => clearInterval(timer);
-  }, [thinking]);
-
-  const takeAction = (action: Action) => {
-    if (!session || !state) return;
-    const later = session.record.actions.length - session.position;
-    if (
-      later > 0 &&
-      !window.confirm(
-        `Taking an action here drops the ${later} later action(s). Continue?`,
-      )
-    )
-      return;
-    try {
-      setSession(withAction(session, action));
-    } catch (err) {
-      window.alert(String(err));
-    }
-  };
-
-  const importRecord = async (file: File) => {
-    try {
-      const record = JSON.parse(await file.text()) as ExportedRecord;
-      if (
-        record.version !== 1 ||
-        !Array.isArray(record.actions) ||
-        !Array.isArray(record.decks)
-      ) {
-        throw new Error("Not a GojiSim game record");
-      }
-      const states = replayAll(record);
-      const position = Math.min(
-        record.position ?? record.actions.length,
-        record.actions.length,
-      );
-      const restoredSeats = {
-        P1: seatFromRecord(record.seats?.["P1"]),
-        P2: seatFromRecord(record.seats?.["P2"]),
-      };
-      const botSeed = record.botSeed ?? `${record.seed}-bots`;
-      // An imported game opens paused: replays never re-run a bot; press Play to continue.
-      startSession(
-        {
-          record: {
-            version: 1,
-            seed: record.seed,
-            decks: record.decks,
-            actions: record.actions,
-            // Records made before deck legality existed get it computed now.
-            deckLegality:
-              record.deckLegality ?? deckLegalityFor(record.decks, new Date()),
-            seats: {
-              P1: seatRecord(restoredSeats.P1),
-              P2: seatRecord(restoredSeats.P2),
-            },
-            botSeed,
-          },
-          states,
-          position,
-          seats: restoredSeats,
-          botSeed,
-          labels: [],
-        },
-        false,
-      );
-      setImportError(null);
-    } catch (err) {
-      setImportError(String(err));
-    }
-  };
+  const importRecord = async (file: File) =>
+    setImportError(await game.importRecord(file));
 
   const select = (card: CardInstance) => {
     const data = state?.cards[card.cardId];
@@ -678,10 +382,7 @@ export function DebugViewer() {
           type="button"
           data-testid="export"
           disabled={!session}
-          onClick={() =>
-            session &&
-            download({ ...session.record, position: session.position })
-          }
+          onClick={() => session && downloadRecord(session)}
         >
           Export game record
         </button>{" "}

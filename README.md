@@ -18,7 +18,7 @@ Other root scripts: `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm scrape` (
 
 ## Debug viewer
 
-`pnpm --filter @gojisim/web dev`, then open `http://localhost:5173/debug`. Pick a seed and a test deck for each player (`buildTestDeck`, ESD01 or ESD02), then play both sides. All hidden information is shown. Step back and forward through the actions, and export the game record as JSON to attach to a bug report (import loads it again). Card images appear once `pnpm images` has run. Either seat can be a bot (Seat: Bot, difficulty 0 to 100 with Easy / Medium / Hard presets). The bot thinks in a Web Worker and sees only its own view. Against a human it plays at once and hides its hidden cards (toggle); two bots wait for Play, with Pause, Step, a delay slider and a spectator view.
+`pnpm --filter @gojisim/web dev`, then open `http://localhost:5173/`: a menu with Play vs bot, Hotseat and Debug. `/play` is the game board (M5, in progress: read-only so far, with a temporary Pass button); `/debug` (`http://localhost:5173/debug`) is the debug viewer. Pick a seed and a test deck for each player (`buildTestDeck`, ESD01 or ESD02), then play both sides. All hidden information is shown. Step back and forward through the actions, and export the game record as JSON to attach to a bug report (import loads it again). Card images appear once `pnpm images` has run. Either seat can be a bot (Seat: Bot, difficulty 0 to 100 with Easy / Medium / Hard presets). The bot thinks in a Web Worker and sees only its own view. Against a human it plays at once and hides its hidden cards (toggle); two bots wait for Play, with Pause, Step, a delay slider and a spectator view.
 
 ## Deck lists
 
