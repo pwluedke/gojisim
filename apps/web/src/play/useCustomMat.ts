@@ -16,6 +16,12 @@ export function useCustomMat(store: MatStore = matStore()) {
   const [mat, setMat] = useState<MatImage | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Storage writes in flight; 0 once the stored mat matches what shows.
+  const [pending, setPending] = useState(0);
+  const track = (work: Promise<boolean>) => {
+    setPending((n) => n + 1);
+    return work.finally(() => setPending((n) => n - 1));
+  };
   const storeRef = useRef(store);
 
   useEffect(() => {
@@ -40,7 +46,7 @@ export function useCustomMat(store: MatStore = matStore()) {
 
   const keep = (next: MatImage) => {
     setMat(next);
-    void storeRef.current.save(next).then((saved) => {
+    void track(storeRef.current.save(next)).then((saved) => {
       if (!saved)
         setError(
           "This browser can't store the mat, so it lasts for this visit only.",
@@ -65,10 +71,10 @@ export function useCustomMat(store: MatStore = matStore()) {
   const reset = () => {
     setMat(null);
     setError(null);
-    void storeRef.current.clear();
+    void track(storeRef.current.clear());
   };
 
   const view: MatView | null =
     mat && url ? { url, scale: mat.scale, x: mat.x, y: mat.y } : null;
-  return { mat, view, error, upload, adjust, reset };
+  return { mat, view, error, upload, adjust, reset, stored: pending === 0 };
 }

@@ -245,6 +245,11 @@ test.describe("custom mat", () => {
       "style",
       /background-size: 150% auto/,
     );
+    // Storage has caught up before the reload.
+    await expect(page.getByTestId("mat-settings")).toHaveAttribute(
+      "data-mat-stored",
+      "true",
+    );
     await page.reload();
     await start(page);
     await expect(page.getByTestId("mat-image")).toHaveCount(2);
@@ -254,6 +259,11 @@ test.describe("custom mat", () => {
     );
     await page.getByTestId("mat-reset").click();
     await expect(page.getByTestId("mat-image")).toHaveCount(0);
+    // Storage has caught up before the reload.
+    await expect(page.getByTestId("mat-settings")).toHaveAttribute(
+      "data-mat-stored",
+      "true",
+    );
     await page.reload();
     await start(page);
     await expect(page.getByTestId("mat-image")).toHaveCount(0);
@@ -401,3 +411,52 @@ test("a strategy card in a strategy zone fills its landscape slot, uncropped", a
     ),
   ).toBe(true);
 });
+
+for (const [width, height] of [
+  [1440, 900],
+  [1920, 1080],
+] as const)
+  test(`at ${width}x${height} every zone, strategy zone and pile sits inside its mat by the padding`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto("/play?mode=hotseat");
+    await startGame(page);
+    const pad = await page.evaluate(() =>
+      parseFloat(
+        getComputedStyle(
+          document.querySelector(".gojisim") as Element,
+        ).getPropertyValue("--mat-pad"),
+      ),
+    );
+    expect(pad).toBeGreaterThan(0);
+    for (const side of ["you", "opp"]) {
+      const mat = await page.getByTestId(`mat-${side}`).boundingBox();
+      if (!mat) throw new Error(`no mat ${side}`);
+      const cells = page.getByTestId(`mat-${side}`).getByTestId("mat-cell");
+      // 8 zones, 2 strategy zones, the Rage zone, the deck, monster deck and discard pile.
+      expect(await cells.count()).toBe(14);
+      for (const cell of await cells.all()) {
+        const box = await cell.boundingBox();
+        if (!box) throw new Error("no cell box");
+        const area = await cell.getAttribute("data-area");
+        const margins = {
+          left: box.x - mat.x,
+          top: box.y - mat.y,
+          right: mat.x + mat.width - (box.x + box.width),
+          bottom: mat.y + mat.height - (box.y + box.height),
+        };
+        for (const [edge, margin] of Object.entries(margins))
+          expect(
+            margin,
+            `${side} ${area} ${edge} margin ${margin} < ${pad}`,
+          ).toBeGreaterThanOrEqual(pad - 0.5);
+      }
+    }
+    expect(
+      await page.evaluate(() => ({
+        y: document.documentElement.scrollHeight <= window.innerHeight,
+        x: document.documentElement.scrollWidth <= window.innerWidth,
+      })),
+    ).toEqual({ y: true, x: true });
+  });

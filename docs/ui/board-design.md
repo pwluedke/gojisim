@@ -105,6 +105,7 @@ The opponent's mat is rotated 180°, like a real table: column `c` becomes `6 - 
 - The turn player's mat border glows in their invading monster's colors, each in turn, then grey.
 - A custom mat image (IndexedDB) sits behind both mats, the opponent's turned 180°, with scale and position.
 - The mat's outer columns are landscape (one card height wide): column 0 holds the strategy zones, so strategy cards show whole, and column 6 the deck and discard pile, centered. Both mats share the template, so columns still line up across the center line.
+- `--mat-pad` (12 px, like `--mat-gap`) keeps every zone, strategy zone and pile clear of the mat's edge; the turn glow is on the mat border, outside that padding.
 
 **Bot moves**
 - Each bot action shows for the delay time (600 ms default) as a short highlight on the card that moved and its destination, plus a log line.

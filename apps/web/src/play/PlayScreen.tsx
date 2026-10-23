@@ -595,7 +595,11 @@ export function PlayScreen() {
           />{" "}
           Turn glow
         </label>
-        <fieldset className={styles.matSettings} data-testid="mat-settings">
+        <fieldset
+          className={styles.matSettings}
+          data-testid="mat-settings"
+          data-mat-stored={customMat.stored ? "true" : "false"}
+        >
           <legend>Mat image</legend>
           <input
             type="file"

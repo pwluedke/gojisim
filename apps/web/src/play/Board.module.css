@@ -82,8 +82,10 @@
   grid-template-columns: var(--card-h) repeat(5, var(--card-w)) var(--card-h);
   grid-template-rows: repeat(3, var(--card-h));
   gap: var(--mat-gap);
+  /* The zones keep clear of the mat's edge; the glow is on the border, outside this padding. */
+  padding: var(--mat-pad);
   justify-content: center;
-  /* As wide as its grid, so the glow and the mat image hug the zones. */
+  /* As wide as its grid plus the padding, so the glow and the mat image frame the zones. */
   align-self: center;
   border-radius: var(--radius);
   transition: box-shadow 0.6s;

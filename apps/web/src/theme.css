@@ -55,15 +55,17 @@
    */
   /* Wide enough for the playmat's arrows between zones. */
   --mat-gap: 12px;
+  /* Room between the zones and the mat's edge (M5f), so nothing touches the border or its glow. */
+  --mat-pad: 12px;
   --left-column-width: 260px;
-  --board-chrome: calc(96px + 4 * var(--mat-gap));
+  --board-chrome: calc(96px + 4 * var(--mat-gap) + 4 * var(--mat-pad));
   /* The mat is 5 portrait columns plus 2 landscape ones (M5f): 5w + 2h wide, w = 63h/88. */
   --card-h: min(
     (100vh - var(--board-chrome)) / 7.5,
     (
       (
           100vw - var(--left-column-width) - var(--side-column-width) - 4 *
-            var(--space-4) - 2px - 6 * var(--mat-gap)
+            var(--space-4) - 2px - 6 * var(--mat-gap) - 2 * var(--mat-pad)
         ) *
         88 / 491
     )
