@@ -110,6 +110,65 @@ for (const [width, height] of [
       await noScroll(page);
     });
 
+    test("M5d layout: prompt, phase and settings in the left column, the log in the right column, the hand centered under the mat", async ({
+      page,
+    }) => {
+      await handOfTen(page);
+      await expect(page.getByTestId("sidebar")).toHaveCount(0);
+      const box = async (id: string) => {
+        const b = await page.getByTestId(id).first().boundingBox();
+        if (!b) throw new Error(`no ${id}`);
+        return b;
+      };
+      const leftColumn = await box("left-column");
+      const oppHand = await box("opponent-hand");
+      const mat = await box("mat-you");
+      const log = await box("log-panel");
+      const right = await box("right-column");
+      // The left column holds the prompt, the phase tracker and settings, left of the board.
+      expect(leftColumn.x).toBeLessThanOrEqual(1);
+      expect(leftColumn.height).toBeGreaterThan(height * 0.95);
+      for (const id of ["prompt", "phase-tracker", "settings"]) {
+        const b = await box(id);
+        expect(b.x).toBeGreaterThanOrEqual(leftColumn.x);
+        expect(b.x + b.width).toBeLessThanOrEqual(
+          leftColumn.x + leftColumn.width + 1,
+        );
+      }
+      expect(oppHand.x).toBeGreaterThanOrEqual(leftColumn.x + leftColumn.width);
+      expect(mat.x).toBeGreaterThanOrEqual(leftColumn.x + leftColumn.width);
+      // The log fills the right column, right of the mats.
+      expect(log.x).toBeGreaterThanOrEqual(mat.x + mat.width);
+      expect(log.x).toBeGreaterThanOrEqual(right.x);
+      expect(log.height).toBeGreaterThan(height * 0.8);
+      // The hand's cards are centered under the mat's columns.
+      const cards = page.getByTestId("hand-card");
+      const first = await cards.first().boundingBox();
+      const last = await cards.last().boundingBox();
+      if (!first || !last) throw new Error("no hand");
+      // The mat's grid is centered in its element, and so are the hand's cards.
+      const handCenter = (first.x + last.x + last.width) / 2;
+      expect(
+        Math.abs(handCenter - (mat.x + mat.width / 2)),
+      ).toBeLessThanOrEqual(2);
+      const left = await box("monster-deck-P1");
+      const discard = await box("discard-P1");
+      expect(
+        Math.abs(handCenter - (left.x + discard.x + discard.width) / 2),
+      ).toBeLessThanOrEqual(2);
+      // The board uses the height: the hand strip ends near the bottom, without scrolling.
+      const strip = await box("hand-strip");
+      expect(strip.y + strip.height).toBeGreaterThan(height - 40);
+      await noScroll(page);
+      // The card preview covers the log while a card is previewed.
+      await cards.first().hover();
+      const preview = await box("card-preview");
+      expect(preview.x).toBeGreaterThanOrEqual(right.x);
+      expect(preview.x + preview.width).toBeLessThanOrEqual(
+        right.x + right.width + 1,
+      );
+    });
+
     test("the playmat's arrows sit in the gaps, clear of every card and chip", async ({
       page,
     }) => {

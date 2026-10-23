@@ -893,9 +893,10 @@ const located = (state: GameState, ids: string[]) =>
 
 /**
  * Picks cards for an effect (10.5.3), one choice per card. Exactly N picks as many as possible,
- * with no choice when there are N or fewer, unless the area is hidden and the search may find
- * nothing (`mayFindNothing`, 5.8.1.2); "up to N" adds a `done` option. Returns the picked cards,
- * or "paused" while a choice is pending.
+ * with no choice when there are N or fewer (10.5.3.1), unless the area is hidden and the search
+ * may find nothing (`mayFindNothing`, 5.8.1.2) or the chooser confirms every pick
+ * (`confirmSingleTarget`, M5d); "up to N" adds a `done` option. Returns the picked cards, or
+ * "paused" while a choice is pending.
  */
 function pickCards(
   ctx: Context,
@@ -918,7 +919,9 @@ function pickCards(
   const limit = "exact" in count ? count.exact : count.upTo;
   const remaining = limit - chosen.length;
   const canStop = "upTo" in count || options.mayFindNothing === true;
-  if (!canStop && left.length <= remaining) return [...chosen, ...left];
+  const confirm = state.confirmSingleTarget?.includes(chooser) === true;
+  if (!canStop && left.length <= remaining && !confirm)
+    return [...chosen, ...left];
   if (remaining <= 0 || left.length === 0 || r.chosen.includes("done"))
     return chosen;
   // Hidden cards are offered in instance id order, so the options never reveal a deck's order.

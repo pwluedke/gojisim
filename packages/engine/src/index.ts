@@ -16,6 +16,8 @@ export * from "./geometry";
 export { nextMonsterCandidates } from "./counter";
 export {
   activeMonster,
+  type CardChange,
+  cardChanges,
   counterPowerOf,
   getCounterPower,
   getRank,
@@ -34,6 +36,7 @@ export {
   END_PHASE_HAND_SIZE,
   isAtPlayTiming,
   isWaiting,
+  stepPhase,
 } from "./phases";
 export {
   buildLoopReport,

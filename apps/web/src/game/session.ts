@@ -68,11 +68,17 @@ export function randomSeed(): number {
   return Math.floor(Math.random() * 2 ** 31);
 }
 
+/**
+ * A new game. With `confirmTargets` (`/play`), human seats confirm every target pick, even a
+ * single legal target (M5d, `GameState.confirmSingleTarget`); bots never do.
+ */
 export function newSession(
   seed: number,
   picked: [DeckOption, DeckOption],
   seats: Record<PlayerId, SeatConfig>,
+  { confirmTargets = false }: { confirmTargets?: boolean } = {},
 ): Session {
+  const humans = PLAYER_IDS.filter((id) => seats[id].kind === "human");
   const named = picked.map((option) => option.build(seed));
   const decks = PLAYER_IDS.map((id, i) => {
     const deck = named[i] as NamedDeck;
@@ -87,6 +93,9 @@ export function newSession(
     deckLegality: deckLegalityFor(decks, new Date()),
     seats: { P1: seatRecord(seats.P1), P2: seatRecord(seats.P2) },
     botSeed: `${seed}-bots`,
+    ...(confirmTargets && humans.length > 0
+      ? { confirmSingleTarget: humans }
+      : {}),
   };
   return {
     record,
@@ -129,6 +138,10 @@ export function sessionFromRecord(text: string): Session {
         record.deckLegality ?? deckLegalityFor(record.decks, new Date()),
       seats: { P1: seatRecord(seats.P1), P2: seatRecord(seats.P2) },
       botSeed,
+      // Replay asks the same choices only with the same option.
+      ...(record.confirmSingleTarget
+        ? { confirmSingleTarget: record.confirmSingleTarget }
+        : {}),
     },
     states,
     position,

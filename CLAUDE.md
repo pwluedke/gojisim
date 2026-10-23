@@ -315,3 +315,17 @@ Accepted by Monarch in the M5b fix review (PR #27).
 211. A card whose image fails to load (as on CI) shows its name inside the card box; with images present no text shows.
 212. Revealed cards in the opponent's hand show as half-size faces next to the backs; the one-card-size test leaves the opponent's hand row out.
 213. Choice modals (M5c) use the same `CardFace` at the same size.
+
+Accepted by Monarch in the M5c review (PR #28).
+
+214. Choice fixtures are game records: `/play` has "Load a game record" (it continues an exported game, bots playing), and `apps/web/e2e/fixtures/*.json` stop at a P1 choice against the Medium bot, found by `e2e/fixtures/generate.ts` (`pnpm --filter @gojisim/web e2e:fixtures`). The next-monster fixture gives P1 two rank II monsters; the manual fixture puts EBP01-017 (no ability data) in P1's deck.
+215. `replacementOrder` can't happen with the current card data (no card has two destroy replacements), so it is a unit test with an injected choice.
+216. "Up to N" appears only on searches in the current data (ESD01-002, ESD01-014), so the Done test uses a search; Done reads "Find nothing" for searches and "Done" otherwise.
+217. The hotseat cover shows when the decider changes, which includes the other player's private choices. A private choice for the player already at the board is not covered.
+218. Zone choices show a banner in the right column, under the preview, listing the zones with number keys and Done, while the zones light up on the mat.
+219. Choice headings name seats "You" and "Bot" against a bot, "P1" and "P2" in hotseat.
+220. The `/play` manual panel lists only the cards the human's view shows; `/debug` lists every card.
+221. The bot's move toast stays 3 s and the landing highlight max(delay, 600 ms); the toast uses `actionLabel` wording.
+222. Concede is offered to the player at the board in hotseat, and to the human at any time against a bot (1.2.3).
+223. `/play` settings are saved in the browser under `gojisim.settings`, with try/catch.
+224. The hand e2e spec turns the hotseat cover off (it follows P1's hand); `passTurn` in `e2e/helpers.ts` handles the Pass confirm and the cover elsewhere.

@@ -1,4 +1,5 @@
 import { useDroppable } from "@dnd-kit/core";
+import type { Card } from "@gojisim/cards";
 import type { Action } from "@gojisim/engine";
 import { createContext, type ReactNode, useContext } from "react";
 import styles from "./Board.module.css";
@@ -12,6 +13,8 @@ export interface Interaction {
   chooseDestination: (key: DestinationKey) => void;
   /** Shows a card in the preview panel, or closes it. */
   preview: (instanceId: string | null) => void;
+  /** Shows a card named in the battle log (M5d) in the preview panel, or closes it. */
+  previewCard: (card: Card | null) => void;
   /** Zones lit for a zone choice (M5c), by `<player>:<zone>`, with the action each one takes. */
   zoneChoice: ReadonlyMap<string, Action>;
   /** Where the bot's last move landed (M5c), as `<player>|<destination>`, shown briefly. */
@@ -24,6 +27,7 @@ export const InteractionContext = createContext<Interaction>({
   lit: new Set(),
   chooseDestination: () => {},
   preview: () => {},
+  previewCard: () => {},
   zoneChoice: new Map(),
   highlight: new Set(),
   act: () => {},

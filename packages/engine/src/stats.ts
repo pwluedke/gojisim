@@ -6,11 +6,18 @@ import {
   conditionHolds,
   type Context,
   gatesOpen,
+  locate,
   select,
 } from "./interpreter";
 import { cardOf, topOf } from "./rules";
 import { getPlayer } from "./state";
-import type { CardInstance, GameState, PlayerId, PlayerState } from "./types";
+import type {
+  CardInstance,
+  CardStatus,
+  GameState,
+  PlayerId,
+  PlayerState,
+} from "./types";
 import { ZONE_NUMBERS } from "./types";
 
 /** Threat added per point of rage (3.4.5). */
@@ -151,4 +158,83 @@ export function counterPowerOf(state: GameState, player: PlayerState): number {
     }
   }
   return total + totalCounterPowerBonus(state, player);
+}
+
+/** What a change badge chip shows (M5d): the kind, a short label, and the full wording. */
+export interface CardChange {
+  kind: "burst" | "counterPower" | "rank" | "threat" | "playedVia" | CardStatus;
+  /** The chip on the card, e.g. "CP +3000". */
+  label: string;
+  /** The hover list's wording, with its rule number. */
+  detail: string;
+}
+
+/** Words for each status (5.16). A new status must name itself here, so it shows on the card. */
+const STATUS_CHANGES: Record<CardStatus, Omit<CardChange, "kind">> = {
+  cannotEngage: {
+    label: "Can't engage",
+    detail: "Cannot engage: adds no counter power (5.16.1)",
+  },
+};
+
+/** Words for how a card was played; a Burst play shows as its timed discard instead. */
+const PLAYED_VIA: Record<
+  NonNullable<CardInstance["playedVia"]>,
+  Omit<CardChange, "kind"> | null
+> = {
+  evolution: { label: "Evolved", detail: "Played through Evolution (5.17)" },
+  effect: { label: "By effect", detail: "Played by an effect (5.11)" },
+  burst: null,
+};
+
+const signed = (n: number) => `${n > 0 ? "+" : ""}${n}`;
+
+/**
+ * Every change in force on a card (M5d change badge): a pending Burst discard (12.5.2), stat
+ * modifiers from the 10.8.1 layers (counter power, rank, threat), statuses, and how it was
+ * played. The board shows these as chips, so a new modifier or status appears there with no
+ * UI work. Public information only: for cards on the field.
+ */
+export function cardChanges(
+  state: GameState,
+  instanceId: string,
+): CardChange[] {
+  const found = locate(state, instanceId);
+  if (!found) return [];
+  const { card, player } = found;
+  const changes: CardChange[] = [];
+  const burst = state.timedTriggers.some(
+    (t) => t.kind === "burstDiscard" && t.sourceInstanceId === instanceId,
+  );
+  if (burst) {
+    const stack = player.invadingMonsterZone;
+    const index = stack.findIndex((c) => c.instanceId === instanceId);
+    const under = index > 0 ? stack[index - 1] : undefined;
+    const from = under ? cardOf(state, under).rank : null;
+    const label = `Burst R${from ?? "?"}→R${getRank(state, card) ?? "?"} · discard at end phase`;
+    changes.push({
+      kind: "burst",
+      label,
+      detail: `${label} (12.5.2)`,
+    });
+  }
+  const stats = [
+    ["counterPower", "CP", "Counter power"],
+    ["rank", "Rank", "Rank"],
+    ["threat", "Threat", "Threat"],
+  ] as const;
+  for (const [stat, short, long] of stats) {
+    const amount = modifierTotal(state, card, stat);
+    if (amount !== 0)
+      changes.push({
+        kind: stat,
+        label: `${short} ${signed(amount)}`,
+        detail: `${long} ${signed(amount)} from continuous effects (10.8.1)`,
+      });
+  }
+  for (const status of card.statuses ?? [])
+    changes.push({ kind: status, ...STATUS_CHANGES[status] });
+  const via = card.playedVia ? PLAYED_VIA[card.playedVia] : null;
+  if (via) changes.push({ kind: "playedVia", ...via });
+  return changes;
 }

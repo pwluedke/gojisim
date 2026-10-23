@@ -1,4 +1,6 @@
 import {
+  type CardChange,
+  cardChanges,
   counterPowerOf,
   type GameState,
   getCounterPower,
@@ -44,6 +46,11 @@ export interface BoardModel {
   totalCounterPower: Record<string, number>;
   /** Each player's invading monster's rank with effects (`getRank`), null without a monster. */
   monsterRank: Record<string, number | null>;
+  /**
+   * Every change in force on each card on the field (M5d, `cardChanges`), by instance id: zone
+   * tops, the invading monster and strategy cards. Cards with none are left out.
+   */
+  changes: Record<string, CardChange[]>;
 }
 
 export function boardModel(state: GameState, bottom: PlayerId): BoardModel {
@@ -52,17 +59,28 @@ export function boardModel(state: GameState, bottom: PlayerId): BoardModel {
   const threat: Record<string, number> = {};
   const totalCounterPower: Record<string, number> = {};
   const monsterRank: Record<string, number | null> = {};
+  const changes: Record<string, CardChange[]> = {};
+  const noteChanges = (instanceId: string) => {
+    const found = cardChanges(state, instanceId);
+    if (found.length > 0) changes[instanceId] = found;
+  };
   for (const player of state.players) {
     for (const zone of ZONE_NUMBERS)
       for (const stack of player.zones[zone]) {
         const top = stack[stack.length - 1];
-        if (top) counterPower[top.instanceId] = getCounterPower(state, top);
+        if (top) {
+          counterPower[top.instanceId] = getCounterPower(state, top);
+          noteChanges(top.instanceId);
+        }
       }
+    for (const placements of player.strategyZones)
+      for (const { card } of placements) noteChanges(card.instanceId);
     threat[player.id] = getThreat(state, player.id);
     totalCounterPower[player.id] = counterPowerOf(state, player);
     const monster =
       player.invadingMonsterZone[player.invadingMonsterZone.length - 1];
     monsterRank[player.id] = monster ? getRank(state, monster) : null;
+    if (monster) noteChanges(monster.instanceId);
   }
   return {
     bottom,
@@ -72,5 +90,6 @@ export function boardModel(state: GameState, bottom: PlayerId): BoardModel {
     threat,
     totalCounterPower,
     monsterRank,
+    changes,
   };
 }

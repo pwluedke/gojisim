@@ -297,6 +297,12 @@ export interface GameState {
   phase: Phase;
   /** The next engine step to run. */
   step: Step;
+  /**
+   * The step in progress, for display (M5d): the step that ran last (its check timing may still
+   * be open, waiting for a choice), or 7.3.2 once a main-phase action is taken. `step` names the
+   * next one, so a choice from a counter (5.15) shows 7.4.3 or 7.4.4 here, not 7.5.1.
+   */
+  currentStep: Step;
   turnFlags: {
     /** Invasion is once per turn (8.6.2). */
     invasionUsed: boolean;
@@ -330,6 +336,12 @@ export interface GameState {
   /** Every card that takes part in this game, keyed by `Card.id`. */
   cards: Record<string, Card>;
   log: LogEntry[];
+  /**
+   * Players whose target picks are always asked (M5d: human seats in `/play`). For them 10.5.3.1's
+   * automatic pick (N or fewer legal targets for "exactly N") becomes a choice to confirm, one
+   * option per remaining target. Omitted when empty, as for bots, stress and `/debug`.
+   */
+  confirmSingleTarget?: PlayerId[];
 }
 
 /** One of a player's two strategy zones (4.5.2). */

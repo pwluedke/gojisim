@@ -255,6 +255,7 @@ export function determinize(
     turnPlayer: view.turnPlayer,
     phase: view.phase,
     step: view.step,
+    currentStep: view.currentStep,
     turnFlags: { ...view.turnFlags },
     standby: clone(view.standby),
     continuousEffects: clone(view.continuousEffects),

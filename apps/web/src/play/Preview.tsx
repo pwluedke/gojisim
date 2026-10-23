@@ -1,4 +1,4 @@
-import { getCardText, getCardTraits } from "@gojisim/cards";
+import { type Card, getCardText, getCardTraits } from "@gojisim/cards";
 import type { CardInstance, PlayerAreasView } from "@gojisim/engine";
 import styles from "./Board.module.css";
 import type { BoardModel } from "./model";
@@ -23,26 +23,29 @@ export function visibleCards(model: BoardModel): Map<string, CardInstance> {
 
 /**
  * The card preview panel (M5b): fixed over the right column. The full image, the text in force
- * with the errata flag, traits, and current values (counter power with its modifier, rank,
- * threat). It looks cards up in the bottom player's view, so a hidden card can't be shown.
+ * with the errata flag, traits, current values (counter power with its modifier, rank,
+ * threat), and every change in force on it (M5d). It looks cards up in the bottom player's view, so a hidden card can't be shown.
  */
 export function Preview({
   model,
   instanceId,
+  card: named,
 }: {
   model: BoardModel;
-  instanceId: string;
+  instanceId?: string | null;
+  /** A card named in the battle log (M5d): public, but shown without current values. */
+  card?: Card | null;
 }) {
-  const card = visibleCards(model).get(instanceId);
-  const data = card && model.view.cards[card.cardId];
-  if (!card || !data) return null;
+  const card = instanceId ? visibleCards(model).get(instanceId) : undefined;
+  const data = card ? model.view.cards[card.cardId] : named;
+  if (!data) return null;
   const text = getCardText(data);
   const traits = getCardTraits(data);
   const owner = (model.view.players as PlayerAreasView[]).find((p) => {
     const cards = p.invadingMonsterZone.cards ?? [];
-    return cards[cards.length - 1]?.instanceId === instanceId;
+    return card && cards[cards.length - 1]?.instanceId === card.instanceId;
   });
-  const counterPower = model.counterPower[instanceId];
+  const counterPower = card ? model.counterPower[card.instanceId] : undefined;
   const printed = data.counterOrThreat;
   const modifier =
     counterPower !== undefined && printed !== null ? counterPower - printed : 0;
@@ -95,6 +98,13 @@ export function Preview({
           </>
         ) : null}
       </div>
+      {card && model.changes[card.instanceId] && (
+        <ul className={styles.previewChanges} data-testid="preview-changes">
+          {model.changes[card.instanceId]?.map((change) => (
+            <li key={`${change.kind}-${change.label}`}>{change.detail}</li>
+          ))}
+        </ul>
+      )}
       {text.hasErrata && (
         <div className={styles.errata} data-testid="preview-errata">
           Errata: the text below is the corrected wording.

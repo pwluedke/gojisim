@@ -26,6 +26,11 @@ export interface GameRecord {
   seats?: Record<PlayerId, SeatRecord>;
   /** The seed the bots' random choices came from (M6d). */
   botSeed?: string;
+  /**
+   * Players who confirm every target pick (M5d, `GameState.confirmSingleTarget`). It changes
+   * which choices are asked, so replay needs it; older records have none.
+   */
+  confirmSingleTarget?: PlayerId[];
 }
 
 /** One seat of a recorded game (M6d). */
@@ -66,10 +71,16 @@ export function deckLegalityFor(
 
 /** A new game, advanced to its first decision. */
 export function startGame(
-  record: Pick<GameRecord, "seed" | "decks">,
+  record: Pick<GameRecord, "seed" | "decks" | "confirmSingleTarget">,
 ): GameState {
   return advanceToDecision(
-    createGame({ seed: record.seed, players: record.decks }),
+    createGame({
+      seed: record.seed,
+      players: record.decks,
+      ...(record.confirmSingleTarget
+        ? { confirmSingleTarget: record.confirmSingleTarget }
+        : {}),
+    }),
   );
 }
 

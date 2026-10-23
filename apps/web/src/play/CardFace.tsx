@@ -1,5 +1,6 @@
 import { type Card, getCardAbilities } from "@gojisim/cards";
-import type { CardInstance } from "@gojisim/engine";
+import type { CardChange, CardInstance } from "@gojisim/engine";
+import type { ReactNode } from "react";
 import styles from "./Board.module.css";
 import { useInteraction } from "./interaction";
 
@@ -26,6 +27,9 @@ export function CardBack({
  * counter power (printed value plus the colored modifier, PR #24 pattern) for a battle card on the
  * mat, threat for the invading monster, "×N" for a stack, and a manual badge. Hovering it opens
  * the preview panel, where the card is read large.
+ *
+ * M5d: every change in force on the card (`cardChanges`: Burst, stat modifiers, statuses, how it
+ * was played) is a chip in one badge area; hovering the badge lists them in full.
  */
 export function CardFace({
   card,
@@ -34,6 +38,8 @@ export function CardFace({
   threat,
   stack = 1,
   small = false,
+  changes = [],
+  extra = null,
 }: {
   card: CardInstance;
   data: Card | undefined;
@@ -45,6 +51,10 @@ export function CardFace({
   stack?: number;
   /** A revealed card in the opponent's hand: half size, like the card backs there. */
   small?: boolean;
+  /** Changes in force on the card (M5d), from `BoardModel.changes`. */
+  changes?: readonly CardChange[] | undefined;
+  /** More overlays (M5d): the strategy card's turn mark. */
+  extra?: ReactNode;
 }) {
   const { preview } = useInteraction();
   if (!data) return <CardBack small={small} />;
@@ -98,6 +108,26 @@ export function CardFace({
           )}
         </span>
       )}
+      {changes.length > 0 && (
+        <div className={styles.changes} data-testid="change-badge">
+          {changes.map((change) => (
+            <span
+              key={`${change.kind}-${change.label}`}
+              className={styles.changeChip}
+              data-testid="change-chip"
+              data-kind={change.kind}
+            >
+              {change.label}
+            </span>
+          ))}
+          <div className={styles.changeList} data-testid="change-list">
+            {changes.map((change) => (
+              <div key={`${change.kind}-${change.label}`}>{change.detail}</div>
+            ))}
+          </div>
+        </div>
+      )}
+      {extra}
       {threat !== undefined && (
         <span className={styles.chip} data-testid="threat-chip">
           Threat {threat}

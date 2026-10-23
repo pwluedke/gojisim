@@ -8,6 +8,7 @@ import {
   getLegalActions,
   type PlayerState,
   STEPS,
+  stepPhase,
 } from "../src";
 import {
   addCard,
@@ -44,6 +45,42 @@ describe("engine step runner", () => {
       seen.push(state.step);
     }
     expect(seen).toEqual([...STEPS, "7.2.1"]);
+  });
+
+  it("Engine: currentStep names the step that ran last; step names the next one (M5d)", () => {
+    let state = newGame();
+    expect(state.currentStep).toBe("7.2.1");
+    for (let i = 0; i < STEPS.length; i++) {
+      const ran = state.step;
+      state = state.step === "7.3.2" ? pass(state) : advance(state);
+      // After 7.3.1 (with no choice open) the engine waits at the play timing, 7.3.2; pass is
+      // taken there.
+      expect(state.currentStep).toBe(ran === "7.3.1" ? "7.3.2" : ran);
+    }
+  });
+
+  it("7.4.4 a choice in the check timing after a counter (5.15) shows the counter phase, though the engine moved on to the end phase", () => {
+    let state = advanceToDecision(newGame());
+    state = pass(state);
+    while (state.currentStep !== "7.4.4") state = advance(state);
+    expect(state.step).toBe("7.5.1");
+    expect(state.phase).toBe("end");
+    expect(stepPhase(state.currentStep)).toBe("counter");
+    expect(stepPhase("7.2.5")).toBe("start");
+    expect(stepPhase("7.3.2")).toBe("main");
+    expect(stepPhase("7.5.7")).toBe("end");
+  });
+
+  it("7.3.2 at the play timing, and after a main-phase action, the step in progress is 7.3.2", () => {
+    const state = advanceToDecision(newGame());
+    expect(state.currentStep).toBe("7.3.2");
+    const player = turnPlayer(state);
+    player.hand.push(addCard(state, battleCard({ rank: 1 }), player.id));
+    const action = getLegalActions(state, state.turnPlayer).find(
+      (a) => a.type === "playBattle",
+    );
+    if (!action) throw new Error("no main-phase action");
+    expect(applyAction(state, action).currentStep).toBe("7.3.2");
   });
 
   it("7.3.2 advance stops at the main phase play timing and does nothing more", () => {
@@ -417,8 +454,9 @@ describe("full turns", () => {
     // M4f added timedTriggers, and the canonical state for loop detection includes them, so the
     // loopGuard hashes changed too; the game itself is identical to M4e (diffed).
     // M4g added manualQueue; with it removed it hashes to the M4f value 7aa94879...fb1ea1.
+    // M5d added currentStep; with it removed it hashes to the M4g value 844f7f07...6daa57.
     expect(hash(first)).toMatchInlineSnapshot(
-      `"844f7f07721235080fb057327a3e0ce8be9ed0dbe79a6f2ff790b7cdcf6daa57"`,
+      `"7a015a99e26780ad044b756a67dd2c9441ff40b0404e7cbf0693d08e959f0be2"`,
     );
     // Each player had 5 turns, so each monster advanced from zone 1 to zone 6 (7.5.2).
     expect(first.players.map((p) => p.monsterPosition)).toEqual([6, 6]);

@@ -2,6 +2,7 @@ import type { Action, GameState } from "@gojisim/engine";
 import { useEffect, useState } from "react";
 import { type ManualCard, ManualPanel } from "../debug/ManualPanel";
 import styles from "./Board.module.css";
+import { targetLocation } from "./locations";
 
 type Choose = Extract<Action, { type: "choose" }>;
 
@@ -15,6 +16,8 @@ type Choose = Extract<Action, { type: "choose" }>;
  * - Yes / no choices are two buttons. A manual window shows the manual-action controls.
  * - Zone options light the zones on the mat; this shows only a small banner for them.
  * - Holding the eye button hides the modal, to look at the board behind it.
+ * - M5d: each target card shows where it is (`Z3`, `Discard pile`, ...) above its image, and
+ *   hovering it rings that place on the mat, above the backdrop.
  * It only ever opens for the viewer's own choice, so private options are theirs to see.
  */
 export function ChoiceModal({
@@ -36,6 +39,10 @@ export function ChoiceModal({
   labelOf: (action: Action) => string;
 }) {
   const [hidden, setHidden] = useState(false);
+  // The mat cell of the hovered target, ringed over the backdrop.
+  const [ring, setRing] = useState<{ testId: string; rect: DOMRect } | null>(
+    null,
+  );
   const choice = state.pendingChoice;
   const choose = actions.filter((a): a is Choose => a.type === "choose");
   const done = choose.find((a) => a.optionId === "done");
@@ -169,40 +176,68 @@ export function ChoiceModal({
           {numbered.map((action, i) => {
             const card = optionCard(action);
             const option = choice.options.find((o) => o.id === action.optionId);
+            const location =
+              kind === "target" || kind === "nextMonster"
+                ? targetLocation(state, action.optionId, choice.player)
+                : null;
+            const showRing = () => {
+              const cell =
+                location &&
+                document.querySelector(`[data-testid="${location.testId}"]`);
+              setRing(
+                cell
+                  ? {
+                      testId: location.testId,
+                      rect: cell.getBoundingClientRect(),
+                    }
+                  : null,
+              );
+            };
             return (
-              <button
-                key={action.optionId}
-                type="button"
-                className={styles.choiceCard}
-                data-testid="choice-option"
-                data-option={action.optionId}
-                data-card-id={card?.id}
-                title={labelOf(action)}
-                onClick={() => onAction(action)}
-              >
-                <span className={styles.keyBadge}>{i + 1}</span>
-                {card ? (
-                  <>
-                    <div className={styles.cardFallback}>{card.name}</div>
-                    <img
-                      className={styles.cardImage}
-                      src={`/cards/${card.id}-thumb.webp`}
-                      alt={card.name}
-                      draggable={false}
-                      onError={(e) => {
-                        e.currentTarget.style.visibility = "hidden";
-                      }}
-                    />
-                  </>
-                ) : (
-                  <div className={styles.cardFallback}>{labelOf(action)}</div>
+              <div key={action.optionId} className={styles.choiceOption}>
+                {location && (
+                  <div
+                    className={styles.choiceLocation}
+                    data-testid="choice-location"
+                  >
+                    {location.label}
+                  </div>
                 )}
-                {kind === "standbyOrder" && option?.abilityId && (
-                  <span className={styles.chip}>
-                    {option.abilityId.split("#")[1]}
-                  </span>
-                )}
-              </button>
+                <button
+                  type="button"
+                  className={styles.choiceCard}
+                  data-testid="choice-option"
+                  data-option={action.optionId}
+                  data-card-id={card?.id}
+                  title={labelOf(action)}
+                  onClick={() => onAction(action)}
+                  onMouseEnter={showRing}
+                  onMouseLeave={() => setRing(null)}
+                >
+                  <span className={styles.keyBadge}>{i + 1}</span>
+                  {card ? (
+                    <>
+                      <div className={styles.cardFallback}>{card.name}</div>
+                      <img
+                        className={styles.cardImage}
+                        src={`/cards/${card.id}-thumb.webp`}
+                        alt={card.name}
+                        draggable={false}
+                        onError={(e) => {
+                          e.currentTarget.style.visibility = "hidden";
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <div className={styles.cardFallback}>{labelOf(action)}</div>
+                  )}
+                  {kind === "standbyOrder" && option?.abilityId && (
+                    <span className={styles.chip}>
+                      {option.abilityId.split("#")[1]}
+                    </span>
+                  )}
+                </button>
+              </div>
             );
           })}
         </div>
@@ -218,6 +253,19 @@ export function ChoiceModal({
       data-kind={kind}
       data-hidden={hidden ? "true" : undefined}
     >
+      {ring && !hidden && (
+        <div
+          className={styles.targetRing}
+          data-testid="target-ring"
+          data-for={ring.testId}
+          style={{
+            left: ring.rect.left,
+            top: ring.rect.top,
+            width: ring.rect.width,
+            height: ring.rect.height,
+          }}
+        />
+      )}
       <div
         className={styles.modal}
         style={hidden ? { visibility: "hidden" } : undefined}

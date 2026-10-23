@@ -10,6 +10,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
+import type { Card } from "@gojisim/cards";
 import type {
   Action,
   CardStack,
@@ -34,12 +35,13 @@ import {
   useInteraction,
 } from "./interaction";
 import type { BoardModel } from "./model";
+import { PhaseTracker } from "./PhaseTracker";
 import { Preview } from "./Preview";
 
 /**
- * The board at `/play` (M5a, docs/ui/board-design.md): a collapsible sidebar, the opponent's
- * mat rotated on top, the bottom player's mat below the center line, laid out like the official
- * playmat with the two zone 8s facing each other. It renders only from a `BoardModel`
+ * The board at `/play` (M5a, docs/ui/board-design.md): the opponent's mat rotated on top, the
+ * bottom player's mat below the center line, laid out like the official playmat with the two
+ * zone 8s facing each other. It renders only from a `BoardModel`
  * (the bottom player's view plus public numbers), so hidden cards never reach it.
  *
  * M5b: the hand strip, click to highlight and drag and drop (`@dnd-kit/core`) for the five hand
@@ -47,6 +49,10 @@ import { Preview } from "./Preview";
  *
  * M5c: zones offered by a zone choice light up on either mat, and the bot's last move is
  * highlighted briefly where it landed.
+ *
+ * M5d layout (Paul's play-testing): prompt, phase tracker and settings in the left column, the
+ * board in the middle, and the battle log in the right column, which the card preview covers
+ * while a card is previewed.
  */
 
 export const STEP_NAMES: Record<string, string> = {
@@ -90,6 +96,7 @@ function ZoneCell({
       data={view.cards[monster.cardId]}
       threat={model.threat[player.id]}
       stack={monsterCards.length}
+      changes={model.changes[monster.instanceId]}
     />
   );
   return (
@@ -113,6 +120,7 @@ function ZoneCell({
               data={view.cards[top.cardId]}
               counterPower={model.counterPower[top.instanceId]}
               stack={stack.length}
+              changes={model.changes[top.instanceId]}
             />
           </Layer>
         );
@@ -254,7 +262,25 @@ function StrategyZone({
       <div className={styles.cellLabel}>Strategy {index}</div>
       {(zone?.cards ?? []).map((p, i) => (
         <Layer key={p.card.instanceId} index={i}>
-          <CardFace card={p.card} data={model.view.cards[p.card.cardId]} />
+          <CardFace
+            card={p.card}
+            data={model.view.cards[p.card.cardId]}
+            changes={model.changes[p.card.instanceId]}
+            extra={
+              <span
+                className={styles.turnMark}
+                data-testid="strategy-mark"
+                data-this-turn={
+                  p.placedOnTurn === model.view.turn ? "true" : "false"
+                }
+                title={`Placed on turn ${p.placedOnTurn}; it leaves at its owner's next start phase (7.2.3)`}
+              >
+                {p.placedOnTurn === model.view.turn
+                  ? "New"
+                  : `T${p.placedOnTurn}`}
+              </span>
+            }
+          />
         </Layer>
       ))}
     </Slot>
@@ -305,13 +331,16 @@ function Pile({
   label,
   count,
   testId,
+  cellTestId,
 }: {
   label: string;
   count: number;
   testId: string;
+  /** The cell itself, so a searched-deck target can be lit (M5d). */
+  cellTestId: string;
 }) {
   return (
-    <div className={styles.cell}>
+    <div className={styles.cell} data-testid={cellTestId}>
       <div className={styles.cellLabel}>{label}</div>
       {count > 0 && (
         <Layer index={0}>
@@ -382,6 +411,7 @@ function MatCell({
           label="Deck"
           count={player.deck.count}
           testId={`deck-count-${player.id}`}
+          cellTestId={`deck-${player.id}`}
         />
       );
     case "monsterDeck":
@@ -390,6 +420,7 @@ function MatCell({
           label="Monster deck"
           count={player.monsterDeck.count}
           testId={`monster-deck-count-${player.id}`}
+          cellTestId={`monster-deck-${player.id}`}
         />
       );
     case "discard":
@@ -535,21 +566,6 @@ function Mat({
   );
 }
 
-/** One side: the mat, and the right column, kept free for the card preview. */
-function Side(props: {
-  model: BoardModel;
-  player: PlayerAreasView;
-  opponent: string;
-  side: "opp" | "you";
-}) {
-  return (
-    <div className={styles.fieldRow} data-testid={`side-${props.side}`}>
-      <Mat {...props} />
-      <div />
-    </div>
-  );
-}
-
 /**
  * Collisions for a drop: the target under the pointer (keyboard drags fall back to overlap), and
  * the monster before the zone it sits in.
@@ -571,6 +587,9 @@ export function BoardView({
   labelOf = (action) => action.type,
   zoneChoice = new Map(),
   highlight = new Set(),
+  name = (id) => id,
+  log = null,
+  settings = null,
 }: {
   model: BoardModel;
   /** The prompt panel's content (M5c: the step, Pass, turn flags, Concede, the bot's state). */
@@ -586,12 +605,18 @@ export function BoardView({
   zoneChoice?: ReadonlyMap<string, Action>;
   /** Where the bot's last move landed (M5c), as `<player>|<destination>`. */
   highlight?: ReadonlySet<string>;
+  /** Seat names for the phase tracker (M5d): "You", "Bot", or the player id. */
+  name?: (playerId: string) => string;
+  /** The battle log (M5d) for the right column, or `null` while it is hidden (L). */
+  log?: ReactNode;
+  /** The settings panel (M5d). */
+  settings?: ReactNode;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [menu, setMenu] = useState<HandAction[] | null>(null);
   const [previewed, setPreviewed] = useState<string | null>(null);
+  const [previewedCard, setPreviewedCard] = useState<Card | null>(null);
   const { view } = model;
   const you = view.players.find(
     (p) => p.id === model.bottom,
@@ -638,6 +663,7 @@ export function BoardView({
       setSelected(null);
       setMenu(null);
       setPreviewed(null);
+      setPreviewedCard(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -666,6 +692,7 @@ export function BoardView({
     preview: (id) => {
       if (!dragging) setPreviewed(id);
     },
+    previewCard: setPreviewedCard,
     zoneChoice,
     highlight,
     act: onAction,
@@ -692,48 +719,16 @@ export function BoardView({
           data-testid="board"
           data-bottom={model.bottom}
         >
-          <aside
-            className={collapsed ? styles.sidebarCollapsed : styles.sidebar}
-            data-testid="sidebar"
-          >
-            <button
-              type="button"
-              className={styles.collapse}
-              data-testid="sidebar-toggle"
-              onClick={() => setCollapsed((c) => !c)}
-              title={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
-            >
-              {collapsed ? "»" : "«"}
-            </button>
-            {!collapsed && (
-              <>
-                <section className={styles.panel}>
-                  <div className={styles.panelTitle}>Battle log</div>
-                  <div className={styles.muted}>Coming in M5d.</div>
-                </section>
-                <section className={styles.panel} data-testid="prompt">
-                  <div className={styles.panelTitle}>Prompt</div>
-                  {prompt}
-                </section>
-                <section className={styles.panel} data-testid="phase-tracker">
-                  <div className={styles.panelTitle}>Phase</div>
-                  <div>
-                    Turn <strong data-testid="turn">{view.turn}</strong> ·{" "}
-                    <strong>{view.turnPlayer}</strong>
-                    {view.turnPlayer === model.bottom ? " (you)" : ""}
-                  </div>
-                  <div>
-                    {STEP_NAMES[view.phase] ?? view.phase} · step {view.step}
-                  </div>
-                  {view.result && (
-                    <div data-testid="result">
-                      Game over: {view.result.winner ?? "draw"} (
-                      {view.result.reason})
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
+          <aside className={styles.leftColumn} data-testid="left-column">
+            <section className={styles.panel} data-testid="prompt">
+              <div className={styles.panelTitle}>Prompt</div>
+              {prompt}
+            </section>
+            <section className={styles.panel} data-testid="phase-tracker">
+              <div className={styles.panelTitle}>Phase</div>
+              <PhaseTracker view={view} name={name} />
+            </section>
+            {settings}
           </aside>
           <main className={styles.main}>
             <div className={styles.handBacks} data-testid="opponent-hand">
@@ -755,9 +750,9 @@ export function BoardView({
                 );
               })}
             </div>
-            <Side model={model} player={opp} opponent={you.id} side="opp" />
+            <Mat model={model} player={opp} opponent={you.id} side="opp" />
             <div className={styles.centerLine} />
-            <Side model={model} player={you} opponent={opp.id} side="you" />
+            <Mat model={model} player={you} opponent={opp.id} side="you" />
             <Hand
               model={model}
               player={you}
@@ -794,7 +789,24 @@ export function BoardView({
               </div>
             )}
           </main>
-          {previewed && <Preview model={model} instanceId={previewed} />}
+          <aside className={styles.rightColumn} data-testid="right-column">
+            {log && (
+              <section
+                className={`${styles.panel} ${styles.logPanel}`}
+                data-testid="log-panel"
+              >
+                <div className={styles.panelTitle}>Battle log</div>
+                {log}
+              </section>
+            )}
+          </aside>
+          {(previewed || previewedCard) && (
+            <Preview
+              model={model}
+              instanceId={previewed}
+              card={previewedCard}
+            />
+          )}
         </div>
         <DragOverlay dropAnimation={null}>
           {draggedCard ? (
