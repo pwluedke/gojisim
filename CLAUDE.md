@@ -275,3 +275,25 @@ Accepted by Monarch in the M6c review (PR #22).
 183. The weighted policy reads a `Board` accessor (a view, or a state in rollouts). The search budget uses `Date.now()`.
 184. `ismcts` reads `iterations`, `maxMs`, `exploration`, `rollout`, `rolloutTurns`, `rolloutDecisions`, `temperature`, `blunder`; `easy`, `medium`, `hard` are registered bots, a `difficulty` setting overrides the level, explicit settings override the mapping. Blunder is rolled before the search.
 185. `pnpm bots --workers N` runs shards in child processes and merges them in game order; results match a single process.
+
+Accepted by Monarch in the M5a review (PR #25).
+
+186. Web game code shared by `/debug` and `/play` lives in `apps/web/src/game/` (`bots`, `botWorker`, `decks`, `labels`, `session`, `useGameSession`). `useGameSession` takes `privateLabels()` and `onStart` so `/debug` keeps its hide toggle.
+187. The `/play` board renders only from a `BoardModel`: the bottom player's `getPlayerView` plus public numbers computed from the real state (counter power of zone-top cards, threats, totals). Every rendered card carries `data-instance-id`. With two bot seats, the bottom is P1.
+188. Until M5c, the `/play` prompt offers Pass and the human's pending choices (labels from `actionLabel`). A bot's turn shows "Bot (Medium) is thinking… 1.2 s".
+189. Routes: `/play?mode=bot|hotseat` (a missing or unknown mode means bot). The menu uses plain links and the path router; `/play` is lazy-loaded like `/debug`.
+190. `theme.css` is scoped to a `.gojisim` wrapper, so `/debug` keeps its plain look. Outside `/debug`, `main.tsx` adds `gojisim-body` to `<body>` to remove the page margin.
+191. The new-game screen lists the same decks as `/debug` (official starters, random test decks, imported decks), each with a legality badge. The seed is random but editable.
+192. The App unit test checks the menu: the "GojiSim" heading plus the three links.
+193. `/play` starts every game with its bot seats playing (`autoPlay: "always"`), and bot vs bot there has Pause/Play. `/debug` keeps `"humanVsBot"`; full spectator controls stay in `/debug` until M13.
+
+Accepted by Monarch in the M5b review (PR #26).
+
+194. Hand destinations: the Rage zone is the `gainRage` target and the discard pile cell is the `invade` target (amended before merge: these replaced the Stats panel and the Piles row when the board became the official playmat). The monster wins over its zone for clicks and drops.
+195. The hand strip overlaps with CSS only: columns `minmax(0, --hand-card-max)`, cards at least `--hand-card-min` wide, the last card right-aligned, the hovered card on top. Overlap starts at about 11 cards at 1440 px.
+196. The pointer sensor starts a drag after 6 px, so a click still selects; a `DragOverlay` shows the dragged card.
+197. A selection lasts only while its card still has actions (instance ids change on every move) and clears after an action.
+198. The preview opens on hover and closes on leave or Esc, is off during a drag, and ignores the pointer. It shows current values; monster rank comes from `getRank`.
+199. The hand is locked whenever the bottom player isn't the human who must decide.
+200. Hand e2e seeds: hotseat seed 2 plus one Pass gives P1 turn 2 with all five hand actions; seed 1 with 8 passes gives P1 a hand of 10 on turn 9.
+201. The "human vs Easy" card-back count in `bots.spec.ts` polls until backs minus hand equals 3, fixing a race with the bot's moves.

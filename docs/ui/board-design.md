@@ -13,21 +13,30 @@ The engine, `getLegalActions`, `getPlayerView`, the bot worker, game records, ex
 Desktop browser window: a collapsible sidebar on the left, the two fields in the middle, your hand along the bottom.
 
 ```
-+--------------------+---------------------------------------------------------------+
-| Concede, Bug report|            [ Opponent hand: card backs ]                      |
-| Settings, Shortcuts| [Strat 1]  [Z5] [Z4] [Z3] [Z2] [Z1]             [Piles: 3 counts]|
-+--------------------+ [Strat 2]  [Z6] [Z7] [Z8*]                       [Stats: rage,   |
-| Battle log         |                                                   threat, CP]  |
-|  turn markers,     | ------------------------- center line ------------------------|
-|  card name links   | [Strat 1]             [Z8*] [Z7] [Z6]           [Stats]        |
-+--------------------+ [Strat 2]  [Z1] [Z2] [Z3] [Z4] [Z5]              [Piles]        |
-| Prompt panel       |                                                               |
-|  step + main button|  [ Your hand: always fully visible, playable cards lit;      ]|
-|  Pass [Space]      |  [ click to highlight targets, drag to play, H expands       ]|
-+--------------------+                                                               |
-| Phase tracker      |                                                               |
-+--------------------+---------------------------------------------------------------+
++--------------------+---------------------------------------------------------------------+
+| Concede, Bug report|               [ Opponent hand: card backs ]                         |
+| Settings, Shortcuts| Opponent's mat (rotated 180°)                                       |
++--------------------+ [Discard] [Z5]  [Z4]  [Z3]  [Z2]  [Z1]   [Monster deck]  | preview |
+| Battle log         | [Deck]    [Z6]  [Z7]  [    ]  [ Rage zone ] [Strategy 2] | column  |
+|  turn markers,     | [    ]    [  ]  [  ]  [Z8*]   [           ] [Strategy 1] |         |
+|  card name links   | ------------------------ center line -------------------+         |
++--------------------+ [Strategy 1] [ Rage zone ] [Z8*]                         |         |
+| Prompt panel       | [Strategy 2] [           ] [    ] [Z7]  [Z6]  [Deck]    |         |
+|  step + main button| [Monster deck] [Z1] [Z2] [Z3] [Z4] [Z5] [Discard]       |         |
+|  Pass [Space]      | Your mat: 7 columns x 3 rows, the Rage zone spans 2 x 2             |
++--------------------+                                                                     |
+| Phase tracker      |  [ Your hand: always fully visible, playable cards lit;           ] |
+|                    |  [ click to highlight targets, drag to play, H expands            ] |
++--------------------+---------------------------------------------------------------------+
 ```
+
+| Your mat (row nearest the center line first) | Col 0 | Col 1 | Col 2 | Col 3 | Col 4 | Col 5 | Col 6 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Near row | Strategy 1 | Rage zone | Rage zone | Z8 | | | |
+| Middle row | Strategy 2 | Rage zone | Rage zone | | Z7 | Z6 | Deck |
+| Far row | Monster deck | Z1 | Z2 | Z3 | Z4 | Z5 | Discard pile |
+
+The opponent's mat is rotated 180°, like a real table: column `c` becomes `6 - c` and the rows mirror. The two zone 8s (`*`) face each other in column 3, and same-column zones (4.4.5.4) line up: your Z1 sits under the opponent's Z5 and Z6.
 
 - Zones follow the spec geometry (4.4.5): same-column zones line up, and the two zone 8s (`*`) face each other across the center line.
 - Each invading monster sits in the zone it occupies, as its stack's top card, with rage and threat beside it in Stats.
@@ -38,7 +47,7 @@ Desktop browser window: a collapsible sidebar on the left, the two fields in the
 
 **Tucked hand (default)**
 - The hand strip spans the board width. As the hand grows, cards shrink and overlap, but each always shows its name, rank, type and counter power or threat.
-- Cards with a legal action are lit; the rest are dimmed (from `getLegalActions`).
+- Lit = can be played to a zone (battle, strategy or monster play), from `getLegalActions`. A card whose only actions are invade or gain rage stays unlit, but selecting or dragging it still lights the discard pile and the Rage zone.
 
 **Click to highlight.** One click on a hand card selects it and lights every legal destination:
 
@@ -47,7 +56,7 @@ Desktop browser window: a collapsible sidebar on the left, the two fields in the
 | Zones 1 to 8 | Play a battle card | 8.2 |
 | Strategy zones | Activate a strategy card | 8.3 |
 | Your invading monster | Play a monster card (including Burst) | 8.5, 12.5 |
-| Your Stats panel (rage) | Gain rage: discard a monster card | 8.4 |
+| Your Rage zone | Gain rage: discard a monster card | 8.4 |
 | Your discard pile | Invade: discard the card for its invasion icon | 8.6 |
 
 - Clicking a lit destination takes the action. Clicking the card again, or Esc, cancels the selection.
