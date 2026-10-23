@@ -19,7 +19,24 @@ export interface GameRecord {
    * so records made before it existed still load; replay ignores it.
    */
   deckLegality?: DeckLegality[];
+  /**
+   * Who sat in each seat (M6d): a human, or a bot with its settings. Replays use the recorded
+   * actions and never re-run a bot, so this is information only.
+   */
+  seats?: Record<PlayerId, SeatRecord>;
+  /** The seed the bots' random choices came from (M6d). */
+  botSeed?: string;
 }
+
+/** One seat of a recorded game (M6d). */
+export type SeatRecord =
+  | { kind: "human" }
+  | {
+      kind: "bot";
+      /** Bot name, e.g. "ismcts". */
+      bot: string;
+      settings: Record<string, number | string | boolean>;
+    };
 
 /** One player's deck check at game start (spec "Setup", step 1). */
 export interface DeckLegality {

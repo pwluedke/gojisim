@@ -95,7 +95,14 @@ export function ActionPanel({
 }
 
 /** The action log, newest at the bottom, each entry with its rule number. */
-export function LogPanel({ state }: { state: GameState }) {
+export function LogPanel({
+  state,
+  labels = [],
+}: {
+  state: GameState;
+  /** Bot action labels (M6d), each shown before the log entries its action produced. */
+  labels?: { afterSeq: number; text: string }[];
+}) {
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     // Braces matter: scrollIntoView may return a Promise, and an effect must not return one.
@@ -114,8 +121,18 @@ export function LogPanel({ state }: { state: GameState }) {
     >
       {state.log.map((entry) => {
         const { rule, ...rest } = entry.payload;
+        const before = labels.filter((l) => l.afterSeq + 1 === entry.seq);
         return (
           <div key={entry.seq}>
+            {before.map((l) => (
+              <div
+                key={l.text}
+                data-testid="bot-label"
+                style={{ color: "#06c", fontWeight: "bold" }}
+              >
+                {l.text}
+              </div>
+            ))}
             #{entry.seq} [{String(rule ?? "-")}] {entry.type}{" "}
             {entry.player ?? ""}{" "}
             {Object.keys(rest).length ? JSON.stringify(rest) : ""}

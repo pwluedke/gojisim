@@ -198,6 +198,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@gojisim/bot':
+        specifier: workspace:*
+        version: link:../../packages/bot
       '@gojisim/cards':
         specifier: workspace:*
         version: link:../../packages/cards

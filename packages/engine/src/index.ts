@@ -51,6 +51,7 @@ export {
   deckLegalityFor,
   type GameRecord,
   replay,
+  type SeatRecord,
   replayAll,
   startGame,
 } from "./record";

@@ -1,4 +1,4 @@
-import { randomBot, weightedBot } from "@gojisim/bot";
+import { ismctsBot, randomBot, weightedBot } from "@gojisim/bot";
 import { describe, expect, it } from "vitest";
 import { playMatchGame, summarize, wilson } from "../src/match";
 
@@ -33,4 +33,21 @@ describe("bot tournament harness (M6a)", () => {
     expect(high).toBeCloseTo(0.691, 2);
     expect(wilson(0, 0)).toEqual([0, 1]);
   });
+
+  it("--deterministic (no time budget): a search bot's games depend only on the seed", () => {
+    const noClock = { iterations: 25, maxMs: Number.MAX_SAFE_INTEGER };
+    const run = () =>
+      [0, 1].map((game) =>
+        playMatchGame(
+          { bot: ismctsBot, settings: noClock },
+          { bot: randomBot },
+          "deterministic",
+          game,
+          "official",
+        ),
+      );
+    const strip = (results: ReturnType<typeof run>) =>
+      results.map(({ ms: _ms, ...rest }) => rest);
+    expect(strip(run())).toEqual(strip(run()));
+  }, 120_000);
 });

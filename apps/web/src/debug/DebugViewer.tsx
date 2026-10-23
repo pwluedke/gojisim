@@ -17,7 +17,18 @@ import {
   replayAll,
   startGame,
 } from "@gojisim/engine";
-import { useState } from "react";
+import { botInput, decklistsOf, PRESETS } from "@gojisim/bot";
+import { useEffect, useRef, useState } from "react";
+import {
+  type BotRequest,
+  type BotResponse,
+  botLabel,
+  difficultyName,
+  displayState,
+  type SeatConfig,
+  seatFromRecord,
+  seatRecord,
+} from "./bots";
 import { CARD_DETAIL_WIDTH, CardDetail, Field, PlayerAreas } from "./Board";
 import {
   checkDeck,
@@ -39,6 +50,36 @@ interface Session {
   /** `states[i]` is the state after `i` actions. */
   states: GameState[];
   position: number;
+  /** Who plays each seat (M6d). */
+  seats: Record<PlayerId, SeatConfig>;
+  /** Seed for the bots' random choices; each decision uses `<botSeed>-<action index>`. */
+  botSeed: string;
+  /** Bot action labels for the log (M6d). */
+  labels: { afterSeq: number; text: string }[];
+}
+
+type PlayerId = (typeof PLAYER_IDS)[number];
+
+/** Applies an action at the end of the session (or at its position, dropping later actions). */
+function withAction(session: Session, action: Action, label?: string): Session {
+  const state = session.states[session.position] as GameState;
+  const next = advanceToDecision(applyAction(state, action));
+  const actions = [
+    ...session.record.actions.slice(0, session.position),
+    action,
+  ];
+  const keptLabels = session.labels.filter(
+    (l) => l.afterSeq < state.log.length,
+  );
+  return {
+    ...session,
+    record: { ...session.record, actions },
+    states: [...session.states.slice(0, session.position + 1), next],
+    position: session.position + 1,
+    labels: label
+      ? [...keptLabels, { afterSeq: state.log.length, text: label }]
+      : keptLabels,
+  };
 }
 
 const PLAYER_IDS = ["P1", "P2"] as const;
@@ -47,7 +88,11 @@ function randomSeed(): number {
   return Math.floor(Math.random() * 2 ** 31);
 }
 
-function newSession(seed: number, picked: [DeckOption, DeckOption]): Session {
+function newSession(
+  seed: number,
+  picked: [DeckOption, DeckOption],
+  seats: Record<PlayerId, SeatConfig>,
+): Session {
   const named = picked.map((option) => option.build(seed));
   const decks = PLAYER_IDS.map((id, i) => {
     const deck = named[i] as NamedDeck;
@@ -60,8 +105,79 @@ function newSession(seed: number, picked: [DeckOption, DeckOption]): Session {
     actions: [],
     // Illegal decks are allowed, with a warning (Paul's ruling, Oct 21, 2026).
     deckLegality: deckLegalityFor(decks, new Date()),
+    seats: { P1: seatRecord(seats.P1), P2: seatRecord(seats.P2) },
+    botSeed: `${seed}-bots`,
   };
-  return { record, states: [startGame(record)], position: 0 };
+  return {
+    record,
+    states: [startGame(record)],
+    position: 0,
+    seats,
+    botSeed: `${seed}-bots`,
+    labels: [],
+  };
+}
+
+/** Human or Bot, and for a bot the difficulty slider with its presets (M6d). */
+function SeatPicker({
+  id,
+  seat,
+  onChange,
+}: {
+  id: PlayerId;
+  seat: SeatConfig;
+  onChange: (seat: SeatConfig) => void;
+}) {
+  return (
+    <div style={{ marginTop: 4 }}>
+      <label>
+        Seat{" "}
+        <select
+          data-testid={`seat-${id}`}
+          value={seat.kind}
+          onChange={(e) =>
+            onChange(
+              e.target.value === "bot"
+                ? { kind: "bot", difficulty: PRESETS.medium }
+                : { kind: "human" },
+            )
+          }
+        >
+          <option value="human">Human</option>
+          <option value="bot">Bot</option>
+        </select>
+      </label>
+      {seat.kind === "bot" && (
+        <div>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            data-testid={`difficulty-${id}`}
+            value={seat.difficulty}
+            onChange={(e) =>
+              onChange({ kind: "bot", difficulty: Number(e.target.value) })
+            }
+          />{" "}
+          <span data-testid={`difficulty-value-${id}`}>
+            {seat.difficulty} ({difficultyName(seat.difficulty)})
+          </span>{" "}
+          {(Object.entries(PRESETS) as [string, number][]).map(
+            ([name, level]) => (
+              <button
+                key={name}
+                type="button"
+                data-testid={`preset-${id}-${name}`}
+                onClick={() => onChange({ kind: "bot", difficulty: level })}
+              >
+                {difficultyName(level)}
+              </button>
+            ),
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function LegalityNote({ option, seed }: { option: DeckOption; seed: number }) {
@@ -86,9 +202,17 @@ function LegalityNote({ option, seed }: { option: DeckOption; seed: number }) {
 function NewGameForm({
   onStart,
 }: {
-  onStart: (seed: number, picked: [DeckOption, DeckOption]) => void;
+  onStart: (
+    seed: number,
+    picked: [DeckOption, DeckOption],
+    seats: Record<PlayerId, SeatConfig>,
+  ) => void;
 }) {
   const [seed, setSeed] = useState("20261021");
+  const [seats, setSeats] = useState<Record<PlayerId, SeatConfig>>({
+    P1: { kind: "human" },
+    P2: { kind: "human" },
+  });
   const [imported, setImported] = useState<NamedDeck[]>(() =>
     loadImportedDecks(),
   );
@@ -131,7 +255,7 @@ function NewGameForm({
       onSubmit={(e) => {
         e.preventDefault();
         try {
-          onStart(Number(seed), picked);
+          onStart(Number(seed), picked, seats);
         } catch (err) {
           setError(String(err));
         }
@@ -175,6 +299,11 @@ function NewGameForm({
             <LegalityNote
               option={picked[i] as DeckOption}
               seed={Number(seed)}
+            />
+            <SeatPicker
+              id={id}
+              seat={seats[id]}
+              onChange={(seat) => setSeats((s) => ({ ...s, [id]: seat }))}
             />
           </div>
         ))}
@@ -268,15 +397,168 @@ function download(record: ExportedRecord): void {
   downloadJson(record, `gojisim-${record.seed}-${record.actions.length}.json`);
 }
 
-/** Debug viewer: both players' hidden information visible, every legal action as a button. */
+/**
+ * Debug viewer: every legal action as a button, both players' hidden information visible unless
+ * a bot seat's game hides it. Bot seats think in a Web Worker (M6d).
+ */
 export function DebugViewer() {
   const [session, setSession] = useState<Session | null>(null);
   const [selected, setSelected] = useState<Card | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  // Bot play (M6d).
+  const [playing, setPlaying] = useState(false);
+  const [stepping, setStepping] = useState(false);
+  const [delay, setDelay] = useState(600);
+  const [hideHidden, setHideHidden] = useState(true);
+  const [spectatorView, setSpectatorView] = useState(false);
+  const [thinking, setThinking] = useState<{
+    player: PlayerId;
+    started: number;
+    difficulty: number;
+  } | null>(null);
+  const [now, setNow] = useState(0);
+  const [botMs, setBotMs] = useState<number[]>([]);
+  const [botError, setBotError] = useState<string | null>(null);
+  const workerRef = useRef<Worker | null>(null);
+  const jobRef = useRef<{ id: number; posted: boolean; key: number } | null>(
+    null,
+  );
+  const nextJobId = useRef(1);
+  const hideRef = useRef(hideHidden);
+  hideRef.current = hideHidden;
+  // Pause also drops a decision already in flight, so no new bot action lands after it.
+  const runningRef = useRef(false);
+  runningRef.current = playing || stepping;
 
   const state = session
     ? (session.states[session.position] as GameState)
     : null;
+
+  const seats = session?.seats;
+  const botSeats = seats
+    ? PLAYER_IDS.filter((id) => seats[id].kind === "bot")
+    : [];
+  const humanSeats = seats
+    ? PLAYER_IDS.filter((id) => seats[id].kind === "human")
+    : [];
+  const decider = state
+    ? (state.pendingChoice?.player ?? state.turnPlayer)
+    : null;
+  const botToMove =
+    !!state &&
+    !!seats &&
+    decider !== null &&
+    seats[decider as PlayerId]?.kind === "bot";
+
+  const startSession = (next: Session, autoPlay: boolean) => {
+    jobRef.current = null;
+    setThinking(null);
+    setBotMs([]);
+    setBotError(null);
+    setSession(next);
+    const bots = PLAYER_IDS.filter(
+      (id) => next.seats[id].kind === "bot",
+    ).length;
+    // Human vs bot: the bot plays at once and hides its cards. Bot vs bot: press Play.
+    setPlaying(autoPlay && bots === 1);
+    setStepping(false);
+    setHideHidden(bots === 1);
+  };
+
+  // The worker answers one decision at a time; a stale answer (the game moved on) is dropped.
+  useEffect(() => {
+    const worker = new Worker(new URL("./botWorker.ts", import.meta.url), {
+      type: "module",
+    });
+    worker.onmessage = (event: MessageEvent<BotResponse>) => {
+      const reply = event.data;
+      const job = jobRef.current;
+      if (!job || job.id !== reply.id) return;
+      jobRef.current = null;
+      setThinking(null);
+      if (!runningRef.current) return;
+      if ("error" in reply) {
+        setBotError(reply.error);
+        setPlaying(false);
+        return;
+      }
+      setBotMs((ms) => [...ms, reply.ms]);
+      setStepping(false);
+      setSession((prev) => {
+        if (
+          !prev ||
+          prev.position !== job.key ||
+          prev.record.actions.length !== job.key
+        )
+          return prev;
+        const current = prev.states[prev.position] as GameState;
+        const who = current.pendingChoice?.player ?? current.turnPlayer;
+        const seat = prev.seats[who as PlayerId];
+        if (seat?.kind !== "bot") return prev;
+        try {
+          return withAction(
+            prev,
+            reply.action,
+            botLabel(current, reply.action, seat.difficulty, hideRef.current),
+          );
+        } catch (err) {
+          setBotError(String(err));
+          setPlaying(false);
+          return prev;
+        }
+      });
+    };
+    workerRef.current = worker;
+    return () => worker.terminate();
+  }, []);
+
+  // When a bot seat must decide (at the end of the record, while playing or stepping), ask the
+  // worker after the delay. The worker gets the bot's input only, never the real state.
+  useEffect(() => {
+    if (!session || !state || !botToMove || state.result) return;
+    if (session.position !== session.record.actions.length) return;
+    if (!playing && !stepping) return;
+    if (jobRef.current) return;
+    const who = decider as PlayerId;
+    const seat = session.seats[who];
+    if (seat.kind !== "bot") return;
+    const key = session.record.actions.length;
+    const job = { id: nextJobId.current++, posted: false, key };
+    jobRef.current = job;
+    const timer = setTimeout(() => {
+      const { rng: _rng, ...input } = botInput(
+        state,
+        who,
+        decklistsOf(session.record.decks),
+        () => 0,
+        { difficulty: seat.difficulty },
+      );
+      job.posted = true;
+      setThinking({
+        player: who,
+        started: performance.now(),
+        difficulty: seat.difficulty,
+      });
+      const request: BotRequest = {
+        id: job.id,
+        input,
+        seed: `${session.botSeed}-${key}`,
+        difficulty: seat.difficulty,
+      };
+      workerRef.current?.postMessage(request);
+    }, delay);
+    return () => {
+      clearTimeout(timer);
+      if (jobRef.current === job && !job.posted) jobRef.current = null;
+    };
+  }, [session, state, botToMove, decider, playing, stepping, delay]);
+
+  // The thinking indicator's clock.
+  useEffect(() => {
+    if (!thinking) return;
+    const timer = setInterval(() => setNow(performance.now()), 100);
+    return () => clearInterval(timer);
+  }, [thinking]);
 
   const takeAction = (action: Action) => {
     if (!session || !state) return;
@@ -289,16 +571,7 @@ export function DebugViewer() {
     )
       return;
     try {
-      const next = advanceToDecision(applyAction(state, action));
-      const actions = [
-        ...session.record.actions.slice(0, session.position),
-        action,
-      ];
-      setSession({
-        record: { ...session.record, actions },
-        states: [...session.states.slice(0, session.position + 1), next],
-        position: session.position + 1,
-      });
+      setSession(withAction(session, action));
     } catch (err) {
       window.alert(String(err));
     }
@@ -319,19 +592,36 @@ export function DebugViewer() {
         record.position ?? record.actions.length,
         record.actions.length,
       );
-      setSession({
-        record: {
-          version: 1,
-          seed: record.seed,
-          decks: record.decks,
-          actions: record.actions,
-          // Records made before deck legality existed get it computed now.
-          deckLegality:
-            record.deckLegality ?? deckLegalityFor(record.decks, new Date()),
+      const restoredSeats = {
+        P1: seatFromRecord(record.seats?.["P1"]),
+        P2: seatFromRecord(record.seats?.["P2"]),
+      };
+      const botSeed = record.botSeed ?? `${record.seed}-bots`;
+      // An imported game opens paused: replays never re-run a bot; press Play to continue.
+      startSession(
+        {
+          record: {
+            version: 1,
+            seed: record.seed,
+            decks: record.decks,
+            actions: record.actions,
+            // Records made before deck legality existed get it computed now.
+            deckLegality:
+              record.deckLegality ?? deckLegalityFor(record.decks, new Date()),
+            seats: {
+              P1: seatRecord(restoredSeats.P1),
+              P2: seatRecord(restoredSeats.P2),
+            },
+            botSeed,
+          },
+          states,
+          position,
+          seats: restoredSeats,
+          botSeed,
+          labels: [],
         },
-        states,
-        position,
-      });
+        false,
+      );
       setImportError(null);
     } catch (err) {
       setImportError(String(err));
@@ -342,6 +632,25 @@ export function DebugViewer() {
     const data = state?.cards[card.cardId];
     if (data) setSelected(data);
   };
+
+  // What the board shows: everything (debug), one human's view against a bot, or a spectator's.
+  const oneHumanVsBot = humanSeats.length === 1 && botSeats.length === 1;
+  const viewer =
+    oneHumanVsBot && hideHidden
+      ? (humanSeats[0] as PlayerId)
+      : botSeats.length === 2 && spectatorView
+        ? "spectator"
+        : null;
+  const shown = state && viewer ? displayState(state, viewer) : state;
+  const banner =
+    viewer === "spectator"
+      ? "Spectator view: hidden cards hidden"
+      : viewer
+        ? `Hiding the bot's hidden cards: you see only ${viewer}'s view`
+        : "Debug: hidden info visible";
+  const averageMs = botMs.length
+    ? botMs.reduce((a, b) => a + b, 0) / botMs.length
+    : 0;
 
   return (
     // While the card drawer is open, the page keeps its width free so nothing is covered.
@@ -357,10 +666,12 @@ export function DebugViewer() {
         data-testid="debug-banner"
         style={{ background: "#ffd54f", padding: 6, fontWeight: "bold" }}
       >
-        Debug: hidden info visible
+        {banner}
       </div>
       <NewGameForm
-        onStart={(seed, picked) => setSession(newSession(seed, picked))}
+        onStart={(seed, picked, newSeats) =>
+          startSession(newSession(seed, picked, newSeats), true)
+        }
       />
       <div style={{ margin: 4 }}>
         <button
@@ -401,33 +712,125 @@ export function DebugViewer() {
         </label>
         {importError && <span style={{ color: "red" }}> {importError}</span>}
       </div>
-      {session && state && (
+      {session && state && shown && (
         <>
           <StatusBar state={state} />
           <IllegalDeckBanner record={session.record} />
+          {botSeats.length > 0 && (
+            <div
+              data-testid="bot-controls"
+              style={{ border: "1px solid #06c", padding: 6, margin: 4 }}
+            >
+              <strong>Bots:</strong>{" "}
+              {botSeats
+                .map((id) => {
+                  const seat = session.seats[id];
+                  return seat.kind === "bot"
+                    ? `${id} ${difficultyName(seat.difficulty)} (${seat.difficulty})`
+                    : id;
+                })
+                .join(", ")}{" "}
+              {playing ? (
+                <button
+                  type="button"
+                  data-testid="bot-pause"
+                  onClick={() => setPlaying(false)}
+                >
+                  ❚❚ Pause
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  data-testid="bot-play"
+                  onClick={() => setPlaying(true)}
+                >
+                  ▶ Play
+                </button>
+              )}{" "}
+              <button
+                type="button"
+                data-testid="bot-step"
+                disabled={playing || !botToMove}
+                onClick={() => setStepping(true)}
+              >
+                Step (one bot action)
+              </button>{" "}
+              <label>
+                Delay per bot action{" "}
+                <input
+                  type="range"
+                  min={0}
+                  max={3000}
+                  step={100}
+                  data-testid="bot-delay"
+                  value={delay}
+                  onChange={(e) => setDelay(Number(e.target.value))}
+                />{" "}
+                <span data-testid="bot-delay-value">{delay}</span> ms
+              </label>{" "}
+              {oneHumanVsBot && (
+                <label>
+                  <input
+                    type="checkbox"
+                    data-testid="hide-hidden"
+                    checked={hideHidden}
+                    onChange={(e) => setHideHidden(e.target.checked)}
+                  />{" "}
+                  Hide opponent's hidden cards
+                </label>
+              )}
+              {botSeats.length === 2 && (
+                <label>
+                  <input
+                    type="checkbox"
+                    data-testid="spectator-view"
+                    checked={spectatorView}
+                    onChange={(e) => setSpectatorView(e.target.checked)}
+                  />{" "}
+                  Spectator view (unchecked: show all cards)
+                </label>
+              )}
+              <div>
+                {thinking && (
+                  <span data-testid="bot-thinking" style={{ color: "#06c" }}>
+                    Bot ({difficultyName(thinking.difficulty)}) is thinking…{" "}
+                    {(Math.max(0, now - thinking.started) / 1000).toFixed(1)}{" "}
+                    s{" "}
+                  </span>
+                )}
+                <span data-testid="bot-ms">
+                  Bot decisions: {botMs.length}, average {averageMs.toFixed(0)}{" "}
+                  ms
+                </span>
+                {botError && (
+                  <span style={{ color: "red" }}> Bot error: {botError}</span>
+                )}
+              </div>
+            </div>
+          )}
           <div style={{ display: "flex", gap: 8 }}>
             <div>
               <PlayerAreas
-                state={state}
-                player={state.players[1]}
+                state={shown}
+                player={shown.players[1]}
                 onSelect={select}
               />
               <Field
-                state={state}
-                player={state.players[1]}
+                state={shown}
+                player={shown.players[1]}
                 top
                 onSelect={select}
               />
               <div style={{ borderTop: "3px solid #333", margin: "4px 0" }} />
               <Field
-                state={state}
-                player={state.players[0]}
+                state={shown}
+                player={shown.players[0]}
                 top={false}
                 onSelect={select}
               />
               <PlayerAreas
-                state={state}
-                player={state.players[0]}
+                state={shown}
+                player={shown.players[0]}
                 onSelect={select}
               />
               <div style={{ border: "1px solid #888", padding: 4, margin: 2 }}>
@@ -438,8 +841,26 @@ export function DebugViewer() {
               </div>
             </div>
             <div style={{ minWidth: 360 }}>
-              <ManualPanel state={state} onAction={takeAction} />
-              <ActionPanel state={state} onAction={takeAction} />
+              {botToMove && !state.result ? (
+                <div
+                  data-testid="actions"
+                  style={{ border: "1px solid #888", padding: 6, margin: 4 }}
+                >
+                  <strong>
+                    {decider} (bot) to act
+                    {session.position !== session.record.actions.length
+                      ? " — step forward to the end to let it play"
+                      : playing || stepping
+                        ? ""
+                        : " — paused"}
+                  </strong>
+                </div>
+              ) : (
+                <>
+                  <ManualPanel state={state} onAction={takeAction} />
+                  <ActionPanel state={state} onAction={takeAction} />
+                </>
+              )}
               <div style={{ border: "1px solid #888", padding: 6, margin: 4 }}>
                 <button
                   type="button"
@@ -475,7 +896,7 @@ export function DebugViewer() {
                   style={{ width: "100%" }}
                 />
               </div>
-              <LogPanel state={state} />
+              <LogPanel state={state} labels={session.labels} />
             </div>
           </div>
         </>
