@@ -1275,3 +1275,20 @@
 .comboCard .cardImage {
   object-fit: contain;
 }
+
+/* An illegal deck in a Casual game: a warning in the mat's free corner for the whole game. */
+.deckWarning {
+  position: relative;
+  z-index: 1;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-1) var(--space-2);
+  border: 2px solid var(--color-illegal);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  color: var(--color-illegal);
+  font-size: var(--font-size-sm);
+  cursor: help;
+}

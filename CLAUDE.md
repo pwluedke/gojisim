@@ -464,3 +464,16 @@ Accepted by Monarch in the M12b-1 review (PR #37).
 333. Built-in custom handlers live in `packages/engine/src/customHandlers.ts` and register when the engine loads.
 334. A `rage` effect whose delta is "for each" makes one change per counted card, each its own event (Q38).
 335. Tokens are battle cards wherever battle cards are counted or checked (`isBattle`, Q39, 9.1.4.1).
+
+Accepted by Monarch in the M12b-2 review (PR #38).
+
+336. Token data is `packages/cards/data/tokens.json`, the base print of each Token in `cards.json` (a test keeps them equal), so the main cards entry never loads `cards.json` (decision 33). A token joins the game's card catalog the first time one appears.
+337. Making a token works like an effect play: it enters its master's zones as a played card (its [enter] fires), never the monster's zone (Q5), empty zones first; with several possible zones, the master picks.
+338. A token that would go to the discard pile or a deck disappears (9.1.4.2), logged `tokenGone`. Card conservation and the bot's determinizer leave tokens out.
+339. Revenge expands into a trigger checked from the discard pile. Destroys move the cards before logging, so the event names the destroyed top card's discard instance id. Overload (11.5) doesn't trigger Revenge (Q17), and neither does a card that was under another (12.7.3).
+340. E12 `counter` is the last effect of its ability; if it opens the next-monster choice, the resolution ends there and the choice continues the check timing.
+341. E15 is `advance` with `by` as an amount, from an `advanced` trigger with a `cause` filter (`endPhase`, `invasion`, `effect`). The extra advances come from an effect, so EBP02-056 doesn't retrigger itself.
+342. E21 covers only the 7.2.3 start-phase discard for EBP02-012: the optional replacement asks its master once per card, and the step waits and runs again with the answers (`state.replacementAsks`). A strategy card destroyed by an effect still goes to the discard pile, listed under "Engine gaps" in `docs/rules/rulings-to-confirm.md`.
+343. `moveBattle` lets the effect's player pick the zone, also for the opponent's card (EBP02-057).
+344. `addToHand` takes a count, for "up to 1".
+345. Flag and play-rule checks (`hasFlag`, `counterProofAgainst`, `playAllowed`, `playRankReduction`) skip their scan when no active card has that kind of modifier, and Revenge's out-of-field check reads raw ability data. `pnpm bench --check` in CI fails if `applyAction` or `getLegalActions` is more than 50 % over `bench/baseline.json`.
