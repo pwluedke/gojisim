@@ -92,6 +92,33 @@ export function checkDeck(deck: NamedDeck): DeckValidation {
   return validateDeck(deck, new Date());
 }
 
+/**
+ * A deck option's legality for a game with `seed` (random test decks depend on it), or the error
+ * that kept it from building.
+ */
+export function optionLegality(
+  option: DeckOption,
+  seed: number,
+): DeckValidation | { error: string } {
+  try {
+    return checkDeck(option.build(seed));
+  } catch (err) {
+    return { error: String(err) };
+  }
+}
+
+/**
+ * Why a deck option can't be picked in a Tournament game (6.1.1 and the restriction lists), one
+ * line per failure; empty when it can. Casual games allow illegal decks with a warning (Paul's
+ * ruling, Oct 21, 2026).
+ */
+export function tournamentProblems(
+  legality: DeckValidation | { error: string },
+): string[] {
+  if ("error" in legality) return [legality.error];
+  return legality.failures.map((f) => `${f.rule}: ${f.message}`);
+}
+
 const STORAGE_KEY = "gojisim.debug.importedDecks";
 
 /** Imported decks remembered in this browser; empty if storage is unavailable or unreadable. */

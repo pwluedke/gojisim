@@ -523,11 +523,14 @@ function Mat({
   side,
   glow,
   mat,
+  warning,
 }: {
   model: BoardModel;
   player: PlayerAreasView;
   opponent: string;
   side: "opp" | "you";
+  /** Why this player's deck is illegal, one line per failure; empty or absent when legal. */
+  warning?: readonly string[] | undefined;
   /** The turn glow's current color name (M5f), or `null` when this mat doesn't glow. */
   glow: string | null;
   /** The custom mat image (M5f), drawn behind the zones; the opponent's is turned 180°. */
@@ -557,6 +560,25 @@ function Mat({
             rotate: side === "opp" ? "180deg" : undefined,
           }}
         />
+      )}
+      {warning && warning.length > 0 && (
+        // Casual games play illegal decks with a warning for the whole game, in the mat's free
+        // corner past zone 8 (the top right of your mat, the bottom left of the opponent's).
+        <div
+          className={styles.deckWarning}
+          data-testid={`deck-warning-${player.id}`}
+          title={warning.join("\n")}
+          style={
+            side === "you"
+              ? { gridColumn: "7", gridRow: "1" }
+              : { gridColumn: "1", gridRow: "3" }
+          }
+        >
+          <strong>Illegal deck</strong>
+          <span>
+            {[...new Set(warning.map((line) => line.split(":")[0]))].join(", ")}
+          </span>
+        </div>
       )}
       {MAT.map(({ area, col, row, cols = 1, rows = 1 }) => {
         const c = side === "you" ? col : 6 - (col + cols - 1);
@@ -650,6 +672,7 @@ export function BoardView({
   mat = null,
   logCollapsed = false,
   onToggleLog,
+  deckWarnings = {},
 }: {
   model: BoardModel;
   /** The prompt panel's content (M5c: the step, Pass, turn flags, Concede, the bot's state). */
@@ -687,6 +710,8 @@ export function BoardView({
   /** The battle log column is folded to a strip (M5f); `onToggleLog` folds or opens it. */
   logCollapsed?: boolean;
   onToggleLog?: () => void;
+  /** Illegal decks in play (Casual), by player id: one line per failure, shown on that mat. */
+  deckWarnings?: Readonly<Record<string, readonly string[]>>;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -870,6 +895,7 @@ export function BoardView({
               side="opp"
               glow={glowFor(opp)}
               mat={mat}
+              warning={deckWarnings[opp.id]}
             />
             <div className={styles.centerLine} />
             <Mat
@@ -879,6 +905,7 @@ export function BoardView({
               side="you"
               glow={glowFor(you)}
               mat={mat}
+              warning={deckWarnings[you.id]}
             />
             <Hand
               model={model}

@@ -8,12 +8,77 @@ import {
   replayAll,
   startGame,
 } from "@gojisim/engine";
+import { readFileSync, writeFileSync } from "node:fs";
+import { parseArgs } from "node:util";
+import {
+  type Baseline,
+  checkGuard,
+  GUARD,
+  measureGuard,
+  relativeTimes,
+} from "./guard";
 import { playGame } from "./stress";
 
 /**
  * Engine speed for search bots (M6a): clone, applyAction and getLegalActions per call on real
  * mid-game states, plus full random games per second. `pnpm bench`.
+ *
+ * `pnpm bench --check` runs only the speed guard (`guard.ts`) and fails if `applyAction` or
+ * `getLegalActions` is more than 50 % over `bench/baseline.json` (CI). `pnpm bench
+ * --update-baseline` measures the guard and writes the baseline, for a PR that accepts a slowdown
+ * (or a speedup) on purpose.
  */
+
+const { values: flags } = parseArgs({
+  options: {
+    check: { type: "boolean", default: false },
+    "update-baseline": { type: "boolean", default: false },
+    "measured-on": { type: "string", default: "local" },
+  },
+});
+const baselineUrl = new URL("../../../bench/baseline.json", import.meta.url);
+
+if (flags.check || flags["update-baseline"]) {
+  const times = measureGuard();
+  const relative = relativeTimes(times);
+  const round = (n: number) => Number(n.toFixed(2));
+  const measured = {
+    microseconds: {
+      calibration: round(times.calibration),
+      applyAction: round(times.applyAction),
+      getLegalActions: round(times.getLegalActions),
+    },
+    relative,
+  };
+  if (flags["update-baseline"]) {
+    const baseline: Baseline = {
+      guard: GUARD,
+      measuredOn: flags["measured-on"] as string,
+      date: new Date().toISOString().slice(0, 10),
+      ...measured,
+    };
+    writeFileSync(baselineUrl, `${JSON.stringify(baseline, null, 2)}\n`);
+    console.log(JSON.stringify(baseline, null, 2));
+    process.exit(0);
+  }
+  const baseline = JSON.parse(readFileSync(baselineUrl, "utf8")) as Baseline;
+  const problems = checkGuard(times, baseline);
+  console.log(
+    JSON.stringify({ measured, baseline: baseline.relative }, null, 2),
+  );
+  if (problems.length > 0) {
+    console.error(
+      [
+        "Speed guard failed:",
+        ...problems.map((p) => `  ${p}`),
+        "If the slowdown is accepted, copy the measured numbers above into bench/baseline.json (it is measured on the CI runner) and commit it.",
+      ].join("\n"),
+    );
+    process.exit(1);
+  }
+  console.log("Speed guard passed.");
+  process.exit(0);
+}
 
 const states: GameState[] = [];
 for (let game = 0; game < 12; game++) {

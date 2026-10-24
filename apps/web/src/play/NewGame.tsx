@@ -3,10 +3,11 @@ import type { MatchMode } from "@gojisim/engine";
 import { useState } from "react";
 import { difficultyName, type SeatConfig } from "../game/bots";
 import {
-  checkDeck,
   type DeckOption,
   loadImportedDecks,
+  optionLegality,
   playDeckOptions,
+  tournamentProblems,
 } from "../game/decks";
 import {
   backupJson,
@@ -34,35 +35,36 @@ export function presetSeats(mode: Mode): Record<PlayerId, SeatConfig> {
     : { P1: { kind: "human" }, P2: { kind: "human" } };
 }
 
-function Legality({ option }: { option: DeckOption }) {
-  try {
-    const validation = checkDeck(option.build(0));
-    // Legality problems are warnings: an illegal deck still plays (Paul's ruling, Oct 21, 2026).
-    return validation.legal ? (
-      <span className={styles.legal} data-testid="legality">
-        Legal
-      </span>
-    ) : (
-      <span
-        className={styles.warning}
-        data-testid="legality"
-        title={validation.failures
-          .map((f) => `${f.rule}: ${f.message}`)
-          .join("\n")}
-      >
-        Warnings: {validation.failures.map((f) => f.rule).join(", ")}
-      </span>
-    );
-  } catch (err) {
-    return <span className={styles.illegal}>{String(err)}</span>;
-  }
+function Legality({
+  legality,
+}: {
+  legality: ReturnType<typeof optionLegality>;
+}) {
+  if ("error" in legality)
+    return <span className={styles.illegal}>{legality.error}</span>;
+  // Legality problems are warnings in Casual: an illegal deck still plays (Paul's ruling, Oct 21,
+  // 2026). Tournament games don't offer it.
+  return legality.legal ? (
+    <span className={styles.legal} data-testid="legality">
+      Legal
+    </span>
+  ) : (
+    <span
+      className={styles.warning}
+      data-testid="legality"
+      title={tournamentProblems(legality).join("\n")}
+    >
+      Warnings: {legality.failures.map((f) => f.rule).join(", ")}
+    </span>
+  );
 }
 
 /**
  * The `/play` new-game screen (M5a): a deck for each seat (the official starters, random test
  * decks, and decks imported in `/debug`, with a legality badge), Human or Bot per seat, and the
  * difficulty slider with its presets. M5e: Casual (undo allowed) or Tournament (no undo), stored
- * in the game record.
+ * in the game record. Tournament games take legal decks only: an illegal deck can't be picked, and
+ * the seat says why. Casual games play it with a warning on the board.
  */
 export function NewGame({
   mode,
@@ -97,11 +99,24 @@ export function NewGame({
   const [matchMode, setMatchMode] = useState<MatchMode>("casual");
   const byKey = (key: string) =>
     options.find((o) => o.key === key) ?? (options[0] as DeckOption);
+  const tournament = matchMode === "tournament";
+  // Random test decks depend on the seed: check the deck the game would get.
+  const legality = new Map(
+    options.map((o) => [o.key, optionLegality(o, Number(seed) || 0)]),
+  );
+  const problemsOf = (key: string) =>
+    tournamentProblems(
+      legality.get(byKey(key).key) as ReturnType<typeof optionLegality>,
+    );
+  const blocked = tournament
+    ? PLAYER_IDS.filter((id) => problemsOf(keys[id]).length > 0)
+    : [];
   return (
     <form
       className={styles.screen}
       onSubmit={(e) => {
         e.preventDefault();
+        if (blocked.length > 0) return;
         onStart(
           Number(seed),
           [byKey(keys.P1), byKey(keys.P2)],
@@ -145,18 +160,46 @@ export function NewGame({
                       );
                       return inGroup.length ? (
                         <optgroup key={group} label={group}>
-                          {inGroup.map((o) => (
-                            <option key={o.key} value={o.key}>
-                              {o.label}
-                            </option>
-                          ))}
+                          {inGroup.map((o) => {
+                            const illegal =
+                              tournament && problemsOf(o.key).length > 0;
+                            return (
+                              <option
+                                key={o.key}
+                                value={o.key}
+                                disabled={illegal}
+                              >
+                                {o.label}
+                                {illegal ? " (illegal)" : ""}
+                              </option>
+                            );
+                          })}
                         </optgroup>
                       ) : null;
                     })}
                   </select>
                 </label>{" "}
-                <Legality option={byKey(keys[id])} />
+                <Legality
+                  legality={
+                    legality.get(byKey(keys[id]).key) as ReturnType<
+                      typeof optionLegality
+                    >
+                  }
+                />
               </div>
+              {blocked.includes(id) && (
+                <div
+                  className={styles.illegal}
+                  data-testid={`tournament-blocked-${id}`}
+                >
+                  Not allowed in a Tournament game:
+                  <ul className={styles.problems}>
+                    {problemsOf(keys[id]).map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <div className={styles.row}>
                 <label>
                   Seat{" "}
@@ -256,7 +299,7 @@ export function NewGame({
         {(
           [
             ["casual", "Casual", "undo allowed"],
-            ["tournament", "Tournament", "no undo"],
+            ["tournament", "Tournament", "no undo, legal decks only"],
           ] as const
         ).map(([value, label, note]) => (
           <label key={value}>
@@ -271,9 +314,20 @@ export function NewGame({
           </label>
         ))}
       </div>
-      <button type="submit" className={styles.start} data-testid="start-game">
+      <button
+        type="submit"
+        className={styles.start}
+        data-testid="start-game"
+        disabled={blocked.length > 0}
+      >
         Start
       </button>
+      {blocked.length > 0 && (
+        <div className={styles.illegal} data-testid="start-blocked">
+          Tournament games need legal decks: pick another deck for{" "}
+          {blocked.join(" and ")}, or play Casual.
+        </div>
+      )}
       <div>
         <label>
           Or load a game record{" "}
@@ -451,12 +505,15 @@ function MyDecks({
                     <span data-testid="my-deck-name">{saved.name}</span>{" "}
                     {deck && (
                       <Legality
-                        option={{
-                          key: saved.id,
-                          label: saved.name,
-                          kind: "mine",
-                          build: () => deck,
-                        }}
+                        legality={optionLegality(
+                          {
+                            key: saved.id,
+                            label: saved.name,
+                            kind: "mine",
+                            build: () => deck,
+                          },
+                          0,
+                        )}
                       />
                     )}
                     <span className={styles.deckActions}>

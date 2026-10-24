@@ -33,6 +33,12 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Speed guard: fails if applyAction or getLegalActions is more than 50 % over
+      # bench/baseline.json (median of fixed EBP01/EBP02 games, in calibration units). An accepted
+      # slowdown updates the baseline in its PR: `pnpm bench --update-baseline`.
+      - name: Speed guard
+        run: pnpm bench --check
+
       # Spec case 52: random legal games with invariant checks. Seeded by the commit, so a
       # failure can be reproduced with `pnpm stress --games 1000 --seed <sha>`.
       - name: Stress test (1,000 games)
