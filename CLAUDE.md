@@ -477,3 +477,22 @@ Accepted by Monarch in the M12b-2 review (PR #38).
 343. `moveBattle` lets the effect's player pick the zone, also for the opponent's card (EBP02-057).
 344. `addToHand` takes a count, for "up to 1".
 345. Flag and play-rule checks (`hasFlag`, `counterProofAgainst`, `playAllowed`, `playRankReduction`) skip their scan when no active card has that kind of modifier, and Revenge's out-of-field check reads raw ability data. `pnpm bench --check` in CI fails if `applyAction` or `getLegalActions` is more than 50 % over `bench/baseline.json`.
+
+Accepted by Monarch in the deck legality and speed guard review (PR #39).
+
+346. Tournament games block every deck check failure: size, copies, colors (6.1.1.3), invasion icon 2 (6.1.1.2.2), Token cards, the restriction list and choice restrictions.
+347. Illegal decks stay listed in a Tournament game's picker, disabled as "(illegal)"; a pick that becomes illegal when the mode switches to Tournament blocks Start and doesn't change by itself.
+348. Random test decks are checked for legality with the game's seed.
+349. A Casual game's "Illegal deck" badge sits in the mat's free corner past zone 8, its reasons worded from the deck and the start date the record stored.
+350. A loaded record with an illegal deck loads in any mode (it replays what happened) and shows the badge.
+351. The speed guard plays 8 fixed games (seed `bench-guard`, random EBP01/EBP02 test decks, weighted policy) and times 9 rounds of 150 ms after a warm-up, comparing medians.
+352. The guard compares times divided by a fixed plain-JavaScript workload timed in the same rounds. `bench/baseline.json` holds numbers measured on the CI runner (copied from a CI log when a slowdown is accepted) and is prettier-ignored.
+
+Accepted by Monarch in the Decklog import review (PR #40).
+
+353. The Decklog route lives in `apps/server/src/decklog.ts`; Vite's config imports it as dev-server middleware, so both servers run one implementation.
+354. The route answers 400 for a malformed code (no request sent), 404 when Decklog answers `[]`, 422 for another game's deck (`game_title_id` ≠ 7) and 502 when Decklog can't be reached or answers something unreadable; 10 s timeout, a "GojiSim deck import" user agent, and the deck's view page as referer (without it Decklog answers `[]`).
+355. A `+` print missing from the card data reads as its base card (6.1.1.4.1), and the import modal says so.
+356. Decklog's `sub_list` is left out (the game has no side deck), with a note when it has cards.
+357. An imported Decklog deck is named after its title, collapsed to one line, or "Decklog <code>" without one.
+358. Decklog fixtures are the full recorded answers, prettier-ignored so they stay as recorded.

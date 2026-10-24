@@ -54,15 +54,24 @@ function isBattleStack(state: GameState, stack: CardStack): boolean {
 /**
  * The destroyed top card's id in its discard pile (T2, Revenge): only the top card's, since a
  * card that was under it has no Revenge (12.7.3). A token has none: it disappeared (9.1.4.2).
+ * The cards that were under it are listed too (`underDiscardIds`, EBP03-052); the discard pile
+ * is public.
  */
 function discardIdOf(
   state: GameState,
   discarded: CardInstance[],
-): { discardInstanceId?: string } {
+): { discardInstanceId?: string; underDiscardIds?: string[] } {
   const top = discarded[discarded.length - 1];
-  return top && !isToken(state, top)
-    ? { discardInstanceId: top.instanceId }
-    : {};
+  const under = discarded
+    .slice(0, -1)
+    .filter((c) => !isToken(state, c))
+    .map((c) => c.instanceId);
+  return {
+    ...(top && !isToken(state, top)
+      ? { discardInstanceId: top.instanceId }
+      : {}),
+    ...(under.length > 0 ? { underDiscardIds: under } : {}),
+  };
 }
 
 interface LastKnown {

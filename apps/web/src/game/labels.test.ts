@@ -156,3 +156,77 @@ describe("an opponent's optional discard (M12b-1, EBP02-070)", () => {
     );
   });
 });
+
+describe("cards under a card and monster deck plays (M12c-1)", () => {
+  /** The turn player at the play timing, with `setup` applied, then `act`. */
+  function after(
+    setup: (
+      state: GameState,
+      me: GameState["players"][number],
+      add: (number: string) => GameState["players"][number]["hand"][number],
+    ) => Action,
+  ): GameState {
+    const decks = (["ESD01", "ESD02"] as const).map((set, i) => ({
+      id: `P${i + 1}`,
+      ...buildTestDeck(set, `labels-${i}`),
+    }));
+    const state = startGame({ seed: 3, decks: [decks[0]!, decks[1]!] });
+    const me = state.players.find((p) => p.id === state.turnPlayer)!;
+    const add = (number: string) => {
+      const card = real(number);
+      state.cards = { ...state.cards, [card.id]: card };
+      return {
+        instanceId: `c${state.nextInstanceId++}`,
+        cardId: card.id,
+        owner: me.id,
+      };
+    };
+    return advanceToDecision(applyAction(state, setup(state, me, add)));
+  }
+
+  it("EBP03-042: picking which Mothra battle card it goes under", () => {
+    const state = after((_, me, add) => {
+      me.monsterPosition = 1;
+      me.zones[8].push([add("EBP03-042")]);
+      // Out of the monster's way: it advances from zone 1 to zone 2 (11.3).
+      me.zones[4].push([add("EBP03-044")]);
+      me.zones[5].push([add("EBP03-044")]);
+      const invader = add("ESD02-011");
+      me.hand.push(invader);
+      return {
+        type: "invade",
+        player: me.id,
+        cardInstanceId: invader.instanceId,
+      };
+    });
+    // First "use the ability?", then the card it goes under.
+    const yes = applyAction(state, {
+      type: "choose",
+      player: state.pendingChoice!.player,
+      choiceId: state.pendingChoice!.id,
+      optionId: "yes",
+    });
+    expect(decisionHeading(advanceToDecision(yes))).toContain(
+      "choosing the card to put cards under for Ghogo",
+    );
+  });
+
+  it("EBP03-074: picking a monster card to play from the monster deck", () => {
+    const state = after((_, me, add) => {
+      me.monsterPosition = 6;
+      me.invadingMonsterZone = [add("EBP03-019")];
+      me.monsterDeck = [add("EBP03-020"), add("EBP03-021")];
+      const journey = add("EBP03-074");
+      me.hand.push(journey);
+      return {
+        type: "activateStrategy",
+        player: me.id,
+        cardInstanceId: journey.instanceId,
+        strategyZone: 1,
+      };
+    });
+    expect(decisionHeading(state)).toContain(
+      "choosing a monster card to play from their monster deck",
+    );
+  });
+});

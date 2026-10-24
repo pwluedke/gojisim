@@ -150,6 +150,20 @@ export function fireTriggers(
       enter(card, master, definition.abilityId);
     }
   }
+  // Leaving the field (10.6.4.1.2): a destroyed card's own "when this card is destroyed"
+  // abilities trigger from its last known information on the field (EBP03-052).
+  if (event.type === "destroy" && event.player !== null) {
+    const ids = event.payload["cardIds"];
+    const cardId = Array.isArray(ids) ? Number(ids[ids.length - 1]) : NaN;
+    const instanceId = event.payload["instanceId"];
+    if (typeof instanceId === "string" && state.cards[cardId]) {
+      const gone = { instanceId, cardId, owner: event.player };
+      const number = state.cards[cardId]?.deckCardNumber ?? "";
+      for (const ability of dataTriggers(state, event, gone, event.player))
+        if (ability.trigger.on === "destroyed" && ability.trigger.what.this)
+          enter(gone, event.player, dataAbilityId(number, ability.id));
+    }
+  }
   // Abilities active in a hand or discard pile ("when this card is discarded from your hand", T3).
   for (const player of state.players)
     for (const area of ["hand", "discard"] as const)

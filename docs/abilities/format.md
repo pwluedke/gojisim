@@ -450,3 +450,37 @@ Built differently from the plan:
 - E15 is `advance` with `by` as an amount, from an `advanced` trigger with `cause: "endPhase"`; the extra advances are by an effect, so they don't trigger it again (EBP02-056). EBP04-007's "advances 2 zones" comes with EBP04.
 - E12 `counter` is always the last effect: if the next-monster choice opens, the resolution ends there and the choice continues the check timing.
 - E21 builds `strategyToDiscard` at 7.2.3 with optional replacements: the step asks the replacement's master per card and runs again with the answers (`state.replacementAsks`). The `rageReset` and `invasionCost` events come with EBP04 and EBP03.
+
+### M12c-1: EBP03 with built pieces (and small extensions), EPR-020
+
+No new pieces from the plan: C4, E14, E16, E20, K1, K2, X and C5's `countsAs` come with M12c-2. These extensions of built pieces carry the 66 EBP03 cards and EPR-020:
+
+```typescript
+type ZoneSet = ...
+  | { relation: "horizontallyAdjacentTo"; of: Anchor }  // C3: beside it in its row (4.4.5.2, 4.4.5.5)
+  | { ranksOf: string };                                // C3: zones numbered like the bound cards' ranks (EBP03-073)
+
+type Effect = ...
+  | { effect: "revealTop"; player: "you"; count: Amount;                   // E3: "as many as the opponent's monster's rank"
+      take: { filter: Selector; count: Count } | { filter: Selector; count: Count }[]; rest: "discard" }
+  | { effect: "chooseZone"; owner: "you" | "opponent"; zones?: ZoneSet; as: string }   // C3: only these zones
+  | { effect: "play"; ...; onTop?: Selector }                               // E18: "play it on top of" that card (3.2.5)
+  | { effect: "placeUnder"; ...; hostAs?: string }                          // E4: binds the card they went under
+  | { effect: "putOnDeck"; ...; count?: Count }                             // E5: "up to 1"
+  | { effect: "playMonster"; from: "monsterDeck"; filter: Selector;         // E18, Q27 (EBP03-074)
+      rankAbove: number; sharesTrait: boolean; increasesRage: boolean }
+  | { effect: "discardDownTo"; player: "each"; size: number };              // E11: each player (EBP03-029)
+
+type Trigger = ...
+  | { on: "destroyed"; ...; underAs?: string };  // binds the cards that were under it, now in the discard pile
+```
+
+Built differently from the plan:
+
+- EBP03-004 (invade by milling the top card instead of discarding, an `invasionCost` replacement, and "this card's [rage] cannot be reduced by your opponent's effects") and EBP03-051 (a main phase play on top of a [little-godzilla] battle card at rank −2) are new actions, not data: they move to M12c-2 with the planned pieces. M12c-2 has 14 cards.
+- "When this card is destroyed" abilities trigger from the card's last known information on the field (10.6.4.1.2): the engine checks the destroyed top card's own `destroyed` triggers with `what.this` after it leaves (EBP03-052). The destroy log lists the discard ids of the cards that were under it (`underDiscardIds`); the discard pile is public.
+- `placeUnder` with several possible cards to go under asks the effect's player which one (it took the first before). A card on the field goes under alone; the cards under it stay in its zone.
+- `play` with `onTop` stacks the played card on that card's stack (3.2.5), with no zone choice and no overload; with that card gone, nothing is played.
+- A `discard` effect binds the discarded cards with `as` (EBP03-032: "+1,000 for each card discarded this way").
+- "A card with [base] in play" is a strategy card with Base in your strategy zones; it reads the printed [base] icon until the Base cards get data in M12c-2 (decision 131).
+- EPR-020's data is in a new `PR.json` set file; the rest of PR waits for M12e.

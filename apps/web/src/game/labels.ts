@@ -205,6 +205,16 @@ function choiceWhat(state: GameState): string {
     return `searching their deck${by}`;
   if (choice.rule === "5.17") return "choosing a card to evolve";
   if (choice.rule === "5.11.1") return `choosing a card to play${by}`;
+  // M12c-1: the card cards go under (picked first), then the cards that go under it (E4).
+  if (choice.rule === "3.2" && effect?.effect === "placeUnder")
+    return state.resolution?.subject === null
+      ? `choosing the card to put cards under${by}`
+      : `choosing a card to put under it${by}`;
+  if (choice.rule === "5.10") return `choosing a revealed card to take${by}`;
+  if (choice.rule === "5.11.2")
+    return `choosing a monster card to play from their monster deck${by}`;
+  if (choice.rule === "5.2.1" && effect?.effect === "putOnDeck")
+    return `choosing a card to put on their deck${by}`;
   return `choosing a target${by}`;
 }
 
