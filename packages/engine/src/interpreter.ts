@@ -938,8 +938,13 @@ export function activeOutsideField(
   const data = abilitiesOf(state, card);
   return (
     data.status !== "manual" &&
-    withKeywords(data.abilities).some(
-      (a) => a.kind === "triggered" && (a.activeIn?.includes(area) ?? false),
+    // Read the raw data: Revenge is active in the discard pile once expanded (T2).
+    data.abilities.some(
+      (a) =>
+        (a.kind === "triggered" && (a.activeIn?.includes(area) ?? false)) ||
+        (area === "discard" &&
+          a.kind === "keyword" &&
+          a.keyword.name === "revenge"),
     )
   );
 }

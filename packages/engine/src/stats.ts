@@ -74,6 +74,28 @@ function activeModifiers(state: GameState): ActiveModifier[] {
 /** A flag modifier (M1, E13) on a card. */
 type FlagModifier = Extract<Modifier, { flag: string; target: unknown }>;
 
+/**
+ * Whether any active card's data has a modifier of this kind at all: a quick scan of ability
+ * data, with no gates, conditions or selectors. Most games have none, so the flag and play-rule
+ * checks that run on every action cost almost nothing (M12b-2 speed fix).
+ */
+function anyModifier(
+  state: GameState,
+  kind: (modifier: Modifier) => boolean,
+): boolean {
+  for (const { card } of activeCards(state)) {
+    const data = abilitiesOf(state, card);
+    if (data.status === "manual") continue;
+    for (const ability of data.abilities)
+      if (ability.kind === "continuous" && ability.modifiers.some(kind))
+        return true;
+  }
+  return false;
+}
+
+const isFlag = (flag: string) => (m: Modifier) =>
+  "flag" in m && m.flag === flag;
+
 /** Flag modifiers in force that target `card` (M1, E13). */
 export function flagsOn(state: GameState, card: CardInstance): FlagModifier[] {
   const found: FlagModifier[] = [];
@@ -99,6 +121,7 @@ export function hasFlag(
   card: CardInstance,
   flag: FlagModifier["flag"],
 ): boolean {
+  if (!anyModifier(state, isFlag(flag))) return false;
   return flagsOn(state, card).some((m) => m.flag === flag);
 }
 
@@ -113,7 +136,7 @@ export function counterProofAgainst(
   total: number,
 ): { moves: boolean } | null {
   const top = topOf(player.invadingMonsterZone);
-  if (!top) return null;
+  if (!top || !anyModifier(state, isFlag("counterProof"))) return null;
   const proofs = flagsOn(state, top).filter(
     (m): m is Extract<FlagModifier, { flag: "counterProof" }> =>
       m.flag === "counterProof" && total <= m.atOrBelow,
@@ -133,6 +156,7 @@ export function playAllowed(
   card: CardInstance,
   zone?: ZoneNumber,
 ): boolean {
+  if (!anyModifier(state, isFlag("cannotPlay"))) return true;
   for (const { modifier, context } of activeModifiers(state)) {
     if (!("flag" in modifier) || modifier.flag !== "cannotPlay") continue;
     collecting = true;
@@ -170,6 +194,8 @@ export function playRankReduction(
   state: GameState,
   card: CardInstance,
 ): number {
+  if (!anyModifier(state, (m) => "stat" in m && m.stat === "playRankReduction"))
+    return 0;
   let total = 0;
   for (const { modifier, context } of activeModifiers(state)) {
     if (!("stat" in modifier) || modifier.stat !== "playRankReduction")
