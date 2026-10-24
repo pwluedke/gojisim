@@ -404,3 +404,17 @@ Accepted by Monarch in the M5g review (PR #32).
 285. The theme contrast check is axe's `color-contrast` rule (`@axe-core/playwright` 4.13.0, a web dev dependency).
 286. Every color is a `theme.css` variable, one set per theme on `:root[data-theme=…]` (Grey also with no attribute); `index.html` sets the saved theme before the first paint.
 287. A moving card stays above the stack it lands on: the stack's covered old top stays in place under it until it lands; flights and the input lock render in one top-level layer (a portal) above board cards, hover layers and chips, below the zone banner, the preview and the modals; a card sent to the deck bottom slides under a copy of the pile's top card.
+
+Accepted by Monarch in the M7a review (PR #33).
+
+288. Deck list formats are detected from the text: GojiSim text (`gojisim`, which godzilla-sim exports also are), the godzillatcgdb.com deck page (`godzillatcgdb-page`) and its printable list (`godzillatcgdb-print`). The print format has whole card numbers; the deck page has set and id in separate cells.
+289. Saved decks are stored as GojiSim deck list text. A text with several decks offers a picker; one deck is saved per import. A godzilla-sim export with no deck name suggests an empty name.
+290. On the deck page, a card in the Cards section with no count badge is an error, not a count of 1. Card parsing stops at the comment section and the page footer.
+291. The dev decks stay in the `/play` picker as their own group after My decks (they exist only on Paul's machine).
+292. A newly saved or restored deck becomes P1's pick.
+293. My decks renames and deletes in place; delete asks once.
+294. The decks backup file is `{ app: "gojisim", kind: "decks", version: 1, decks: [{ name, list }] }`. A restore skips decks it can't parse and says so.
+295. The My decks panel reports `data-decks-stored`; reload tests wait for it.
+296. The My decks panel and the import modal sit inside the new-game form with no nested forms; Enter never starts a game from them.
+297. Light's `--color-legal` is `#187634` (it was `#1a7f37`).
+298. The godzillatcgdb fixtures come from a public deck with its title and author replaced.
