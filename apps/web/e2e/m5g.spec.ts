@@ -19,6 +19,12 @@ const nextOf = (name: string) =>
 
 /** Takes a fixture's next action through the board: a hand card and its target, or a choice. */
 async function take(page: Page, action: Action) {
+  if (action.type === "pass") {
+    await page.getByTestId("pass").click();
+    const yes = page.getByTestId("confirm-yes");
+    if (await yes.isVisible()) await yes.click();
+    return;
+  }
   if (action.type === "choose") {
     await page
       .locator(
@@ -51,26 +57,91 @@ async function take(page: Page, action: Action) {
 const comboLines = (page: Page) =>
   page.locator('[data-testid="log-line"][data-combo="true"]');
 
-test("your combo against the bot: a banner with its cards, then a log line", async ({
+/** The combo's entry in the JSON data (its text matches combos.md, checked by a unit test). */
+const tokyoWall = (
+  JSON.parse(
+    readFileSync(
+      new URL(
+        "../../../packages/cards/data/combos/ESD01.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ) as { name: string; cards: string[]; text: Record<string, string> }[]
+).find((c) => c.name === "Tokyo Wall") as {
+  name: string;
+  cards: string[];
+  text: Record<string, string>;
+};
+
+const settingsWith = (page: Page, values: Record<string, unknown>) =>
+  page.addInitScript(
+    (text) => window.localStorage.setItem("gojisim.settings", text),
+    JSON.stringify({ animation: "off", ...values }),
+  );
+
+test("your combo against the bot opens the combo modal: name, who, cards, steps and result; Space closes it", async ({
   page,
 }) => {
   await loadFixture(page, "combo-you");
-  // The record's earlier combos are history: no callout for them.
-  await expect(page.getByTestId("combo-banner")).toHaveCount(0);
+  // The record's earlier combos are history: no modal for them.
+  await expect(page.getByTestId("combo-modal")).toHaveCount(0);
   const before = await comboLines(page).count();
   await take(page, nextOf("combo-you"));
-  const banner = page.getByTestId("combo-banner");
-  await expect(banner).toBeVisible();
+  const modal = page.getByTestId("combo-modal");
+  await expect(modal).toBeVisible();
   await expect(page.getByTestId("combo-name")).toHaveText("Tokyo Wall");
   await expect(page.getByTestId("combo-who")).toHaveText("Combo · You");
-  await expect(banner.getByTestId("combo-card")).toHaveCount(3);
+  const cards = modal.getByTestId("combo-card");
+  await expect(cards).toHaveCount(3);
+  for (const [i, number] of tokyoWall.cards.entries())
+    await expect(cards.nth(i)).toContainText(`[${number}]`);
+  await expect(page.getByTestId("combo-steps")).toHaveText(
+    tokyoWall.text["steps"] ?? "",
+  );
+  await expect(page.getByTestId("combo-result")).toHaveText(
+    tokyoWall.text["result"] ?? "",
+  );
   await expect(comboLines(page)).toHaveCount(before + 1);
   await expect(comboLines(page).last()).toHaveText("Combo: Tokyo Wall (You)");
-  // About 2 s, then it goes.
-  await expect(banner).toHaveCount(0, { timeout: 4000 });
+  // No auto-dismiss: still open after 2.5 s.
+  await page.waitForTimeout(2500);
+  await expect(modal).toBeVisible();
+  // Hovering a card opens its preview.
+  await cards.first().hover();
+  await expect(page.getByTestId("card-preview")).toBeVisible();
+  await page.keyboard.press(" ");
+  await expect(modal).toHaveCount(0);
 });
 
-test("the other side's combo (P2 in hotseat) is called out with its seat", async ({
+test("the Close button closes the combo modal", async ({ page }) => {
+  await loadFixture(page, "combo-you");
+  await take(page, nextOf("combo-you"));
+  await expect(page.getByTestId("combo-modal")).toBeVisible();
+  await page.getByTestId("combo-close").click();
+  await expect(page.getByTestId("combo-modal")).toHaveCount(0);
+});
+
+test("the bot doesn't move while the combo modal is open", async ({ page }) => {
+  await settingsWith(page, { botDelay: 0 });
+  await loadFixture(page, "combo-bot-waits");
+  const botLines = () =>
+    page
+      .getByTestId("log-line")
+      .filter({ hasText: /^Bot \(Medium\): / })
+      .count();
+  const before = await botLines();
+  await take(page, nextOf("combo-bot-waits"));
+  await expect(page.getByTestId("combo-modal")).toBeVisible();
+  // The decision is the bot's, with no delay; it waits for the modal.
+  await page.waitForTimeout(2500);
+  expect(await botLines()).toBe(before);
+  await expect(page.getByTestId("bot-thinking")).not.toContainText("thinking");
+  await page.getByTestId("combo-close").click();
+  await expect.poll(botLines, { timeout: 30_000 }).toBeGreaterThan(before);
+});
+
+test("the other side's combo (P2 in hotseat) names its seat", async ({
   page,
 }) => {
   await loadFixture(page, "combo-p2");
@@ -81,40 +152,38 @@ test("the other side's combo (P2 in hotseat) is called out with its seat", async
   await expect(comboLines(page).last()).toHaveText("Combo: Tokyo Wall (P2)");
 });
 
-test("with Combo callouts off, no banner, but the log line stays", async ({
+test("with Combo callouts off, no modal, but the log line stays", async ({
   page,
 }) => {
-  await page.addInitScript(() =>
-    window.localStorage.setItem(
-      "gojisim.settings",
-      JSON.stringify({ animation: "off", comboCallouts: false }),
-    ),
-  );
+  await settingsWith(page, { comboCallouts: false });
   await loadFixture(page, "combo-you");
   const before = await comboLines(page).count();
   await take(page, nextOf("combo-you"));
   await expect(comboLines(page)).toHaveCount(before + 1);
   await expect(comboLines(page).last()).toHaveText("Combo: Tokyo Wall (You)");
   await page.waitForTimeout(500);
-  await expect(page.getByTestId("combo-banner")).toHaveCount(0);
+  await expect(page.getByTestId("combo-modal")).toHaveCount(0);
 });
 
-test("with animations on, the banner waits for the cards to land", async ({
+test("with animations on, the modal opens once the cards land, with a shake; Off skips the shake", async ({
   page,
 }) => {
-  await page.addInitScript(() =>
-    window.localStorage.setItem(
-      "gojisim.settings",
-      JSON.stringify({ animation: "normal" }),
-    ),
-  );
+  await settingsWith(page, { animation: "normal" });
   await loadFixture(page, "combo-you");
   await take(page, nextOf("combo-you"));
-  // While cards move (the lock is up), no banner; once they land, the banner.
+  // While cards move (the lock is up), no modal; once they land, it opens shaking.
   await expect(page.getByTestId("animation-lock")).toBeVisible();
-  await expect(page.getByTestId("combo-banner")).toHaveCount(0);
+  await expect(page.getByTestId("combo-modal")).toHaveCount(0);
   await expect(page.getByTestId("animation-lock")).toHaveCount(0);
-  await expect(page.getByTestId("combo-banner")).toBeVisible();
+  await expect(page.getByTestId("combo-modal")).toBeVisible();
+  await expect(page.locator('[data-shake="true"]')).toHaveCount(1);
+});
+
+test("with animations Off the modal doesn't shake", async ({ page }) => {
+  await loadFixture(page, "combo-you");
+  await take(page, nextOf("combo-you"));
+  await expect(page.getByTestId("combo-modal")).toBeVisible();
+  await expect(page.locator("[data-shake]")).toHaveCount(0);
 });
 
 /**

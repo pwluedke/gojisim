@@ -118,6 +118,16 @@ export const ComboSchema = z.strictObject({
   deck: z.string().regex(/^[A-Z]+\d*$/),
   cards: z.array(CardNumberSchema).min(2),
   success: ComboConditionSchema,
+  /**
+   * The entry's text in `docs/combos/combos.md`, word for word (the combo modal shows it, M5g):
+   * its Cards, Steps, Result and Success rows.
+   */
+  text: z.strictObject({
+    cards: z.string().min(1),
+    steps: z.string().min(1),
+    result: z.string().min(1),
+    success: z.string().min(1),
+  }),
 });
 export type Combo = z.infer<typeof ComboSchema>;
 

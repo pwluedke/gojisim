@@ -3,50 +3,102 @@
     "id": "oxygen-destroyer",
     "name": "Oxygen Destroyer",
     "deck": "ESD02",
-    "cards": ["ESD02-004", "ESD02-013"],
+    "cards": [
+      "ESD02-004",
+      "ESD02-013"
+    ],
     "success": {
       "kind": "paidCost",
       "ability": "ESD02-004#invading-destroy",
-      "paidRank": { "op": ">=", "value": 8 },
+      "paidRank": {
+        "op": ">=",
+        "value": 8
+      },
       "destroys": 1
+    },
+    "text": {
+      "cards": "Godzilla (1994) (ESD02-004), Destoroyah Perfect Form (ESD02-013)",
+      "steps": "1. ESD02-004 invades. 2. Pay its cost by discarding Destoroyah Perfect Form (rank 8) from your hand.",
+      "result": "Destroys every opponent battle card of rank 8 or lower, which is every battle card in the starters",
+      "success": "ESD02-004's cost is paid with a rank 8 card and at least 1 card is destroyed"
     }
   },
   {
     "id": "twin-cocoons",
     "name": "Twin Cocoons",
     "deck": "ESD02",
-    "cards": ["ESD02-003", "ESD02-007", "ESD02-008"],
+    "cards": [
+      "ESD02-003",
+      "ESD02-007",
+      "ESD02-008"
+    ],
     "success": {
       "kind": "playedThenEvolved",
       "playedBy": "ESD02-003#enter-play",
-      "cards": ["ESD02-007", "ESD02-008"],
+      "cards": [
+        "ESD02-007",
+        "ESD02-008"
+      ],
       "evolves": 1
+    },
+    "text": {
+      "cards": "Godzilla (1992) (ESD02-003), Mothra (Larva) (ESD02-007), Battra (Larva) (ESD02-008)",
+      "steps": "1. Both Larvae are in your discard pile. 2. ESD02-003 enters: play both Larvae from the discard pile into zones adjacent to it. 3. At your next main phase, evolve them into Mothra (Imago) and Battra (Imago). Mothra (Imago) draws 1.",
+      "result": "Two battle cards back from the discard pile, then a rank 5 and a rank 6 battle card plus a draw",
+      "success": "ESD02-003 plays both Larvae, and at least 1 of them evolves by the end of your next main phase. Spans two turns"
     }
   },
   {
     "id": "cosmos-call",
     "name": "Cosmos Call",
     "deck": "ESD02",
-    "cards": ["ESD02-014", "ESD02-007", "ESD02-010"],
+    "cards": [
+      "ESD02-014",
+      "ESD02-007",
+      "ESD02-010"
+    ],
     "success": {
       "kind": "evolvedThenDraw",
       "evolvedBy": "ESD02-014#legend",
       "from": "ESD02-007",
       "then": "ESD02-010#enter-draw"
+    },
+    "text": {
+      "cards": "The Legend of Infant Island (ESD02-014), Mothra (Larva) (ESD02-007), Mothra (Imago) (ESD02-010)",
+      "steps": "1. Mothra (Larva) is on the board. 2. Activate The Legend of Infant Island: evolve it now, without waiting for the start of your main phase. 3. Mothra (Imago) enters through evolution and draws 1.",
+      "result": "Instant rank 5 battle card plus a card",
+      "success": "The Legend of Infant Island evolves Mothra (Larva) and Mothra (Imago)'s draw resolves"
     }
   },
   {
     "id": "cadmium-barrage",
     "name": "Cadmium Barrage",
     "deck": "ESD02",
-    "cards": ["ESD02-009", "ESD02-005"],
+    "cards": [
+      "ESD02-009",
+      "ESD02-005"
+    ],
     "success": {
       "kind": "sameTurn",
       "events": [
-        { "event": "rageTaken", "by": "ESD02-009#enter-rage", "min": 1 },
-        { "event": "rageTaken", "by": "ESD02-005#invading-rage", "min": 1 }
+        {
+          "event": "rageTaken",
+          "by": "ESD02-009#enter-rage",
+          "min": 1
+        },
+        {
+          "event": "rageTaken",
+          "by": "ESD02-005#invading-rage",
+          "min": 1
+        }
       ],
       "total": 2
+    },
+    "text": {
+      "cards": "Super-X (ESD02-009), Godzilla (1993) (ESD02-005)",
+      "steps": "1. With your monster in zone 4 or beyond, play Super-X in zone 8: the opponent loses 1 rage. 2. ESD02-005 invades 2 zones: the opponent loses 1 rage per zone.",
+      "result": "The opponent loses up to 3 rage in one turn, which shuts off the red deck's 2-or-more rage effects",
+      "success": "In one turn, Super-X and ESD02-005 together take at least 2 rage from the opponent"
     }
   }
 ]

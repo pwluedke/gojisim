@@ -3,39 +3,78 @@
     "id": "ginza-inferno",
     "name": "Ginza Inferno",
     "deck": "ESD01",
-    "cards": ["ESD01-013", "ESD01-014"],
+    "cards": [
+      "ESD01-013",
+      "ESD01-014"
+    ],
     "success": {
       "kind": "sameTurn",
       "events": [
-        { "event": "destroy", "by": "ESD01-013#rage-destroy", "min": 1 },
-        { "event": "play", "by": "ESD01-014#emerges", "type": "Battle", "min": 1 }
+        {
+          "event": "destroy",
+          "by": "ESD01-013#rage-destroy",
+          "min": 1
+        },
+        {
+          "event": "play",
+          "by": "ESD01-014#emerges",
+          "type": "Battle",
+          "min": 1
+        }
       ]
+    },
+    "text": {
+      "cards": "Ginza Annihilated (ESD01-013), any monster cards in hand, Godzilla Emerges (ESD01-014)",
+      "steps": "1. Activate Ginza Annihilated. 2. Gain rage by discarding monster cards from your hand (8.4); each rage gained destroys 1 of the opponent's rank 6 or lower battle cards. 3. With 2 or more rage, activate Godzilla Emerges: search your deck for a battle card named Godzilla (2023) and play it.",
+      "result": "Several destroys, then a free rank 5 or 7 battle card on a cleared board",
+      "success": "In one turn, Ginza Annihilated destroys at least 1 card and Godzilla Emerges plays a battle card"
     }
   },
   {
     "id": "tokyo-wall",
     "name": "Tokyo Wall",
     "deck": "ESD01",
-    "cards": ["ESD01-010", "ESD01-014", "ESD01-012"],
+    "cards": [
+      "ESD01-010",
+      "ESD01-014",
+      "ESD01-012"
+    ],
     "success": {
       "kind": "boardState",
       "card": "ESD01-012",
       "zone": 8,
       "counterPowerBonus": 8000,
-      "with": ["ESD01-010"]
+      "with": [
+        "ESD01-010"
+      ]
+    },
+    "text": {
+      "cards": "City of Tokyo (ESD01-010), Godzilla Emerges (ESD01-014), Godzilla (2023) battle card (ESD01-012)",
+      "steps": "1. Have City of Tokyo in play and 2 or more rage. 2. Godzilla Emerges plays ESD01-012 into zone 8 (or ESD01-012 moves there when you play a monster card).",
+      "result": "ESD01-012 in zone 8 at +8000 counter power: +3000 from its own zone 8 bonus, +5000 from City of Tokyo",
+      "success": "ESD01-012 is in zone 8 with both bonuses active"
     }
   },
   {
     "id": "deep-sea-ambush",
     "name": "Deep Sea Ambush",
     "deck": "ESD01",
-    "cards": ["ESD01-002", "ESD01-006"],
+    "cards": [
+      "ESD01-002",
+      "ESD01-006"
+    ],
     "success": {
       "kind": "foundThenBurst",
       "foundBy": "ESD01-002#invading-search",
       "card": "ESD01-006",
       "enter": "ESD01-006#enter-destroy",
       "destroys": 1
+    },
+    "text": {
+      "cards": "Godzilla (2023) rank II monster (ESD01-002), Godzilla (2023) rank III Burst monster (ESD01-006)",
+      "steps": "1. ESD01-002 invades: search your deck for ESD01-006 and add it to your hand. 2. Next turn, Burst ESD01-006 from rank II: it enters and destroys 1 of the opponent's rank 4 or lower battle cards.",
+      "result": "The searched card becomes an early rank III threat and a destroy",
+      "success": "ESD01-006 found by ESD01-002's search is played with Burst and its [enter] destroys a card. Spans two turns"
     }
   }
 ]

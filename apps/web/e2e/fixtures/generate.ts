@@ -242,6 +242,18 @@ const FIXTURES: Fixture[] = [
       combos.some((c) => c.player === "P1"),
   },
   {
+    name: "combo-bot-waits",
+    note: "P1's next action (`next`) completes a combo and hands the decision to the bot (M5g modal)",
+    decks: official,
+    confirmSingleOption: true,
+    match: () => false,
+    matchNext: (_b, action, after, combos) =>
+      [...HAND_OR_CHOICE, "pass"].includes(action.type) &&
+      combos.some((c) => c.player === "P1") &&
+      (after.pendingChoice?.player ?? after.turnPlayer) === "P2" &&
+      !after.result,
+  },
+  {
     name: "combo-p2",
     note: "Hotseat: P2's next action (`next`) completes a combo (M5g callout)",
     decks: (g) => (g % 2 ? [esd01, esd02] : [esd02, esd01]),

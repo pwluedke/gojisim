@@ -26,7 +26,9 @@ import { BoardView, STEP_NAMES } from "./BoardView";
 import { BattleLog } from "./BattleLog";
 import { buildLog } from "./logLines";
 import { ChoiceModal } from "./ChoiceModal";
-import { ComboBanner } from "./ComboBanner";
+import { ComboModal } from "./ComboModal";
+import { type Combo, getCombos } from "@gojisim/cards";
+
 import { cardByNumber } from "../game/labels";
 import { FirstPick } from "./FirstPick";
 import { SearchModal } from "./SearchModal";
@@ -38,6 +40,10 @@ import { visibleCards } from "./Preview";
 import { type AnimationSpeed, useSettings } from "./settings";
 import { MAT_MAX_BYTES } from "./matStore";
 import { useCustomMat } from "./useCustomMat";
+
+/** A combo hit's data entry (name, cards, steps, result). */
+const comboOf = (hit: ComboHit): Combo | undefined =>
+  getCombos().find((c) => c.id === hit.comboId);
 
 /** Who must decide now: the hotseat cover shows when this changes. */
 const deciderOf = (state: GameState) =>
@@ -125,6 +131,9 @@ export function PlayScreen() {
   // M5f: card animations lock input and hold the bot; the custom mat image setting.
   const [animating, setAnimating] = useState(false);
   const customMat = useCustomMat();
+  // M5g: combos waiting for (or showing in) the combo modal, and the steps already checked.
+  const [callouts, setCallouts] = useState<ComboHit[]>([]);
+  const lastCombo = useRef(0);
   // `/play` never shows hidden cards, so bot labels always keep private choices private.
   // Bot seats play at once, two bots included (`/play` has no Play button before a game).
   const game = useGameSession({
@@ -141,9 +150,10 @@ export function PlayScreen() {
       lastCombo.current = next.record.actions.length;
     },
     // While the history view or a search result is open, a bot's answer waits.
-    hold: historyAt !== null || searches.length > 0,
-    // While cards move, no bot decision starts; its delay starts after the animation.
-    pause: animating,
+    // A combo modal holds the bot too (M5g), until it is closed.
+    hold: historyAt !== null || searches.length > 0 || callouts.length > 0,
+    // While cards move or a combo modal is open, no bot decision starts.
+    pause: animating || callouts.length > 0,
   });
   const { session, state } = game;
   const { setDelay } = game;
@@ -176,9 +186,7 @@ export function PlayScreen() {
       ? `Bot (${difficultyName(seat.difficulty)})`
       : name(player);
   };
-  // Combos from the newest step wait for the cards to land, then show for about 2 s each.
-  const [callouts, setCallouts] = useState<ComboHit[]>([]);
-  const lastCombo = useRef(0);
+  // Combos from the newest step open the combo modal once the cards land, one at a time.
   useEffect(() => {
     if (!session) return;
     const live = session.position === session.record.actions.length;
@@ -191,14 +199,7 @@ export function PlayScreen() {
     // Only a new step brings new combos.
   }, [combos]);
   const callout = callouts[0] ?? null;
-  useEffect(() => {
-    if (!callout || animating) return;
-    const timer = setTimeout(
-      () => setCallouts((queue) => queue.slice(1)),
-      2000,
-    );
-    return () => clearTimeout(timer);
-  }, [callout, animating]);
+  const closeCallout = () => setCallouts((queue) => queue.slice(1));
 
   // A deck search by a human seat, found or not, opens the search modal (M5e). An undo shortens
   // the log, so its searches are never shown again.
@@ -281,8 +282,8 @@ export function PlayScreen() {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target?.closest("input, select, textarea, [contenteditable]")) return;
-      // Input waits while cards move (M5f).
-      if (animating) return;
+      // Input waits while cards move (M5f) and while the combo modal is open (its own keys).
+      if (animating || callouts.length > 0) return;
       if (e.ctrlKey || e.metaKey || e.altKey || !session) return;
       switch (e.key) {
         case "Escape":
@@ -836,7 +837,7 @@ export function PlayScreen() {
           onConfirm={() => setSearches((queue) => queue.slice(1))}
         />
       )}
-      {showModal && !(search && !animating) && (
+      {showModal && !(search && !animating) && !callout && (
         <ChoiceModal
           key={choice?.id}
           state={state}
@@ -848,12 +849,15 @@ export function PlayScreen() {
           labelOf={(action) => actionLabel(state, action)}
         />
       )}
-      {callout && !animating && (
-        <ComboBanner
+      {callout && comboOf(callout) && !animating && !(search && !animating) && (
+        <ComboModal
           key={`${callout.actionIndex}-${callout.comboId}-${callout.player}`}
-          name={callout.name}
+          combo={comboOf(callout) as Combo}
           who={comboWho(callout.player)}
           cards={callout.cards.map((n) => cardByNumber(state, n))}
+          model={model}
+          shake={settings.animation !== "off"}
+          onClose={closeCallout}
         />
       )}
       {botMove && (

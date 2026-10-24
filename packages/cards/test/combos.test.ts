@@ -3,6 +3,24 @@ import { describe, expect, it } from "vitest";
 import { getCardAbilities, getCombos } from "../src";
 import { getAllCards } from "../src/testDecks";
 
+/** Each combo's table rows in docs/combos/combos.md (Cards, Steps, Result, Success), by name. */
+function documentedText(): Record<string, Record<string, string>> {
+  const text = readFileSync(
+    new URL("../../../docs/combos/combos.md", import.meta.url),
+    "utf8",
+  );
+  const found: Record<string, Record<string, string>> = {};
+  let current: Record<string, string> | null = null;
+  for (const line of text.split("\n")) {
+    const heading = /^### \d+\. (.+?)\s*$/.exec(line);
+    if (heading) current = found[heading[1] as string] = {};
+    const row = /^\| (Cards|Steps|Result|Success) \| (.*) \|\s*$/.exec(line);
+    if (row && current)
+      current[(row[1] as string).toLowerCase()] = row[2] as string;
+  }
+  return found;
+}
+
 /** `### N. Name` headings in docs/combos/combos.md, with the deck of their section. */
 function documented(): { name: string; deck: string }[] {
   const text = readFileSync(
@@ -28,6 +46,12 @@ describe("combo data (M5g)", () => {
     expect(data).toEqual(expect.arrayContaining(docs));
     expect(docs).toEqual(expect.arrayContaining(data));
     expect(data).toHaveLength(docs.length);
+  });
+
+  it("each combo's text (cards, steps, result, success) matches its combos.md entry word for word", () => {
+    const docs = documentedText();
+    for (const combo of getCombos())
+      expect(combo.text, combo.name).toEqual(docs[combo.name]);
   });
 
   it("every card number and ability id in the combos exists", () => {

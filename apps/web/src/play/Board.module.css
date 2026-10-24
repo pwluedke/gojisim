@@ -1194,24 +1194,30 @@
   color: var(--color-combo);
 }
 
-/* The combo callout (M5g): the combo's name and its cards, over the board for about 2 s. */
-.comboBanner {
-  position: fixed;
-  top: 38%;
-  left: 50%;
-  z-index: 35;
-  translate: -50% -50%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-6);
+/* The combo modal (M5g): the combo's name, who made it, its cards, steps and result. */
+.comboModal {
+  max-width: min(90vw, 760px);
   border: 3px solid var(--color-combo);
-  border-radius: var(--radius);
-  background: var(--color-panel);
-  box-shadow: var(--shadow);
-  pointer-events: none;
-  animation: combo-in 0.25s ease-out;
+}
+
+/* A brief shake as it opens (about 400 ms; none with Animation speed Off). */
+.comboShake {
+  animation: combo-shake 0.4s ease-in-out;
+}
+
+@keyframes combo-shake {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  15%,
+  55% {
+    translate: -10px 0;
+  }
+  35%,
+  75% {
+    translate: 10px 0;
+  }
 }
 
 .comboName {
@@ -1222,21 +1228,50 @@
 
 .comboCards {
   display: flex;
-  gap: var(--space-2);
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.comboCardItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: calc(var(--card-w) * 1.2);
+  font-size: var(--font-size-sm);
+  text-align: center;
 }
 
 .comboCard {
   position: relative;
-  width: calc(var(--card-w) * 0.9);
-  height: calc(var(--card-h) * 0.9);
+  width: calc(var(--card-w) * 1.2);
+  height: calc(var(--card-h) * 1.2);
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--color-panel-alt);
 }
 
-@keyframes combo-in {
-  from {
-    opacity: 0;
-    scale: 0.85;
-  }
+.comboCardName {
+  font-weight: bold;
+}
+
+.comboText {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.comboText dt {
+  font-weight: bold;
+}
+
+.comboText dd {
+  margin: 0;
+}
+
+/* Strategy cards are landscape: show every card in the combo modal whole. */
+.comboCard .cardImage {
+  object-fit: contain;
 }
