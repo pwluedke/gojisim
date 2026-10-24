@@ -11,6 +11,7 @@ import {
   getThreat,
   type PlayerState,
   type ZoneNumber,
+  isBattle,
 } from "@gojisim/engine";
 import { Fragment, useEffect } from "react";
 
@@ -38,10 +39,9 @@ export function CardView({
 }) {
   const data = cardData(state, card);
   // Counter power the engine adds to (or takes from) a battle card's printed value.
-  const bonus =
-    data?.type === "Battle"
-      ? getCounterPower(state, card) - (data.counterOrThreat ?? 0)
-      : 0;
+  const bonus = isBattle(data)
+    ? getCounterPower(state, card) - (data?.counterOrThreat ?? 0)
+    : 0;
   // A hidden card (cardId -1): the viewer sees only its back (M6d).
   if (card.cardId === -1)
     return (

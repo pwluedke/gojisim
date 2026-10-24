@@ -166,8 +166,13 @@ function choiceWhat(state: GameState): string {
       return "choosing their next monster";
     case "zone":
       return `choosing a zone${by}`;
-    case "confirm":
+    case "confirm": {
+      // "Your opponent may discard cards until ..." (EBP02-070): the opponent decides.
+      const effect = currentEffect(state);
+      if (choice.rule === "5.7.2" && effect?.effect === "discardDownTo")
+        return `deciding whether to discard down to ${effect.size} cards${by}`;
       return `deciding whether to use${source ? ` ${source}'s` : ""} ability`;
+    }
     case "replacementOrder":
       return "choosing which replacement applies";
     case "manual":

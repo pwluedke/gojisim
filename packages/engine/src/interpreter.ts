@@ -30,7 +30,7 @@ import {
   retreatMonster,
   retreatMonsterTo,
 } from "./movement";
-import { cardOf, destroyCards, topOf } from "./rules";
+import { cardOf, destroyCards, isBattle, topOf } from "./rules";
 import { shuffleInPlace } from "./rng";
 import {
   appendLog,
@@ -41,7 +41,13 @@ import {
   setRage,
   toDiscard,
 } from "./state";
-import { getCounterPower, getRank, getThreat } from "./stats";
+import {
+  getCounterPower,
+  getRank,
+  getThreat,
+  playAllowed,
+  playRankReduction,
+} from "./stats";
 import type {
   Binding,
   CardInstance,
@@ -165,6 +171,11 @@ function cardsIn(player: PlayerState, area: Selector["area"]): Located[] {
     case "bound":
       return [];
   }
+}
+
+/** A card's type for selectors: a token counts as a battle card (Q39, 9.1.4.1). */
+function typeOf(data: { type: string }): string {
+  return isBattle(data) ? "Battle" : data.type;
 }
 
 /** Finds a card instance anywhere a selector can look. */
@@ -293,6 +304,12 @@ export function resolveZoneSet(
     refs.push(...allZones(ctx.state).filter((r) => isAdjacent(anchor, r)));
   else if (set.relation === "sameColumnAs")
     refs.push(...allZones(ctx.state).filter((r) => sameColumn(anchor, r)));
+  else if (set.relation === "sameNumberAs")
+    // C3: the zone with the anchor's number, on each field (EBP02-008, EBP02-015).
+    refs.push(...allZones(ctx.state).filter((r) => r.zone === anchor.zone));
+  else if (set.relation === "atOrBefore")
+    // C3: zones numbered at most the anchor's, on each field (4.4.5.3.1, EBP02-018).
+    refs.push(...allZones(ctx.state).filter((r) => r.zone <= anchor.zone));
   else {
     const zone =
       set.relation === "inFrontOf"
@@ -367,7 +384,8 @@ export function select(ctx: Context, selector: Selector): Located[] {
     if (selector.this && card.instanceId !== ctx.sourceInstanceId) return false;
     if (selector.other && card.instanceId === ctx.sourceInstanceId)
       return false;
-    if (selector.type && data.type !== selector.type) return false;
+    // A token is a battle card (Q39, 9.1.4.1).
+    if (selector.type && typeOf(data) !== selector.type) return false;
     if (selector.name && data.name !== selector.name) return false;
     if (selector.nameIncludes && !data.name.includes(selector.nameIncludes))
       return false;
@@ -395,7 +413,7 @@ export function select(ctx: Context, selector: Selector): Located[] {
         return false;
     }
     if (selector.counterPower) {
-      if (data.type !== "Battle") return false;
+      if (!isBattle(data)) return false;
       const power = getCounterPower(state, card);
       if (
         !compare(power, selector.counterPower.op, selector.counterPower.value)
@@ -419,8 +437,13 @@ export function select(ctx: Context, selector: Selector): Located[] {
         return false;
     }
     if (zoneRefs && !hasZone(zoneRefs, player.id, zone)) return false;
-    if (selector.stackOf && !inStackOf(state, card, ctx.sourceInstanceId))
-      return false;
+    if (selector.stackOf) {
+      const top =
+        selector.stackOf === "this"
+          ? ctx.sourceInstanceId
+          : topOf(getPlayer(state, ctx.master).invadingMonsterZone)?.instanceId;
+      if (top === undefined || !inStackOf(state, card, top)) return false;
+    }
     return true;
   });
 }
@@ -537,6 +560,12 @@ export function conditionHolds(ctx: Context, condition: Condition): boolean {
       return via === "hand" || via === "burst";
     return via === condition.playedVia;
   }
+  if ("amount" in condition)
+    return compare(
+      amountOf(ctx, condition.amount),
+      condition.op,
+      condition.value,
+    );
   if ("thisTurn" in condition) {
     const whose = condition.whose ?? "you";
     return thisTurnLog(state).some((e) => {
@@ -548,7 +577,7 @@ export function conditionHolds(ctx: Context, condition: Condition): boolean {
         return false;
       const ids = e.payload["cardIds"];
       const top = Array.isArray(ids) ? ids[ids.length - 1] : undefined;
-      return state.cards[String(top)]?.type === "Battle";
+      return isBattle(state.cards[String(top)]);
     });
   }
   throw new Error("not implemented: condition didLastStep");
@@ -614,6 +643,7 @@ function triggerMatches(
         trigger.by === "any" ||
         (event.player === master) === (trigger.by === "you");
       if (!played || !by) return false;
+      if (trigger.from && playedFrom(event) !== trigger.from) return false;
       const ctx: Context = {
         state,
         master,
@@ -674,6 +704,21 @@ function triggerMatches(
       return lastKnownMatches(state, trigger.what, event, source, master);
     }
     case "discarded": {
+      if (trigger.from === "monster") {
+        // Burst's discard (12.5.2): the card left the invading monster for the discard pile.
+        if (event.type !== "burstDiscard" || event.payload["gone"] === true)
+          return false;
+        if (trigger.cause && trigger.cause !== "burst") return false;
+        const ctx: Context = {
+          state,
+          master,
+          sourceInstanceId: source.instanceId,
+          bindings: {},
+        };
+        return select(ctx, { ...trigger.what, area: "discard" }).some(
+          (l) => l.card.instanceId === event.payload["instanceId"],
+        );
+      }
       const fromHand = event.type === "discard";
       const fromStrategy =
         event.type === "discardStrategy" ||
@@ -744,6 +789,13 @@ function triggerMatches(
   }
 }
 
+/** Where a played card came from (T7): a main phase play is from the hand (10.5.2). */
+function playedFrom(event: LogEntry): string {
+  if (event.type === "newInvadingMonster") return "monsterDeck";
+  const from = String(event.payload["from"]);
+  return from === "resolutionArea" ? "hand" : from;
+}
+
 /** Whether `player` is `ref` ("you", "opponent" or "any") from `master`'s side. */
 function isPlayer(
   ref: "you" | "opponent" | "any",
@@ -794,7 +846,7 @@ function lastKnownMatches(
   const instanceId = event.payload["instanceId"];
   if (what.this && instanceId !== source.instanceId) return false;
   if (what.other && instanceId === source.instanceId) return false;
-  if (what.type && data.type !== what.type) return false;
+  if (what.type && typeOf(data) !== what.type) return false;
   if (what.name && data.name !== what.name) return false;
   if (what.nameIncludes && !data.name.includes(what.nameIncludes)) return false;
   const traits = getCardTraits(data);
@@ -1008,7 +1060,11 @@ export function playRuleOf(
   master: PlayerId,
 ): { reduction: number; forbidden: boolean } {
   const data = abilitiesOf(state, card);
-  const result = { reduction: 0, forbidden: false };
+  // Other cards can grant a reduction (M2, EBP02-039 Lake Ashi Monster).
+  const result = {
+    reduction: playRankReduction(state, card),
+    forbidden: false,
+  };
   if (data.status === "manual") return result;
   const ctx: Context = {
     state,
@@ -1028,6 +1084,16 @@ export function playRuleOf(
       result.reduction += amountOf(ctx, ability.rankReduction);
   }
   return result;
+}
+
+/** The zone a rank I monster starts in, if its data says (K3, 6.3.1.6, Q31). */
+export function startZoneOf(
+  state: GameState,
+  card: CardInstance,
+): ZoneNumber | null {
+  for (const ability of abilitiesOf(state, card).abilities)
+    if (ability.kind === "setup") return ability.startZone;
+  return null;
 }
 
 /** A card's Burst rank (12.5), if its data has one. */
@@ -1063,11 +1129,13 @@ export function resolveBurstDiscard(
     return;
   }
   const [card] = player.invadingMonsterZone.splice(index, 1);
-  toDiscard(state, card as CardInstance);
+  const discarded = toDiscard(state, card as CardInstance);
   appendLog(state, "burstDiscard", player.id, {
     rule: "12.5.2",
     cardId: standby.sourceCardId,
     wasTop: index === player.invadingMonsterZone.length,
+    // Its id in the discard pile, for "when this card is discarded by Burst" (T3).
+    instanceId: discarded.instanceId,
   });
 }
 
@@ -1134,27 +1202,48 @@ function bindTriggerCard(
   trigger: Trigger,
   event: LogEntry,
 ): void {
-  if (
-    (trigger.on !== "destroyed" && trigger.on !== "discarded") ||
-    !trigger.as ||
-    !state.resolution
-  )
+  const r = state.resolution;
+  if (!r || !("as" in trigger) || !trigger.as) return;
+  const name = trigger.as;
+  const ctx = contextOf(state);
+  // T7: the played card, where it landed.
+  if (trigger.on === "cardPlayed") {
+    const found = locate(state, String(event.payload["instanceId"]));
+    bindCards(ctx, name, found ? [found.card] : []);
     return;
+  }
+  // T7: the card discarded for this invasion (8.6.1.1), the latest such discard before the
+  // event; it may have left the discard pile since.
+  if (trigger.on === "invading") {
+    const discard = [...state.log]
+      .slice(0, event.seq)
+      .reverse()
+      .find(
+        (e) =>
+          e.type === "discard" &&
+          e.payload["rule"] === "8.6.1" &&
+          e.player === r.standby.master,
+      );
+    const found =
+      discard && locate(state, String(discard.payload["instanceId"]));
+    bindCards(ctx, name, found ? [found.card] : []);
+    return;
+  }
+  if (trigger.on !== "destroyed" && trigger.on !== "discarded") return;
   const ids = event.payload["cardIds"];
   const cardId = Number(
     Array.isArray(ids) ? ids[ids.length - 1] : event.payload["cardId"],
   );
   const data = state.cards[cardId];
   const rank = event.payload["rank"];
-  state.resolution.bindings[trigger.as] = {
+  r.bindings[name] = {
     kind: "cards",
     cards: [
       {
         instanceId: String(event.payload["instanceId"]),
         cardId,
         rank: typeof rank === "number" ? rank : (data?.rank ?? null),
-        counterPower:
-          data?.type === "Battle" ? (data.counterOrThreat ?? 0) : null,
+        counterPower: isBattle(data) ? (data?.counterOrThreat ?? 0) : null,
         threat: null,
       },
     ],
@@ -1342,7 +1431,12 @@ function canPay(ctx: Context, effects: Effect[]): boolean {
     }
     if (effect.effect !== "discard") return true;
     const hand = select(ctx, discardFilter(effect));
-    if (effect.count === "all" || effect.count === "anyNumber") return true;
+    if (
+      effect.count === "all" ||
+      effect.count === "anyNumber" ||
+      effect.count === "hand"
+    )
+      return true;
     return (
       hand.length >=
       ("exact" in effect.count ? exactCount(ctx, effect.count) : 0)
@@ -1366,8 +1460,7 @@ function bindCards(
         instanceId: card.instanceId,
         cardId: card.cardId,
         rank: getRank(ctx.state, card),
-        counterPower:
-          data.type === "Battle" ? getCounterPower(ctx.state, card) : null,
+        counterPower: isBattle(data) ? getCounterPower(ctx.state, card) : null,
         threat:
           data.type === "Monster" ? getThreat(ctx.state, card.owner) : null,
       };
@@ -1474,10 +1567,16 @@ function discardFilter(
 }
 
 /** Discards cards from a hand to the discard pile (5.7.1). The discard pile is public. */
-function discardCards(ctx: Context, cards: Located[], rule: string): void {
+function discardCards(
+  ctx: Context,
+  cards: Located[],
+  rule: string,
+): CardInstance[] {
   const r = ctx.state.resolution as NonNullable<GameState["resolution"]>;
+  const discarded: CardInstance[] = [];
   for (const found of cards) {
     const card = toDiscard(ctx.state, takeCard(found));
+    discarded.push(card);
     appendLog(ctx.state, "discard", found.player.id, {
       rule,
       cardId: card.cardId,
@@ -1489,6 +1588,7 @@ function discardCards(ctx: Context, cards: Located[], rule: string): void {
       abilityId: r.standby.abilityId,
     });
   }
+  return discarded;
 }
 
 /** Zones a card may be played to by an effect (5.11.1.1 to 5.11.1.3, Q3). */
@@ -1571,7 +1671,9 @@ function perform(state: GameState, effect: Effect): Outcome {
       const filter = discardFilter(effect);
       const owner = select(ctx, { ...filter, area: "hand" });
       const chooser = chooserOf(effect.chooser);
-      const picked = pickCards(ctx, owner, effect.count, chooser, "5.7.1", {
+      // E11: "discard your hand" is every card the filter picks.
+      const count = effect.count === "hand" ? "all" : effect.count;
+      const picked = pickCards(ctx, owner, count, chooser, "5.7.1", {
         hidden: owner.every((l) => l.player.id === chooser),
       });
       if (picked === "paused") return "paused";
@@ -1598,6 +1700,23 @@ function perform(state: GameState, effect: Effect): Outcome {
         });
         return "done";
       }
+      // E11, "may discard ... until": that player is asked first (EBP02-070).
+      if (effect.optional && r.subject === null) {
+        if (r.answer === null) {
+          requireChoice(state, player.id, "confirm", "5.7.2", [
+            { id: "yes", cardId: null, abilityId },
+            { id: "no", cardId: null, abilityId },
+          ]);
+          return "paused";
+        }
+        const answer = r.answer;
+        r.answer = null;
+        if (answer === "no") {
+          bindCards(ctx, effect.as, []);
+          return "done";
+        }
+        r.subject = "discardDownTo";
+      }
       // That player chooses which cards to discard, down to the size (5.7.2; Paul's ruling: the
       // player picks the discards, not the keeps). The result is the same as 5.7.2's wording.
       const hand = select(ctx, {
@@ -1619,7 +1738,8 @@ function perform(state: GameState, effect: Effect): Outcome {
         discarded: rest.length,
         abilityId,
       });
-      discardCards(ctx, rest, "5.7.2");
+      // Bound in the discard pile (public), for "if they discard at least 1".
+      bindCards(ctx, effect.as, discardCards(ctx, rest, "5.7.2"));
       return "done";
     }
     case "search": {
@@ -1687,11 +1807,10 @@ function perform(state: GameState, effect: Effect): Outcome {
           zones.push(Number(picked.split(":")[1]) as ZoneNumber);
           continue;
         }
-        const legal = playZones(
-          ctx,
-          effect,
-          zones.filter((z): z is ZoneNumber => z !== null),
-        );
+        const used = zones.filter((z): z is ZoneNumber => z !== null);
+        let legal = playZones(ctx, effect, used);
+        // One card per zone: no unused zone left, no more cards (EBP02-028).
+        if (effect.onePerZone) legal = legal.filter((z) => !used.includes(z));
         if (legal.length === 0) {
           zones.push(null);
           r.zonePicks.push("none");
@@ -1767,8 +1886,16 @@ function perform(state: GameState, effect: Effect): Outcome {
     }
     case "rage": {
       const delta = amountOf(ctx, effect.delta);
+      // "By 1 for each X" is one change of 1 per X (Q38): each fires its own rageChanged event,
+      // so "whenever your rage is increased" triggers once per X.
+      const step =
+        typeof effect.delta === "object" && "times" in effect.delta
+          ? effect.delta.times
+          : delta;
+      const changes = step === 0 ? 0 : Math.max(0, Math.round(delta / step));
       for (const player of players(ctx, effect.player))
-        setRage(state, player, player.rage + delta, "3.4.1", { abilityId });
+        for (let i = 0; i < changes; i++)
+          setRage(state, player, player.rage + step, "3.4.1", { abilityId });
       return "done";
     }
     case "draw": {
@@ -2194,6 +2321,8 @@ function perform(state: GameState, effect: Effect): Outcome {
       for (const found of picked) {
         const index = me.strategyZones.findIndex((z) => z.length === 0);
         if (index < 0) break;
+        // "Cannot play strategy cards" stops effects that put them into play too (Q32).
+        if (!playAllowed(state, me, found.card)) continue;
         const card = moved(state, takeCard(found));
         me.strategyZones[index]?.push({ card, placedOnTurn: state.turn });
         appendLog(state, "place", me.id, {
@@ -2206,6 +2335,87 @@ function perform(state: GameState, effect: Effect): Outcome {
           abilityId,
         });
       }
+      return "done";
+    }
+    case "revealTop": {
+      // E3 (5.10): reveal the top cards; the matching ones the effect takes go to the hand, the
+      // rest to the discard pile.
+      const me = getPlayer(state, ctx.master);
+      const top = me.deck.slice(0, effect.count);
+      if (r.subject === null) {
+        for (const card of top) {
+          state.revealed.push(card.instanceId);
+          appendLog(state, "reveal", me.id, {
+            rule: "5.10.1",
+            cardId: card.cardId,
+            abilityId,
+          });
+        }
+        r.subject = "revealed";
+      }
+      const ids = top.map((c) => c.instanceId);
+      const candidates = select(ctx, {
+        ...effect.take.filter,
+        area: "deck",
+      }).filter((l) => ids.includes(l.card.instanceId));
+      const taken = pickCards(
+        ctx,
+        candidates,
+        effect.take.count,
+        me.id,
+        "5.10",
+      );
+      if (taken === "paused") return "paused";
+      const takenIds = taken.map((l) => l.card.instanceId);
+      me.deck = me.deck.slice(top.length);
+      for (const card of top.filter((c) => takenIds.includes(c.instanceId))) {
+        me.hand.push(moved(state, card));
+        appendLog(state, "addToHand", me.id, {
+          rule: "4.9",
+          from: "deck",
+          cardId: card.cardId,
+          abilityId,
+        });
+      }
+      const rest = top
+        .filter((c) => !takenIds.includes(c.instanceId))
+        .map((card) => toDiscard(state, card));
+      if (rest.length > 0)
+        appendLog(state, "mill", me.id, {
+          rule: "5.10",
+          cardIds: rest.map((c) => c.cardId),
+          abilityId,
+        });
+      return "done";
+    }
+    case "boost": {
+      // E19 (10.8.2): fixed when it resolves, for the cards the target picks now; "double" adds
+      // each card's current value. It ends at 7.5.6.
+      const bonuses = select(ctx, effect.target).map((l) => ({
+        instanceId: l.card.instanceId,
+        stat: effect.stat,
+        amount:
+          effect.amount === "double"
+            ? effect.stat === "counterPower"
+              ? getCounterPower(state, l.card)
+              : effect.stat === "rank"
+                ? (getRank(state, l.card) ?? 0)
+                : getThreat(state, l.player.id)
+            : amountOf(ctx, effect.amount),
+      }));
+      const timestamp = state.nextTimestamp++;
+      state.continuousEffects.push({
+        effectId: `boost:${abilityId}:${timestamp}`,
+        timestamp,
+        duration: "untilEndOfTurn",
+        bonuses,
+      });
+      appendLog(state, "boost", ctx.master, {
+        rule: "10.8.2",
+        stat: effect.stat,
+        cardIds: bonuses.map((b) => locate(state, b.instanceId)?.card.cardId),
+        abilityId,
+      });
       return "done";
     }
     case "setRage": {

@@ -7,9 +7,10 @@ import {
   type Context,
   gatesOpen,
   locate,
+  resolveZoneSet,
   select,
 } from "./interpreter";
-import { cardOf, topOf } from "./rules";
+import { cardOf, isBattle, topOf } from "./rules";
 import { getPlayer } from "./state";
 import type {
   CardInstance,
@@ -17,6 +18,7 @@ import type {
   GameState,
   PlayerId,
   PlayerState,
+  ZoneNumber,
 } from "./types";
 import { ZONE_NUMBERS } from "./types";
 
@@ -69,14 +71,14 @@ function activeModifiers(state: GameState): ActiveModifier[] {
   }
 }
 
-/** A flag modifier (M1, E13) in force, with the context of the card that grants it. */
-type FlagModifier = Extract<Modifier, { flag: string }>;
+/** A flag modifier (M1, E13) on a card. */
+type FlagModifier = Extract<Modifier, { flag: string; target: unknown }>;
 
 /** Flag modifiers in force that target `card` (M1, E13). */
 export function flagsOn(state: GameState, card: CardInstance): FlagModifier[] {
   const found: FlagModifier[] = [];
   for (const { modifier, context } of activeModifiers(state)) {
-    if (!("flag" in modifier)) continue;
+    if (!("flag" in modifier) || !("target" in modifier)) continue;
     collecting = true;
     try {
       if (
@@ -121,13 +123,93 @@ export function counterProofAgainst(
     : { moves: proofs.some((m) => m.insteadMoves) };
 }
 
+/**
+ * Whether `player` may play the hand card `card` (M1 `cannotPlay`, 8.2, 8.3, Q32), into `zone`
+ * for a battle card. A flag with `zones` forbids only those zones.
+ */
+export function playAllowed(
+  state: GameState,
+  player: PlayerState,
+  card: CardInstance,
+  zone?: ZoneNumber,
+): boolean {
+  for (const { modifier, context } of activeModifiers(state)) {
+    if (!("flag" in modifier) || modifier.flag !== "cannotPlay") continue;
+    collecting = true;
+    try {
+      const who =
+        modifier.player === "any" ||
+        (player.id === context.master) === (modifier.player === "you");
+      if (!who) continue;
+      // `what` is read wherever the card is now: a hand, or a discard pile or deck for an
+      // effect that puts it into play (Q32).
+      const area = locate(state, card.instanceId)?.area ?? "hand";
+      if (
+        !select(context, { ...modifier.what, area }).some(
+          (l) => l.card.instanceId === card.instanceId,
+        )
+      )
+        continue;
+      if (!modifier.zones) return false;
+      if (
+        zone !== undefined &&
+        resolveZoneSet(context, modifier.zones, [player]).some(
+          (r) => r.player === player.id && r.zone === zone,
+        )
+      )
+        return false;
+    } finally {
+      collecting = false;
+    }
+  }
+  return true;
+}
+
+/** `playRankReduction` modifiers that target a hand card (M2, EBP02-039). */
+export function playRankReduction(
+  state: GameState,
+  card: CardInstance,
+): number {
+  let total = 0;
+  for (const { modifier, context } of activeModifiers(state)) {
+    if (!("stat" in modifier) || modifier.stat !== "playRankReduction")
+      continue;
+    collecting = true;
+    try {
+      if (
+        select(context, modifier.target).some(
+          (l) => l.card.instanceId === card.instanceId,
+        )
+      )
+        total += amountOf(context, modifier.amount);
+    } finally {
+      collecting = false;
+    }
+  }
+  return total;
+}
+
+/** Bonuses from effects that last for the turn (E19, `boost`), by card instance. */
+function boostTotal(
+  state: GameState,
+  card: CardInstance,
+  stat: "counterPower" | "threat" | "rank",
+): number {
+  let total = 0;
+  for (const effect of state.continuousEffects)
+    for (const bonus of effect.bonuses ?? [])
+      if (bonus.instanceId === card.instanceId && bonus.stat === stat)
+        total += bonus.amount;
+  return total;
+}
+
 /** Sum of a stat's modifiers that target `card`. */
 function modifierTotal(
   state: GameState,
   card: CardInstance,
   stat: "counterPower" | "threat" | "rank",
 ): number {
-  let total = 0;
+  let total = boostTotal(state, card, stat);
   for (const { modifier, context } of activeModifiers(state)) {
     if (!("stat" in modifier) || modifier.stat !== stat) continue;
     collecting = true;
@@ -211,8 +293,7 @@ export function counterPowerOf(state: GameState, player: PlayerState): number {
         hasFlag(state, top, "cannotEngage")
       )
         continue;
-      if (cardOf(state, top).type === "Battle")
-        total += getCounterPower(state, top);
+      if (isBattle(cardOf(state, top))) total += getCounterPower(state, top);
     }
   }
   return total + totalCounterPowerBonus(state, player);
@@ -271,6 +352,10 @@ function FLAG_CHANGES(flag: FlagModifier): Omit<CardChange, "kind"> {
         label: `Counter-proof ≤${flag.atOrBelow}`,
         detail: `Cannot be countered by ${flag.atOrBelow} or lower counter power${flag.insteadMoves ? "; it only moves as though countered (5.15.1.1)" : ""} (7.4.3)`,
       };
+    case "cannotAdvance":
+      return { label: "Can't advance", detail: "Cannot advance (5.13.1)" };
+    case "cannotInvade":
+      return { label: "Can't invade", detail: "Cannot invade (8.6)" };
   }
 }
 

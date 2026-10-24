@@ -174,6 +174,15 @@ export interface ContinuousEffect {
   effectId: string;
   timestamp: number;
   duration: "untilEndOfTurn" | "whileSourceActive" | "permanent";
+  /**
+   * E19 (`boost`): fixed bonuses for the cards picked when the effect resolved (10.8.2). A card
+   * that moves to another area is a new object (4.1.4), so its bonus ends.
+   */
+  bonuses?: {
+    instanceId: string;
+    stat: "counterPower" | "threat" | "rank";
+    amount: number;
+  }[];
 }
 
 export type ResultReason =

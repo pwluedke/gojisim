@@ -22,6 +22,14 @@ import type {
 } from "./types";
 import { ZONE_NUMBERS } from "./types";
 
+/**
+ * Whether card information is a battle card's (Q39, 9.1.4.1): a token is a battle card in zones,
+ * so it counts and is checked wherever battle cards are.
+ */
+export function isBattle(data: { type: string } | undefined): boolean {
+  return data?.type === "Battle" || data?.type === "Token";
+}
+
 export function cardOf(state: GameState, card: CardInstance) {
   const data = state.cards[card.cardId];
   if (!data) throw new Error(`No card data for card id ${card.cardId}`);
@@ -36,7 +44,7 @@ export function topOf(stack: CardStack): CardInstance | undefined {
 /** Whether a zone stack counts as a battle card: its top card is a battle card. */
 function isBattleStack(state: GameState, stack: CardStack): boolean {
   const top = topOf(stack);
-  return top !== undefined && cardOf(state, top).type === "Battle";
+  return top !== undefined && isBattle(cardOf(state, top));
 }
 
 /**

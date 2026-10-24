@@ -1,5 +1,6 @@
-import { cardOf, crushAndDestroy, topOf } from "./rules";
+import { cardOf, crushAndDestroy, isBattle, topOf } from "./rules";
 import { appendLog, getOpponent } from "./state";
+import { hasFlag } from "./stats";
 import type { GameState, PlayerState, ZoneNumber } from "./types";
 
 export interface AdvanceOptions {
@@ -17,7 +18,7 @@ function hasBattleCard(
 ): boolean {
   return player.zones[zone].some((stack) => {
     const top = topOf(stack);
-    return top !== undefined && cardOf(state, top).type === "Battle";
+    return top !== undefined && isBattle(cardOf(state, top));
   });
 }
 
@@ -54,6 +55,12 @@ export function advanceMonster(
 ): boolean {
   const from = player.monsterPosition;
   if (state.result !== null || from === null) return false;
+  // M1: "this card cannot advance" overrides every advance, the 7.5.2 one included (1.3.3).
+  const top = topOf(player.invadingMonsterZone);
+  if (top && hasFlag(state, top, "cannotAdvance")) {
+    appendLog(state, "noAdvance", player.id, { rule: "1.3.3", zone: from });
+    return false;
+  }
   if (from < 8) {
     step(
       state,

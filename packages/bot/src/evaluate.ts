@@ -5,6 +5,7 @@ import {
   nextMonsterCandidates,
   type PlayerId,
   type PlayerState,
+  isBattle,
 } from "@gojisim/engine";
 import weightsJson from "../data/eval-weights.json";
 
@@ -44,7 +45,7 @@ function players(state: GameState, id: PlayerId): [PlayerState, PlayerState] {
 function battleIn(state: GameState, player: PlayerState, zone: 8): boolean {
   return player.zones[zone].some((stack) => {
     const top = stack[stack.length - 1];
-    return top !== undefined && state.cards[top.cardId]?.type === "Battle";
+    return top !== undefined && isBattle(state.cards[top.cardId]);
   });
 }
 
@@ -94,7 +95,7 @@ export const MEASURES: Record<
       .flat()
       .filter((stack) => {
         const top = stack[stack.length - 1];
-        return top !== undefined && s.cards[top.cardId]?.type === "Battle";
+        return top !== undefined && isBattle(s.cards[top.cardId]);
       }).length / 4,
   /** Cards in hand with invasion icon 2: a two-zone invasion. */
   icon2: (s, me) =>
