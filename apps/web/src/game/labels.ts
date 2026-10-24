@@ -46,8 +46,18 @@ function nameOf(state: GameState, instanceId: string): string {
 /** A button label for an action, e.g. "Play Godzilla (2023) [ESD01-011] → zone 4". */
 export function actionLabel(state: GameState, action: Action): string {
   switch (action.type) {
-    case "playBattle":
-      return `Play ${nameOf(state, action.cardInstanceId)} → zone ${action.zone}`;
+    case "playBattle": {
+      // M2: on top of the card there (EBP03-051).
+      const host = action.onTop
+        ? state.players
+            .find((p) => p.id === action.player)
+            ?.zones[action.zone].at(-1)
+            ?.at(-1)
+        : undefined;
+      return host
+        ? `Play ${nameOf(state, action.cardInstanceId)} on top of ${nameOf(state, host.instanceId)} → zone ${action.zone}`
+        : `Play ${nameOf(state, action.cardInstanceId)} → zone ${action.zone}`;
+    }
     case "activateStrategy":
       return `Activate ${nameOf(state, action.cardInstanceId)} → strategy zone ${action.strategyZone}`;
     case "gainRage":
@@ -59,6 +69,9 @@ export function actionLabel(state: GameState, action: Action): string {
       const icon = (instance && cardData(state, instance)?.invadeZones) ?? 0;
       return `Invade: discard ${nameOf(state, action.cardInstanceId)} (icon ${icon})`;
     }
+    case "invadeFromDeck":
+      // E21 (EBP03-004): the top card of the deck pays instead; its icon shows once it's sent.
+      return "Invade: send the top card of your deck to the discard pile";
     case "pass":
       return "Pass";
     case "choose": {

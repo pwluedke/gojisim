@@ -30,9 +30,10 @@ export function targetLocation(
       if (p.zones[zone].some(has))
         return at(`Z${zone}`, `zone-${p.id}-${zone}`);
     if (has(p.invadingMonsterZone)) return at("Monster", `monster-${p.id}`);
-    for (const index of [1, 2] as const)
-      if (has((p.strategyZones[index - 1] ?? []).map((s) => s.card)))
-        return at(`Strategy zone ${index}`, `strategy-${p.id}-${index}`);
+    // Strategy zone 3 too, once a player has it (E20).
+    for (const [i, zone] of p.strategyZones.entries())
+      if (has(zone.map((s) => s.card)))
+        return at(`Strategy zone ${i + 1}`, `strategy-${p.id}-${i + 1}`);
     if (has(p.discard)) return at("Discard pile", `discard-${p.id}`);
     if (has(p.hand))
       return mine

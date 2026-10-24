@@ -263,11 +263,16 @@ export function getRank(state: GameState, card: CardInstance): number | null {
 }
 
 /** A battle card's counter power through the 10.8.1 layers: printed, then modifiers (layer 5). */
+/**
+ * A printed counter power or threat. An "X" (printed as -1 in the card data) is 0: the card's
+ * ability gives the value (C4, EBP03-067).
+ */
+function printedValue(state: GameState, card: CardInstance): number {
+  return Math.max(0, cardOf(state, card).counterOrThreat ?? 0);
+}
+
 export function getCounterPower(state: GameState, card: CardInstance): number {
-  return (
-    (cardOf(state, card).counterOrThreat ?? 0) +
-    modifierTotal(state, card, "counterPower")
-  );
+  return printedValue(state, card) + modifierTotal(state, card, "counterPower");
 }
 
 /** The active monster: the top card of the invading monster stack (3.2.3.1). */
@@ -284,9 +289,10 @@ export function getThreat(state: GameState, playerId: PlayerId): number {
   const player = getPlayer(state, playerId);
   const top = topOf(player.invadingMonsterZone);
   if (!top) return RAGE_THREAT * player.rage;
-  const printed = cardOf(state, top).counterOrThreat ?? 0;
   return (
-    printed + RAGE_THREAT * player.rage + modifierTotal(state, top, "threat")
+    printedValue(state, top) +
+    RAGE_THREAT * player.rage +
+    modifierTotal(state, top, "threat")
   );
 }
 
@@ -382,6 +388,11 @@ function FLAG_CHANGES(flag: FlagModifier): Omit<CardChange, "kind"> {
       return { label: "Can't advance", detail: "Cannot advance (5.13.1)" };
     case "cannotInvade":
       return { label: "Can't invade", detail: "Cannot invade (8.6)" };
+    case "rageCannotBeReducedByOpponent":
+      return {
+        label: "Rage protected",
+        detail: "Its rage cannot be reduced by the opponent's effects (Q16)",
+      };
   }
 }
 

@@ -759,15 +759,11 @@ describe("EBP03 strategy cards", () => {
 });
 
 describe("EBP03 data", () => {
-  it("every card is implemented except the 14 that wait for M12c-2", () => {
+  it("every EBP03 card is implemented (M12c-2 finished the set)", () => {
     const manual = Array.from(
       { length: 80 },
       (_, i) => `EBP03-${String(i + 1).padStart(3, "0")}`,
     ).filter((n) => getCardAbilities(n).status !== "implemented");
-    expect(manual).toEqual(
-      [4, 6, 13, 18, 24, 51, 67, 68, 70, 71, 75, 76, 78, 80].map(
-        (n) => `EBP03-${String(n).padStart(3, "0")}`,
-      ),
-    );
+    expect(manual).toEqual([]);
   });
 });

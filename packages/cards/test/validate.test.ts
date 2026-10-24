@@ -174,3 +174,79 @@ describe("validateDeck (6.1.1)", () => {
     ]);
   });
 });
+
+describe("Resonance (K2, 6.1.2, 12.8.2)", () => {
+  const resonance = (deck: NamedDeck) =>
+    validateDeck(deck, TODAY)
+      .failures.filter((f) => f.rule === "12.8.2")
+      .map((f) => f.message);
+  const deck = (monsters: string[], main: Card[]): NamedDeck => ({
+    name: "Resonance",
+    monsterDeck: monsters.map(card),
+    mainDeck: main,
+  });
+
+  it("EBP03-006: a deck of [weapon] or [mech] monster and battle cards is legal", () => {
+    const legal = deck(
+      ["EBP03-006", "EBP03-007", "EBP03-008", "EBP03-009"],
+      Array(50).fill(card("EBP03-031")),
+    );
+    expect(validateDeck(legal, TODAY).failures).toEqual([]);
+  });
+
+  it("EBP03-006: a battle card without [weapon] or [mech] breaks its condition", () => {
+    const main = [
+      ...Array(49).fill(card("EBP03-031")),
+      card("EBP03-037"), // Godzilla (2001), a red battle card with neither trait
+    ];
+    expect(
+      resonance(
+        deck(["EBP03-006", "EBP03-007", "EBP03-008", "EBP03-009"], main),
+      ),
+    ).toEqual([
+      "Resonance (EBP03-006): Battle cards in your deck must have [weapon] or [mech]: EBP03-037 Godzilla (2001)",
+    ]);
+  });
+
+  it("EBP03-018: at least 10 strategy cards; every monster card has [mothra]", () => {
+    const monsters = ["EBP03-018", "EBP03-019", "EBP03-020", "EBP03-022"];
+    const strategies = (n: number) =>
+      Array.from({ length: n }, (_, i) =>
+        card(["EBP03-072", "EBP03-073", "EBP03-075"][i % 3] as string),
+      );
+    expect(resonance(deck(monsters, strategies(9)))).toEqual([
+      "Resonance (EBP03-018): Your deck must contain at least 10 strategy cards (has 9)",
+    ]);
+    expect(resonance(deck(monsters, strategies(10)))).toEqual([]);
+    // A main deck monster card without [mothra] breaks the other condition.
+    expect(
+      resonance(deck(monsters, [...strategies(10), card("EBP03-014")])),
+    ).toEqual([
+      "Resonance (EBP03-018): Monster cards in your deck must have [mothra]: EBP03-014 Godzilla (2002)",
+    ]);
+  });
+
+  it("EBP03-024: battle cards must be rank 5 or higher", () => {
+    const monsters = ["EBP03-024", "EBP03-025", "EBP03-026", "EBP03-028"];
+    expect(
+      resonance(deck(monsters, [card("EBP03-059"), card("EBP03-055")])),
+    ).toEqual([
+      "Resonance (EBP03-024): Battle cards in your deck must be rank 5 or higher: EBP03-055 Primitive Mothra",
+    ]);
+  });
+
+  it("6.1.1.3, 12.8.2: Resonance's colors are allowed; others still aren't", () => {
+    const monsters = ["EBP03-024", "EBP03-025", "EBP03-026", "EBP03-028"];
+    const colors = validateDeck(
+      deck(monsters, [card("EBP03-059"), card("EBP03-033"), card("EBP03-046")]),
+      TODAY,
+    ).failures.filter((f) => f.rule === "6.1.1.3");
+    // Green and red pass; Land Moguera (blue) doesn't.
+    expect(colors.map((f) => f.message)).toEqual([
+      "Cards must be White or Green/Red like the rank I monster: EBP03-046 Land Moguera",
+    ]);
+    expect(failedRules(validateDeck(deck(monsters, []), TODAY))).not.toContain(
+      "12.8.2",
+    );
+  });
+});

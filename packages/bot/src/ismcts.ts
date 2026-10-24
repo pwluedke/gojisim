@@ -84,7 +84,8 @@ function cardIdOf(state: GameState, instanceId: string): number | null {
 export function actionKey(state: GameState, action: Action): string {
   switch (action.type) {
     case "playBattle":
-      return `playBattle:${cardIdOf(state, action.cardInstanceId)}:${action.zone}`;
+      // A play on top of the card there (M2, EBP03-051) is a different move.
+      return `playBattle:${cardIdOf(state, action.cardInstanceId)}:${action.zone}${action.onTop ? ":onTop" : ""}`;
     case "activateStrategy":
       return `activateStrategy:${cardIdOf(state, action.cardInstanceId)}:${action.strategyZone}`;
     case "gainRage":

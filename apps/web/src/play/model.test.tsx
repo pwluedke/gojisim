@@ -180,3 +180,36 @@ describe("/play board model (M5a)", () => {
     expect(html).toContain(">Rank +1<");
   });
 });
+
+describe("strategy zones on the mat (M12c-2)", () => {
+  const real = (number: string) =>
+    getAllCards().find((c) => c.cardNumber === number && c.parentId === null)!;
+
+  it("E20: a third strategy zone appears only once the player has one", () => {
+    const state = game();
+    const html = (s: GameState) =>
+      renderToStaticMarkup(
+        <BoardView model={boardModel(s, "P1")} prompt={null} />,
+      );
+    expect(html(state)).not.toContain('data-testid="strategy-P1-3"');
+    const p1 = state.players.find((p) => p.id === "P1")!;
+    p1.strategyZones.push([]);
+    expect(html(state)).toContain('data-testid="strategy-P1-3"');
+    expect(html(state)).not.toContain('data-testid="strategy-P2-3"');
+  });
+
+  it('K1: a Base card\'s strategy mark reads "Base", since it stays at the start phase (12.9.2)', () => {
+    const state = game();
+    const base = real("EBP03-070");
+    state.cards = { ...state.cards, [base.id]: base };
+    const p1 = state.players.find((p) => p.id === "P1")!;
+    p1.strategyZones[0].push({
+      card: { instanceId: "c900", cardId: base.id, owner: "P1" },
+      placedOnTurn: state.turn - 1,
+    });
+    const html = renderToStaticMarkup(
+      <BoardView model={boardModel(state, "P1")} prompt={null} />,
+    );
+    expect(html).toMatch(/data-testid="strategy-mark"[^>]*>Base</);
+  });
+});

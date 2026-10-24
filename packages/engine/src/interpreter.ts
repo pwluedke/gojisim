@@ -11,6 +11,7 @@ import {
   getCardAbilities,
   getCardTraits,
   type Op,
+  type ReplaceableEvent,
   type Selector,
   type Trigger,
   type ZoneSet,
@@ -45,10 +46,12 @@ import {
   setRage,
   toDiscard,
 } from "./state";
+import { markLoss } from "./losses";
 import {
   getCounterPower,
   getRank,
   getThreat,
+  hasFlag,
   playAllowed,
   playRankReduction,
 } from "./stats";
@@ -360,7 +363,7 @@ const hasZone = (
 // ---------------------------------------------------------------------------------------------
 // Selectors
 
-function hasKeyword(
+export function hasKeyword(
   state: GameState,
   card: CardInstance,
   keyword: string,
@@ -504,9 +507,60 @@ function thisTurnLog(state: GameState): LogEntry[] {
 // ---------------------------------------------------------------------------------------------
 // Conditions, amounts, gates
 
+/**
+ * Whether `player`'s rage can't be reduced by `by`'s effects now (M1, Q16: "this card's [rage]
+ * cannot be reduced by your opponent's effects" protects its master's rage), logged as no change
+ * (1.3.3).
+ */
+function rageProtected(
+  state: GameState,
+  player: PlayerState,
+  by: PlayerId,
+): boolean {
+  const top = topOf(player.invadingMonsterZone);
+  if (
+    by === player.id ||
+    !top ||
+    !hasFlag(state, top, "rageCannotBeReducedByOpponent")
+  )
+    return false;
+  appendLog(state, "rageProtected", player.id, { rule: "1.3.3", by });
+  return true;
+}
+
+/**
+ * How many cards a selector counts. Counting monster cards in a discard pile also counts a card
+ * that says to treat it as one there (C5, Q34: EBP03-071), if it passes the other filters.
+ */
+export function countOf(ctx: Context, selector: Selector): number {
+  const found = select(ctx, selector).length;
+  if (selector.area !== "discard" || selector.type !== "Monster") return found;
+  const extra = select(ctx, { ...selector, type: undefined }).filter((l) => {
+    if (cardOf(ctx.state, l.card).type === "Monster") return false;
+    const data = abilitiesOf(ctx.state, l.card);
+    return (
+      data.status !== "manual" &&
+      data.abilities.some(
+        (a) =>
+          a.kind === "countsAs" && a.type === "Monster" && a.area === "discard",
+      )
+    );
+  });
+  return found + extra.length;
+}
+
 export function amountOf(ctx: Context, amount: Amount): number {
   if (typeof amount === "number") return amount;
-  if ("per" in amount) return select(ctx, amount.per).length * amount.times;
+  if ("per" in amount) return countOf(ctx, amount.per) * amount.times;
+  if ("colorsAmong" in amount) {
+    // C4: distinct colors among the cards, White included (EBP03-067).
+    const colors = new Set(
+      select(ctx, amount.colorsAmong).flatMap(
+        (l) => cardOf(ctx.state, l.card).colors,
+      ),
+    );
+    return colors.size * amount.times;
+  }
   const sum = (
     ref: "you" | "opponent" | "any",
     value: (p: PlayerState) => number,
@@ -571,7 +625,7 @@ export function conditionHolds(ctx: Context, condition: Condition): boolean {
   }
   if ("count" in condition)
     return compare(
-      select(ctx, condition.count).length,
+      countOf(ctx, condition.count),
       condition.op,
       condition.value,
     );
@@ -1140,7 +1194,8 @@ export function playRuleOf(
     bindings: {},
   };
   for (const ability of data.abilities) {
-    if (ability.kind !== "playRule") continue;
+    // A play on top of a card has its own reduction (`onTopPlays`).
+    if (ability.kind !== "playRule" || ability.onTopOf) continue;
     if (ability.forbidden && conditionHolds(ctx, ability.forbidden))
       result.forbidden = true;
     if (
@@ -1151,6 +1206,39 @@ export function playRuleOf(
       result.reduction += amountOf(ctx, ability.rankReduction);
   }
   return result;
+}
+
+/**
+ * Zones where `card` may be played from the hand on top of the card there (M2, 3.2.5,
+ * EBP03-051), with the rank reduction that play gets.
+ */
+export function onTopPlays(
+  state: GameState,
+  card: CardInstance,
+  master: PlayerId,
+): { zone: ZoneNumber; reduction: number }[] {
+  const data = abilitiesOf(state, card);
+  if (data.status === "manual") return [];
+  const ctx: Context = {
+    state,
+    master,
+    sourceInstanceId: card.instanceId,
+    bindings: {},
+  };
+  const plays: { zone: ZoneNumber; reduction: number }[] = [];
+  for (const ability of data.abilities) {
+    if (ability.kind !== "playRule" || !ability.onTopOf) continue;
+    if (!gatesOpen(state, master, ability.gates)) continue;
+    if (ability.condition && !conditionHolds(ctx, ability.condition)) continue;
+    const reduction =
+      ability.rankReduction === undefined
+        ? 0
+        : amountOf(ctx, ability.rankReduction);
+    for (const host of select(ctx, { ...ability.onTopOf, area: "zones" }))
+      if (host.zone !== undefined && host.player.id === master)
+        plays.push({ zone: host.zone, reduction });
+  }
+  return plays;
 }
 
 /** The zone a rank I monster starts in, if its data says (K3, 6.3.1.6, Q31). */
@@ -1725,12 +1813,28 @@ function perform(state: GameState, effect: Effect): Outcome {
   const chooserOf = (who: "you" | "opponent") => playerOf(ctx, who).id;
   switch (effect.effect) {
     case "destroy": {
-      const { select: selector, count, chooser } = effect.target;
+      const { select: selector, count, chooser, order } = effect.target;
+      // X: only the extreme cards; the chooser picks among ties (Q33).
+      const extremes = (found: Located[]): Located[] => {
+        if (!order || found.length === 0) return found;
+        const score = (l: Located): number =>
+          order === "lowestRank"
+            ? (getRank(state, l.card) ?? Infinity)
+            : l.zone === undefined
+              ? Infinity
+              : (order === "leftmost" ? 1 : -1) *
+                leftRightPosition(
+                  { player: l.player.id, zone: l.zone },
+                  ctx.master,
+                );
+        const best = Math.min(...found.map(score));
+        return found.filter((l) => score(l) === best);
+      };
       // A card the opponent's effects can't destroy can still be chosen; the destroy does
       // nothing to it (Q35, Paul's provisional ruling; 1.3.3).
       const targets = pickCards(
         ctx,
-        select(ctx, selector),
+        extremes(select(ctx, selector)),
         count,
         chooserOf(chooser),
         "10.5.3",
@@ -2067,9 +2171,11 @@ function perform(state: GameState, effect: Effect): Outcome {
           ? effect.delta.times
           : delta;
       const changes = step === 0 ? 0 : Math.max(0, Math.round(delta / step));
-      for (const player of players(ctx, effect.player))
+      for (const player of players(ctx, effect.player)) {
+        if (step < 0 && rageProtected(state, player, ctx.master)) continue;
         for (let i = 0; i < changes; i++)
           setRage(state, player, player.rage + step, "3.4.1", { abilityId });
+      }
       return "done";
     }
     case "draw": {
@@ -2752,8 +2858,60 @@ function perform(state: GameState, effect: Effect): Outcome {
       return "done";
     }
     case "setRage": {
-      for (const player of players(ctx, effect.player))
+      for (const player of players(ctx, effect.player)) {
+        if (
+          effect.value < player.rage &&
+          rageProtected(state, player, ctx.master)
+        )
+          continue;
         setRage(state, player, effect.value, "3.4", { abilityId });
+      }
+      return "done";
+    }
+    case "setStrategyZones": {
+      // E20 (4.5.2): a third strategy zone for the rest of the game (EBP03-013).
+      const me = getPlayer(state, ctx.master);
+      while (me.strategyZones.length < effect.count) me.strategyZones.push([]);
+      appendLog(state, "strategyZones", me.id, {
+        rule: "4.5.2",
+        count: me.strategyZones.length,
+        abilityId,
+      });
+      return "done";
+    }
+    case "loseGame":
+    case "winGame": {
+      // E16 (1.2.1, 1.2.4): settled with the process's other losses (decision 85).
+      const player = playerOf(ctx, effect.player);
+      const loser =
+        effect.effect === "loseGame" ? player : getOpponent(state, player.id);
+      markLoss(state, loser.id, "effect", "1.2.4");
+      return "done";
+    }
+    case "moveMonsterVertically": {
+      // E14 (4.4.5.1, Q21): straight across, 3 to 8, 4 to 7, 5 to 6 (or back). Neither an
+      // advance nor a retreat; 11.3 applies where it lands at the next check timing.
+      const player = playerOf(ctx, effect.player);
+      const from = player.monsterPosition;
+      const top = topOf(player.invadingMonsterZone);
+      if (
+        from === null ||
+        !top ||
+        !effect.fromZones.includes(from) ||
+        !select(ctx, { ...effect.filter, area: "monster" }).some(
+          (l) => l.card.instanceId === top.instanceId,
+        )
+      )
+        return "done";
+      const to = inFrontOf(from) ?? behind(from);
+      if (to === null) return "done";
+      player.monsterPosition = to;
+      appendLog(state, "moveVertically", player.id, {
+        rule: "4.4.5.1",
+        from,
+        to,
+        abilityId,
+      });
       return "done";
     }
     case "until": {
@@ -2969,10 +3127,22 @@ export function strategyReplacementFor(
   return replacementsFor(state, card, "strategyToDiscard")[0] ?? null;
 }
 
+/**
+ * The replacement that would pay for `player`'s invasion with something other than a hand card
+ * (E21 `invasionCost`, 8.6.1, EBP03-004), if their invading monster has one active.
+ */
+export function invasionCostReplacement(
+  state: GameState,
+  player: PlayerState,
+): Replacement | null {
+  const top = topOf(player.invadingMonsterZone);
+  return top ? (replacementsFor(state, top, "invasionCost")[0] ?? null) : null;
+}
+
 function replacementsFor(
   state: GameState,
   card: CardInstance,
-  event: "destroyed" | "strategyToDiscard",
+  event: ReplaceableEvent["event"],
 ): Replacement[] {
   const found: Replacement[] = [];
   for (const { card: source, master } of activeCards(state)) {

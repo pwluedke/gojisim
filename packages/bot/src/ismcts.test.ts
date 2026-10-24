@@ -108,6 +108,20 @@ describe("ismcts (M6c)", { timeout: 60_000 }, () => {
     expect(oppKeys(renumbered)).toEqual(oppKeys(one));
   });
 
+  it("M2: a play on top of a card and a plain play into the same zone have different keys (EBP03-051)", () => {
+    const state = start();
+    const card = state.players[0].hand[0]!;
+    const plain = {
+      type: "playBattle" as const,
+      player: "P1",
+      cardInstanceId: card.instanceId,
+      zone: 2 as const,
+    };
+    expect(actionKey(state, { ...plain, onTop: true })).not.toBe(
+      actionKey(state, plain),
+    );
+  });
+
   it("win now: in zone 8 with the opponent's zone 8 open and an invasion available, it invades", () => {
     const state = start();
     const [p1, p2] = state.players;

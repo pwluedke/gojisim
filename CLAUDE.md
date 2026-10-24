@@ -496,3 +496,15 @@ Accepted by Monarch in the Decklog import review (PR #40).
 356. Decklog's `sub_list` is left out (the game has no side deck), with a note when it has cards.
 357. An imported Decklog deck is named after its title, collapsed to one line, or "Decklog <code>" without one.
 358. Decklog fixtures are the full recorded answers, prettier-ignored so they stay as recorded.
+
+Accepted by Monarch in the M12c-1 review (PRs #41 and #42).
+
+359. Built-piece extensions for EBP03: `revealTop` by an amount with several picks in order; `chooseZone` limited to a zone set; the zone sets `horizontallyAdjacentTo` (adjacent, at another left-right position) and `ranksOf` (zones numbered like the bound cards' ranks).
+360. "Play it on top of" a card (`play.onTop`) stacks the played card on that card (3.2.5), with no zone choice and no overload; with that card gone, nothing is played.
+361. EBP03-074's monster play (Q27) is a `playMonster` effect: stacked on the invading monster, [enter] fires, no rage, and the turn's monster play is still there.
+362. `placeUnder` asks which card to go under when there are several; a field card goes under alone and the cards under it stay in its zone.
+363. EBP03-052's "would be destroyed by an opponent's effect, add all cards under this card to your hand" is a `destroyed` trigger (`underAs`) that returns them from the discard pile right after the destroy; a destroyed card's own "when destroyed" abilities trigger from its last known information (10.6.4.1.2).
+364. "A card with [base] in play" is a strategy card with Base in your strategy zones.
+365. Q40 (Paul, provisional): Space Beam's (EBP03-069) "a [mechagodzilla] card in zone 8" is your zone 8 only.
+366. "Each player discards down to N" runs for the master first, then the opponent, each picking their own cards.
+367. "Whenever you discard a battle card from your hand" (EBP03-015/016/017, EPR-020) counts every discard from your hand: costs, invasion and effects.
