@@ -344,6 +344,7 @@ Q15 to Q34 are the M12 rules questions in `docs/abilities/m12-plan.md`, approved
 | Q37 Can an ability override the normal rules, e.g. "play it in zone 8 instead" (Akane Yashiro EBP04-077) and effect plays that name a zone (Godzilla Emerges)? | Yes (1.3.1): an effect play ignores the battle card rank vs. the opponent's monster's zone limit (8.2.1) (Oct 24, 2026) |
 | Q38 Is "increase rage by 1 for each X" (EBP01-015) one increase or several? | N separate increases of 1, each firing "whenever your rage is increased" (Ginza Annihilated, EBP01-003, EBP01-010, EBP02-054, EBP02-057) (Oct 24, 2026) |
 | Q39 Are tokens (Crystals, Tentacles, ...) battle cards for counts and checks? | Yes: a token in your zones is a battle card for anything that counts or checks battle cards (EBP03-076, EBP01-027, EBP04-038, EBP03-010, "2 or more battle cards" conditions) (Oct 24, 2026) |
+| Q40 Space Beam (EBP03-069): "if there is a [mechagodzilla] card in zone 8" names no player. Whose zone 8? | Your zone 8 only: a [mechagodzilla] card in the opponent's zone 8 doesn't make it destroy. **Provisional** (Oct 24, 2026): see [rulings-to-confirm.md](rulings-to-confirm.md) |
 
 ## Test cases
 

@@ -641,13 +641,14 @@ describe("EBP03 battle cards: other triggers", () => {
 });
 
 describe("EBP03 strategy cards", () => {
-  it("EBP03-069 5.7.2, 5.12: the opponent discards down to 4; with a Mechagodzilla card in zone 8, their rank 5 or lower battle cards are destroyed", () => {
-    const run = (withMg: boolean) => {
+  it("EBP03-069 5.7.2, 5.12, Q40: the opponent discards down to 4; with a Mechagodzilla card in your zone 8, their rank 5 or lower battle cards are destroyed; one in their zone 8 doesn't count (provisional)", () => {
+    const run = (mg: "mine" | "theirs" | "none") => {
       const { state, me, opp } = setup(4);
       opp.hand = [];
       for (let i = 0; i < 6; i++) inHand(state, opp, battleCard());
-      if (withMg)
-        place(state, me, battleCard({ traits: ["Mechagodzilla"] }), 8);
+      const mechagodzilla = battleCard({ traits: ["Mechagodzilla"] });
+      if (mg !== "none")
+        place(state, mg === "mine" ? me : opp, mechagodzilla, 8);
       opp.monsterPosition = 6;
       place(state, opp, battleCard({ rank: 5 }), 1);
       const after = settle(
@@ -658,8 +659,9 @@ describe("EBP03 strategy cards", () => {
         zones: Object.keys(zoneCardIds(opponentOf(after, me))),
       };
     };
-    expect(run(true)).toEqual({ hand: 4, zones: [] });
-    expect(run(false)).toEqual({ hand: 4, zones: ["1"] });
+    expect(run("mine")).toEqual({ hand: 4, zones: [] });
+    expect(run("theirs")).toEqual({ hand: 4, zones: ["1", "8"] });
+    expect(run("none")).toEqual({ hand: 4, zones: ["1"] });
   });
 
   it("EBP03-072 4.4.5.4: destroys every opponent battle card in your monster's column", () => {
