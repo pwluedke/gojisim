@@ -17,3 +17,4 @@ bot-reports/
 docs/ui/board-design.md
 apps/web/e2e/fixtures/*.json
 docs/combos/combos.md
+packages/cards/test/fixtures/decklog-*.json

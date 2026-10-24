@@ -154,6 +154,19 @@
   color: var(--color-illegal);
 }
 
+/* Decklog import: a URL or deck code and Fetch, above the paste box. */
+.decklogRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.decklogRow input {
+  width: 24em;
+  max-width: 100%;
+}
+
 .importWarnings {
   color: var(--color-warning);
 }
