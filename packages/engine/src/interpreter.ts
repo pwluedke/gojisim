@@ -1,4 +1,5 @@
 import {
+  getTokenCard,
   type Ability,
   type Amount,
   type CardAbilities,
@@ -23,7 +24,7 @@ import {
   type ZoneRef,
 } from "./geometry";
 import { activeCards } from "./abilities";
-import { moveBehind } from "./counter";
+import { counterMonster, moveBehind } from "./counter";
 import {
   advanceMonster,
   advanceMonsterTo,
@@ -38,6 +39,8 @@ import {
   getOpponent,
   getPlayer,
   moved,
+  isToken,
+  newInstance,
   setRage,
   toDiscard,
 } from "./state";
@@ -763,6 +766,16 @@ function triggerMatches(
       const to = Number(event.payload["to"]) as ZoneNumber;
       if (trigger.toZone !== undefined && to !== trigger.toZone) return false;
       if (trigger.during && state.phase !== trigger.during) return false;
+      if (trigger.cause) {
+        // E15: the 7.5.2 advance, an invasion advance, or one by an effect.
+        const cause =
+          event.payload["rule"] === "7.5.2"
+            ? "endPhase"
+            : event.payload["invasion"] === true
+              ? "invasion"
+              : "effect";
+        if (cause !== trigger.cause) return false;
+      }
       if (trigger.intoColumnOf) {
         const other = getOpponent(state, mover.id);
         if (
@@ -776,6 +789,14 @@ function triggerMatches(
       }
       return true;
     }
+    case "revenge":
+      // T2 (12.7.2): this card was destroyed from the field (an effect, or crush and destroy,
+      // 11.3), not by overload (duplicate card processing, Q17), and is now in the discard pile.
+      return (
+        event.type === "destroy" &&
+        event.payload["rule"] !== "11.5" &&
+        event.payload["discardInstanceId"] === source.instanceId
+      );
     case "invades": {
       if (event.type !== "invasionDone" || event.player === null) return false;
       if (!isPlayer(trigger.whose, event.player, master)) return false;
@@ -917,8 +938,13 @@ export function activeOutsideField(
   const data = abilitiesOf(state, card);
   return (
     data.status !== "manual" &&
+    // Read the raw data: Revenge is active in the discard pile once expanded (T2).
     data.abilities.some(
-      (a) => a.kind === "triggered" && (a.activeIn?.includes(area) ?? false),
+      (a) =>
+        (a.kind === "triggered" && (a.activeIn?.includes(area) ?? false)) ||
+        (area === "discard" &&
+          a.kind === "keyword" &&
+          a.keyword.name === "revenge"),
     )
   );
 }
@@ -1020,6 +1046,22 @@ function findAbility(
  */
 export function withKeywords(abilities: Ability[]): Ability[] {
   return abilities.flatMap((ability): Ability[] => {
+    // Revenge (12.7.2, T2): a trigger checked from the discard pile once the card is there.
+    if (ability.kind === "keyword" && ability.keyword.name === "revenge") {
+      const { effects, optional, condition, cost } = ability.keyword;
+      return [
+        {
+          kind: "triggered",
+          id: "revenge",
+          trigger: { on: "revenge" },
+          activeIn: ["discard"],
+          ...(optional === undefined ? {} : { optional }),
+          ...(condition === undefined ? {} : { condition }),
+          ...(cost === undefined ? {} : { cost }),
+          effects,
+        },
+      ];
+    }
     if (ability.kind !== "keyword" || ability.keyword.name !== "evolution")
       return [ability];
     return [
@@ -1538,6 +1580,19 @@ function pickCards(
 /** Takes a card out of a hand, deck, discard pile or monster deck. */
 function takeCard(found: Located): CardInstance {
   const { player, area, card } = found;
+  // A strategy card leaves its strategy zone (E21: placed under a card instead of discarded).
+  if (area === "strategy") {
+    const index = player.strategyZones.findIndex((z) =>
+      z.some((p) => p.card.instanceId === card.instanceId),
+    );
+    if (index < 0)
+      throw new Error(`Card ${card.instanceId} is not in a strategy zone`);
+    player.strategyZones[index] =
+      player.strategyZones[index]?.filter(
+        (p) => p.card.instanceId !== card.instanceId,
+      ) ?? [];
+    return card;
+  }
   const list =
     area === "hand"
       ? player.hand
@@ -1858,7 +1913,18 @@ function perform(state: GameState, effect: Effect): Outcome {
       return "done";
     }
     case "addToHand": {
-      for (const found of select(ctx, effect.target)) {
+      // "Up to 1" and the like: the effect's player picks (E5).
+      const picked = effect.count
+        ? pickCards(
+            ctx,
+            select(ctx, effect.target),
+            effect.count,
+            ctx.master,
+            "4.9",
+          )
+        : select(ctx, effect.target);
+      if (picked === "paused") return "paused";
+      for (const found of picked) {
         const wasPublic =
           found.area === "discard" ||
           state.revealed.includes(found.card.instanceId);
@@ -1989,6 +2055,14 @@ function perform(state: GameState, effect: Effect): Outcome {
       for (const found of select(ctx, effect.target)) {
         const card = takeFromAnywhere(state, found);
         const owner = getPlayer(state, card.owner);
+        // A token can't be in a deck: it disappears (9.1.4.2).
+        if (isToken(state, card)) {
+          appendLog(state, "tokenGone", owner.id, {
+            rule: "9.1.4.2",
+            cardId: card.cardId,
+          });
+          continue;
+        }
         const arrived = moved(state, card);
         if (effect.where === "top") owner.deck.unshift(arrived);
         else owner.deck.push(arrived);
@@ -2043,9 +2117,10 @@ function perform(state: GameState, effect: Effect): Outcome {
         if (
           destinations.length > 1 ||
           effect.optional ||
-          confirmsSingleOption(state, owner.id, "other")
+          confirmsSingleOption(state, ctx.master, "other")
         ) {
-          requireChoice(state, owner.id, "zone", "5.2.1", [
+          // The effect's player picks, also for the opponent's card (EBP02-057).
+          requireChoice(state, ctx.master, "zone", "5.2.1", [
             ...destinations.map((zone) => ({
               id: `${owner.id}:${zone}`,
               cardId: null,
@@ -2143,18 +2218,18 @@ function perform(state: GameState, effect: Effect): Outcome {
           )
         )
           continue;
+        // "By" can be an amount ("1 additional zone for each Crystals", E15).
+        const by = effect.by === undefined ? 1 : amountOf(ctx, effect.by);
         if (effect.effect === "advance") {
           const options = { invasion: false, rule: "5.13.1" };
           if (effect.toZone !== undefined)
             advanceMonsterTo(state, player, effect.toZone, options);
           else
-            for (let i = 0; i < (effect.by ?? 1); i++)
-              advanceMonster(state, player, options);
+            for (let i = 0; i < by; i++) advanceMonster(state, player, options);
         } else if (effect.toZone !== undefined)
           retreatMonsterTo(state, player, effect.toZone, "5.13.2");
         else
-          for (let i = 0; i < (effect.by ?? 1); i++)
-            retreatMonster(state, player, "5.13.2");
+          for (let i = 0; i < by; i++) retreatMonster(state, player, "5.13.2");
       }
       return "done";
     }
@@ -2418,6 +2493,93 @@ function perform(state: GameState, effect: Effect): Outcome {
       });
       return "done";
     }
+    case "counter": {
+      // E12 (5.15.1, Q24): a real counter, so countered triggers fire and a missing next monster
+      // loses the game (5.15.1.2.1). Picking the next monster ends this resolution: counter is
+      // the last effect of every card that has it.
+      counterMonster(state, playerOf(ctx, effect.player));
+      if (state.pendingChoice !== null) {
+        endResolution(state);
+        return "paused";
+      }
+      return "done";
+    }
+    case "createToken": {
+      // E6 (9.1.2, 5.11.4): a token appears in a zone of the effect's master, who owns it
+      // (9.1.2.1). Zones as for an effect play: not the monster's, empty first (Q3, Q5).
+      const me = getPlayer(state, ctx.master);
+      const token = getTokenCard(effect.name);
+      const refs = effect.zones
+        ? resolveZoneSet(ctx, effect.zones, [me])
+        : ZONE_NUMBERS.map((zone) => ({ player: me.id, zone }));
+      const allowed = [
+        ...new Set(refs.filter((r) => r.player === me.id).map((r) => r.zone)),
+      ]
+        .filter((zone) => zone !== me.monsterPosition)
+        .sort((a, b) => a - b);
+      const count = effect.count ?? 1;
+      const zones: ZoneNumber[] = [];
+      if (count === "each") zones.push(...allowed);
+      else
+        for (let i = 0; i < count; i++) {
+          const picked = r.zonePicks[i];
+          if (picked !== undefined) {
+            if (picked !== "none")
+              zones.push(Number(picked.split(":")[1]) as ZoneNumber);
+            continue;
+          }
+          let legal = allowed.filter((z) => !zones.includes(z));
+          if (legal.length === 0) legal = allowed;
+          const empty = legal.filter((z) => me.zones[z].length === 0);
+          if (empty.length > 0) legal = empty;
+          if (legal.length === 0) {
+            r.zonePicks.push("none");
+            continue;
+          }
+          if (
+            legal.length === 1 &&
+            !confirmsSingleOption(state, me.id, "other")
+          ) {
+            zones.push(legal[0] as ZoneNumber);
+            r.zonePicks.push(`${me.id}:${legal[0]}`);
+            continue;
+          }
+          requireChoice(
+            state,
+            me.id,
+            "zone",
+            "9.1.2",
+            legal.map((zone) => ({
+              id: `${me.id}:${zone}`,
+              cardId: null,
+              abilityId,
+            })),
+          );
+          return "paused";
+        }
+      // The token joins the catalog the first time one appears (shared catalog: replaced, not
+      // written into, decision 168).
+      if (!state.cards[token.id])
+        state.cards = { ...state.cards, [token.id]: token };
+      const made: CardInstance[] = [];
+      for (const zone of zones) {
+        const card = newInstance(state, token.id, me.id);
+        card.playedVia = "effect";
+        me.zones[zone].push([card]);
+        made.push(card);
+        appendLog(state, "place", me.id, {
+          rule: "5.11.4",
+          cardId: card.cardId,
+          instanceId: card.instanceId,
+          from: "token",
+          to: `zone ${zone}`,
+          played: true,
+          abilityId,
+        });
+      }
+      bindCards(ctx, effect.as, made);
+      return "done";
+    }
     case "setRage": {
       for (const player of players(ctx, effect.player))
         setRage(state, player, effect.value, "3.4", { abilityId });
@@ -2579,15 +2741,31 @@ export function destroyReplacements(
   state: GameState,
   card: CardInstance,
 ): Replacement[] {
+  return replacementsFor(state, card, "destroyed");
+}
+
+/**
+ * The replacement that would send a strategy card somewhere else instead of to the discard pile
+ * at 7.2.3 (E21, EBP02-012), if any; the first by timestamp order of the active cards.
+ */
+export function strategyReplacementFor(
+  state: GameState,
+  card: CardInstance,
+): Replacement | null {
+  return replacementsFor(state, card, "strategyToDiscard")[0] ?? null;
+}
+
+function replacementsFor(
+  state: GameState,
+  card: CardInstance,
+  event: "destroyed" | "strategyToDiscard",
+): Replacement[] {
   const found: Replacement[] = [];
   for (const { card: source, master } of activeCards(state)) {
     const data = abilitiesOf(state, source);
     if (data.status === "manual") continue;
     for (const ability of data.abilities) {
-      if (
-        ability.kind !== "replacement" ||
-        ability.replaces.event !== "destroyed"
-      )
+      if (ability.kind !== "replacement" || ability.replaces.event !== event)
         continue;
       if (!gatesOpen(state, master, ability.gates)) continue;
       const ctx: Context = {
@@ -2604,7 +2782,8 @@ export function destroyReplacements(
         )
       )
         continue;
-      if (ability.optional)
+      // Optional replacements ask at 7.2.3 (E21); a destroy can't pause for one yet.
+      if (ability.optional && event === "destroyed")
         throw new Error("not implemented: optional replacement");
       found.push({
         ability,
@@ -2627,6 +2806,7 @@ export function applyReplacement(
   affected: CardInstance,
   replaces: string,
   rule: string,
+  bindings: Record<string, Binding> = {},
 ): void {
   appendLog(state, "replace", replacement.master, {
     rule: "10.9.1",
@@ -2648,7 +2828,7 @@ export function applyReplacement(
     },
     stage: "main",
     path: [0],
-    bindings: {},
+    bindings,
     chosen: [],
     zonePicks: [],
     answer: null,

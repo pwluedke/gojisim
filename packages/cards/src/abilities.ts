@@ -233,6 +233,8 @@ export const TriggerSchema = z.discriminatedUnion("on", [
     /** It advanced into the same column as the opponent's monster (4.4.5.4). */
     intoColumnOf: z.literal("opponentMonster").optional(),
     during: PhaseSchema.optional(),
+    /** What moved it: the 7.5.2 end phase advance, an invasion (8.6), or an effect (E15). */
+    cause: z.enum(["endPhase", "invasion", "effect"]).optional(),
   }),
   /** A player performs an invasion (5.14.1, 8.6): once per invasion action, unlike [invading]. */
   z.strictObject({
@@ -242,6 +244,11 @@ export const TriggerSchema = z.discriminatedUnion("on", [
     intoZones: z.array(ZoneSchema).min(1).optional(),
   }),
   z.strictObject({ on: z.literal("gameStarts") }),
+  /**
+   * T2 (12.7.2): this card went from the field to the discard pile, other than by overload
+   * (duplicate card processing, Q17). Written as the `revenge` keyword in data.
+   */
+  z.strictObject({ on: z.literal("revenge") }),
 ]);
 export type Trigger = z.infer<typeof TriggerSchema>;
 
@@ -367,7 +374,13 @@ export type Effect =
       onePerZone?: boolean | undefined;
       as?: string | undefined;
     }
-  | { effect: "addToHand"; target: Selector; as?: string | undefined }
+  | {
+      effect: "addToHand";
+      target: Selector;
+      count?: Count | undefined;
+      as?: string | undefined;
+    }
+  | { effect: "counter"; player: "you" | "opponent"; as?: string | undefined }
   | { effect: "shuffle"; player: EffectPlayer; as?: string | undefined }
   | {
       effect: "draw";
@@ -398,7 +411,7 @@ export type Effect =
   | {
       effect: "advance";
       player: EffectPlayer;
-      by?: number | undefined;
+      by?: Amount | undefined;
       toZone?: Zone | undefined;
       filter?: Selector | undefined;
       as?: string | undefined;
@@ -406,7 +419,7 @@ export type Effect =
   | {
       effect: "retreat";
       player: EffectPlayer;
-      by?: number | undefined;
+      by?: Amount | undefined;
       toZone?: Zone | undefined;
       filter?: Selector | undefined;
       as?: string | undefined;
@@ -487,7 +500,8 @@ export type Effect =
   | {
       effect: "createToken";
       name: string;
-      zones: ZoneSet;
+      zones?: ZoneSet | undefined;
+      count?: number | "each" | undefined;
       as?: string | undefined;
     }
   | {
@@ -584,6 +598,14 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
     z.strictObject({
       effect: z.literal("addToHand"),
       target: SelectorSchema,
+      /** Every card the target picks by default; "up to 1" asks which (E5). */
+      count: CountSchema.optional(),
+      ...asField,
+    }),
+    /** E12 (5.15.1): counter that player's monster, as 7.4.3 does (Q24). */
+    z.strictObject({
+      effect: z.literal("counter"),
+      player: ChooserSchema,
       ...asField,
     }),
     z.strictObject({
@@ -625,7 +647,7 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
     z.strictObject({
       effect: z.literal("advance"),
       player: EffectPlayerSchema,
-      by: z.number().int().positive().optional(),
+      by: AmountSchema.optional(),
       toZone: ZoneSchema.optional(),
       /** The monster moves only if it matches (E1: "with 50,000 or lower threat level"). */
       filter: SelectorSchema.optional(),
@@ -634,7 +656,7 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
     z.strictObject({
       effect: z.literal("retreat"),
       player: EffectPlayerSchema,
-      by: z.number().int().positive().optional(),
+      by: AmountSchema.optional(),
       toZone: ZoneSchema.optional(),
       /** The monster moves only if it matches (E1: "with 50,000 or lower threat level"). */
       filter: SelectorSchema.optional(),
@@ -726,8 +748,14 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
     }),
     z.strictObject({
       effect: z.literal("createToken"),
+      /** The token's name (9.1.2.2), matched without case. */
       name: z.string().min(1),
-      zones: ZoneSetSchema,
+      /** Your zones it may appear in; default any of yours (never the monster's zone, Q5). */
+      zones: ZoneSetSchema.optional(),
+      /** How many (default 1); `each` puts one in every zone of the set (EBP02-020). */
+      count: z
+        .union([z.number().int().positive(), z.literal("each")])
+        .optional(),
       ...asField,
     }),
     z.strictObject({
@@ -822,7 +850,11 @@ export const CostSchema = z.strictObject({
 export type Cost = z.infer<typeof CostSchema>;
 
 export const ReplaceableEventSchema = z.strictObject({
-  event: z.literal("destroyed"),
+  /**
+   * `destroyed` (10.9, Q1); `strategyToDiscard`: a strategy card would go from its strategy zone
+   * to the discard pile at 7.2.3 (E21, EBP02-012).
+   */
+  event: z.enum(["destroyed", "strategyToDiscard"]),
   what: SelectorSchema,
 });
 export type ReplaceableEvent = z.infer<typeof ReplaceableEventSchema>;
@@ -845,6 +877,10 @@ export const KeywordAbilitySchema = z.discriminatedUnion("name", [
   z.strictObject({
     name: z.literal("revenge"),
     effects: z.array(EffectSchema).min(1),
+    /** T2: "you may", "if ...", and "A: B" costs, as on a triggered ability. */
+    optional: z.boolean().optional(),
+    condition: ConditionSchema.optional(),
+    cost: CostSchema.optional(),
   }),
   z.strictObject({
     name: z.literal("resonance"),

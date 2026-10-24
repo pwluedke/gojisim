@@ -208,6 +208,11 @@ function eventParts(
       ];
     case "chooseOption":
       return null;
+    case "tokenGone":
+      // A token can't leave the zones: it disappears (9.1.4.2).
+      return [card(p["cardId"]), " disappears"];
+    case "replace":
+      return [card(p["cardId"]), " is replaced: it goes elsewhere instead"];
     case "boost":
       return [
         ...cards(p["cardIds"]),

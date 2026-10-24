@@ -347,6 +347,15 @@ export interface GameState {
   resolution: Resolution | null;
   /** Instance ids of cards revealed to both players until they move or the effect ends (5.10). */
   revealed: string[];
+  /**
+   * Optional replacements asked during an engine step (E21, 7.2.3): the card, the replacement
+   * and the answer (`null` while the choice is open). Cleared when the step finishes.
+   */
+  replacementAsks?: {
+    instanceId: string;
+    abilityId: string;
+    answer: "yes" | "no" | null;
+  }[];
   /** Timed triggers waiting for a later point in the game (10.6.5), e.g. Burst's discard. */
   timedTriggers: TimedTrigger[];
   /** Manual cards whose ability would trigger, each waiting for a manual override window. */

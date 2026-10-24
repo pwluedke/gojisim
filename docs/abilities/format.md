@@ -420,3 +420,33 @@ Built differently from the plan:
 - CU handlers live in `packages/engine/src/customHandlers.ts` and register when the engine loads.
 - A `rage` effect whose delta is an amount ("by 1 for each ...") makes one change of `times` per counted card, each its own event (Q38).
 - A selector's `type: "Battle"` also picks tokens, which are battle cards in zones (Q39, 9.1.4.1).
+
+### M12b-2: E6 tokens, T2 Revenge, E12, E15, E21
+
+```typescript
+type Effect = ...
+  | { effect: "createToken"; name: string; zones?: ZoneSet; count?: number | "each" }  // E6 (9.1.2, 5.11.4)
+  | { effect: "counter"; player: "you" | "opponent" }                                    // E12 (5.15.1, Q24)
+  | { effect: "addToHand"; target: Selector; count?: Count }                            // E5: "up to 1"
+  | { effect: "advance" | "retreat"; ...; by?: Amount };                                // E15: by an amount
+
+type Trigger = ...
+  | { on: "advanced"; ...; cause?: "endPhase" | "invasion" | "effect" }                 // E15
+  | { on: "revenge" };                                       // T2: expanded from the keyword
+
+// T2 (12.7): the keyword carries what a triggered ability would.
+type KeywordAbility = ... | { name: "revenge"; effects: Effect[]; optional?: boolean;
+                              condition?: Condition; cost?: Cost };
+
+// E21: a strategy card leaving at 7.2.3 can be replaced; `optional` asks its master.
+type ReplaceableEvent = { event: "destroyed" | "strategyToDiscard"; what: Selector };
+```
+
+Built differently from the plan:
+
+- Token data is `packages/cards/data/tokens.json` (the base print of each Token in `cards.json`, kept in step by a test), so the engine doesn't load the full card list (decision 33). A token joins the game's card catalog the first time one appears.
+- Tokens are battle cards (Q39). A token that would go to the discard pile or a deck disappears (9.1.4.2, logged `tokenGone`); it never counts toward the deck it came from.
+- Revenge expands into a trigger checked from the discard pile: the destroy event names the destroyed top card's new id there. Overload (11.5) doesn't trigger it (Q17), and neither does a card that was under another (12.7.3).
+- E15 is `advance` with `by` as an amount, from an `advanced` trigger with `cause: "endPhase"`; the extra advances are by an effect, so they don't trigger it again (EBP02-056). EBP04-007's "advances 2 zones" comes with EBP04.
+- E12 `counter` is always the last effect: if the next-monster choice opens, the resolution ends there and the choice continues the check timing.
+- E21 builds `strategyToDiscard` at 7.2.3 with optional replacements: the step asks the replacement's master per card and runs again with the answers (`state.replacementAsks`). The `rageReset` and `invasionCost` events come with EBP04 and EBP03.

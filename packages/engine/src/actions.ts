@@ -395,8 +395,12 @@ const PERFORM: {
         : (choice.options.find((o) => o.id === action.optionId)?.cardId ??
           null),
     });
+    const ask = state.replacementAsks?.find((a) => a.answer === null);
     if (choice.kind === "standbyOrder") {
       resolveStandby(state, action.optionId);
+    } else if (choice.kind === "confirm" && state.resolution === null && ask) {
+      // An optional replacement during an engine step (E21): the step runs again with it.
+      ask.answer = action.optionId === "yes" ? "yes" : "no";
     } else if (
       choice.kind === "target" ||
       choice.kind === "zone" ||

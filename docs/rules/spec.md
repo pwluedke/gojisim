@@ -289,6 +289,11 @@ The M3 engine must include the framework below, so that M4 adds card abilities a
 - Rage by amounts (Q38, 3.4): "increase rage by 1 for each X" is one change of 1 per X, each its own `rageChanged` event, so "whenever your rage is increased" triggers once per X.
 - Tokens are battle cards (Q39, 9.1.4.1): wherever the engine counts, selects or checks battle cards (selectors, conditions, 7.4.2 counter power, crush and overload, bots' board reads), a token counts as one. Effects that create tokens come with M12b-2.
 - Effect plays and 8.2.1 (Q37, 1.3.1): an effect that plays a battle card ignores the rank vs. the opponent's monster's zone limit unless its data asks for it (`ignoreRankLimit: false`).
+- Tokens (M12b-2, E6, 9.1): an effect makes a token appear in its master's zones (9.1.2, 5.11.4), as a played card (its [enter] fires), never in the monster's zone (Q5), empty zones first. Its data comes from the token's name (9.1.2.2, `tokens.json`). It is a battle card (Q39). Moved anywhere but a zone, it disappears (9.1.4.2): no discard pile, no deck.
+- Revenge (M12b-2, T2, 12.7): when a card with Revenge is destroyed from the field by an effect or by crush and destroy (11.3), its ability triggers from the discard pile; overload (11.5, duplicate card processing) doesn't trigger it (Q17), nor does a card that was stacked under another (12.7.3).
+- Counter by an effect (M12b-2, E12, Q24): a real counter (5.15.1): countered triggers fire, and a player with no next monster loses (5.15.1.2.1).
+- Extra advances (M12b-2, E15): an `advanced` trigger can ask for the 7.5.2 end phase advance only; EBP02-056's extra advances are by an effect.
+- Strategy cards replaced at 7.2.3 (M12b-2, E21, 10.9): a replacement can send a strategy card elsewhere instead of to the discard pile (EBP02-012: under it). An optional one asks its master per card; the step waits and runs again with the answers.
 
 **Keyword abilities (12)**, all in M4: Enter (12.2), When invading (12.3), Awakening N (12.4), Burst (12.5), Evolution (12.6), Revenge (12.7), Resonance (12.8), Base (12.9).
 

@@ -9,6 +9,8 @@ import { resolveLosses } from "./losses";
 import { guardLoop, resetLoopGuard } from "./loop";
 import { advanceMonster } from "./movement";
 import { checkTiming, hasPendingRuleActions } from "./rules";
+import { requireChoice } from "./choices";
+import { applyReplacement, strategyReplacementFor } from "./interpreter";
 import { counterProofAgainst } from "./stats";
 import {
   appendLog,
@@ -112,6 +114,56 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
   "7.2.3": (state) => {
     // Base (12.9) keeps a strategy card in play; it arrives with keyword abilities in M4.
     const player = turnPlayer(state);
+    const leaving = player.strategyZones
+      .flat()
+      .filter((p) => p.placedOnTurn < state.turn);
+    // E21: a replacement can send a card elsewhere instead (EBP02-012). An optional one asks
+    // its master first; the step waits for the answer and runs again (10.9).
+    for (const { card } of leaving) {
+      const replacement = strategyReplacementFor(state, card);
+      if (!replacement?.ability.optional) continue;
+      const ask = state.replacementAsks?.find(
+        (a) => a.instanceId === card.instanceId,
+      );
+      if (ask?.answer) continue;
+      if (!ask)
+        state.replacementAsks = [
+          ...(state.replacementAsks ?? []),
+          {
+            instanceId: card.instanceId,
+            abilityId: replacement.abilityId,
+            answer: null,
+          },
+        ];
+      requireChoice(state, replacement.master, "confirm", "10.9", [
+        { id: "yes", cardId: card.cardId, abilityId: replacement.abilityId },
+        { id: "no", cardId: card.cardId, abilityId: replacement.abilityId },
+      ]);
+      return;
+    }
+    for (const { card } of leaving) {
+      const replacement = strategyReplacementFor(state, card);
+      const answer = replacement?.ability.optional
+        ? state.replacementAsks?.find((a) => a.instanceId === card.instanceId)
+            ?.answer
+        : "yes";
+      if (!replacement || answer !== "yes") continue;
+      applyReplacement(state, replacement, card, "strategyToDiscard", "7.2.3", {
+        replaced: {
+          kind: "cards",
+          cards: [
+            {
+              instanceId: card.instanceId,
+              cardId: card.cardId,
+              rank: null,
+              counterPower: null,
+              threat: null,
+            },
+          ],
+        },
+      });
+    }
+    delete state.replacementAsks;
     player.strategyZones = player.strategyZones.map((placements) => {
       const old = placements.filter((p) => p.placedOnTurn < state.turn);
       for (const placement of old) {

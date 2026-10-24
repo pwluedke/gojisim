@@ -5,7 +5,9 @@ import {
   AbilityFileSchema,
   CardAbilitiesSchema,
   getCardAbilities,
+  getTokenCard,
   loadAbilities,
+  TOKENS,
 } from "../src";
 import { getAllCards } from "../src/allCards";
 
@@ -155,5 +157,21 @@ describe("ability data (format.md)", () => {
       ],
     });
     expect(result.error?.message).toBeUndefined();
+  });
+});
+
+describe("tokens.json (9.1, M12b-2)", () => {
+  it("holds the base print of every Token in cards.json, unchanged", () => {
+    const fromCards = getAllCards().filter(
+      (c) => c.type === "Token" && c.parentId === null,
+    );
+    expect(TOKENS).toEqual(fromCards);
+  });
+
+  it('finds a token by name, ignoring case (EBP02-020 writes "Conductorless train bombers")', () => {
+    expect(getTokenCard("Conductorless train bombers").cardNumber).toBe(
+      "EBP02-T01",
+    );
+    expect(() => getTokenCard("Nothing")).toThrow("No token named Nothing");
   });
 });

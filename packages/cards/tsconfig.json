@@ -12,6 +12,7 @@
     "data/restrictions.json",
     "data/cards.json",
     "data/abilities/*.json",
+    "data/tokens.json",
     "data/combos/*.json"
   ],
   "exclude": ["src/**/*.test.ts"]
