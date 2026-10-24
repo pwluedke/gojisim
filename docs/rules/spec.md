@@ -277,6 +277,15 @@ The M3 engine must include the framework below, so that M4 adds card abilities a
 - Flags (M12a-2, M1, E13): `cannotEngage` keeps a battle card's counter power out of 7.4.2 (5.16.1). `cannotBeDestroyedByOpponent`: the opponent's effects can still choose the card, but their destroy does nothing to it (1.3.3; Q35, provisional); crush (11.3) and overload (11.5) still destroy it. `counterProof`: at 7.4.3 a total at or below its value doesn't counter the monster (`counterPrevented`); with `insteadMoves` it moves behind as though countered.
 - Play rules (M12a-2, M2): a card's `playRule` can count its rank lower for the 8.2.1 or 8.3.1 check (by an amount, while its gates and condition hold), or forbid playing it. After the play the card has its printed rank.
 - This turn (M12a-2, C2): "invaded this turn" and "zones advanced by invasion this turn" are read from the log since the turn began (7.1.1), counting only real advances (5.13.3).
+- Zone relations (M12b-1, C3): "the zone with the same number as ..." is the zone with that number on each field (4.4.3); "at or before" means numbered at most the anchor zone's number (4.4.5.3.1).
+- Played and invading bindings (M12b-1, T7): a card-played trigger can ask where the card came from (a main phase play is from the hand) and bind it; an [invading] trigger can bind the card discarded for this invasion (8.6.1.1).
+- Reveal the top (M12b-1, E3, 5.10): the revealed cards show to both players; the matching ones the effect takes go to the hand, the rest to the discard pile.
+- Discards (M12b-1, E11): "discard your hand" discards every card in it (5.7.1). "Your opponent may discard until N" asks that player first, then they pick the discards (5.7.2); the discarded cards are bound for "if they discarded at least 1".
+- Turn-long bonuses (M12b-1, E19, 10.8.2): a `boost` fixes its bonus when it resolves, for the cards it picks then; a card that leaves for another area is a new object and loses it (4.1.4). Bonuses end at 7.5.6. EBP02-029's doubling adds each card's counter power at resolution (Q26).
+- Start zone (M12b-1, K3, Q31): a rank I monster whose data names a start zone is placed there at 6.3.1.6 (not played, no [enter]).
+- Restrictions (M12b-1, M1): `cannotAdvance` stops every advance of that monster, the 7.5.2 one included (1.3.3); `cannotInvade` removes the invade action (8.6); `cannotPlay` removes battle plays (or only into some zones) and strategy activations, and stops effects that would put such a card into play (Q32).
+- Granted play ranks (M12b-1, M2): a continuous `playRankReduction` lowers the rank other hand cards count for 8.2.1 and 8.3.1 (EBP02-039).
+- Burst's discard (M12b-1): the card leaving the invading monster for the discard pile is a discard event, so "when this card is discarded by the effect of Burst" triggers from the discard pile (EBP02-009).
 
 **Keyword abilities (12)**, all in M4: Enter (12.2), When invading (12.3), Awakening N (12.4), Burst (12.5), Evolution (12.6), Revenge (12.7), Resonance (12.8), Base (12.9).
 

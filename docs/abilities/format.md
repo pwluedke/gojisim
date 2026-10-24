@@ -379,3 +379,42 @@ Built differently from the plan:
 - E3 `revealTop` is not needed: EBP01-015's "reveal the top 5 and send them to your discard pile" is a mill, since the discard pile is public.
 - A card the opponent's effects can't destroy can still be chosen by them; the destroy does nothing to it (1.3.3; Q35, Paul's provisional ruling, `docs/rules/rulings-to-confirm.md`). Crush and destroy (11.3) and overload (11.5) still destroy it.
 - `chooseOne` offers only the options whose gates are open and whose condition holds, as choice kind `option`. With one, it runs without a choice, except for seats that confirm every choice (`confirmSingleOption`: human seats in `/play`, Paul's ruling), which see the one-option modal.
+
+### M12b-1: C3, T7, E3, E11, E19, K3, CU, and M1/M2 additions
+
+```typescript
+type ZoneSet = ... | { relation: "sameNumberAs" | "atOrBefore"; of: ZoneAnchor };  // C3 (4.4.3, 4.4.5.3)
+type Selector = { ...; stackOf?: "this" | "yourMonster" };       // cards under your monster (EBP02-065)
+type Condition = ... | { amount: Amount; op: Op; value: number };  // EBP02-079
+
+type Trigger = ...
+  | { on: "invading"; as?: string }                 // T7: binds the card discarded for this invasion
+  | { on: "cardPlayed"; ...; from?: "hand" | "deck" | "discard" | "monsterDeck"; as?: string }  // T7
+  | { on: "discarded"; ...; from: "hand" | "strategy" | "monster"; cause?: ... | "burst" };    // Burst's discard
+
+type Effect = ...
+  | { effect: "revealTop"; player: "you"; count: number;
+      take: { filter: Selector; count: Count }; rest: "discard" }                   // E3 (5.10)
+  | { effect: "discard"; ...; count: Count | "hand" }                                // E11: the whole hand
+  | { effect: "discardDownTo"; ...; optional?: boolean; as?: string }               // E11: "may discard"; binds them
+  | { effect: "play"; ...; onePerZone?: boolean }                                   // EBP02-028
+  | { effect: "boost"; duration: "endOfTurn"; target: Selector;
+      stat: "counterPower" | "threat" | "rank"; amount: Amount | "double" }        // E19 (10.8.2)
+  | { effect: "custom"; handler: "jointStruggle" };                                 // CU (EBP02-080)
+
+type Modifier = ...
+  | { stat: "playRankReduction"; target: Selector; amount: Amount }                 // M2: other hand cards
+  | { flag: "cannotAdvance" | "cannotInvade"; target: Selector }                     // M1
+  | { flag: "cannotPlay"; player: PlayerRef; what: Selector; zones?: ZoneSet };     // M1, Q32
+
+type Ability = ... | { kind: "setup"; id: string; startZone: Zone };              // K3 (6.3.1.6, Q31)
+```
+
+Built differently from the plan:
+
+- E19 is a `boost` effect: bonuses fixed at resolution for the cards picked then, kept in `state.continuousEffects` and ended at 7.5.6. `gate: "phase"` and `snapshot` amounts wait for a card that needs them.
+- C3 builds `sameNumberAs` and `atOrBefore`; zone-number conditions and `numbersFrom` come with EBP03 and EBP04.
+- T7's binding also covers [invading] ("the card discarded for this card's invade action", EBP02-022): the latest invasion discard by the monster's master.
+- `cannotPlay` reads `what` wherever the card is, so an effect that would put a strategy card into play from the discard pile is blocked too (Q32).
+- `cannotAdvance` stops every advance, the 7.5.2 one included (1.3.3).
+- CU handlers live in `packages/engine/src/customHandlers.ts` and register when the engine loads.

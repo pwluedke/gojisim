@@ -208,6 +208,11 @@ function eventParts(
       ];
     case "chooseOption":
       return null;
+    case "boost":
+      return [
+        ...cards(p["cardIds"]),
+        ` get ${p["stat"] === "counterPower" ? "counter power" : String(p["stat"])} until the end of the turn`,
+      ];
     case "delayedAbility":
       // An ability that lasts for the turn (T8, 10.6.5), e.g. Destroy All Monsters.
       return [

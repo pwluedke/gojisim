@@ -431,3 +431,19 @@ Accepted by Monarch in the M12a-1 review (PR #35).
 306. `pnpm stress` takes `--sets`, `--deck-file` and `--uses`; deck names never appear in the output.
 307. The invariant check skips the "manual windows queued at the play timing" check once the game is over (1.2.1).
 308. Engine tests that use real cards as manual examples set them manual with `setTestAbilities`; the web ManualPanel test and the e2e `manual` fixture use EBP04-037 until M12d.
+
+Accepted by Monarch in the M12a-2 review (PR #36).
+
+309. C1's `if` effect was built with EBP01 (needed after a mill); `didLastStep` waits for a card that needs it.
+310. M1 and M2 are built as far as each set needs them; the remaining flags and play rules come with their first cards.
+311. `if` and `chooseOne` decide their branch once, when the resolution reaches them (kept by path in the resolution). `chooseOne` offers only options whose gates are open and whose condition holds, as choice kind `option`, labelled by the card's "●" lines. With one option it runs at once, except for seats that confirm single options (`confirmSingleOption`: human seats in `/play`), which see the one-option choice (Paul's ruling: every human decision shows a modal).
+312. "Reveal the top N and send them to your discard pile" is a mill, since the discard pile is public.
+313. `lookTop` puts the kept cards back on top in pick order (first picked on top); the rest go to the discard pile.
+314. A mill from an empty deck sends nothing and doesn't reshuffle; 11.2 reshuffles only for draws (11.2.2).
+315. Q35 (Paul, provisional; `docs/rules/rulings-to-confirm.md`): a card the opponent's effects can't destroy can still be chosen by them; the destroy does nothing to it (1.3.3, logged `destroyPrevented`). Crush (11.3) and overload (11.5) still destroy it.
+316. Counter-proof at 7.4.3: a total at or below the value doesn't counter (`counterPrevented`); with `insteadMoves` the monster moves behind as though countered (Q14).
+317. "This turn" conditions and amounts are read from the log since the turn began, not new state fields.
+318. "Evolve all" evolves each card in zone order; `moveBattle` with several possible cards asks which one first (Done when optional); swapping fewer than 2 cards does nothing (5.6.2).
+319. Effect advances and retreats move one zone at a time or "to" a zone (5.13.1.2, 5.13.2.2); an effect advance from zone 8 never wins (5.13.1.1.1).
+320. Shared engine test helpers live in `packages/engine/test/fixtures/play.ts`. The cards test for "no entry means manual" uses FC01-001.
+321. Provisional rulings by Paul go in `docs/rules/rulings-to-confirm.md` and in spec.md's rulings table marked provisional, until an official ruling or FAQ settles them.

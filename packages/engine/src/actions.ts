@@ -7,7 +7,7 @@ import {
   playRuleOf,
   resumeResolution,
 } from "./interpreter";
-import { getRank } from "./stats";
+import { getRank, hasFlag, playAllowed } from "./stats";
 import { activeMonster, makeInvadingMonster } from "./counter";
 import { resetLoopGuard } from "./loop";
 import { markLoss, resolveLosses } from "./losses";
@@ -106,6 +106,9 @@ function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
   const opponentZone = opponent.monsterPosition ?? 0;
   const actions: Action[] = [];
 
+  // M1: a monster that cannot invade (8.6).
+  const monsterTop = player.invadingMonsterZone.at(-1);
+  const canInvade = !monsterTop || !hasFlag(state, monsterTop, "cannotInvade");
   for (const card of player.hand) {
     const data = cardOf(state, card);
     const cardInstanceId = card.instanceId;
@@ -121,7 +124,11 @@ function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
       printed === null || rule.forbidden ? null : printed - rule.reduction;
     if (data.type === "Battle" && rank !== null && rank <= opponentZone) {
       for (const zone of ZONE_NUMBERS) {
-        if (zone !== player.monsterPosition) {
+        // M1: "cannot play battle cards in zones ..." (EBP02-055).
+        if (
+          zone !== player.monsterPosition &&
+          playAllowed(state, player, card, zone)
+        ) {
           actions.push({
             type: "playBattle",
             player: playerId,
@@ -133,7 +140,12 @@ function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
     }
     // 8.3.1: rank at most the zone number of the player's own monster (10.8.1 layers); 8.3.2: an
     // empty strategy zone.
-    if (data.type === "Strategy" && rank !== null && rank <= ownZone) {
+    if (
+      data.type === "Strategy" &&
+      rank !== null &&
+      rank <= ownZone &&
+      playAllowed(state, player, card)
+    ) {
       for (const strategyZone of STRATEGY_ZONES) {
         if (strategyZoneOf(player, strategyZone).length === 0) {
           actions.push({
@@ -157,7 +169,7 @@ function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
       actions.push({ type: "playMonster", player: playerId, cardInstanceId });
     }
     // 8.6.1: any card in hand; 8.6.2: once per turn.
-    if (!state.turnFlags.invasionUsed) {
+    if (!state.turnFlags.invasionUsed && canInvade) {
       actions.push({ type: "invade", player: playerId, cardInstanceId });
     }
   }

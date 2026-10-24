@@ -150,8 +150,15 @@ export function settleUntil(
     (current.step !== step || current.pendingChoice !== null);
     i++
   ) {
-    if (current.pendingChoice) current = settle(current, 1);
-    else if (current.step === "7.3.2")
+    if (current.pendingChoice) {
+      // Answer it without running on, so the loop can stop at `step`.
+      const options = current.pendingChoice.options;
+      const pick =
+        options.find((o) => o.id === "yes") ??
+        options.find((o) => o.id !== "done") ??
+        options[0];
+      current = choose(current, (id) => id === pick?.id);
+    } else if (current.step === "7.3.2")
       current = applyAction(current, {
         type: "pass",
         player: current.turnPlayer,

@@ -1,6 +1,7 @@
 import { buildTestDeck, getAllCards } from "@gojisim/cards/test-decks";
 import {
   type Action,
+  advanceToDecision,
   applyAction,
   type GameState,
   getLegalActions,
@@ -113,5 +114,45 @@ describe("choose-one option labels (M12a-2, E7)", () => {
       "[destroy] 1 of your opponent's rank 4 or lower battle cards.",
       "If you have 4 or more battle cards in your zones, choose 1 of your opponent's zones and [destroy] all battle cards in that zone and zones adjacent to it.",
     ]);
+  });
+});
+
+describe("an opponent's optional discard (M12b-1, EBP02-070)", () => {
+  it("names the decision as discarding down to 5", () => {
+    const decks = (["ESD01", "ESD02"] as const).map((set, i) => ({
+      id: `P${i + 1}`,
+      ...buildTestDeck(set, `labels-${i}`),
+    }));
+    let state = startGame({ seed: 3, decks: [decks[0]!, decks[1]!] });
+    const turn = state.players.find((p) => p.id === state.turnPlayer)!;
+    const other = state.players.find((p) => p.id !== state.turnPlayer)!;
+    const card = real("EBP02-070");
+    state.cards = { ...state.cards, [card.id]: card };
+    // Back at the start of the turn player's main phase, with EBP02-070 on the other side.
+    other.strategyZones[0].push({
+      card: {
+        instanceId: `c${state.nextInstanceId++}`,
+        cardId: card.id,
+        owner: other.id,
+      },
+      placedOnTurn: state.turn,
+    });
+    const filler = real("ESD02-011");
+    state.cards = { ...state.cards, [filler.id]: filler };
+    while (turn.hand.length < 7)
+      turn.hand.push({
+        instanceId: `c${state.nextInstanceId++}`,
+        cardId: filler.id,
+        owner: turn.id,
+      });
+    state = { ...state, step: "7.3.1", phase: "main" };
+    state = advanceToDecision(state);
+    expect(state.pendingChoice).toMatchObject({
+      kind: "confirm",
+      player: turn.id,
+    });
+    expect(decisionHeading(state)).toContain(
+      "deciding whether to discard down to 5 cards",
+    );
   });
 });

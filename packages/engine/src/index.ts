@@ -1,5 +1,8 @@
 import { CARDS_PACKAGE } from "@gojisim/cards";
 
+// Built-in custom effect handlers register themselves (format.md piece CU).
+import "./customHandlers";
+
 export const ENGINE_PACKAGE = "@gojisim/engine";
 
 export const ENGINE_DEPENDENCIES: readonly string[] = [CARDS_PACKAGE];

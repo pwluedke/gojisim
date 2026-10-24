@@ -1,5 +1,6 @@
 import type { Card } from "@gojisim/cards";
 import { freezeShared } from "./freeze";
+import { startZoneOf } from "./interpreter";
 import { normalizeSeed, randomInt, shuffleInPlace } from "./rng";
 import { appendLog, drawCards, moved, newInstance } from "./state";
 import type {
@@ -190,13 +191,16 @@ export function createGame(options: CreateGameOptions): GameState {
       );
     const [rankOne] = player.monsterDeck.splice(index, 1) as [CardInstance];
     const monster = moved(state, rankOne);
+    // K3: a card can start somewhere else (EBP02-024 Biollante Rose Form: zone 5, Q31). It is
+    // placed, not played, so no [enter] (decision 127).
+    const zone = startZoneOf(state, monster) ?? STARTING_ZONE;
     player.invadingMonsterZone = [monster];
-    player.monsterPosition = STARTING_ZONE;
+    player.monsterPosition = zone;
     appendLog(state, "setInvadingMonster", player.id, {
       rule: "6.3.1.6",
       instanceId: monster.instanceId,
       cardId: monster.cardId,
-      zone: STARTING_ZONE,
+      zone,
     });
   }
 

@@ -56,7 +56,18 @@ const ZoneAnchorSchema = z.union([
 export const ZoneSetSchema = z.union([
   z.array(ZoneSchema).min(1),
   z.strictObject({
-    relation: z.enum(["adjacentTo", "sameColumnAs", "inFrontOf", "behind"]),
+    /**
+     * C3: `sameNumberAs` is the zone with the anchor's number on each field; `atOrBefore` the
+     * zones numbered at most the anchor's (4.4.5.3).
+     */
+    relation: z.enum([
+      "adjacentTo",
+      "sameColumnAs",
+      "inFrontOf",
+      "behind",
+      "sameNumberAs",
+      "atOrBefore",
+    ]),
     of: ZoneAnchorSchema,
     includeSelf: z.boolean().optional(),
   }),
@@ -110,7 +121,7 @@ export const SelectorSchema = z.strictObject({
   /** The number on the card's invasion icon ("a card with [invade-2]"). */
   invadeIcon: z.number().int().nonnegative().optional(),
   /** With `area: "under"`: only cards in the stack of this card ("under this card", E4). */
-  stackOf: z.literal("this").optional(),
+  stackOf: z.enum(["this", "yourMonster"]).optional(),
   /** With `area: "bound"`: the name a card was bound to with `as`. */
   bind: z.string().min(1).optional(),
 });
@@ -157,7 +168,11 @@ export type Gate = z.infer<typeof GateSchema>;
 
 export const TriggerSchema = z.discriminatedUnion("on", [
   z.strictObject({ on: z.literal("enter") }),
-  z.strictObject({ on: z.literal("invading") }),
+  /** `as` binds the card discarded for this invasion (8.6.1.1, T7). */
+  z.strictObject({
+    on: z.literal("invading"),
+    as: z.string().min(1).optional(),
+  }),
   z.strictObject({ on: z.literal("placedInStrategyZone") }),
   z.strictObject({
     on: z.literal("phaseBegins"),
@@ -185,8 +200,9 @@ export const TriggerSchema = z.discriminatedUnion("on", [
   z.strictObject({
     on: z.literal("discarded"),
     what: SelectorSchema,
-    from: z.enum(["hand", "strategy"]),
-    cause: z.enum(["effect", "cost", "invasion", "rage"]).optional(),
+    /** `monster`: a card leaving the invading monster, as Burst's discard does (12.5.2). */
+    from: z.enum(["hand", "strategy", "monster"]),
+    cause: z.enum(["effect", "cost", "invasion", "rage", "burst"]).optional(),
     byOpponentEffect: z.boolean().optional(),
     as: z.string().min(1).optional(),
   }),
@@ -199,6 +215,10 @@ export const TriggerSchema = z.discriminatedUnion("on", [
     on: z.literal("cardPlayed"),
     by: PlayerRefSchema,
     what: SelectorSchema,
+    /** T7: where the card was played from. */
+    from: z.enum(["hand", "deck", "discard", "monsterDeck"]).optional(),
+    /** T7: binds the played card. */
+    as: z.string().min(1).optional(),
   }),
   /** An invading monster is countered (5.15): `this` card, or a player's monster. */
   z.strictObject({
@@ -238,6 +258,7 @@ export type Condition =
       thisTurn: "invaded" | "opponentBattleDestroyed";
       whose?: PlayerRef | undefined;
     }
+  | { amount: Amount; op: Op; value: number }
   | { didLastStep: true };
 
 export const ConditionSchema: z.ZodType<Condition> = z.lazy(() =>
@@ -272,6 +293,12 @@ export const ConditionSchema: z.ZodType<Condition> = z.lazy(() =>
       thisTurn: z.enum(["invaded", "opponentBattleDestroyed"]),
       whose: PlayerRefSchema.optional(),
     }),
+    /** An amount compared with a number (EBP02-079: zones advanced by invasion this turn). */
+    z.strictObject({
+      amount: AmountSchema,
+      op: OpSchema,
+      value: z.number().int(),
+    }),
     z.strictObject({ didLastStep: z.literal(true) }),
   ]),
 );
@@ -295,7 +322,7 @@ export type Effect =
   | {
       effect: "discard";
       player: EffectPlayer;
-      count: Count;
+      count: Count | "hand";
       filter?: Selector | undefined;
       chooser: "you" | "opponent";
       as?: string | undefined;
@@ -304,6 +331,7 @@ export type Effect =
       effect: "discardDownTo";
       player: EffectPlayer;
       size: number;
+      optional?: boolean | undefined;
       as?: string | undefined;
     }
   | {
@@ -336,6 +364,7 @@ export type Effect =
       asManyAsPossible?: boolean | undefined;
       preferEmpty?: boolean | undefined;
       ignoreRankLimit?: boolean | undefined;
+      onePerZone?: boolean | undefined;
       as?: string | undefined;
     }
   | { effect: "addToHand"; target: Selector; as?: string | undefined }
@@ -390,9 +419,18 @@ export type Effect =
     }
   | {
       effect: "revealTop";
-      player: EffectPlayer;
-      count: Amount;
-      effects: Effect[];
+      player: "you";
+      count: number;
+      take: { filter: Selector; count: Count };
+      rest: "discard";
+      as?: string | undefined;
+    }
+  | {
+      effect: "boost";
+      duration: "endOfTurn";
+      target: Selector;
+      stat: "counterPower" | "threat" | "rank";
+      amount: Amount | "double";
       as?: string | undefined;
     }
   | {
@@ -494,7 +532,8 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
     z.strictObject({
       effect: z.literal("discard"),
       player: EffectPlayerSchema,
-      count: CountSchema,
+      /** E11: "hand" discards the whole hand. */
+      count: z.union([CountSchema, z.literal("hand")]),
       filter: SelectorSchema.optional(),
       chooser: ChooserSchema,
       ...asField,
@@ -503,6 +542,8 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
       effect: z.literal("discardDownTo"),
       player: EffectPlayerSchema,
       size: z.number().int().nonnegative(),
+      /** E11: "may discard": that player is asked first. */
+      optional: z.boolean().optional(),
       ...asField,
     }),
     z.strictObject({
@@ -536,6 +577,8 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
       preferEmpty: z.boolean().optional(),
       /** Defaults to true: 8.2.1 limits only the main phase action. */
       ignoreRankLimit: z.boolean().optional(),
+      /** At most one card per zone: stop when no unused zone is left (EBP02-028). */
+      onePerZone: z.boolean().optional(),
       ...asField,
     }),
     z.strictObject({
@@ -603,14 +646,27 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
       count: z.number().int().positive(),
       ...asField,
     }),
+    /** E3: reveal the top N; take the matching cards into the hand, the rest to the discard pile. */
     z.strictObject({
       effect: z.literal("revealTop"),
-      player: EffectPlayerSchema,
-      count: AmountSchema,
-      effects: z.array(EffectSchema),
+      player: z.literal("you"),
+      count: z.number().int().positive(),
+      take: z.strictObject({ filter: SelectorSchema, count: CountSchema }),
+      rest: z.literal("discard"),
       ...asField,
     }),
-    /** E3: look at the top N; put any number back on top in any order, the rest to the discard pile. */
+    /**
+     * E19: a bonus for the rest of the turn, fixed when it resolves (10.8.2) for the cards the
+     * target picks then. `double` adds each card's current value.
+     */
+    z.strictObject({
+      effect: z.literal("boost"),
+      duration: z.literal("endOfTurn"),
+      target: SelectorSchema,
+      stat: z.enum(["counterPower", "threat", "rank"]),
+      amount: z.union([AmountSchema, z.literal("double")]),
+      ...asField,
+    }),
     z.strictObject({
       effect: z.literal("lookTop"),
       player: z.literal("you"),
@@ -723,6 +779,22 @@ export const ModifierSchema = z.union([
     stat: z.literal("totalCounterPower"),
     amount: AmountSchema,
   }),
+  /** M2: cards in a hand count as `amount` ranks lower when played (8.2.1, 8.3.1). */
+  z.strictObject({
+    stat: z.literal("playRankReduction"),
+    target: SelectorSchema,
+    amount: AmountSchema,
+  }),
+  /** M1: the target monster cannot advance (5.13.1) or invade (8.6). */
+  z.strictObject({ flag: z.literal("cannotAdvance"), target: SelectorSchema }),
+  z.strictObject({ flag: z.literal("cannotInvade"), target: SelectorSchema }),
+  /** M1: `player` cannot play cards `what` picks (8.2, 8.3, Q32), or only not into `zones`. */
+  z.strictObject({
+    flag: z.literal("cannotPlay"),
+    player: PlayerRefSchema,
+    what: SelectorSchema,
+    zones: ZoneSetSchema.optional(),
+  }),
   /** M1: the target's counter power is not added in the counter phase (5.16.1). */
   z.strictObject({ flag: z.literal("cannotEngage"), target: SelectorSchema }),
   /** M1: the target cannot be destroyed by the opponent's effects (5.12). */
@@ -819,6 +891,12 @@ export const AbilitySchema = z.discriminatedUnion("kind", [
    * `rankReduction` while the gates are open and the condition holds, or the play is forbidden
    * while `forbidden` holds. After the play it has its printed rank.
    */
+  /** K3: the rank I monster starts the game in `startZone` instead of zone 1 (6.3.1.6, Q31). */
+  z.strictObject({
+    kind: z.literal("setup"),
+    id: z.string().min(1),
+    startZone: ZoneSchema,
+  }),
   z.strictObject({
     kind: z.literal("playRule"),
     id: z.string().min(1),
