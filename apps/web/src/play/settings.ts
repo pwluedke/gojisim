@@ -24,6 +24,8 @@ export interface Settings {
   turnGlow: boolean;
   /** The battle log column is folded to a thin strip (M5f, button or L; default open). */
   logCollapsed: boolean;
+  /** A banner on the board when a combo succeeds (M5g, default on); the log line always shows. */
+  comboCallouts: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -35,6 +37,7 @@ export const DEFAULT_SETTINGS: Settings = {
   animation: "normal",
   turnGlow: true,
   logCollapsed: false,
+  comboCallouts: true,
 };
 
 const STORAGE_KEY = "gojisim.settings";

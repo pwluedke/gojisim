@@ -9,7 +9,9 @@ import { buildTestDeck } from "@gojisim/cards/test-decks";
 import {
   advanceToDecision,
   applyAction,
+  detectCombos,
   type GameState,
+  newComboTracker,
   getLegalActions,
   type PlayerSetup,
   startGame,
@@ -39,6 +41,8 @@ export interface GameResult {
   decisions: { a: number; b: number };
   /** Milliseconds spent in `chooseAction`. */
   ms: { a: number; b: number };
+  /** Combos each bot completed (M5g), by combo id. */
+  combos: { a: Record<string, number>; b: Record<string, number> };
 }
 
 /**
@@ -98,8 +102,11 @@ export function playMatchGame(
     turns: 0,
     decisions: { a: 0, b: 0 },
     ms: { a: 0, b: 0 },
+    combos: { a: {}, b: {} },
   };
   let state: GameState = advanceToDecision(startGame({ seed, decks }));
+  const tracker = newComboTracker();
+  let step = 0;
   while (state.result === null && state.turn <= turnCap) {
     const decider = state.pendingChoice?.player ?? state.turnPlayer;
     const seat = seats[decider];
@@ -122,7 +129,14 @@ export function playMatchGame(
       throw new Error(
         `${seat.bot.name} chose an illegal action ${JSON.stringify(action)} (game ${game}, step ${state.step})`,
       );
-    state = advanceToDecision(applyAction(state, action));
+    const next = advanceToDecision(applyAction(state, action));
+    for (const hit of detectCombos(tracker, state, action, next, step++)) {
+      const side = seats[hit.player]?.side;
+      if (!side) continue;
+      const counts = result.combos[side];
+      counts[hit.comboId] = (counts[hit.comboId] ?? 0) + 1;
+    }
+    state = next;
   }
   result.turns = state.turn;
   if (state.result) {
@@ -168,6 +182,15 @@ export interface MatchSummary {
   winReasons: Record<string, number>;
   averageTurns: number;
   msPerDecision: { a: number; b: number };
+  /**
+   * Combos each bot completed over the run (M5g), by combo id, plus the games with at least one
+   * combo. M13 uses these for bot training and matchup analysis.
+   */
+  combos: {
+    a: Record<string, number>;
+    b: Record<string, number>;
+    gamesWithCombo: { a: number; b: number };
+  };
 }
 
 export function summarize(
@@ -209,5 +232,29 @@ export function summarize(
       2,
     ),
     msPerDecision: { a: per("a"), b: per("b") },
+    combos: {
+      a: totalCombos(results, "a"),
+      b: totalCombos(results, "b"),
+      gamesWithCombo: {
+        a: results.filter((r) => Object.keys(r.combos?.a ?? {}).length > 0)
+          .length,
+        b: results.filter((r) => Object.keys(r.combos?.b ?? {}).length > 0)
+          .length,
+      },
+    },
   };
+}
+
+/** One side's combo counts summed over games, by combo id (sorted). */
+function totalCombos(
+  results: GameResult[],
+  side: "a" | "b",
+): Record<string, number> {
+  const total: Record<string, number> = {};
+  for (const r of results)
+    for (const [id, n] of Object.entries(r.combos?.[side] ?? {}))
+      total[id] = (total[id] ?? 0) + n;
+  return Object.fromEntries(
+    Object.entries(total).sort(([x], [y]) => x.localeCompare(y)),
+  );
 }

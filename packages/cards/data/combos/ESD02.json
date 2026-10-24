@@ -1,0 +1,52 @@
+[
+  {
+    "id": "oxygen-destroyer",
+    "name": "Oxygen Destroyer",
+    "deck": "ESD02",
+    "cards": ["ESD02-004", "ESD02-013"],
+    "success": {
+      "kind": "paidCost",
+      "ability": "ESD02-004#invading-destroy",
+      "paidRank": { "op": ">=", "value": 8 },
+      "destroys": 1
+    }
+  },
+  {
+    "id": "twin-cocoons",
+    "name": "Twin Cocoons",
+    "deck": "ESD02",
+    "cards": ["ESD02-003", "ESD02-007", "ESD02-008"],
+    "success": {
+      "kind": "playedThenEvolved",
+      "playedBy": "ESD02-003#enter-play",
+      "cards": ["ESD02-007", "ESD02-008"],
+      "evolves": 1
+    }
+  },
+  {
+    "id": "cosmos-call",
+    "name": "Cosmos Call",
+    "deck": "ESD02",
+    "cards": ["ESD02-014", "ESD02-007", "ESD02-010"],
+    "success": {
+      "kind": "evolvedThenDraw",
+      "evolvedBy": "ESD02-014#legend",
+      "from": "ESD02-007",
+      "then": "ESD02-010#enter-draw"
+    }
+  },
+  {
+    "id": "cadmium-barrage",
+    "name": "Cadmium Barrage",
+    "deck": "ESD02",
+    "cards": ["ESD02-009", "ESD02-005"],
+    "success": {
+      "kind": "sameTurn",
+      "events": [
+        { "event": "rageTaken", "by": "ESD02-009#enter-rage", "min": 1 },
+        { "event": "rageTaken", "by": "ESD02-005#invading-rage", "min": 1 }
+      ],
+      "total": 2
+    }
+  }
+]

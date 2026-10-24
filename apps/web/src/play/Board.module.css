@@ -1181,3 +1181,56 @@
 :global(.log-collapsed) .choiceBanner {
   right: calc(var(--log-strip-width) + var(--space-2));
 }
+
+/* A combo's log line (M5g). */
+.logCombo {
+  font-weight: bold;
+  color: var(--color-combo);
+}
+
+/* The combo callout (M5g): the combo's name and its cards, over the board for about 2 s. */
+.comboBanner {
+  position: fixed;
+  top: 38%;
+  left: 50%;
+  z-index: 35;
+  translate: -50% -50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-6);
+  border: 3px solid var(--color-combo);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  box-shadow: var(--shadow);
+  pointer-events: none;
+  animation: combo-in 0.25s ease-out;
+}
+
+.comboName {
+  font-size: var(--font-size-xl);
+  font-weight: bold;
+  color: var(--color-combo);
+}
+
+.comboCards {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.comboCard {
+  position: relative;
+  width: calc(var(--card-w) * 0.9);
+  height: calc(var(--card-h) * 0.9);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--color-panel-alt);
+}
+
+@keyframes combo-in {
+  from {
+    opacity: 0;
+    scale: 0.85;
+  }
+}

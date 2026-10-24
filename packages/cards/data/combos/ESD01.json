@@ -1,0 +1,41 @@
+[
+  {
+    "id": "ginza-inferno",
+    "name": "Ginza Inferno",
+    "deck": "ESD01",
+    "cards": ["ESD01-013", "ESD01-014"],
+    "success": {
+      "kind": "sameTurn",
+      "events": [
+        { "event": "destroy", "by": "ESD01-013#rage-destroy", "min": 1 },
+        { "event": "play", "by": "ESD01-014#emerges", "type": "Battle", "min": 1 }
+      ]
+    }
+  },
+  {
+    "id": "tokyo-wall",
+    "name": "Tokyo Wall",
+    "deck": "ESD01",
+    "cards": ["ESD01-010", "ESD01-014", "ESD01-012"],
+    "success": {
+      "kind": "boardState",
+      "card": "ESD01-012",
+      "zone": 8,
+      "counterPowerBonus": 8000,
+      "with": ["ESD01-010"]
+    }
+  },
+  {
+    "id": "deep-sea-ambush",
+    "name": "Deep Sea Ambush",
+    "deck": "ESD01",
+    "cards": ["ESD01-002", "ESD01-006"],
+    "success": {
+      "kind": "foundThenBurst",
+      "foundBy": "ESD01-002#invading-search",
+      "card": "ESD01-006",
+      "enter": "ESD01-006#enter-destroy",
+      "destroys": 1
+    }
+  }
+]

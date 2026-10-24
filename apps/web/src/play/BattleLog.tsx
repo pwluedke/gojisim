@@ -34,9 +34,10 @@ export function BattleLog({
           className={
             line.kind === "turn"
               ? styles.logTurn
-              : `${styles.logLine} ${line.position === viewing ? styles.logViewing : ""}`
+              : `${styles.logLine} ${line.kind === "combo" ? styles.logCombo : ""} ${line.position === viewing ? styles.logViewing : ""}`
           }
           data-testid={line.kind === "turn" ? "log-turn" : "log-line"}
+          data-combo={line.kind === "combo" ? "true" : undefined}
           data-position={line.position}
           onClick={
             line.kind === "turn" ? undefined : () => onSelect(line.position)

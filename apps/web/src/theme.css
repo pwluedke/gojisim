@@ -78,6 +78,7 @@
   /* The battle log column (M5d), or a thin strip while it is collapsed (M5f). */
   --right-column-width: calc(var(--side-column-width) + 2 * var(--space-4));
   --log-strip-width: 36px;
+  --color-combo: #b35c00;
   --color-lit: #1a7f37;
   --color-lit-bg: #e6f4ea;
   --color-selected: #0066cc;

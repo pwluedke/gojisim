@@ -367,3 +367,18 @@ Accepted by Monarch in the M5e review (PR #30).
 254. Ability text in order modals is the card's text line for that ability, in ability-data order, or the keyword's line for Evolution; it falls back to the whole text.
 255. The opponent's revealed half-size hand cards are not rotated.
 256. Decisions 234, 242 and 244 were reworded to the final left-column layout in the M5e PR.
+
+Accepted by Monarch in the M5f review (PR #31).
+
+257. One step (an action up to the next decision) animates as one set, all moves together. A history jump, an undo, a hotseat flip, a loaded record or a new game shows at once.
+258. Animation durations at Normal: 450 ms per move; a destroy explodes for 320 ms and hangs for 300 ms before its move. Fast is about half (220, 160, 150 ms).
+259. The custom mat shows behind both mats, the opponent's turned 180° like a table skin. The limit is 8 MB; scale runs 25–300% of the mat width, X/Y 0–100%. A failed save keeps the image for the visit.
+260. Turn glow colors: Red #e0352b, Blue #2f6fdf, Green #2e9e4f, grey #9aa0a6, 1.2 s each.
+261. The mat's outer columns are landscape (one card height wide): strategy zones on the left, deck and discard pile centered on the right. Both mats share one template, so columns line up; `--card-h` fits 5w + 2h.
+262. `docs/combos/combos.md` is in `.prettierignore`, so it stays exactly as written.
+263. `fake-indexeddb` 6.2.5 is a web dev dependency for the mat storage tests.
+264. Choice and search modals open once the cards have landed. `useGameSession` takes `pause`, so the bot's delay starts after its move's animation.
+265. `--mat-pad` (12 px) keeps every zone, strategy zone and pile clear of the mat border; the glow is on the border, outside it. The mat settings report `data-mat-stored` once storage has caught up.
+266. Destroy shards are a 3 × 4 jittered grid of quads, some split into triangles and some merged into pentagons, tiling the card; the layout is seeded by the card's instance id. Hand cards fill the hand row's height with `--hand-gap` (4 px); the count label sits over the corner and the drag overlay keeps the board card size. The battle log collapses to a strip (button or L, saved); at 1440×900 and 1920×1080 `--card-h` is height-limited, so collapsing widens the board area without larger cards.
+267. A moving card's pile end is measured as one card (the last card in a hand row, the pile's top or back, or a card-sized spot at its center), and it moves with one uniform scale by the longer sides about its center. A destroy explodes, hangs, then reassembles in flight to its destination.
+268. Every e2e spec runs with animations Off (a default storage state in `playwright.config.ts`) unless it opts out; the m5f spec tests Normal.

@@ -1,5 +1,7 @@
 import {
   type Action,
+  combosInGame,
+  type ComboHit,
   type GameState,
   getLegalActions,
   type MatchMode,
@@ -24,6 +26,8 @@ import { BoardView, STEP_NAMES } from "./BoardView";
 import { BattleLog } from "./BattleLog";
 import { buildLog } from "./logLines";
 import { ChoiceModal } from "./ChoiceModal";
+import { ComboBanner } from "./ComboBanner";
+import { cardByNumber } from "../game/labels";
 import { FirstPick } from "./FirstPick";
 import { SearchModal } from "./SearchModal";
 import { type SearchResult, searchResults } from "./searches";
@@ -132,6 +136,9 @@ export function PlayScreen() {
       setHistoryAt(null);
       setSearches([]);
       seenLog.current = start.log.length;
+      // A loaded record's combos are history: no callouts for them.
+      setCallouts([]);
+      lastCombo.current = next.record.actions.length;
     },
     // While the history view or a search result is open, a bot's answer waits.
     hold: historyAt !== null || searches.length > 0,
@@ -151,11 +158,47 @@ export function PlayScreen() {
         : "Bot";
   const liveBottom =
     state && session ? bottomPlayer(state, session.seats) : null;
-  const lines = useMemo(
-    () => (session && liveBottom ? buildLog(session, liveBottom, name) : []),
-    // `name` follows the seats, which belong to the session.
-    [session, liveBottom],
+  // M5g: every combo in the game so far, from the record's steps (an undo drops its combos).
+  const combos = useMemo(
+    () => (session ? combosInGame(session.states, session.record.actions) : []),
+    [session],
   );
+  const lines = useMemo(
+    () =>
+      session && liveBottom ? buildLog(session, liveBottom, name, combos) : [],
+    // `name` follows the seats, which belong to the session.
+    [session, liveBottom, combos],
+  );
+  /** A combo's player as the callout names it: "You", "Bot (Hard)", or the seat id. */
+  const comboWho = (player: string) => {
+    const seat = session?.seats[player as PlayerId];
+    return seat?.kind === "bot"
+      ? `Bot (${difficultyName(seat.difficulty)})`
+      : name(player);
+  };
+  // Combos from the newest step wait for the cards to land, then show for about 2 s each.
+  const [callouts, setCallouts] = useState<ComboHit[]>([]);
+  const lastCombo = useRef(0);
+  useEffect(() => {
+    if (!session) return;
+    const live = session.position === session.record.actions.length;
+    const fresh = combos.filter(
+      (h) => h.actionIndex >= lastCombo.current && live,
+    );
+    lastCombo.current = session.record.actions.length;
+    if (fresh.length && settings.comboCallouts)
+      setCallouts((queue) => [...queue, ...fresh]);
+    // Only a new step brings new combos.
+  }, [combos]);
+  const callout = callouts[0] ?? null;
+  useEffect(() => {
+    if (!callout || animating) return;
+    const timer = setTimeout(
+      () => setCallouts((queue) => queue.slice(1)),
+      2000,
+    );
+    return () => clearTimeout(timer);
+  }, [callout, animating]);
 
   // A deck search by a human seat, found or not, opens the search modal (M5e). An undo shortens
   // the log, so its searches are never shown again.
@@ -594,6 +637,17 @@ export function PlayScreen() {
           />{" "}
           Turn glow
         </label>
+        <label>
+          <input
+            type="checkbox"
+            data-testid="setting-combo-callouts"
+            checked={settings.comboCallouts}
+            onChange={(e) =>
+              updateSettings({ comboCallouts: e.target.checked })
+            }
+          />{" "}
+          Combo callouts
+        </label>
         <fieldset
           className={styles.matSettings}
           data-testid="mat-settings"
@@ -792,6 +846,14 @@ export function PlayScreen() {
           manualCards={manualCards}
           onAction={game.takeAction}
           labelOf={(action) => actionLabel(state, action)}
+        />
+      )}
+      {callout && !animating && (
+        <ComboBanner
+          key={`${callout.actionIndex}-${callout.comboId}-${callout.player}`}
+          name={callout.name}
+          who={comboWho(callout.player)}
+          cards={callout.cards.map((n) => cardByNumber(state, n))}
         />
       )}
       {botMove && (
