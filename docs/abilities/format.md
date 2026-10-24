@@ -377,5 +377,5 @@ Built differently from the plan:
 - M2 builds `rankReduction` and `forbidden`. `onlyInZones` and `alternative` come with EBP04.
 - E5's `returnToHand` is `addToHand` from the discard pile, as before; `putOnDeck` already takes cards from the discard pile.
 - E3 `revealTop` is not needed: EBP01-015's "reveal the top 5 and send them to your discard pile" is a mill, since the discard pile is public.
-- A card the opponent's effects can't destroy can't be chosen by them either; crush and destroy (11.3) and overload (11.5) still destroy it.
-- `chooseOne` offers only the options whose gates are open and whose condition holds; with one, it runs without a choice (choice kind `option`).
+- A card the opponent's effects can't destroy can still be chosen by them; the destroy does nothing to it (1.3.3; Q35, Paul's provisional ruling, `docs/rules/rulings-to-confirm.md`). Crush and destroy (11.3) and overload (11.5) still destroy it.
+- `chooseOne` offers only the options whose gates are open and whose condition holds, as choice kind `option`. With one, it runs without a choice, except for seats that confirm every choice (`confirmSingleOption`: human seats in `/play`, Paul's ruling), which see the one-option modal.

@@ -106,14 +106,15 @@ export function destroyCards(
   );
   for (const { card, player, zone } of targets) {
     if (replaced.has(card.instanceId)) continue;
-    // "Cannot be destroyed by your opponent's effects" (M1, 5.12): the destroy doesn't happen.
+    // "Cannot be destroyed by your opponent's effects" (M1): the card may have been chosen, but
+    // the destroy does nothing to it (1.3.3; Q35, Paul's provisional ruling).
     if (
       by !== null &&
       by !== player.id &&
       hasFlag(state, card, "cannotBeDestroyedByOpponent")
     ) {
       appendLog(state, "destroyPrevented", player.id, {
-        rule: "5.12",
+        rule: "1.3.3",
         cardId: card.cardId,
         cause,
       });

@@ -322,6 +322,31 @@ describe("EBP01 protection (M1 cannot be destroyed by the opponent)", () => {
     expect(zoneCardIds(self(after, me))).toEqual({ "2": [965031] });
   });
 
+  it('EBP01-052 1.3.3: the opponent\'s "destroy 1" may choose it; choosing it destroys nothing (Q35, provisional)', () => {
+    const { state, me, opp } = opponentsTurn();
+    me.monsterPosition = 4;
+    const megaguirus = place(state, me, real("EBP01-052"), 2);
+    const other = place(state, me, battleCard({ id: 965121, rank: 2 }), 3);
+    for (let i = 0; i < 5; i++) inDiscard(state, me, monsterCard(1));
+    // The opponent plays EBP01-040: "[enter] [destroy] 1 of your opponent's rank 7 or lower
+    // battle cards".
+    monster(state, opp, godzilla(4, ["Blue"]), 5);
+    let after = playMonster(state, opp, inHand(state, opp, real("EBP01-040")));
+    expect(after.pendingChoice).toMatchObject({
+      kind: "target",
+      player: opp.id,
+    });
+    expect(after.pendingChoice?.options.map((o) => o.id).sort()).toEqual(
+      [megaguirus.instanceId, other.instanceId].sort(),
+    );
+    after = settle(choose(after, (id) => id === megaguirus.instanceId));
+    expect(newLogTypes(after, state)).toContain("destroyPrevented");
+    expect(zoneCardIds(self(after, me))).toEqual({
+      "2": [megaguirus.cardId],
+      "3": [965121],
+    });
+  });
+
   it("5.12, 11.3: protection stops effects only; crush and destroy still destroys", () => {
     const { state, me } = setup(1);
     me.rage = 3;
@@ -605,6 +630,26 @@ describe("EBP01 move and swap cards (E9, E10)", () => {
 });
 
 describe("EBP01-064 Godzilla vs. Megaguirus (E7)", () => {
+  it("EBP01-064 10.5.2.2.1: a seat that confirms every choice (human seats in /play) sees the one open option; others run it at once", () => {
+    const { state, me, opp } = setup();
+    place(state, opp, battleCard({ id: 965131, rank: 4 }), 2);
+    const card = inHand(state, me, real("EBP01-064"));
+    const asked = activate(
+      { ...state, confirmSingleOption: [me.id] },
+      me,
+      card,
+    );
+    expect(asked.pendingChoice).toMatchObject({
+      kind: "option",
+      player: me.id,
+    });
+    expect(asked.pendingChoice?.options.map((o) => o.id)).toEqual(["0"]);
+    const after = settle(choose(asked, (id) => id === "0"));
+    expect(zoneCardIds(opponentOf(after, me))).toEqual({});
+    // Bots, stress and /debug don't confirm single options: no choice.
+    expect(activate(state, me, card).pendingChoice).toBeNull();
+  });
+
   it("EBP01-064 10.5.2.2.1: with fewer than 4 battle cards only the first option can be chosen, so it runs at once", () => {
     const { state, me, opp } = setup();
     place(state, opp, battleCard({ id: 965091, rank: 4 }), 2);

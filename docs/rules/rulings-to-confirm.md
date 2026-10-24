@@ -1,0 +1,7 @@
+# Rulings to Confirm
+
+Paul's provisional rulings. The engine follows them until an official ruling or FAQ says otherwise; then update the ruling here, in spec.md and in the engine.
+
+| #   | Cards                                                                               | Question                                                                                                                                                                              | Provisional ruling (Paul)                                                                               | Date       | Status      |
+| --- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------- | ----------- |
+| Q35 | EBP01-052 Megaguirus, and any "cannot be [destroy] by your opponent's effects" card | Can the opponent choose this card for a "[destroy] N of your opponent's battle cards" effect? 10.5.3 and 1.3.3 don't settle whether a card that can't be destroyed is a legal target. | Yes. It can be chosen; the destroy does nothing to it (1.3.3); a forced "destroy 1" may be spent on it. | 2026-10-23 | Provisional |

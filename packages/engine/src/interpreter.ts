@@ -41,7 +41,7 @@ import {
   setRage,
   toDiscard,
 } from "./state";
-import { getCounterPower, getRank, getThreat, hasFlag } from "./stats";
+import { getCounterPower, getRank, getThreat } from "./stats";
 import type {
   Binding,
   CardInstance,
@@ -1526,15 +1526,11 @@ function perform(state: GameState, effect: Effect): Outcome {
   switch (effect.effect) {
     case "destroy": {
       const { select: selector, count, chooser } = effect.target;
-      // A card that cannot be destroyed by its opponent's effects can't be chosen by them (M1).
-      const destroyable = select(ctx, selector).filter(
-        (l) =>
-          l.player.id === ctx.master ||
-          !hasFlag(state, l.card, "cannotBeDestroyedByOpponent"),
-      );
+      // A card the opponent's effects can't destroy can still be chosen; the destroy does
+      // nothing to it (Q35, Paul's provisional ruling; 1.3.3).
       const targets = pickCards(
         ctx,
-        destroyable,
+        select(ctx, selector),
         count,
         chooserOf(chooser),
         "10.5.3",
