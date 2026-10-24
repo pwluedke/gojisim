@@ -2,21 +2,24 @@
   "guard": {
     "seed": "bench-guard",
     "games": 8,
-    "sets": ["EBP01", "EBP02"],
+    "sets": [
+      "EBP01",
+      "EBP02"
+    ],
     "policy": "weighted",
     "rounds": 9,
     "roundMs": 150,
     "maxSlowdown": 0.5
   },
-  "measuredOn": "local",
+  "measuredOn": "GitHub Actions ubuntu-latest (CI run 40130693555); the check runs there",
   "date": "2026-10-24",
   "microseconds": {
-    "calibration": 33.44,
-    "applyAction": 70.46,
-    "getLegalActions": 31.82
+    "calibration": 42.36,
+    "applyAction": 121.98,
+    "getLegalActions": 54.74
   },
   "relative": {
-    "applyAction": 2.107,
-    "getLegalActions": 0.9515
+    "applyAction": 2.8795,
+    "getLegalActions": 1.2921
   }
 }

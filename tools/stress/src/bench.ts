@@ -71,7 +71,7 @@ if (flags.check || flags["update-baseline"]) {
       [
         "Speed guard failed:",
         ...problems.map((p) => `  ${p}`),
-        "If the slowdown is accepted, run `pnpm bench --update-baseline` and commit bench/baseline.json.",
+        "If the slowdown is accepted, copy the measured numbers above into bench/baseline.json (it is measured on the CI runner) and commit it.",
       ].join("\n"),
     );
     process.exit(1);
