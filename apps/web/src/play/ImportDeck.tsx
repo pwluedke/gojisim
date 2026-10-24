@@ -1,6 +1,8 @@
 import type { Card } from "@gojisim/cards";
 import type { NamedDeck } from "@gojisim/cards/deck-lists";
+import { decklogCode, decklogDeckList } from "@gojisim/cards/decklog";
 import { useEffect, useMemo, useState } from "react";
+import { fetchDecklogDeck } from "../game/decklog";
 import { importStatus } from "../game/importDeck";
 import styles from "./Board.module.css";
 import newGame from "./NewGame.module.css";
@@ -13,6 +15,10 @@ const FORMAT_NAMES = {
 
 /** How to copy a deck in each format GojiSim reads (M7a review: one line per format). */
 const HOW_TO_COPY: [string, string][] = [
+  [
+    "Decklog",
+    "paste the deck's URL (decklog-en.bushiroad.com/view/…) or its deck code above and click Fetch.",
+  ],
   [
     "godzillatcgdb.com deck page",
     "open the deck, press Cmd+A (Ctrl+A on Windows), then Cmd+C (Ctrl+C), and paste here.",
@@ -45,7 +51,9 @@ function cardLines(cards: readonly Card[]): string[] {
  * The Import deck modal (M7a): paste a deck list in any format GojiSim reads (its own text, or a
  * copy of godzillatcgdb.com's printable deck list). It shows the parsed deck; unknown card
  * numbers and unreadable lines are errors and block saving, legality problems are warnings and
- * don't (Paul's ruling, Oct 21, 2026). The name defaults to the list's name.
+ * don't (Paul's ruling, Oct 21, 2026). The name defaults to the list's name. A Decklog URL or
+ * deck code is fetched through GojiSim's route and becomes deck list text in the box, so the same
+ * preview, errors and warnings apply.
  */
 export function ImportDeck({
   onSave,
@@ -57,6 +65,53 @@ export function ImportDeck({
   const [text, setText] = useState("");
   const [choice, setChoice] = useState(0);
   const [name, setName] = useState<string | null>(null);
+  const [decklogInput, setDecklogInput] = useState("");
+  const [decklog, setDecklog] = useState<{
+    busy: boolean;
+    note: string | null;
+    error: string | null;
+  }>({ busy: false, note: null, error: null });
+  const fetchDecklog = async () => {
+    const code = decklogCode(decklogInput);
+    if (!code) {
+      setDecklog({
+        busy: false,
+        note: null,
+        error:
+          "Paste a Decklog URL (decklog-en.bushiroad.com/view/…) or a deck code like 1STAP.",
+      });
+      return;
+    }
+    setDecklog({
+      busy: true,
+      note: `Fetching ${code} from Decklog…`,
+      error: null,
+    });
+    const result = await fetchDecklogDeck(code);
+    if ("error" in result) {
+      setDecklog({ busy: false, note: null, error: result.error });
+      return;
+    }
+    const list = decklogDeckList(result.deck);
+    setText(list.text);
+    setChoice(0);
+    setName(null);
+    const notes = [`Fetched ${result.deck.code} from Decklog.`];
+    if (list.fallbacks.length > 0)
+      notes.push(
+        `Read as the base card: ${list.fallbacks.map(([from, to]) => `${from} → ${to}`).join(", ")}.`,
+      );
+    if (list.ignored > 0)
+      notes.push(`Left out ${list.ignored} cards from Decklog's side list.`);
+    setDecklog({
+      busy: false,
+      note: notes.join(" "),
+      error:
+        list.unknown.length > 0
+          ? `GojiSim doesn't know ${list.unknown.length === 1 ? "this card number" : "these card numbers"} yet: ${list.unknown.join(", ")}. The card data may need a refresh (pnpm scrape).`
+          : null,
+    });
+  };
   const parsed = useMemo(() => importStatus(text, choice), [text, choice]);
   const { deck, warnings } = parsed;
   const shownName = name ?? parsed.suggestedName;
@@ -81,6 +136,42 @@ export function ImportDeck({
             </li>
           ))}
         </ul>
+        <div className={newGame.decklogRow}>
+          <label>
+            Decklog URL or deck code{" "}
+            <input
+              data-testid="decklog-input"
+              value={decklogInput}
+              placeholder="https://decklog-en.bushiroad.com/view/1STAP"
+              onChange={(e) => setDecklogInput(e.target.value)}
+              onKeyDown={(e) => {
+                // Inside the new-game form: Enter fetches instead of starting a game.
+                if (e.key !== "Enter") return;
+                e.preventDefault();
+                if (!decklog.busy) void fetchDecklog();
+              }}
+            />
+          </label>{" "}
+          <button
+            type="button"
+            className={styles.choiceButton}
+            data-testid="decklog-fetch"
+            disabled={decklog.busy || decklogInput.trim() === ""}
+            onClick={() => void fetchDecklog()}
+          >
+            Fetch
+          </button>
+        </div>
+        {decklog.note && (
+          <div className={styles.muted} data-testid="decklog-note">
+            {decklog.note}
+          </div>
+        )}
+        {decklog.error && (
+          <div className={newGame.importErrors} data-testid="decklog-error">
+            {decklog.error}
+          </div>
+        )}
         <textarea
           className={newGame.importText}
           data-testid="import-text"
