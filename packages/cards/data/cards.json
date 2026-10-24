@@ -19088,6 +19088,32 @@
     }
   },
   {
+    "id": 900001,
+    "cardNumber": "EPR-020",
+    "baseCardNumber": "EPR-020",
+    "isParallel": false,
+    "parentId": null,
+    "deckCardNumber": "EPR-020",
+    "name": "Godzilla (2003)",
+    "set": "PR",
+    "colors": [
+      "Blue"
+    ],
+    "type": "Monster",
+    "traits": [
+      "Godzilla"
+    ],
+    "rank": 3,
+    "counterOrThreat": 17000,
+    "invadeZones": 2,
+    "rarity": "PR",
+    "movie": "Godzilla: Tokyo SOS (2003)",
+    "text": "Whenever you discard a battle card from your hand, reduce your opponent's [rage] by 1.\n[your-turn] When your opponent's [rage] becomes 0, increase this card's [rage] by 2. (Does not activate if their [rage] was already 0.)",
+    "notes": null,
+    "imageUrl": "https://en.godzilla-cardgame.com/wordpress/wp-content/images/cardlist/PR/EPR-020-PRol.png",
+    "unknownFields": {}
+  },
+  {
     "id": 899,
     "cardNumber": "ESC01-001",
     "baseCardNumber": "ESC01-001",
