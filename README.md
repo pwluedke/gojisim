@@ -46,11 +46,12 @@ On the `/play` new-game screen, **Import deck** takes a pasted deck list in any 
 | godzilla-sim                     | In the Deck Builder, Export to Clipboard (one deck) or Export All Decks. Both are GojiSim deck list text; a single-deck export has no name line, so you name it. |
 | GojiSim                          | Copy on a saved deck, or a deck list file (the format above).                                                                                                    |
 
+**Decklog** (decklog-en.bushiroad.com): paste the deck's URL (`https://decklog-en.bushiroad.com/view/1STAP`) or its code (`1STAP`) into the Decklog box of Import deck and click Fetch (or Enter). GojiSim fetches it through its own route, `GET /api/decklog/<code>`, because Decklog sends no CORS header: the Vite dev server serves the route now, and `apps/server` serves the same route (`apps/server/src/decklog.ts`) at M9. The deck becomes GojiSim deck list text in the box (named after its Decklog title), so the same preview, errors and warnings apply. Parallel (`+`) and PR reprint (`++`) numbers name the same prints as the card data; a `+` print the data lacks reads as its base card. Errors: deck not found, Decklog unreachable, and card numbers GojiSim doesn't know yet (a card data refresh, `pnpm scrape`, picks up new cards). A page served without GojiSim's server (a static build) says the import needs it.
+
 Unknown card numbers and unreadable lines block saving; legality problems (deck size, copies, the restriction list) are warnings, and the deck still plays. Saved decks are **My decks**, kept in this browser's IndexedDB (only for the current visit when storage is blocked), with Rename, Copy (plain text), Delete, and Export all / Import backup as one JSON file. The gitignored `local-decks` import in `/debug` stays for development.
 
 Not supported:
 
-- **Bushiroad Decklog:** not supported, no text export or browser access (its API sends no CORS header, and its export buttons copy only the deck code or URL, or save an image).
 - **Deck links (URLs):** the browser can't fetch a godzillatcgdb deck page (no CORS header), so import is paste only. Link import moves to M9: `apps/server` will fetch `/d/<id>` and parse its HTML.
 
 ## Card images
