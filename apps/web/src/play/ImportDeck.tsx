@@ -6,9 +6,27 @@ import styles from "./Board.module.css";
 import newGame from "./NewGame.module.css";
 
 const FORMAT_NAMES = {
-  gojisim: "GojiSim deck list",
-  godzillatcgdb: "godzillatcgdb.com printable deck list",
+  gojisim: "GojiSim or godzilla-sim deck list",
+  "godzillatcgdb-page": "godzillatcgdb.com deck page",
+  "godzillatcgdb-print": "godzillatcgdb.com printable deck list",
 } as const;
+
+/** How to copy a deck in each format GojiSim reads (M7a review: one line per format). */
+const HOW_TO_COPY: [string, string][] = [
+  [
+    "godzillatcgdb.com deck page",
+    "open the deck, press Cmd+A (Ctrl+A on Windows), then Cmd+C (Ctrl+C), and paste here.",
+  ],
+  [
+    "godzillatcgdb.com printable list",
+    "on the deck page click Print deck list, select all of that page, copy and paste.",
+  ],
+  [
+    "godzilla-sim",
+    "in the Deck Builder, use Export to Clipboard (one deck) or Export All Decks, then paste.",
+  ],
+  ["GojiSim", "use Copy on a saved deck, or paste a GojiSim deck list file."],
+];
 
 /** "2 × Name [number]" lines, one per run of the same card, in the deck's order. */
 function cardLines(cards: readonly Card[]): string[] {
@@ -41,7 +59,7 @@ export function ImportDeck({
   const [name, setName] = useState<string | null>(null);
   const parsed = useMemo(() => importStatus(text, choice), [text, choice]);
   const { deck, warnings } = parsed;
-  const shownName = name ?? deck?.name ?? "";
+  const shownName = name ?? parsed.suggestedName;
   const canSave = parsed.canSave(shownName);
 
   useEffect(() => {
@@ -56,10 +74,13 @@ export function ImportDeck({
     <div className={styles.modalBackdrop} data-testid="import-deck">
       <div className={`${styles.modal} ${newGame.importModal}`} role="dialog">
         <div className={styles.modalHeading}>Import deck</div>
-        <p className={styles.muted}>
-          Paste a GojiSim deck list, or copy a deck&apos;s printable list on
-          godzillatcgdb.com (Print deck list) and paste it here.
-        </p>
+        <ul className={newGame.importHelp} data-testid="import-help">
+          {HOW_TO_COPY.map(([source, how]) => (
+            <li key={source}>
+              <strong>{source}:</strong> {how}
+            </li>
+          ))}
+        </ul>
         <textarea
           className={newGame.importText}
           data-testid="import-text"

@@ -14,6 +14,11 @@ export interface ImportStatus {
   decks: NamedDeck[];
   /** The chosen deck, if any. */
   deck: NamedDeck | undefined;
+  /**
+   * The name to suggest: the list's own name, or empty when it has none (godzilla-sim's Export
+   * to Clipboard writes no name line), so the player names it.
+   */
+  suggestedName: string;
   /** Unknown card numbers and unreadable lines: they block saving. */
   errors: DeckListError[];
   /** Legality problems (size, copies, restriction list): warnings only, saving still works. */
@@ -29,6 +34,10 @@ export function importStatus(text: string, choice = 0): ImportStatus {
     format: parsed.format,
     decks: parsed.decks,
     deck,
+    suggestedName:
+      deck && (parsed.format !== "gojisim" || /^\s*\[deck\]/im.test(text))
+        ? deck.name
+        : "",
     errors: parsed.errors,
     warnings: deck ? checkDeck(deck).failures : [],
     canSave: (name) =>

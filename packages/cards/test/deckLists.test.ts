@@ -120,7 +120,7 @@ describe("pasted deck list formats (M7a)", () => {
   ] as const)
     it(`godzillatcgdb.com printable deck list, ${shapeName}: name, monster deck and main deck`, () => {
       const parsed = parseAnyDeckList(fixture(file));
-      expect(parsed.format).toBe("godzillatcgdb");
+      expect(parsed.format).toBe("godzillatcgdb-print");
       expect(parsed.errors).toEqual([]);
       const [deck] = parsed.decks;
       expect(deck?.name).toBe("Sample Gigan Deck");
@@ -175,5 +175,83 @@ describe("pasted deck list formats (M7a)", () => {
     expect(parseAnyDeckList("hello world").errors).toHaveLength(1);
     expect(parseAnyDeckList("hello world").format).toBeNull();
     expect(parseAnyDeckList("   ").errors).toEqual([]);
+  });
+});
+
+describe("godzilla-sim exports and the godzillatcgdb deck page (M7a review)", () => {
+  const fixture = (name: string) =>
+    readFileSync(new URL(`fixtures/${name}`, import.meta.url), "utf8");
+  const count = (cards: { cardNumber: string }[], number: string) =>
+    cards.filter((c) => c.cardNumber === number).length;
+
+  it("godzilla-sim Export to Clipboard (one deck, no [deck] line) reads as GojiSim text", () => {
+    const parsed = parseAnyDeckList(fixture("godzilla-sim-export-one.txt"));
+    expect(parsed.format).toBe("gojisim");
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.decks).toHaveLength(1);
+    expect(parsed.decks[0]?.monsterDeck).toHaveLength(4);
+    expect(parsed.decks[0]?.mainDeck).toHaveLength(50);
+  });
+
+  it("godzilla-sim Export All Decks reads as GojiSim text: every deck, folders kept in names", () => {
+    const parsed = parseAnyDeckList(fixture("godzilla-sim-export-all.txt"));
+    expect(parsed.format).toBe("gojisim");
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.decks.map((d) => d.name)).toEqual([
+      "Starters/Starter Deck - Godzilla Minus One",
+      "Starters/Starter Deck - Heisei Series Godzilla",
+    ]);
+    for (const deck of parsed.decks) expect(deck.mainDeck).toHaveLength(50);
+  });
+
+  it("a godzillatcgdb deck page copied whole: counts from the badges, the rest of the page ignored", () => {
+    const parsed = parseAnyDeckList(fixture("godzillatcgdb-deck-page.txt"));
+    expect(parsed.format).toBe("godzillatcgdb-page");
+    expect(parsed.errors).toEqual([]);
+    const [deck] = parsed.decks;
+    expect(deck?.name).toBe("Sample Gigan Deck");
+    // Monster deck: bare numbers, one copy each.
+    expect(deck?.monsterDeck.map((c) => c.cardNumber)).toEqual([
+      "EBP04-027",
+      "EBP02-042",
+      "EBP04-029",
+      "EBP02-044",
+    ]);
+    // Main deck: 19 + 20 + 11 cards, each count from the badge line before its number.
+    expect(deck?.mainDeck).toHaveLength(50);
+    expect(count(deck?.mainDeck ?? [], "EBP04-028")).toBe(4);
+    expect(count(deck?.mainDeck ?? [], "EBP02-042")).toBe(3);
+    expect(count(deck?.mainDeck ?? [], "EBP01-077")).toBe(1);
+  });
+
+  it("deck page: a badge on the card's own line counts too; a card with no badge is an error", () => {
+    const sameLine = parseAnyDeckList(
+      "My Page Deck\nAuthor: someone\nMonster Deck\nESD01-001\nMonster Cards (2)\n2 ESD01-002\n",
+    );
+    expect(sameLine.format).toBe("godzillatcgdb-page");
+    expect(sameLine.errors).toEqual([]);
+    expect(sameLine.decks[0]?.name).toBe("My Page Deck");
+    expect(sameLine.decks[0]?.mainDeck.map((c) => c.cardNumber)).toEqual([
+      "ESD01-002",
+      "ESD01-002",
+    ]);
+    const missing = parseAnyDeckList(
+      "Deck\nAuthor: x\nMonster Deck\nESD01-001\nBattle Cards (1)\nESD01-008\n",
+    );
+    expect(missing.errors).toEqual([
+      expect.objectContaining({
+        line: 6,
+        reason: "No count badge for ESD01-008",
+      }),
+    ]);
+  });
+
+  it("the print page and the deck page are told apart", () => {
+    expect(
+      parseAnyDeckList(fixture("godzillatcgdb-print-tabs.txt")).format,
+    ).toBe("godzillatcgdb-print");
+    expect(
+      parseAnyDeckList(fixture("godzillatcgdb-deck-page.txt")).format,
+    ).toBe("godzillatcgdb-page");
   });
 });

@@ -39,10 +39,30 @@ describe("deck import (M7a)", () => {
       "godzillatcgdb-print-tabs.txt",
     ]) {
       const tcgdb = importStatus(cardsFixture(file));
-      expect(tcgdb.format).toBe("godzillatcgdb");
+      expect(tcgdb.format).toBe("godzillatcgdb-print");
       expect(tcgdb.deck?.name).toBe("Sample Gigan Deck");
       expect(tcgdb.errors).toEqual([]);
     }
+  });
+
+  it("godzilla-sim exports and a godzillatcgdb deck page parse; an unnamed export suggests no name", () => {
+    const one = importStatus(cardsFixture("godzilla-sim-export-one.txt"));
+    expect(one.format).toBe("gojisim");
+    expect(one.deck?.mainDeck).toHaveLength(50);
+    // Export to Clipboard writes no name line: the player names the deck.
+    expect(one.suggestedName).toBe("");
+    expect(one.canSave("")).toBe(false);
+    expect(one.canSave("Red")).toBe(true);
+    const all = importStatus(cardsFixture("godzilla-sim-export-all.txt"));
+    expect(all.decks).toHaveLength(2);
+    expect(all.suggestedName).toBe(
+      "Starters/Starter Deck - Godzilla Minus One",
+    );
+    const page = importStatus(cardsFixture("godzillatcgdb-deck-page.txt"));
+    expect(page.format).toBe("godzillatcgdb-page");
+    expect(page.suggestedName).toBe("Sample Gigan Deck");
+    expect(page.warnings).toEqual([]);
+    expect(page.canSave(page.suggestedName)).toBe(true);
   });
 
   it("an unknown card number is an error and blocks saving", () => {

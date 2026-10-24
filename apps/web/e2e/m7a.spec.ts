@@ -25,6 +25,12 @@ async function importDeck(page: Page, text: string, name?: string) {
 
 const myDecks = (page: Page) => page.getByTestId("my-deck-name");
 
+const cardsFixture = (name: string) =>
+  readFileSync(
+    new URL(`../../../packages/cards/test/fixtures/${name}`, import.meta.url),
+    "utf8",
+  );
+
 test("paste a godzillatcgdb list, save it, pick it and start a game against the bot", async ({
   page,
 }) => {
@@ -34,6 +40,8 @@ test("paste a godzillatcgdb list, save it, pick it and start a game against the 
   await expect(page.getByTestId("import-format")).toContainText(
     "godzillatcgdb.com printable deck list",
   );
+  // How to copy each format, one line each.
+  await expect(page.getByTestId("import-help").locator("li")).toHaveCount(4);
   await expect(page.getByTestId("import-counts")).toHaveText(
     "Monster deck 4 · Main deck 47",
   );
@@ -183,4 +191,51 @@ test("Enter in the deck name saves the deck (it doesn't start a game)", async ({
   await expect(myDecks(page)).toHaveText(["Entered"]);
   await expect(page.getByTestId("first-pick")).toHaveCount(0);
   await expect(page.getByTestId("start-game")).toBeVisible();
+});
+
+test("a godzillatcgdb deck page copied whole (Select All, Copy) imports with its counts and plays", async ({
+  page,
+}) => {
+  await page.goto("/play?mode=bot");
+  await page.getByTestId("import-deck").click();
+  await page
+    .getByTestId("import-text")
+    .fill(cardsFixture("godzillatcgdb-deck-page.txt"));
+  await expect(page.getByTestId("import-format")).toContainText(
+    "godzillatcgdb.com deck page",
+  );
+  await expect(page.getByTestId("import-counts")).toHaveText(
+    "Monster deck 4 · Main deck 50",
+  );
+  await expect(page.getByTestId("import-cards")).toContainText(
+    "4 × Gigan (2004) [EBP04-028]",
+  );
+  await expect(page.getByTestId("import-warnings")).toHaveCount(0);
+  await expect(page.getByTestId("import-name")).toHaveValue(
+    "Sample Gigan Deck",
+  );
+  await page.getByTestId("import-save").click();
+  await expect(
+    page.getByTestId("seat-panel-P1").getByTestId("legality"),
+  ).toHaveText("Legal");
+  await startGame(page);
+  await expect(
+    page.getByTestId("monster-P1").getByTestId("card"),
+  ).toHaveAttribute("title", /EBP04-027/);
+});
+
+test("a godzilla-sim Export to Clipboard (no name line) saves once it's named", async ({
+  page,
+}) => {
+  await page.goto("/play?mode=bot");
+  await page.getByTestId("import-deck").click();
+  await page
+    .getByTestId("import-text")
+    .fill(cardsFixture("godzilla-sim-export-one.txt"));
+  await expect(page.getByTestId("import-format")).toContainText("godzilla-sim");
+  await expect(page.getByTestId("import-name")).toHaveValue("");
+  await expect(page.getByTestId("import-save")).toBeDisabled();
+  await page.getByTestId("import-name").fill("From godzilla-sim");
+  await page.getByTestId("import-save").click();
+  await expect(myDecks(page)).toHaveText(["From godzilla-sim"]);
 });

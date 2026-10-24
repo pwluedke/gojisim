@@ -179,3 +179,9 @@
   color: var(--color-warning);
   font-size: var(--font-size-sm);
 }
+
+.importHelp {
+  margin: 0 0 var(--space-2);
+  padding-left: var(--space-4);
+  font-size: var(--font-size-sm);
+}
