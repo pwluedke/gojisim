@@ -43,15 +43,15 @@ test("paste a godzillatcgdb list, save it, pick it and start a game against the 
   // Legality problems are warnings; the deck still saves.
   await expect(page.getByTestId("import-warnings")).toContainText("6.1.1.2");
   await expect(page.getByTestId("import-name")).toHaveValue(
-    "Little King Trash Mouth",
+    "Sample Gigan Deck",
   );
   await page.getByTestId("import-save").click();
-  await expect(myDecks(page)).toHaveText(["Little King Trash Mouth"]);
+  await expect(myDecks(page)).toHaveText(["Sample Gigan Deck"]);
   // Saved decks are listed under My decks, with their badge, and the new one is P1's pick.
   await expect(page.getByTestId("deck-P1")).toHaveValue(/^mine:/);
   await page
     .getByTestId("deck-P1")
-    .selectOption({ label: "Little King Trash Mouth" });
+    .selectOption({ label: "Sample Gigan Deck" });
   await expect(
     page.getByTestId("seat-panel-P1").getByTestId("legality"),
   ).toContainText("Warnings");
@@ -91,22 +91,22 @@ test("rename and delete a saved deck; saved decks survive a reload", async ({
   await expect(myDecks(page)).toHaveText(["Gigan", "Second"]);
   const first = page.getByTestId("my-deck").filter({ hasText: "Gigan" });
   await first.getByTestId("rename-deck").click();
-  await page.getByTestId("rename-input").fill("Little King");
+  await page.getByTestId("rename-input").fill("Renamed Gigan");
   await page.getByTestId("rename-save").click();
-  await expect(myDecks(page)).toHaveText(["Little King", "Second"]);
+  await expect(myDecks(page)).toHaveText(["Renamed Gigan", "Second"]);
   const second = page.getByTestId("my-deck").filter({ hasText: "Second" });
   await second.getByTestId("delete-deck").click();
   await second.getByTestId("delete-confirm").click();
-  await expect(myDecks(page)).toHaveText(["Little King"]);
+  await expect(myDecks(page)).toHaveText(["Renamed Gigan"]);
   // Storage has caught up before the reload.
   await expect(page.getByTestId("my-decks")).toHaveAttribute(
     "data-decks-stored",
     "true",
   );
   await page.reload();
-  await expect(myDecks(page)).toHaveText(["Little King"]);
+  await expect(myDecks(page)).toHaveText(["Renamed Gigan"]);
   await expect(page.getByTestId("deck-P2").locator("option")).toContainText([
-    "Little King",
+    "Renamed Gigan",
   ]);
 });
 

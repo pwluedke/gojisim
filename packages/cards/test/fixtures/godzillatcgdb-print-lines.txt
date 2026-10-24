@@ -1,7 +1,7 @@
-Godzilla Card Game Database - Little King Trash Mouth by Ikaruwa
+Godzilla Card Game Database - Sample Gigan Deck by Sample Author
 Godzilla TCG DB
-Deck: Little King Trash Mouth
-Author: Ikaruwa
+Deck: Sample Gigan Deck
+Author: Sample Author
 Monster Deck
 Set
 ID

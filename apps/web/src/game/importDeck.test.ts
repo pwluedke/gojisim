@@ -40,7 +40,7 @@ describe("deck import (M7a)", () => {
     ]) {
       const tcgdb = importStatus(cardsFixture(file));
       expect(tcgdb.format).toBe("godzillatcgdb");
-      expect(tcgdb.deck?.name).toBe("Little King Trash Mouth");
+      expect(tcgdb.deck?.name).toBe("Sample Gigan Deck");
       expect(tcgdb.errors).toEqual([]);
     }
   });
@@ -59,7 +59,7 @@ describe("deck import (M7a)", () => {
     const status = importStatus(cardsFixture("godzillatcgdb-print-tabs.txt"));
     expect(status.warnings.length).toBeGreaterThan(0);
     expect(status.warnings.map((w) => w.rule)).toContain("6.1.1.2");
-    expect(status.canSave("Little King Trash Mouth")).toBe(true);
+    expect(status.canSave("Sample Gigan Deck")).toBe(true);
     expect(status.canSave("   ")).toBe(false);
   });
 

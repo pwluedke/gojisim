@@ -123,7 +123,7 @@ describe("pasted deck list formats (M7a)", () => {
       expect(parsed.format).toBe("godzillatcgdb");
       expect(parsed.errors).toEqual([]);
       const [deck] = parsed.decks;
-      expect(deck?.name).toBe("Little King Trash Mouth");
+      expect(deck?.name).toBe("Sample Gigan Deck");
       expect(deck?.monsterDeck.map((c) => c.cardNumber)).toEqual([
         "EBP04-027",
         "EBP02-042",
