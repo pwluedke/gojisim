@@ -41,7 +41,7 @@ test("paste a godzillatcgdb list, save it, pick it and start a game against the 
     "godzillatcgdb.com printable deck list",
   );
   // How to copy each format, one line each.
-  await expect(page.getByTestId("import-help").locator("li")).toHaveCount(4);
+  await expect(page.getByTestId("import-help").locator("li")).toHaveCount(5);
   await expect(page.getByTestId("import-counts")).toHaveText(
     "Monster deck 4 · Main deck 47",
   );
