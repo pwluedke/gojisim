@@ -30,7 +30,7 @@ import {
   retreatMonster,
   retreatMonsterTo,
 } from "./movement";
-import { cardOf, destroyCards, topOf } from "./rules";
+import { cardOf, destroyCards, isBattle, topOf } from "./rules";
 import { shuffleInPlace } from "./rng";
 import {
   appendLog,
@@ -171,6 +171,11 @@ function cardsIn(player: PlayerState, area: Selector["area"]): Located[] {
     case "bound":
       return [];
   }
+}
+
+/** A card's type for selectors: a token counts as a battle card (Q39, 9.1.4.1). */
+function typeOf(data: { type: string }): string {
+  return isBattle(data) ? "Battle" : data.type;
 }
 
 /** Finds a card instance anywhere a selector can look. */
@@ -379,7 +384,8 @@ export function select(ctx: Context, selector: Selector): Located[] {
     if (selector.this && card.instanceId !== ctx.sourceInstanceId) return false;
     if (selector.other && card.instanceId === ctx.sourceInstanceId)
       return false;
-    if (selector.type && data.type !== selector.type) return false;
+    // A token is a battle card (Q39, 9.1.4.1).
+    if (selector.type && typeOf(data) !== selector.type) return false;
     if (selector.name && data.name !== selector.name) return false;
     if (selector.nameIncludes && !data.name.includes(selector.nameIncludes))
       return false;
@@ -407,7 +413,7 @@ export function select(ctx: Context, selector: Selector): Located[] {
         return false;
     }
     if (selector.counterPower) {
-      if (data.type !== "Battle") return false;
+      if (!isBattle(data)) return false;
       const power = getCounterPower(state, card);
       if (
         !compare(power, selector.counterPower.op, selector.counterPower.value)
@@ -571,7 +577,7 @@ export function conditionHolds(ctx: Context, condition: Condition): boolean {
         return false;
       const ids = e.payload["cardIds"];
       const top = Array.isArray(ids) ? ids[ids.length - 1] : undefined;
-      return state.cards[String(top)]?.type === "Battle";
+      return isBattle(state.cards[String(top)]);
     });
   }
   throw new Error("not implemented: condition didLastStep");
@@ -840,7 +846,7 @@ function lastKnownMatches(
   const instanceId = event.payload["instanceId"];
   if (what.this && instanceId !== source.instanceId) return false;
   if (what.other && instanceId === source.instanceId) return false;
-  if (what.type && data.type !== what.type) return false;
+  if (what.type && typeOf(data) !== what.type) return false;
   if (what.name && data.name !== what.name) return false;
   if (what.nameIncludes && !data.name.includes(what.nameIncludes)) return false;
   const traits = getCardTraits(data);
@@ -1237,8 +1243,7 @@ function bindTriggerCard(
         instanceId: String(event.payload["instanceId"]),
         cardId,
         rank: typeof rank === "number" ? rank : (data?.rank ?? null),
-        counterPower:
-          data?.type === "Battle" ? (data.counterOrThreat ?? 0) : null,
+        counterPower: isBattle(data) ? (data?.counterOrThreat ?? 0) : null,
         threat: null,
       },
     ],
@@ -1455,8 +1460,7 @@ function bindCards(
         instanceId: card.instanceId,
         cardId: card.cardId,
         rank: getRank(ctx.state, card),
-        counterPower:
-          data.type === "Battle" ? getCounterPower(ctx.state, card) : null,
+        counterPower: isBattle(data) ? getCounterPower(ctx.state, card) : null,
         threat:
           data.type === "Monster" ? getThreat(ctx.state, card.owner) : null,
       };
@@ -1882,8 +1886,16 @@ function perform(state: GameState, effect: Effect): Outcome {
     }
     case "rage": {
       const delta = amountOf(ctx, effect.delta);
+      // "By 1 for each X" is one change of 1 per X (Q38): each fires its own rageChanged event,
+      // so "whenever your rage is increased" triggers once per X.
+      const step =
+        typeof effect.delta === "object" && "times" in effect.delta
+          ? effect.delta.times
+          : delta;
+      const changes = step === 0 ? 0 : Math.max(0, Math.round(delta / step));
       for (const player of players(ctx, effect.player))
-        setRage(state, player, player.rage + delta, "3.4.1", { abilityId });
+        for (let i = 0; i < changes; i++)
+          setRage(state, player, player.rage + step, "3.4.1", { abilityId });
       return "done";
     }
     case "draw": {

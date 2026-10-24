@@ -1,8 +1,9 @@
-import type {
-  Action,
-  GameState,
-  PlayerView,
-  ZoneNumber,
+import {
+  type Action,
+  type GameState,
+  isBattle,
+  type PlayerView,
+  type ZoneNumber,
 } from "@gojisim/engine";
 import type { Bot } from "./types";
 
@@ -43,7 +44,7 @@ export function viewBoard(view: PlayerView): Board {
         view.players.find((p) => p.id === playerId)?.zones[zone].cards ?? []
       ).some((stack) => {
         const top = stack[stack.length - 1];
-        return top !== undefined && view.cards[top.cardId]?.type === "Battle";
+        return top !== undefined && isBattle(view.cards[top.cardId]);
       }),
     monsterPosition: (playerId) =>
       view.players.find((p) => p.id === playerId)?.monsterPosition ?? null,
@@ -57,9 +58,7 @@ export function stateBoard(state: GameState): Board {
       (state.players.find((p) => p.id === playerId)?.zones[zone] ?? []).some(
         (stack) => {
           const top = stack[stack.length - 1];
-          return (
-            top !== undefined && state.cards[top.cardId]?.type === "Battle"
-          );
+          return top !== undefined && isBattle(state.cards[top.cardId]);
         },
       ),
     monsterPosition: (playerId) =>

@@ -286,6 +286,9 @@ The M3 engine must include the framework below, so that M4 adds card abilities a
 - Restrictions (M12b-1, M1): `cannotAdvance` stops every advance of that monster, the 7.5.2 one included (1.3.3); `cannotInvade` removes the invade action (8.6); `cannotPlay` removes battle plays (or only into some zones) and strategy activations, and stops effects that would put such a card into play (Q32).
 - Granted play ranks (M12b-1, M2): a continuous `playRankReduction` lowers the rank other hand cards count for 8.2.1 and 8.3.1 (EBP02-039).
 - Burst's discard (M12b-1): the card leaving the invading monster for the discard pile is a discard event, so "when this card is discarded by the effect of Burst" triggers from the discard pile (EBP02-009).
+- Rage by amounts (Q38, 3.4): "increase rage by 1 for each X" is one change of 1 per X, each its own `rageChanged` event, so "whenever your rage is increased" triggers once per X.
+- Tokens are battle cards (Q39, 9.1.4.1): wherever the engine counts, selects or checks battle cards (selectors, conditions, 7.4.2 counter power, crush and overload, bots' board reads), a token counts as one. Effects that create tokens come with M12b-2.
+- Effect plays and 8.2.1 (Q37, 1.3.1): an effect that plays a battle card ignores the rank vs. the opponent's monster's zone limit unless its data asks for it (`ignoreRankLimit: false`).
 
 **Keyword abilities (12)**, all in M4: Enter (12.2), When invading (12.3), Awakening N (12.4), Burst (12.5), Evolution (12.6), Revenge (12.7), Resonance (12.8), Base (12.9).
 
@@ -326,6 +329,10 @@ Q15 to Q34 are the M12 rules questions in `docs/abilities/m12-plan.md`, approved
 | Q33 Ties for rightmost, leftmost or lowest zone (EBP03-078, EBP04-035) | The effect's player chooses among the tied cards. (Oct 23, 2026) |
 | Q34 Godzilla's Skeleton counted as a monster card (EBP03-071) | It counts for any count of monster cards in its owner's discard pile, by either player. It is not a monster card for anything else, so it can't be returned or played as one. (Oct 23, 2026) |
 | Q35 "Cannot be [destroy] by your opponent's effects" (EBP01-052): can the opponent choose the card for "[destroy] N of your opponent's battle cards"? | Yes: it can be chosen; the destroy does nothing to it (1.3.3); a forced "destroy 1" may be spent on it. **Provisional** (Oct 23, 2026): see [rulings-to-confirm.md](rulings-to-confirm.md) |
+| Q36 Do rank reductions stack (Lake Ashi Monster EBP02-039 with EBP01-058's own)? | Yes: every active reduction adds up (-3 and -2 make -5) (Oct 24, 2026) |
+| Q37 Can an ability override the normal rules, e.g. "play it in zone 8 instead" (Akane Yashiro EBP04-077) and effect plays that name a zone (Godzilla Emerges)? | Yes (1.3.1): an effect play ignores the battle card rank vs. the opponent's monster's zone limit (8.2.1) (Oct 24, 2026) |
+| Q38 Is "increase rage by 1 for each X" (EBP01-015) one increase or several? | N separate increases of 1, each firing "whenever your rage is increased" (Ginza Annihilated, EBP01-003, EBP01-010, EBP02-054, EBP02-057) (Oct 24, 2026) |
+| Q39 Are tokens (Crystals, Tentacles, ...) battle cards for counts and checks? | Yes: a token in your zones is a battle card for anything that counts or checks battle cards (EBP03-076, EBP01-027, EBP04-038, EBP03-010, "2 or more battle cards" conditions) (Oct 24, 2026) |
 
 ## Test cases
 

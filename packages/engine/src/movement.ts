@@ -1,4 +1,4 @@
-import { cardOf, crushAndDestroy, topOf } from "./rules";
+import { cardOf, crushAndDestroy, isBattle, topOf } from "./rules";
 import { appendLog, getOpponent } from "./state";
 import { hasFlag } from "./stats";
 import type { GameState, PlayerState, ZoneNumber } from "./types";
@@ -18,7 +18,7 @@ function hasBattleCard(
 ): boolean {
   return player.zones[zone].some((stack) => {
     const top = topOf(stack);
-    return top !== undefined && cardOf(state, top).type === "Battle";
+    return top !== undefined && isBattle(cardOf(state, top));
   });
 }
 

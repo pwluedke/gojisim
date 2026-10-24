@@ -1026,3 +1026,83 @@ describe("M12b-1 format pieces", () => {
     );
   });
 });
+
+describe("Paul's rulings Q36 to Q39 (Oct 24, 2026)", () => {
+  it("Q36 8.2.1: rank reductions stack: Lake Ashi Monster's -3 plus EBP01-058's own -2", () => {
+    const { state, me, opp } = setup();
+    opp.monsterPosition = 2;
+    const card = inHand(state, me, real("EBP01-058")); // rank 7 Biollante
+    inDiscard(state, me, real("EBP01-048")); // a Biollante card with Evolution: its own -2
+    expect(canPlay(state, me, card)).toBe(false); // 5
+    inStrategy(state, me, real("EBP02-039")); // -3 more
+    expect(canPlay(state, me, card)).toBe(true); // 2
+  });
+
+  it("Q37 1.3.1: an effect play ignores the 8.2.1 rank limit (EBP01-034 plays a rank 4 card with the opponent's monster in zone 1)", () => {
+    const { state, me, opp } = setup(3);
+    opp.monsterPosition = 1;
+    monster(state, me, godzilla(2, ["Blue"]), 3);
+    inDiscard(state, me, real("EBP01-050")); // rank 4, Evolution
+    const after = settle(
+      playMonster(state, me, inHand(state, me, real("EBP01-034"))),
+    );
+    expect(Object.values(zoneCardIds(self(after, me))).flat()).toContain(
+      real("EBP01-050").id,
+    );
+  });
+
+  it('Q38 3.4: "+1 rage for each" is one increase per card: EBP01-015 milling 3 monster cards fires Ginza Annihilated 3 times', () => {
+    const { state, me, opp } = setup();
+    monster(state, me, godzilla(4), 3);
+    inStrategy(state, me, real("ESD01-013"));
+    for (const zone of [1, 2, 3, 4, 5] as ZoneNumber[])
+      place(state, opp, battleCard({ rank: 6 }), zone);
+    stackDeck(state, me, [
+      monsterCard(1),
+      monsterCard(2),
+      monsterCard(3),
+      battleCard(),
+      battleCard(),
+    ]);
+    const after = settle(
+      playMonster(state, me, inHand(state, me, real("EBP01-015"))),
+    );
+    const increases = after.log
+      .slice(state.log.length)
+      .filter(
+        (e) =>
+          e.type === "rageChanged" &&
+          e.payload["abilityId"] === "EBP01-015#enter-reveal",
+      );
+    expect(increases.map((e) => [e.payload["from"], e.payload["to"]])).toEqual([
+      [1, 2],
+      [2, 3],
+      [3, 4],
+    ]);
+    // 1 destroy for the monster play's rage (8.5.1.1) and 3 for EBP01-015's.
+    expect(Object.keys(zoneCardIds(opponentOf(after, me)))).toHaveLength(1);
+  });
+
+  it("Q39 9.1.4.1: a token in your zones is a battle card for counts, conditions and counter power", () => {
+    const { state, me, opp } = setup();
+    opp.monsterPosition = 5;
+    const token = () =>
+      battleCard({
+        type: "Token",
+        traits: ["Token"],
+        rank: 1,
+        counterOrThreat: 3000,
+      });
+    place(state, me, token(), 1);
+    place(state, me, token(), 2);
+    place(state, me, token(), 3);
+    // EBP01-027 Hedorah (rank 8) counts 1 lower per battle card in your zones: 8 - 3 = 5.
+    expect(canPlay(state, me, inHand(state, me, real("EBP01-027")))).toBe(true);
+    // EBP02-031: 2 or more other rank 5 or lower battle cards.
+    expect(getCounterPower(state, place(state, me, real("EBP02-031"), 4))).toBe(
+      5000,
+    );
+    // 7.4.2 counts tokens' counter power.
+    expect(counterPowerOf(state, me)).toBe(3 * 3000 + 5000);
+  });
+});

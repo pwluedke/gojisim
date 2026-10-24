@@ -10,7 +10,7 @@ import {
   resolveZoneSet,
   select,
 } from "./interpreter";
-import { cardOf, topOf } from "./rules";
+import { cardOf, isBattle, topOf } from "./rules";
 import { getPlayer } from "./state";
 import type {
   CardInstance,
@@ -293,8 +293,7 @@ export function counterPowerOf(state: GameState, player: PlayerState): number {
         hasFlag(state, top, "cannotEngage")
       )
         continue;
-      if (cardOf(state, top).type === "Battle")
-        total += getCounterPower(state, top);
+      if (isBattle(cardOf(state, top))) total += getCounterPower(state, top);
     }
   }
   return total + totalCounterPowerBonus(state, player);

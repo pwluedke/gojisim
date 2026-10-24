@@ -418,3 +418,5 @@ Built differently from the plan:
 - `cannotPlay` reads `what` wherever the card is, so an effect that would put a strategy card into play from the discard pile is blocked too (Q32).
 - `cannotAdvance` stops every advance, the 7.5.2 one included (1.3.3).
 - CU handlers live in `packages/engine/src/customHandlers.ts` and register when the engine loads.
+- A `rage` effect whose delta is an amount ("by 1 for each ...") makes one change of `times` per counted card, each its own event (Q38).
+- A selector's `type: "Battle"` also picks tokens, which are battle cards in zones (Q39, 9.1.4.1).
