@@ -1086,15 +1086,21 @@
 }
 
 /* Card movement (M5f): flying cards over the board, and the lock that holds input meanwhile. */
+/*
+ * The layer's order (M5g fix): board cards, hovered layers and chips (5 and below) < the input
+ * lock (7) < flying cards (8) < the zone banner (9), the preview (10) and the modals.
+ */
 .flightLayer {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 8;
   pointer-events: none;
 }
 
 .flight {
   position: fixed;
+  /* Hit-testable, so a flying card is what lies at its center (input is locked meanwhile). */
+  pointer-events: auto;
   /* Moves scale uniformly about the card's center (M5f fix). */
   transform-origin: 50% 50%;
   border-radius: var(--radius);
@@ -1133,7 +1139,7 @@
 .animationLock {
   position: fixed;
   inset: 0;
-  z-index: 39;
+  z-index: 7;
   cursor: progress;
 }
 

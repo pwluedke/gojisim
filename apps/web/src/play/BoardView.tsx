@@ -18,6 +18,7 @@ import type {
   ZoneNumber,
 } from "@gojisim/engine";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { type Box, FlightLayer, useMoveAnimations } from "./animation";
 import styles from "./Board.module.css";
 import { CardBack, CardFace } from "./CardFace";
@@ -959,20 +960,29 @@ export function BoardView({
               )
             )}
           </aside>
-          {flights.length > 0 && (
-            <FlightLayer
-              flights={flights}
-              speed={animation}
-              cards={view.cards}
-            />
-          )}
-          {animating && (
-            // Input waits while cards move (M5f).
-            <div
-              className={styles.animationLock}
-              data-testid="animation-lock"
-            />
-          )}
+          {/* Flying cards and the input lock sit in one top-level layer (a portal into the app
+              wrapper): above every board card, hovered layer and chip, below the preview and
+              the modals (M5g fix). */}
+          {(flights.length > 0 || animating) &&
+            createPortal(
+              <>
+                {animating && (
+                  // Input waits while cards move (M5f).
+                  <div
+                    className={styles.animationLock}
+                    data-testid="animation-lock"
+                  />
+                )}
+                {flights.length > 0 && (
+                  <FlightLayer
+                    flights={flights}
+                    speed={animation}
+                    cards={view.cards}
+                  />
+                )}
+              </>,
+              mainRef.current?.closest(".gojisim") ?? document.body,
+            )}
           {(previewed || previewedCard) && (
             <Preview
               model={model}

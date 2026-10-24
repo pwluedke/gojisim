@@ -254,6 +254,21 @@ const FIXTURES: Fixture[] = [
       combos.some((c) => c.player === "P2"),
   },
   {
+    name: "deck-bottom",
+    note: "P1's next action (`next`) destroys an ESD01-011/012 that goes to the deck bottom instead (M5g layer fix)",
+    decks: (g) => (g % 2 ? [esd02, esd01] : [esd01, esd01]),
+    confirmSingleOption: true,
+    match: () => false,
+    matchNext: (before, action, after) =>
+      HAND_OR_CHOICE.includes(action.type) &&
+      after.log
+        .slice(before.log.length)
+        .some(
+          (e) => e.type === "putOnDeck" && e.payload["where"] === "bottom",
+        ) &&
+      !after.result,
+  },
+  {
     name: "manual",
     note: "P1 resolves EBP01-017 by hand: a manual override window",
     decks: () => [withManual, esd02],

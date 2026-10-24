@@ -205,6 +205,38 @@ describe("card movement flights (M5f)", () => {
     ]);
   });
 
+  it("M5g fix: the old top of the stack a card lands on stays under it, and moves nowhere", () => {
+    // A hand card (c1) onto a discard pile whose top (c5) is covered by it.
+    const before = snap([spot("c1", 10, 100), spot("c5", 30, 900)]);
+    const after = snap(
+      [{ ...spot("c7", 10, 900)[1], instanceId: "c7" }].map(
+        (c) => [c.instanceId, c] as [string, CardSpot],
+      ),
+      { "P1|discard": 1, "P1|hand": 4 },
+    );
+    const flights = planFlights(before, after, []);
+    expect(flights.map((f) => [f.id, f.stay ?? false])).toEqual([
+      ["c5=", true],
+      ["c7", false],
+    ]);
+    // It stays put, and it takes no time of its own.
+    expect(flights[0]?.from).toEqual(flights[0]?.to);
+    expect(flightsTime(flights, "normal")).toBe(450);
+  });
+
+  it("M5g fix: a card put on the deck bottom flies to the deck even when the deck shrank, under the pile", () => {
+    const before = snap([spot("c1", 19, 100)]);
+    // The same step drew 4: the deck's count fell by 3 overall.
+    const after = snap([], { "P1|deck": 37, "P1|hand": 9 });
+    const flights = planFlights(before, after, [19], null, [19]);
+    expect(flights[0]).toMatchObject({
+      cardId: 19,
+      to: anchors["P1|deck"],
+      underPile: true,
+      shatter: true,
+    });
+  });
+
   it("destroyedCards reads destroy and replaced-destroy entries after a point", () => {
     const log = [
       {
