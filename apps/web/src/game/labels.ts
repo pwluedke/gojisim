@@ -71,6 +71,9 @@ export function actionLabel(state: GameState, action: Action): string {
       if (choice?.kind === "standbyOrder")
         return `Resolve ${option?.abilityId ?? "?"} (${card?.name ?? "?"})`;
       if (choice?.kind === "zone") {
+        // An optional move's Done (5.2.1, e.g. ESD01-012) leaves the card where it is.
+        if (action.optionId === "done")
+          return choice.rule === "5.2.1" ? "Don't move the card" : "Done";
         const [player, zone] = action.optionId.split(":");
         return `Choose ${player}'s zone ${zone}`;
       }

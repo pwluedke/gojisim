@@ -12,7 +12,7 @@ import { buildTestDeck, TEST_DECK_SETS } from "@gojisim/cards/test-decks";
 export interface DeckOption {
   key: string;
   label: string;
-  kind: "official" | "random" | "imported";
+  kind: "official" | "random" | "imported" | "mine";
   /** The deck to play; random decks depend on the game seed. */
   build: (seed: number) => NamedDeck;
 }
@@ -55,9 +55,37 @@ export function importedOptions(decks: NamedDeck[]): DeckOption[] {
   }));
 }
 
-/** Official starters first, then the random generators, then imported decks. */
+/** Official starters first, then the random generators, then imported decks (`/debug`). */
 export function deckOptions(imported: NamedDeck[]): DeckOption[] {
   return [...OFFICIAL, ...RANDOM, ...importedOptions(imported)];
+}
+
+/** The player's saved decks (M7a), as deck options keyed `mine:<id>`. */
+export function myDeckOptions(
+  decks: readonly { id: string; name: string; deck: NamedDeck }[],
+): DeckOption[] {
+  return decks.map(({ id, name, deck }) => ({
+    key: `mine:${id}`,
+    label: name,
+    kind: "mine",
+    build: () => ({ ...deck, name }),
+  }));
+}
+
+/**
+ * The `/play` deck picker (M7a): the two starters, then My decks, then the development decks
+ * (random test decks and decks imported from `local-decks` in `/debug`).
+ */
+export function playDeckOptions(
+  mine: readonly { id: string; name: string; deck: NamedDeck }[],
+  imported: NamedDeck[],
+): DeckOption[] {
+  return [
+    ...OFFICIAL,
+    ...myDeckOptions(mine),
+    ...RANDOM,
+    ...importedOptions(imported),
+  ];
 }
 
 export function checkDeck(deck: NamedDeck): DeckValidation {

@@ -84,3 +84,13 @@ describe("combo log lines (M5g)", () => {
     expect(lines[i + 1]?.position ?? 99).toBeGreaterThanOrEqual(5);
   });
 });
+
+describe("an optional move's Done (M7a fix)", () => {
+  it('reads "Don\'t move the card", not "Choose done\'s zone undefined"', () => {
+    // In this record P1 declines ESD01-012's optional move (5.2.1) with Done.
+    const session = fixture("combo-you");
+    const lines = buildLog(session, "P1", names).map(text);
+    expect(lines).toContain("You: Don't move the card");
+    expect(lines.filter((l) => /undefined|done's zone/.test(l))).toEqual([]);
+  });
+});

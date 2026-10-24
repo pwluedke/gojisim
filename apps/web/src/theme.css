@@ -44,7 +44,8 @@
   --color-card-back-1: #33445a;
   --color-card-back-2: #44566e;
   --color-card-back-text: #ffffff;
-  --color-legal: #1a7f37;
+  /* Was #1a7f37 (4.48:1 on panel-alt); darkened to meet WCAG AA (M7a). */
+  --color-legal: #187634;
   --color-illegal: #b42318;
   --color-warning: #9a5b00;
   --color-status-bg: #eeeeff;

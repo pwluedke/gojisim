@@ -1,0 +1,70 @@
+ Godzilla TCG DB
+Cards
+Decks
+Login
+Register
+Sample Gigan Deck
+Author: Sample Author | Last Updated: 1 month ago
+
+
+Deck History
+
+Deck Validator System Valid
+Monster Deck
+
+EBP04-027
+
+EBP02-042
+
+EBP04-029
+
+EBP02-044
+Monster Cards (19)
+2
+EBP02-041
+3
+EBP02-042
+2
+EBP02-043
+2
+EBP02-044
+4
+EBP04-028
+3
+EBP04-029
+3
+EBP04-030
+Battle Cards (20)
+2
+EBP02-075
+4
+EBP02-076
+3
+EBP03-061
+3
+EBP03-063
+3
+EBP03-065
+3
+EBP03-066
+2
+ESC01-006
+Strategy Cards (11)
+3
+EBP01-076
+1
+EBP01-077
+1
+EBP01-078
+1
+EBP02-071
+2
+EBP03-076
+3
+EBP04-084
+You must be logged in to post a comment.
+
+No comments added yet
+© Copyright 2025-2026 | Built by Sample | v.2.2.1 | All Rights Reserved | This is a fan site
+
+Godzilla and the Godzilla Card Game are trademarks or registered trademarks of Toho Co., Ltd.

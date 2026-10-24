@@ -1,3 +1,5 @@
+import { browserIdb, runInStore } from "../game/db";
+
 /**
  * The custom mat image (M5f), stored in this browser's IndexedDB: the image file plus its scale
  * and position. Storage can be missing, blocked or full, so every call is guarded: a failed load
@@ -32,46 +34,7 @@ export function matFileProblem(file: {
   return null;
 }
 
-const DB_NAME = "gojisim";
-const STORE = "mat";
 const KEY = "image";
-
-function open(idb: IDBFactory): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = idb.open(DB_NAME, 1);
-    request.onupgradeneeded = () => request.result.createObjectStore(STORE);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function run<T>(
-  idb: IDBFactory,
-  mode: IDBTransactionMode,
-  work: (store: IDBObjectStore) => IDBRequest,
-): Promise<T> {
-  const db = await open(idb);
-  try {
-    return await new Promise<T>((resolve, reject) => {
-      const tx = db.transaction(STORE, mode);
-      const request = work(tx.objectStore(STORE));
-      tx.oncomplete = () => resolve(request.result as T);
-      tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error);
-    });
-  } finally {
-    db.close();
-  }
-}
-
-/** The browser's IndexedDB, or `undefined` where it is missing or access throws. */
-function browserIdb(): IDBFactory | undefined {
-  try {
-    return globalThis.indexedDB ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 export interface MatStore {
   /** The saved mat, or `null` (none saved, or storage unavailable). */
@@ -88,8 +51,11 @@ export function matStore(idb: IDBFactory | undefined = browserIdb()): MatStore {
     async load() {
       if (!idb) return null;
       try {
-        const saved = await run<MatImage | undefined>(idb, "readonly", (s) =>
-          s.get(KEY),
+        const saved = await runInStore<MatImage | undefined>(
+          idb,
+          "mat",
+          "readonly",
+          (s) => s.get(KEY),
         );
         return saved && saved.blob instanceof Blob ? saved : null;
       } catch {
@@ -99,7 +65,7 @@ export function matStore(idb: IDBFactory | undefined = browserIdb()): MatStore {
     async save(mat) {
       if (!idb) return false;
       try {
-        await run(idb, "readwrite", (s) => s.put(mat, KEY));
+        await runInStore(idb, "mat", "readwrite", (s) => s.put(mat, KEY));
         return true;
       } catch {
         return false;
@@ -108,7 +74,7 @@ export function matStore(idb: IDBFactory | undefined = browserIdb()): MatStore {
     async clear() {
       if (!idb) return false;
       try {
-        await run(idb, "readwrite", (s) => s.delete(KEY));
+        await runInStore(idb, "mat", "readwrite", (s) => s.delete(KEY));
         return true;
       } catch {
         return false;

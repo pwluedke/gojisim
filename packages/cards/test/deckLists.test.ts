@@ -4,6 +4,7 @@ import {
   findCardByNumber,
   formatDeckList,
   type NamedDeck,
+  parseAnyDeckList,
   parseDeckList,
 } from "../src/deckLists";
 
@@ -100,5 +101,157 @@ describe("parseDeckList", () => {
       expect(decks[0]?.monsterDeck).toHaveLength(4);
       expect(decks[0]?.mainDeck).toHaveLength(50);
     }
+  });
+});
+
+describe("pasted deck list formats (M7a)", () => {
+  const fixture = (name: string) =>
+    readFileSync(new URL(`fixtures/${name}`, import.meta.url), "utf8");
+
+  it("GojiSim text: detected and parsed as before", () => {
+    const parsed = parseAnyDeckList(sample);
+    expect(parsed.format).toBe("gojisim");
+    expect(shape(parsed.decks)).toEqual(shape(parseDeckList(sample).decks));
+  });
+
+  for (const [shapeName, file] of [
+    ["one cell per line", "godzillatcgdb-print-lines.txt"],
+    ["tab-separated rows", "godzillatcgdb-print-tabs.txt"],
+  ] as const)
+    it(`godzillatcgdb.com printable deck list, ${shapeName}: name, monster deck and main deck`, () => {
+      const parsed = parseAnyDeckList(fixture(file));
+      expect(parsed.format).toBe("godzillatcgdb-print");
+      expect(parsed.errors).toEqual([]);
+      const [deck] = parsed.decks;
+      expect(deck?.name).toBe("Sample Gigan Deck");
+      expect(deck?.monsterDeck.map((c) => c.cardNumber)).toEqual([
+        "EBP04-027",
+        "EBP02-042",
+        "EBP04-029",
+        "EBP02-044",
+      ]);
+      expect(deck?.mainDeck).toHaveLength(47);
+      // 3 copies of Destroy All Monsters, from its "EBP01 076 3" row.
+      expect(
+        deck?.mainDeck.filter((c) => c.cardNumber === "EBP01-076"),
+      ).toHaveLength(3);
+    });
+
+  it("godzillatcgdb rows separated by spaces (another browser's copy)", () => {
+    const text = [
+      "Deck: Spaced",
+      "Monster Deck",
+      "Godzilla (2023) [I] ESD01 001 1",
+      "Monster Cards (2)",
+      "Godzilla (2023) ESD01 002 2",
+    ].join("\n");
+    const { decks, errors } = parseAnyDeckList(text);
+    expect(errors).toEqual([]);
+    expect(decks[0]?.name).toBe("Spaced");
+    expect(decks[0]?.monsterDeck.map((c) => c.cardNumber)).toEqual([
+      "ESD01-001",
+    ]);
+    expect(decks[0]?.mainDeck.map((c) => c.cardNumber)).toEqual([
+      "ESD01-002",
+      "ESD01-002",
+    ]);
+  });
+
+  it("an unknown card number is an error with its line, in either format", () => {
+    const tcgdb = parseAnyDeckList(
+      "Deck: Bad\nMonster Deck\nNope\tZZZ99\t999\t1\n",
+    );
+    expect(tcgdb.errors).toEqual([
+      expect.objectContaining({
+        line: 3,
+        reason: "Unknown card number ZZZ99-999",
+      }),
+    ]);
+    const ours = parseAnyDeckList("[deck] Bad\n[main deck]\n1 ZZZ99-999\n");
+    expect(ours.errors[0]?.reason).toBe("Unknown card number ZZZ99-999");
+  });
+
+  it("text in no known format is one error; empty text is none", () => {
+    expect(parseAnyDeckList("hello world").errors).toHaveLength(1);
+    expect(parseAnyDeckList("hello world").format).toBeNull();
+    expect(parseAnyDeckList("   ").errors).toEqual([]);
+  });
+});
+
+describe("godzilla-sim exports and the godzillatcgdb deck page (M7a review)", () => {
+  const fixture = (name: string) =>
+    readFileSync(new URL(`fixtures/${name}`, import.meta.url), "utf8");
+  const count = (cards: { cardNumber: string }[], number: string) =>
+    cards.filter((c) => c.cardNumber === number).length;
+
+  it("godzilla-sim Export to Clipboard (one deck, no [deck] line) reads as GojiSim text", () => {
+    const parsed = parseAnyDeckList(fixture("godzilla-sim-export-one.txt"));
+    expect(parsed.format).toBe("gojisim");
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.decks).toHaveLength(1);
+    expect(parsed.decks[0]?.monsterDeck).toHaveLength(4);
+    expect(parsed.decks[0]?.mainDeck).toHaveLength(50);
+  });
+
+  it("godzilla-sim Export All Decks reads as GojiSim text: every deck, folders kept in names", () => {
+    const parsed = parseAnyDeckList(fixture("godzilla-sim-export-all.txt"));
+    expect(parsed.format).toBe("gojisim");
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.decks.map((d) => d.name)).toEqual([
+      "Starters/Starter Deck - Godzilla Minus One",
+      "Starters/Starter Deck - Heisei Series Godzilla",
+    ]);
+    for (const deck of parsed.decks) expect(deck.mainDeck).toHaveLength(50);
+  });
+
+  it("a godzillatcgdb deck page copied whole: counts from the badges, the rest of the page ignored", () => {
+    const parsed = parseAnyDeckList(fixture("godzillatcgdb-deck-page.txt"));
+    expect(parsed.format).toBe("godzillatcgdb-page");
+    expect(parsed.errors).toEqual([]);
+    const [deck] = parsed.decks;
+    expect(deck?.name).toBe("Sample Gigan Deck");
+    // Monster deck: bare numbers, one copy each.
+    expect(deck?.monsterDeck.map((c) => c.cardNumber)).toEqual([
+      "EBP04-027",
+      "EBP02-042",
+      "EBP04-029",
+      "EBP02-044",
+    ]);
+    // Main deck: 19 + 20 + 11 cards, each count from the badge line before its number.
+    expect(deck?.mainDeck).toHaveLength(50);
+    expect(count(deck?.mainDeck ?? [], "EBP04-028")).toBe(4);
+    expect(count(deck?.mainDeck ?? [], "EBP02-042")).toBe(3);
+    expect(count(deck?.mainDeck ?? [], "EBP01-077")).toBe(1);
+  });
+
+  it("deck page: a badge on the card's own line counts too; a card with no badge is an error", () => {
+    const sameLine = parseAnyDeckList(
+      "My Page Deck\nAuthor: someone\nMonster Deck\nESD01-001\nMonster Cards (2)\n2 ESD01-002\n",
+    );
+    expect(sameLine.format).toBe("godzillatcgdb-page");
+    expect(sameLine.errors).toEqual([]);
+    expect(sameLine.decks[0]?.name).toBe("My Page Deck");
+    expect(sameLine.decks[0]?.mainDeck.map((c) => c.cardNumber)).toEqual([
+      "ESD01-002",
+      "ESD01-002",
+    ]);
+    const missing = parseAnyDeckList(
+      "Deck\nAuthor: x\nMonster Deck\nESD01-001\nBattle Cards (1)\nESD01-008\n",
+    );
+    expect(missing.errors).toEqual([
+      expect.objectContaining({
+        line: 6,
+        reason: "No count badge for ESD01-008",
+      }),
+    ]);
+  });
+
+  it("the print page and the deck page are told apart", () => {
+    expect(
+      parseAnyDeckList(fixture("godzillatcgdb-print-tabs.txt")).format,
+    ).toBe("godzillatcgdb-print");
+    expect(
+      parseAnyDeckList(fixture("godzillatcgdb-deck-page.txt")).format,
+    ).toBe("godzillatcgdb-page");
   });
 });
