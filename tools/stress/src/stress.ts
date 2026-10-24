@@ -29,8 +29,27 @@ export const PAIRINGS: readonly (readonly [string, string])[] = [
   ["ESD02", "ESD02"],
 ];
 
-/** Where decks come from: `random` test decks (`buildTestDeck`) or the `official` starter lists. */
-export type DeckSource = "random" | "official";
+/**
+ * Where decks come from: `random` test decks (`buildTestDeck`), the `official` starter lists, or
+ * a deck list `file` (`--deck-file`, M12: Paul's local decks).
+ */
+export type DeckSource = "random" | "official" | "file";
+
+/** Pairings that play every listed set against itself and the others, in turn (`--sets`). */
+export function pairingsFor(sets: readonly string[]): [string, string][] {
+  return sets.flatMap((a) => sets.map((b): [string, string] => [a, b]));
+}
+
+/**
+ * The two decks of game `game` from a deck file's decks: every deck plays in turn, each time
+ * against a different one (a deck plays itself only when the file has one deck).
+ */
+export function filePairing(game: number, count: number): [number, number] {
+  const a = game % count;
+  if (count === 1) return [a, a];
+  const offset = 1 + (Math.floor(game / count) % (count - 1));
+  return [a, (a + offset) % count];
+}
 
 const OFFICIAL_FILES: Record<string, string> = {
   ESD01: "esd01-starter.txt",
@@ -121,17 +140,22 @@ export function playGame(
   turnCap = TURN_CAP,
   policy: Policy = "uniform",
   deckSource: DeckSource = "random",
+  pairings: readonly (readonly [string, string])[] = PAIRINGS,
+  fileDecks: readonly NamedDeck[] = [],
 ): GameOutcome {
   const seed = `${runSeed}-${game}`;
-  const [setA, setB] = PAIRINGS[game % PAIRINGS.length] as readonly [
+  const [setA, setB] = pairings[game % pairings.length] as readonly [
     string,
     string,
   ];
+  const fromFile = filePairing(game, Math.max(1, fileDecks.length));
   const decks = [setA, setB].map((set, i) => {
     const deck =
-      deckSource === "official"
-        ? officialDeck(set)
-        : buildTestDeck(set, `${seed}-P${i + 1}`);
+      deckSource === "file"
+        ? (fileDecks[fromFile[i] as number] as NamedDeck)
+        : deckSource === "official"
+          ? officialDeck(set)
+          : buildTestDeck(set, `${seed}-P${i + 1}`);
     return {
       id: `P${i + 1}`,
       monsterDeck: deck.monsterDeck,

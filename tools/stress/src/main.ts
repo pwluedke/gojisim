@@ -1,8 +1,13 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { parseDeckList } from "@gojisim/cards/deck-lists";
 import {
   type DeckSource,
   type GameOutcome,
+  PAIRINGS,
+  pairingsFor,
   playGame,
   type Policy,
   TURN_CAP,
@@ -16,6 +21,12 @@ const { values } = parseArgs({
     policy: { type: "string", default: "uniform" },
     // random: buildTestDeck per game; official: the ESD01 and ESD02 starter lists.
     decks: { type: "string", default: "random" },
+    // Random test decks of these sets, each against each (M12), e.g. `--sets EBP01`.
+    sets: { type: "string" },
+    // Decks from a deck list file (M12: `local-decks/paul-decks.txt`); implies `--decks file`.
+    "deck-file": { type: "string" },
+    // With --deck-file: only decks holding a card of this set (by deck card number).
+    uses: { type: "string" },
     // Print a progress line every N games.
     progress: { type: "string", default: "10" },
     // pnpm runs this script inside tools/stress; INIT_CWD is where `pnpm stress` was typed.
@@ -27,10 +38,34 @@ const policy = values.policy as Policy;
 if (policy !== "uniform" && policy !== "weighted") {
   throw new Error(`--policy must be uniform or weighted, got ${values.policy}`);
 }
-const deckSource = values.decks as DeckSource;
-if (deckSource !== "random" && deckSource !== "official") {
+const deckSource = (values["deck-file"] ? "file" : values.decks) as DeckSource;
+if (
+  deckSource !== "random" &&
+  deckSource !== "official" &&
+  deckSource !== "file"
+) {
   throw new Error(`--decks must be random or official, got ${values.decks}`);
 }
+const pairings = values.sets
+  ? pairingsFor(values.sets.split(",").map((s) => s.trim()))
+  : PAIRINGS;
+// Deck names and contents stay out of the output: a deck file may hold other people's decks.
+const fileDecks = values["deck-file"]
+  ? parseDeckList(
+      readFileSync(
+        resolve(process.env["INIT_CWD"] ?? ".", values["deck-file"]),
+        "utf8",
+      ),
+    ).decks.filter(
+      (deck) =>
+        !values.uses ||
+        [...deck.monsterDeck, ...deck.mainDeck].some((card) =>
+          card.deckCardNumber.startsWith(`${values.uses}-`),
+        ),
+    )
+  : [];
+if (deckSource === "file" && fileDecks.length === 0)
+  throw new Error("--deck-file has no decks (after --uses)");
 const progress = Number(values.progress);
 if (!Number.isInteger(progress) || progress < 1)
   throw new Error(
@@ -53,6 +88,8 @@ for (let game = 0; game < games; game++) {
     Number(values["turn-cap"]),
     policy,
     deckSource,
+    pairings,
+    fileDecks,
   );
   turns.push(outcome.turns);
   if (outcome.failure) {
@@ -94,6 +131,8 @@ const summary = {
   seed: runSeed,
   policy,
   decks: deckSource,
+  ...(values.sets ? { sets: values.sets } : {}),
+  ...(deckSource === "file" ? { fileDecks: fileDecks.length } : {}),
   winReasons: {
     invasion: reasons["invasion"] ?? 0,
     countering: reasons["victoryThroughCountering"] ?? 0,

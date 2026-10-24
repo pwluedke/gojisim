@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   type Action,
   applyAction,
@@ -7,6 +7,7 @@ import {
   getPlayerView,
   type ManualOp,
 } from "../src";
+import { setTestAbilities } from "../src/testing";
 import { atPlayTiming, inHand, place, real } from "./fixtures/real";
 import {
   addCard,
@@ -17,6 +18,19 @@ import {
   runTo,
   turnPlayer,
 } from "./fixtures/state";
+
+/**
+ * Real cards these tests treat as manual. M12 gives them ability data, so it is set aside here:
+ * the manual path is still tested with real card text.
+ */
+const MANUAL_CARDS = ["EBP01-047", "EBP01-032", "EBP01-026"];
+beforeEach(() => {
+  for (const n of MANUAL_CARDS)
+    setTestAbilities(n, { deckCardNumber: n, status: "manual", abilities: [] });
+});
+afterEach(() => {
+  for (const n of MANUAL_CARDS) setTestAbilities(n, null);
+});
 
 const manual = (state: GameState, player: string, op: ManualOp) =>
   applyAction(state, { type: "manual", player, op });
@@ -29,7 +43,7 @@ const done = (state: GameState) =>
     optionId: "done",
   });
 
-/** Plays EBP01-047 Orga ("[enter] Draw 1 card, then discard 1 card"), a card with no data. */
+/** Plays EBP01-047 Orga ("[enter] Draw 1 card, then discard 1 card"), treated as manual. */
 function playOrga() {
   const state = atPlayTiming();
   const me = turnPlayer(state);

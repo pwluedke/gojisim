@@ -284,3 +284,53 @@ Five PRs cover all 31 starter cards. Each card gets one test per ability, named 
 - All 31 starter cards are `implemented`, each with passing effect tests.
 - 1,000 stress games per policy with ESD01 official vs ESD02 official: 0 failures.
 - Paul plays ESD01 official vs ESD02 official in `/debug` and confirms the card effects.
+
+## M12 additions
+
+Pieces from `docs/abilities/m12-plan.md` (approved by Monarch, Oct 23, 2026), added here as each PR builds them. The schema in `packages/cards/src/abilities.ts` is the contract.
+
+### M12a-1: C5, C6, C7, T1, T3, T4, T5, T6, T8
+
+```typescript
+type Selector = { ...;
+  threat?: { op: Op; value: number };        // C5: the invading monster's threat includes rage (3.4.5)
+  counterPower?: { op: Op; value: number };  // C5: through the 10.8.1 layers
+  nameIncludes?: string;                     // C5: "with \"MB\" in their name"
+  anyTraits?: string[];                      // C5: "[gigan] or [megalon]"
+  invadeIcon?: number;                       // C5: "a card with [invade-2]"
+};
+
+type Amount = ...
+  | { rageOf: PlayerRef; times: number }             // C6: "for each of your opponent's [rage]"
+  | { monsterRankOf: PlayerRef; times: number }      // C6
+  | { unoccupiedZonesOf: PlayerRef; times: number }; // C6: not counting the monster's zone
+type Count = { exact: number | Amount } | ...;       // C6: "destroy 1 for each ..."
+
+type Condition = ... | { playedVia: "evolution" | "burst" | "effect" | "hand" };  // C7: burst counts as hand
+
+type Trigger = ...
+  | { on: "destroyed"; what: Selector;               // T1: last known information (10.6.4.1.2)
+      cause?: "effect" | "crush" | "overload"; by?: PlayerRef;
+      invasion?: true;                               // a crush by an invasion advance (EBP01-007)
+      as?: string }                                  // binds the card, rank included
+  | { on: "discarded"; what: Selector; from: "hand" | "strategy";        // T3
+      cause?: "effect" | "cost" | "invasion" | "rage"; byOpponentEffect?: boolean; as?: string }
+  | { on: "countered"; whose: "this" | PlayerRef }                         // T4
+  | { on: "advanced"; whose: "this" | PlayerRef; toZone?: Zone;           // T5
+      intoColumnOf?: "opponentMonster"; during?: Phase }
+  | { on: "invades"; whose: PlayerRef; intoZones?: Zone[] };              // T6: once per invasion
+
+// T3: a triggered ability may also be active in a hand or the discard pile (10.3.4).
+type TriggeredAbility = { ...; activeIn?: ("hand" | "discard")[] };
+
+// T8: abilities that last until the end of the turn, as timed triggers (10.6.5). Their triggers
+// are checked whether or not the card is still active; they end at 7.5.6.
+type Effect = ... | { effect: "until"; duration: "endOfTurn"; abilities: TriggeredAbility[] };
+```
+
+Built differently from the plan:
+
+- C5 `countsAs` (Godzilla's Skeleton, EBP03-071) waits for EBP03, its only card.
+- T1 adds `invasion: true` for EBP01-007's "[invading] When this card destroys your battle cards". A card's own "when this card is destroyed" is not needed by any card yet.
+- T3 `from` is required; a destroyed strategy card counts as sent from a strategy zone (EBP03-039).
+- A cost that reduces your own rage needs that much rage (10.5.4.1, EBP01-020).

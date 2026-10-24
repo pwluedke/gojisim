@@ -172,6 +172,12 @@ function eventParts(
       ];
     case "evolve":
       return [card(p["from"]), " evolves into ", card(p["to"])];
+    case "delayedAbility":
+      // An ability that lasts for the turn (T8, 10.6.5), e.g. Destroy All Monsters.
+      return [
+        card(p["cardId"]),
+        " sets up an ability until the end of the turn",
+      ];
     case "search":
       return [
         `${who} search${who === "You" ? "" : "es"} the deck: ${String(p["found"])} found`,

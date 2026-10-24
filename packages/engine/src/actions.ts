@@ -208,7 +208,12 @@ function discardFromHand(
   rule: string,
 ): CardInstance {
   const card = toDiscard(state, takeFromHand(player, instanceId));
-  appendLog(state, "discard", player.id, { rule, cardId: card.cardId });
+  // The card's id in the discard pile (public), for "when this card is discarded" (T3).
+  appendLog(state, "discard", player.id, {
+    rule,
+    cardId: card.cardId,
+    instanceId: card.instanceId,
+  });
   return card;
 }
 
@@ -227,6 +232,8 @@ const PERFORM: {
       "playBattle",
     );
     const placed = resolveFromResolutionArea(state, card);
+    // "If this card was played from your hand" (C7).
+    placed.playedVia = "hand";
     // A zone that already holds a battle card now holds two; 11.5 destroys the older one at
     // the check timing that follows the action (10.4.4.1).
     player.zones[action.zone].push([placed]);
@@ -293,6 +300,8 @@ const PERFORM: {
     const stacked = resolveFromResolutionArea(state, card);
     // 10.5.2.3.1: stacked on top; the monster keeps its position (4.7.2).
     player.invadingMonsterZone.push(stacked);
+    // A Burst play is from the hand too; `playedVia: "hand"` conditions accept both (C7).
+    stacked.playedVia = "hand";
     if (how === "burst") {
       // 12.5.2: at the beginning of the master's next end phase, this card goes to the discard
       // pile, a timed trigger (10.6.5). Its rank is now its printed rank.
@@ -332,6 +341,7 @@ const PERFORM: {
       icon,
     });
     let advances = 0;
+    const from = player.monsterPosition;
     for (let i = 0; i < icon && state.result === null; i++) {
       if (advanceMonster(state, player, { invasion: true, rule: "8.6.1.2" }))
         advances++;
@@ -341,6 +351,9 @@ const PERFORM: {
       rule: "5.13.3",
       advances,
       didAdvance: advances > 0,
+      // Where the invasion started and ended, for "invades into zones 6-8" (T6).
+      from,
+      to: player.monsterPosition,
     });
   },
   choose: (state, action) => {

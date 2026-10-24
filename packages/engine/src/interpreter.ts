@@ -4,6 +4,7 @@ import {
   type CardAbilities,
   type Condition,
   type Count,
+  type DelayedAbility,
   type Effect,
   type Gate,
   getCardAbilities,
@@ -354,16 +355,45 @@ export function select(ctx: Context, selector: Selector): Located[] {
   const zoneRefs = selector.zones
     ? resolveZoneSet(ctx, selector.zones, owners)
     : null;
-  return found.filter(({ card, player, zone }) => {
+  return found.filter(({ card, player, zone, area }) => {
     const data = cardOf(state, card);
     if (selector.this && card.instanceId !== ctx.sourceInstanceId) return false;
     if (selector.other && card.instanceId === ctx.sourceInstanceId)
       return false;
     if (selector.type && data.type !== selector.type) return false;
     if (selector.name && data.name !== selector.name) return false;
+    if (selector.nameIncludes && !data.name.includes(selector.nameIncludes))
+      return false;
     if (selector.traits) {
       const traits = getCardTraits(data);
       if (!selector.traits.every((t) => traits.includes(t))) return false;
+    }
+    if (selector.anyTraits) {
+      const traits = getCardTraits(data);
+      if (!selector.anyTraits.some((t) => traits.includes(t))) return false;
+    }
+    if (
+      selector.invadeIcon !== undefined &&
+      (data.invadeZones ?? 0) !== selector.invadeIcon
+    )
+      return false;
+    if (selector.threat) {
+      if (data.type !== "Monster") return false;
+      // The invading monster's threat is its player's threat (3.3.4); elsewhere, the printed one.
+      const threat =
+        area === "monster"
+          ? getThreat(state, player.id)
+          : (data.counterOrThreat ?? 0);
+      if (!compare(threat, selector.threat.op, selector.threat.value))
+        return false;
+    }
+    if (selector.counterPower) {
+      if (data.type !== "Battle") return false;
+      const power = getCounterPower(state, card);
+      if (
+        !compare(power, selector.counterPower.op, selector.counterPower.value)
+      )
+        return false;
     }
     if (selector.keyword && !hasKeyword(state, card, selector.keyword))
       return false;
@@ -392,7 +422,37 @@ export function select(ctx: Context, selector: Selector): Located[] {
 export function amountOf(ctx: Context, amount: Amount): number {
   if (typeof amount === "number") return amount;
   if ("per" in amount) return select(ctx, amount.per).length * amount.times;
+  const sum = (
+    ref: "you" | "opponent" | "any",
+    value: (p: PlayerState) => number,
+  ) => players(ctx, ref).reduce((total, p) => total + value(p), 0);
+  if ("rageOf" in amount)
+    return sum(amount.rageOf, (p) => p.rage) * amount.times;
+  if ("monsterRankOf" in amount)
+    return (
+      sum(amount.monsterRankOf, (p) => {
+        const top = topOf(p.invadingMonsterZone);
+        return (top && getRank(ctx.state, top)) ?? 0;
+      }) * amount.times
+    );
+  if ("unoccupiedZonesOf" in amount)
+    return (
+      sum(
+        amount.unoccupiedZonesOf,
+        (p) =>
+          ZONE_NUMBERS.filter(
+            (z) => p.zones[z].length === 0 && z !== p.monsterPosition,
+          ).length,
+      ) * amount.times
+    );
   return boundValue(ctx, amount);
+}
+
+/** How many cards "exactly N" asks for; N may be an amount read now (C6). */
+function exactCount(ctx: Context, count: Extract<Count, { exact: unknown }>) {
+  return typeof count.exact === "number"
+    ? count.exact
+    : Math.max(0, amountOf(ctx, count.exact));
 }
 
 export function conditionHolds(ctx: Context, condition: Condition): boolean {
@@ -426,11 +486,13 @@ export function conditionHolds(ctx: Context, condition: Condition): boolean {
       const rank = top ? getRank(state, top) : null;
       return rank !== null && compare(rank, condition.op, condition.value);
     });
-  if ("playedVia" in condition)
-    return (
-      locate(state, ctx.sourceInstanceId)?.card.playedVia ===
-      condition.playedVia
-    );
+  if ("playedVia" in condition) {
+    const via = locate(state, ctx.sourceInstanceId)?.card.playedVia;
+    // A Burst play is a play from the hand too (12.5.2, C7).
+    if (condition.playedVia === "hand")
+      return via === "hand" || via === "burst";
+    return via === condition.playedVia;
+  }
   throw new Error("not implemented: condition didLastStep");
 }
 
@@ -536,9 +598,181 @@ function triggerMatches(
             : to === 0 && from > 0;
       return whose && change;
     }
+    case "destroyed": {
+      if (event.type !== "destroy") return false;
+      const cause =
+        event.payload["rule"] === "11.3"
+          ? "crush"
+          : event.payload["rule"] === "11.5"
+            ? "overload"
+            : "effect";
+      if (trigger.cause && trigger.cause !== cause) return false;
+      if (trigger.invasion && event.payload["invasion"] !== true) return false;
+      if (trigger.by) {
+        const by = event.payload["by"];
+        if (typeof by !== "string" || !isPlayer(trigger.by, by, master))
+          return false;
+      }
+      return lastKnownMatches(state, trigger.what, event, source, master);
+    }
+    case "discarded": {
+      const fromHand = event.type === "discard";
+      const fromStrategy =
+        event.type === "discardStrategy" ||
+        (event.type === "destroy" && event.payload["area"] === "strategy zone");
+      if (trigger.from === "hand" ? !fromHand : !fromStrategy) return false;
+      if (trigger.cause && discardCause(event) !== trigger.cause) return false;
+      if (trigger.byOpponentEffect) {
+        const by = event.payload["by"];
+        if (typeof by !== "string" || by === event.player) return false;
+      }
+      // The card is in its owner's discard pile now; a destroyed strategy card is matched by
+      // its last known information.
+      if (event.type === "destroy")
+        return lastKnownMatches(state, trigger.what, event, source, master);
+      const ctx: Context = {
+        state,
+        master,
+        sourceInstanceId: source.instanceId,
+        bindings: {},
+      };
+      return select(ctx, { ...trigger.what, area: "discard" }).some(
+        (l) => l.card.instanceId === event.payload["instanceId"],
+      );
+    }
+    case "countered": {
+      if (event.type !== "counter" || event.player === null) return false;
+      if (trigger.whose === "this") {
+        // Logged before the next monster comes in, so the countered card is still on top.
+        const top = topOf(getPlayer(state, event.player).invadingMonsterZone);
+        return event.player === master && top?.instanceId === source.instanceId;
+      }
+      return isPlayer(trigger.whose, event.player, master);
+    }
+    case "advanced": {
+      if (event.type !== "advance" || event.player === null) return false;
+      const mover = getPlayer(state, event.player);
+      if (trigger.whose === "this") {
+        const top = topOf(mover.invadingMonsterZone);
+        if (event.player !== master || top?.instanceId !== source.instanceId)
+          return false;
+      } else if (!isPlayer(trigger.whose, event.player, master)) return false;
+      const to = Number(event.payload["to"]) as ZoneNumber;
+      if (trigger.toZone !== undefined && to !== trigger.toZone) return false;
+      if (trigger.during && state.phase !== trigger.during) return false;
+      if (trigger.intoColumnOf) {
+        const other = getOpponent(state, mover.id);
+        if (
+          other.monsterPosition === null ||
+          !sameColumn(
+            { player: mover.id, zone: to },
+            { player: other.id, zone: other.monsterPosition },
+          )
+        )
+          return false;
+      }
+      return true;
+    }
+    case "invades": {
+      if (event.type !== "invasionDone" || event.player === null) return false;
+      if (!isPlayer(trigger.whose, event.player, master)) return false;
+      if (!trigger.intoZones) return true;
+      const from = Number(event.payload["from"]);
+      const to = Number(event.payload["to"]);
+      return trigger.intoZones.some((zone) => zone > from && zone <= to);
+    }
     default:
       return false;
   }
+}
+
+/** Whether `player` is `ref` ("you", "opponent" or "any") from `master`'s side. */
+function isPlayer(
+  ref: "you" | "opponent" | "any",
+  player: PlayerId,
+  master: PlayerId,
+): boolean {
+  return ref === "any" || (player === master) === (ref === "you");
+}
+
+/** Why a card went from a hand to the discard pile: an effect, a cost, an invasion or rage. */
+function discardCause(
+  event: LogEntry,
+): "effect" | "cost" | "invasion" | "rage" {
+  if (event.payload["cost"] === true) return "cost";
+  if (event.payload["rule"] === "8.6.1") return "invasion";
+  if (event.payload["rule"] === "8.4.1") return "rage";
+  return "effect";
+}
+
+/**
+ * Whether a destroyed card matches a selector by its last known information on the field
+ * (10.6.4.1.2): its owner, card information, rank and zone when it was destroyed. `this` is the
+ * card itself (the source is then the card in the discard pile, so it never matches here).
+ */
+function lastKnownMatches(
+  state: GameState,
+  what: Selector,
+  event: LogEntry,
+  source: CardInstance,
+  master: PlayerId,
+): boolean {
+  const ids = event.payload["cardIds"];
+  const cardId = Array.isArray(ids) ? ids[ids.length - 1] : undefined;
+  const data = cardId === undefined ? undefined : state.cards[String(cardId)];
+  if (!data || event.player === null) return false;
+  if (
+    what.owner !== "any" &&
+    (event.player === master) !== (what.owner === "you")
+  )
+    return false;
+  const zoneValue =
+    event.payload["zone"] ??
+    String(event.payload["area"] ?? "").match(/^zone (\d)$/)?.[1];
+  const zone =
+    zoneValue === undefined ? undefined : (Number(zoneValue) as ZoneNumber);
+  const area = zone !== undefined ? "zones" : "strategy";
+  if (what.area !== area) return false;
+  const instanceId = event.payload["instanceId"];
+  if (what.this && instanceId !== source.instanceId) return false;
+  if (what.other && instanceId === source.instanceId) return false;
+  if (what.type && data.type !== what.type) return false;
+  if (what.name && data.name !== what.name) return false;
+  if (what.nameIncludes && !data.name.includes(what.nameIncludes)) return false;
+  const traits = getCardTraits(data);
+  if (what.traits && !what.traits.every((x) => traits.includes(x)))
+    return false;
+  if (what.anyTraits && !what.anyTraits.some((x) => traits.includes(x)))
+    return false;
+  if (what.colors && !what.colors.some((c) => data.colors.includes(c)))
+    return false;
+  if (
+    what.keyword &&
+    !data.text.toLowerCase().includes(`[${what.keyword.toLowerCase()}`)
+  )
+    return false;
+  if (what.rank) {
+    const rank = event.payload["rank"];
+    if (
+      typeof rank !== "number" ||
+      typeof what.rank.value !== "number" ||
+      !compare(rank, what.rank.op, what.rank.value)
+    )
+      return false;
+  }
+  if (what.zones) {
+    if (zone === undefined) return false;
+    const ctx: Context = {
+      state,
+      master,
+      sourceInstanceId: source.instanceId,
+      bindings: {},
+    };
+    const owner = getPlayer(state, event.player);
+    if (!hasZone(resolveZoneSet(ctx, what.zones, [owner]), owner.id, zone))
+      return false;
+  }
+  return true;
 }
 
 /**
@@ -550,15 +784,92 @@ export function dataTriggers(
   event: LogEntry,
   source: CardInstance,
   master: PlayerId,
+  area: "field" | "hand" | "discard" = "field",
 ): Extract<Ability, { kind: "triggered" }>[] {
   const data = abilitiesOf(state, source);
   if (data.status === "manual") return [];
   return withKeywords(data.abilities).filter(
     (a): a is Extract<Ability, { kind: "triggered" }> =>
       a.kind === "triggered" &&
+      // Outside the field only abilities that say so are active (10.3.4, T3).
+      (area === "field" || (a.activeIn?.includes(area) ?? false)) &&
       triggerMatches(state, a.trigger, event, source, master) &&
       gatesOpen(state, master, a.gates),
   );
+}
+
+/** Whether a hand or discard pile card has an ability active there (T3), to skip the rest fast. */
+export function activeOutsideField(
+  state: GameState,
+  card: CardInstance,
+  area: "hand" | "discard",
+): boolean {
+  const data = abilitiesOf(state, card);
+  return (
+    data.status !== "manual" &&
+    data.abilities.some(
+      (a) => a.kind === "triggered" && (a.activeIn?.includes(area) ?? false),
+    )
+  );
+}
+
+/**
+ * Whether `event` fulfils a delayed ability's trigger (T8, 10.6.5). It is checked whether or not
+ * its card is still active; gates read its master's state.
+ */
+export function delayedTriggers(
+  state: GameState,
+  event: LogEntry,
+  timed: Extract<GameState["timedTriggers"][number], { kind: "delayed" }>,
+): boolean {
+  const ability = delayedAbility(state, timed.sourceCardId, timed.abilityId);
+  const source: CardInstance = {
+    instanceId: timed.sourceInstanceId,
+    cardId: timed.sourceCardId,
+    owner: timed.master,
+  };
+  return (
+    triggerMatches(state, ability.trigger, event, source, timed.master) &&
+    gatesOpen(state, timed.master, ability.gates)
+  );
+}
+
+/** The abilities `until` effects of a card create, at any depth (T8). */
+function delayedAbilitiesOf(abilities: Ability[]): DelayedAbility[] {
+  const found: DelayedAbility[] = [];
+  const visit = (effects: Effect[]) => {
+    for (const effect of effects) {
+      if (effect.effect === "until")
+        for (const ability of effect.abilities) {
+          found.push(ability);
+          visit(ability.effects);
+        }
+      if ("effects" in effect) visit(effect.effects);
+    }
+  };
+  for (const ability of abilities)
+    if (ability.kind === "triggered") {
+      visit(ability.effects);
+      if (ability.cost) visit(ability.cost.effects);
+    }
+  return found;
+}
+
+function delayedAbility(
+  state: GameState,
+  cardId: number,
+  abilityId: string,
+): DelayedAbility {
+  const card = state.cards[cardId];
+  const [, id] = abilityId.split("#");
+  const data =
+    card &&
+    (testAbilities.get(card.deckCardNumber) ??
+      getCardAbilities(card.deckCardNumber));
+  const ability =
+    data && delayedAbilitiesOf(data.abilities).find((a) => a.id === id);
+  if (!ability) throw new Error(`No delayed ability ${abilityId}`);
+  return ability;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -577,7 +888,11 @@ function findAbility(
     (testAbilities.get(card.deckCardNumber) ??
       getCardAbilities(card.deckCardNumber));
   const ability =
-    data && withKeywords(data.abilities).find((a) => "id" in a && a.id === id);
+    data &&
+    ([
+      ...withKeywords(data.abilities),
+      ...delayedAbilitiesOf(data.abilities),
+    ].find((a) => "id" in a && a.id === id) as TriggeredAbility | undefined);
   if (
     !ability ||
     ability.kind !== "triggered" ||
@@ -705,6 +1020,7 @@ export function resolveDataAbility(
     replacementPicks: [],
     subject: null,
   };
+  bindTriggerCard(state, ability.trigger, standby.event);
   if (
     ability.condition &&
     !conditionHolds(contextOf(state), ability.condition)
@@ -717,6 +1033,42 @@ export function resolveDataAbility(
     return;
   }
   runResolution(state);
+}
+
+/**
+ * Binds the card a trigger names with `as` (T1, T3): a destroyed card by its last known
+ * information (10.6.4.1.2), a discarded card as it is in the discard pile.
+ */
+function bindTriggerCard(
+  state: GameState,
+  trigger: Trigger,
+  event: LogEntry,
+): void {
+  if (
+    (trigger.on !== "destroyed" && trigger.on !== "discarded") ||
+    !trigger.as ||
+    !state.resolution
+  )
+    return;
+  const ids = event.payload["cardIds"];
+  const cardId = Number(
+    Array.isArray(ids) ? ids[ids.length - 1] : event.payload["cardId"],
+  );
+  const data = state.cards[cardId];
+  const rank = event.payload["rank"];
+  state.resolution.bindings[trigger.as] = {
+    kind: "cards",
+    cards: [
+      {
+        instanceId: String(event.payload["instanceId"]),
+        cardId,
+        rank: typeof rank === "number" ? rank : (data?.rank ?? null),
+        counterPower:
+          data?.type === "Battle" ? (data.counterOrThreat ?? 0) : null,
+        threat: null,
+      },
+    ],
+  };
 }
 
 /** Continues the paused resolution after a `target`, `zone` or `confirm` choice. */
@@ -851,10 +1203,20 @@ function runResolution(state: GameState): void {
 /** Whether every cost effect can be performed in full (10.5.4.1). */
 function canPay(ctx: Context, effects: Effect[]): boolean {
   return effects.every((effect) => {
+    // Reducing your own rage as a cost needs that much rage (EBP01-020).
+    if (effect.effect === "rage") {
+      const delta = amountOf(ctx, effect.delta);
+      return (
+        delta >= 0 || players(ctx, effect.player).every((p) => p.rage >= -delta)
+      );
+    }
     if (effect.effect !== "discard") return true;
     const hand = select(ctx, discardFilter(effect));
     if (effect.count === "all" || effect.count === "anyNumber") return true;
-    return hand.length >= ("exact" in effect.count ? effect.count.exact : 0);
+    return (
+      hand.length >=
+      ("exact" in effect.count ? exactCount(ctx, effect.count) : 0)
+    );
   });
 }
 
@@ -916,7 +1278,7 @@ function pickCards(
   if (count === "all") return candidates;
   if (count === "anyNumber")
     throw new Error("not implemented: count anyNumber");
-  const limit = "exact" in count ? count.exact : count.upTo;
+  const limit = "exact" in count ? exactCount(ctx, count) : count.upTo;
   const remaining = limit - chosen.length;
   const canStop = "upTo" in count || options.mayFindNothing === true;
   const confirm = confirmsSingleOption(state, chooser, "target");
@@ -989,6 +1351,11 @@ function discardCards(ctx: Context, cards: Located[], rule: string): void {
     appendLog(ctx.state, "discard", found.player.id, {
       rule,
       cardId: card.cardId,
+      // Its id in the discard pile (public), whose effect discarded it, and whether it paid a
+      // cost (T3).
+      instanceId: card.instanceId,
+      by: ctx.master,
+      ...(r.stage === "cost" ? { cost: true } : {}),
       abilityId: r.standby.abilityId,
     });
   }
@@ -1065,7 +1432,7 @@ function perform(state: GameState, effect: Effect): Outcome {
         }
         picks.set(target.card.instanceId, picked);
       }
-      destroyCards(state, targets, "5.12", abilityId, picks);
+      destroyCards(state, targets, "5.12", abilityId, picks, ctx.master);
       return "done";
     }
     case "discard": {
@@ -1482,6 +1849,29 @@ function perform(state: GameState, effect: Effect): Outcome {
         to,
         abilityId,
       });
+      return "done";
+    }
+    case "until": {
+      // Each ability becomes a timed trigger until the end of the turn (T8, 10.6.5).
+      const number = cardOf(state, {
+        cardId: r.standby.sourceCardId,
+      } as CardInstance).deckCardNumber;
+      for (const ability of effect.abilities) {
+        state.timedTriggers.push({
+          kind: "delayed",
+          abilityId: dataAbilityId(number, ability.id),
+          sourceInstanceId: r.standby.sourceInstanceId,
+          sourceCardId: r.standby.sourceCardId,
+          master: ctx.master,
+          until: effect.duration,
+        });
+        appendLog(state, "delayedAbility", ctx.master, {
+          rule: "10.6.5",
+          cardId: r.standby.sourceCardId,
+          abilityId: dataAbilityId(number, ability.id),
+          until: effect.duration,
+        });
+      }
       return "done";
     }
     case "custom": {

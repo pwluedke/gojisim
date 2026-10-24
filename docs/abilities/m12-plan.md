@@ -1,15 +1,15 @@
 # M12 Plan: Abilities for Every Set (M12-0)
 
-Gap report for M12, the milestone that gives every card outside the starter decks ability data. Inputs: `pnpm abilities:coverage`, `docs/abilities/survey.json`, `docs/abilities/format.md`, `docs/abilities/findings.md`, `docs/rules/spec.md`, the Comprehensive Rules v1.2 and the card text in `packages/cards/data/cards.json` (errata applied). Written Oct 23, 2026.
+Gap report for M12, the milestone that gives every card outside the starter decks ability data. Inputs: `pnpm abilities:coverage`, `docs/abilities/survey.json`, `docs/abilities/format.md`, `docs/abilities/findings.md`, `docs/rules/spec.md`, the Comprehensive Rules v1.2 and the card text in `packages/cards/data/cards.json` (errata applied). Written Oct 23, 2026; set order updated the same day (Paul: EBP03 before EBP04).
 
 ## Summary
 
 - 353 of the 384 cards in scope are manual today; only the 31 starter cards (ESD01, ESD02) have ability data.
 - 116 of the 353 can be written with today's format, as data only (vanilla cards included). The other 237 need new format pieces: 45 pieces, listed in section 3. Most of them are shared: 40 pieces are used by 2 or more sets, so they are built once, in the first set that needs them.
-- Priority from Paul's decks: EBP01, EBP02, EBP04, EBP03, then PR/EPR, ESC01 and FC01.
-- 20 rules questions for Paul (Q15 to Q34, section 4). EBP01 depends on none of them, so M12a can start right away.
-- 3 cards stay manual until Paul rules on them (section 5).
-- 7 PRs, one per set (section 6). EBP01 builds the most pieces (24); later sets mostly reuse them.
+- Order: EBP01, EBP02, EBP03, EBP04, then PR/EPR, ESC01 and FC01 (Paul's order, Oct 23, 2026; the deck counts alone put EBP04 before EBP03).
+- 20 rules questions (Q15 to Q34, section 4), all approved by Paul on Oct 23, 2026, Q23 reworded.
+- No card stays manual: with Q22 and Q23 ruled, EBP04-012, EBP04-033 and EBP04-034 go in the EBP04 PR (section 5). M12 ends at 384 of 384.
+- 8 PRs: one per set, with EBP01 split in two (section 6). EBP01 builds the most pieces (24); later sets mostly reuse them.
 
 ## 1. Sets and counts
 
@@ -39,19 +39,19 @@ Notes:
 
 Counted from `local-decks/paul-decks.txt` (25 decks), grouped by each card's deck card number set. Counts only, no deck contents.
 
-| Rank | Set          | Copies | Decks using it | Distinct cards used |
-| ---- | ------------ | ------ | -------------- | ------------------- |
-| 1    | EBP01        | 430    | 23             | 59                  |
-| 2    | EBP02        | 355    | 17             | 52                  |
-| 3    | EBP04        | 174    | 14             | 44                  |
-| -    | ESD01 (done) | 149    | 12             | 16                  |
-| 4    | EBP03        | 144    | 16             | 32                  |
-| -    | ESD02 (done) | 79     | 6              | 15                  |
-| 5    | PR, EPR      | 12     | 4              | 1                   |
-| 6    | ESC01        | 7      | 2              | 1                   |
-| 7    | FC01         | 0      | 0              | 0                   |
+| Order | Set          | Copies | Decks using it | Distinct cards used |
+| ----- | ------------ | ------ | -------------- | ------------------- |
+| 1     | EBP01        | 430    | 23             | 59                  |
+| 2     | EBP02        | 355    | 17             | 52                  |
+| 3     | EBP03        | 144    | 16             | 32                  |
+| 4     | EBP04        | 174    | 14             | 44                  |
+| -     | ESD01 (done) | 149    | 12             | 16                  |
+| -     | ESD02 (done) | 79     | 6              | 15                  |
+| 5     | PR, EPR      | 12     | 4              | 1                   |
+| 6     | ESC01        | 7      | 2              | 1                   |
+| 7     | FC01         | 0      | 0              | 0                   |
 
-The decks use 189 distinct manual cards (1,122 copies). EBP03 has more decks than EBP04 but fewer copies, so EBP04 goes first. That order also builds the Base keyword and colors (both mostly EBP04) before EBP03 needs them.
+The decks use 189 distinct manual cards (1,122 copies). By copies EBP04 comes before EBP03, but Paul set the order EBP01, EBP02, EBP03, EBP04 (Oct 23, 2026). EBP03 therefore builds the pieces it shares with EBP04: colors (C4), Base (K1), Resonance (K2), targeting orders (X) and the vertical move (E14).
 
 ## 3. Format gaps
 
@@ -59,53 +59,53 @@ Each piece below is a proposed addition to `docs/abilities/format.md`, written i
 
 ### Shared pieces
 
-| Piece                                                                       | Built in | EBP01 | EBP02 | EBP04 | EBP03 | PR  | ESC01 | FC01 | Sets |
+| Piece                                                                       | Built in | EBP01 | EBP02 | EBP03 | EBP04 | PR  | ESC01 | FC01 | Sets |
 | --------------------------------------------------------------------------- | -------- | ----- | ----- | ----- | ----- | --- | ----- | ---- | ---- |
-| C1 "If you do" and "otherwise"                                              | EBP02    |       | 4     | 7     | 14    | 1   | 1     | 1    | 6    |
-| C2 This-turn memory                                                         | EBP01    | 2     | 2     |       | 1     |     | 1     |      | 4    |
-| C3 Zone numbers and positions                                               | EBP02    |       | 3     | 5     | 3     |     |       |      | 3    |
-| C4 Colors                                                                   | EBP04    |       |       | 17    | 1     |     |       |      | 2    |
-| C5 New selector filters                                                     | EBP01    | 2     | 5     | 4     | 5     |     |       | 1    | 5    |
-| C6 New amounts                                                              | EBP01    | 2     | 5     |       | 4     |     |       |      | 3    |
-| C7 How a card was played                                                    | EBP01    | 1     |       |       | 1     |     |       |      | 2    |
-| T1 Destroyed trigger                                                        | EBP01    | 1     |       | 3     |       |     |       |      | 2    |
+| C1 "If you do" and "otherwise"                                              | EBP02    |       | 4     | 14    | 7     | 1   | 1     | 1    | 6    |
+| C2 This-turn memory                                                         | EBP01    | 2     | 2     | 1     |       |     | 1     |      | 4    |
+| C3 Zone numbers and positions                                               | EBP02    |       | 3     | 3     | 5     |     |       |      | 3    |
+| C4 Colors                                                                   | EBP03    |       |       | 1     | 17    |     |       |      | 2    |
+| C5 New selector filters                                                     | EBP01    | 2     | 5     | 5     | 4     |     |       | 1    | 5    |
+| C6 New amounts                                                              | EBP01    | 2     | 5     | 4     |       |     |       |      | 3    |
+| C7 How a card was played                                                    | EBP01    | 1     |       | 1     |       |     |       |      | 2    |
+| T1 Destroyed trigger                                                        | EBP01    | 1     |       |       | 3     |     |       |      | 2    |
 | T2 Revenge (keyword)                                                        | EBP02    |       | 5     | 3     | 3     |     |       |      | 3    |
-| T3 Discarded trigger, and abilities that work from the hand or discard pile | EBP01    | 2     | 2     | 5     | 7     |     |       |      | 4    |
-| T4 Countered trigger                                                        | EBP01    | 1     |       | 1     | 3     |     | 1     |      | 4    |
+| T3 Discarded trigger, and abilities that work from the hand or discard pile | EBP01    | 2     | 2     | 7     | 5     |     |       |      | 4    |
+| T4 Countered trigger                                                        | EBP01    | 1     |       | 3     | 1     |     | 1     |      | 4    |
 | T5 Advanced trigger                                                         | EBP01    | 3     | 1     |       |       |     |       |      | 2    |
-| T6 Invades trigger (once per invasion)                                      | EBP01    | 3     |       | 1     | 2     |     |       |      | 3    |
-| T7 Card-played trigger: source area and the played card                     | EBP02    |       | 1     | 2     | 1     |     |       |      | 3    |
+| T6 Invades trigger (once per invasion)                                      | EBP01    | 3     |       | 2     | 1     |     |       |      | 3    |
+| T7 Card-played trigger: source area and the played card                     | EBP02    |       | 1     | 1     | 2     |     |       |      | 3    |
 | T8 Delayed triggers made by an effect                                       | EBP01    | 1     |       |       |       | 1   |       |      | 2    |
-| T9 Trigger an ability again                                                 | EBP04    |       |       | 1     |       |     |       |      | 1    |
-| E1 Advance and retreat                                                      | EBP01    | 7     | 6     | 2     | 7     |     | 1     |      | 5    |
-| E2 Mill (send the top of the deck to the discard pile)                      | EBP01    | 4     | 5     | 6     | 1     |     | 1     | 1    | 6    |
-| E3 Reveal or look at the top of the deck                                    | EBP01    | 3     | 3     | 2     | 4     |     |       | 1    | 5    |
-| E4 Place a card under a card                                                | EBP01    | 2     | 2     | 1     | 7     | 1   |       |      | 5    |
-| E5 Return from the discard pile                                             | EBP01    | 1     | 2     |       | 2     |     |       |      | 3    |
-| E6 Tokens                                                                   | EBP02    |       | 8     | 2     |       |     |       |      | 2    |
-| E7 Choose one                                                               | EBP01    | 1     | 4     | 1     | 3     |     |       |      | 4    |
-| E8 Set rage                                                                 | EBP01    | 1     |       |       | 1     |     |       |      | 2    |
-| E9 Swap two battle cards                                                    | EBP01    | 1     | 1     | 1     |       |     |       |      | 3    |
-| E10 Move battle cards: choice of card, opponent's cards, this card          | EBP01    | 1     | 3     | 1     | 2     |     |       |      | 4    |
-| E11 Discard: whole hand, each player, and the discarded cards               | EBP02    |       | 1     |       | 3     |     | 1     | 1    | 4    |
-| E12 Counter (the instruction)                                               | EBP02    |       | 1     | 1     |       |     |       |      | 2    |
-| E13 Move as though countered, and counter-proof monsters                    | EBP01    | 3     | 1     | 1     |       |     |       |      | 3    |
-| E14 Vertical monster move                                                   | EBP04    |       |       | 1     | 1     |     |       |      | 2    |
-| E15 Extra advances                                                          | EBP02    |       | 1     | 1     |       |     |       |      | 2    |
-| E16 Win or lose the game                                                    | EBP03    |       |       |       | 1     |     |       |      | 1    |
+| T9 Trigger an ability again                                                 | EBP04    |       |       |       | 1     |     |       |      | 1    |
+| E1 Advance and retreat                                                      | EBP01    | 7     | 6     | 7     | 2     |     | 1     |      | 5    |
+| E2 Mill (send the top of the deck to the discard pile)                      | EBP01    | 4     | 5     | 1     | 6     |     | 1     | 1    | 6    |
+| E3 Reveal or look at the top of the deck                                    | EBP01    | 3     | 3     | 4     | 2     |     |       | 1    | 5    |
+| E4 Place a card under a card                                                | EBP01    | 2     | 2     | 7     | 1     | 1   |       |      | 5    |
+| E5 Return from the discard pile                                             | EBP01    | 1     | 2     | 2     |       |     |       |      | 3    |
+| E6 Tokens                                                                   | EBP02    |       | 8     |       | 2     |     |       |      | 2    |
+| E7 Choose one                                                               | EBP01    | 1     | 4     | 3     | 1     |     |       |      | 4    |
+| E8 Set rage                                                                 | EBP01    | 1     |       | 1     |       |     |       |      | 2    |
+| E9 Swap two battle cards                                                    | EBP01    | 1     | 1     |       | 1     |     |       |      | 3    |
+| E10 Move battle cards: choice of card, opponent's cards, this card          | EBP01    | 1     | 3     | 2     | 1     |     |       |      | 4    |
+| E11 Discard: whole hand, each player, and the discarded cards               | EBP02    |       | 1     | 3     |       |     | 1     | 1    | 4    |
+| E12 Counter (the instruction)                                               | EBP02    |       | 1     |       | 1     |     |       |      | 2    |
+| E13 Move as though countered, and counter-proof monsters                    | EBP01    | 3     | 1     |       | 1     |     |       |      | 3    |
+| E14 Vertical monster move                                                   | EBP03    |       |       | 1     | 1     |     |       |      | 2    |
+| E15 Extra advances                                                          | EBP02    |       | 1     |       | 1     |     |       |      | 2    |
+| E16 Win or lose the game                                                    | EBP03    |       |       | 1     |       |     |       |      | 1    |
 | E17 Activate a strategy card from the deck, hand or discard pile            | EBP01    | 1     |       | 1     | 1     |     |       |      | 3    |
-| E18 Play and evolve extensions                                              | EBP01    | 4     | 1     | 4     | 7     |     | 1     |      | 5    |
+| E18 Play and evolve extensions                                              | EBP01    | 4     | 1     | 7     | 4     |     | 1     |      | 5    |
 | E19 Effects that last (until end of turn, rest of game, during a phase)     | EBP02    |       | 2     | 1     | 1     |     |       |      | 3    |
-| E20 A third strategy zone                                                   | EBP03    |       |       |       | 1     |     |       |      | 1    |
-| E21 More replacements                                                       | EBP02    |       | 1     | 1     | 2     |     |       |      | 3    |
-| M1 Flags and statuses                                                       | EBP01    | 5     | 5     | 11    | 3     |     |       | 1    | 5    |
-| M2 Play cost: reduced rank, restrictions and alternative plays              | EBP01    | 6     | 2     | 6     | 2     |     | 1     | 1    | 6    |
-| M3 Rank modifiers on cards in a hand                                        | EBP04    |       |       | 3     |       |     |       |      | 1    |
-| K1 Base (keyword)                                                           | EBP04    |       |       | 4     | 4     |     |       |      | 2    |
-| K2 Resonance (deck rules)                                                   | EBP04    |       |       | 1     | 3     |     |       |      | 2    |
+| E20 A third strategy zone                                                   | EBP03    |       |       | 1     |       |     |       |      | 1    |
+| E21 More replacements                                                       | EBP02    |       | 1     | 2     | 1     |     |       |      | 3    |
+| M1 Flags and statuses                                                       | EBP01    | 5     | 5     | 3     | 11    |     |       | 1    | 5    |
+| M2 Play cost: reduced rank, restrictions and alternative plays              | EBP01    | 6     | 2     | 2     | 6     |     | 1     | 1    | 6    |
+| M3 Rank modifiers on cards in a hand                                        | EBP04    |       |       |       | 3     |     |       |      | 1    |
+| K1 Base (keyword)                                                           | EBP03    |       |       | 4     | 4     |     |       |      | 2    |
+| K2 Resonance (deck rules)                                                   | EBP03    |       |       | 3     | 1     |     |       |      | 2    |
 | K3 Start in another zone                                                    | EBP02    |       | 1     |       |       |     |       |      | 1    |
-| X Targeting orders and constrained picks                                    | EBP04    |       |       | 2     | 2     |     |       |      | 2    |
-| CU Custom handlers                                                          | EBP02    |       | 1     | 3     |       |     |       |      | 2    |
+| X Targeting orders and constrained picks                                    | EBP03    |       |       | 2     | 2     |     |       |      | 2    |
+| CU Custom handlers                                                          | EBP02    |       | 1     |       | 3     |     |       |      | 2    |
 
 ### Conditions and values
 
@@ -120,7 +120,7 @@ type Effect = ... | { effect: "if"; condition: Condition; then: Effect[]; else?:
 
 `didLastStep` is in the schema but throws today. Most "you may A. If you do, B" cards are an optional cost (Q2, built in M4d), including every EBP01 card with that wording. C1 covers the rest: an "if you do" after a step that isn't a cost (a search that may find nothing, a move, the opponent's discard in "if they discard at least 1"), and "if you do not, destroy this card" (EBP04-055) through `else`.
 
-Cards (28): EBP02-007, EBP02-052, EBP02-059, EBP02-070, EBP04-009, EBP04-010, EBP04-014, EBP04-027, EBP04-050, EBP04-055, EBP04-064, EBP03-001, EBP03-002, EBP03-003, EBP03-005, EBP03-014, EBP03-016, EBP03-017, EBP03-025, EBP03-026, EBP03-028, EBP03-033, EBP03-034, EBP03-035, EBP03-047, PR-016, ESC01-003, FC01-003.
+Cards (28): EBP02-007, EBP02-052, EBP02-059, EBP02-070, EBP03-001, EBP03-002, EBP03-003, EBP03-005, EBP03-014, EBP03-016, EBP03-017, EBP03-025, EBP03-026, EBP03-028, EBP03-033, EBP03-034, EBP03-035, EBP03-047, EBP04-009, EBP04-010, EBP04-014, EBP04-027, EBP04-050, EBP04-055, EBP04-064, PR-016, ESC01-003, FC01-003.
 
 #### C2. This-turn memory
 
@@ -148,11 +148,11 @@ chooseZone: { owner, as, within?: ZoneSet }                             // limit
 
 "Same number as the zone your opponent's monster occupies" (EBP02-008, -015), "at or before" (EBP02-018), side-to-side moves (EBP03-058), zone-number comparisons (EBP04-016 to -019) and zones named by revealed ranks (EBP03-073, EBP04-013).
 
-Cards (11): EBP02-008, EBP02-015, EBP02-018, EBP04-013, EBP04-016, EBP04-017, EBP04-018, EBP04-019, EBP03-009, EBP03-058, EBP03-073.
+Cards (11): EBP02-008, EBP02-015, EBP02-018, EBP03-009, EBP03-058, EBP03-073, EBP04-013, EBP04-016, EBP04-017, EBP04-018, EBP04-019.
 
 #### C4. Colors
 
-Rules: 2.4 (colors). Built in: EBP04.
+Rules: 2.4 (colors). Built in: EBP03.
 
 ```typescript
 type Amount   = ... | { colorsAmong: Selector; times?: number; white?: boolean }   // distinct colors
@@ -161,7 +161,7 @@ type Selector = { ...; notColors?: Color[] }                                    
 
 Distinct colors among a selection (Monster X, Kaizer Ghidorah), "non-red"/"non-green" filters, and "an opponent's blue monster card" (already a `colors` filter on `area: "monster"`). Whether white counts is per card (EBP04-047 says it does).
 
-Cards (18): EBP04-011, EBP04-021, EBP04-031, EBP04-032, EBP04-033, EBP04-034, EBP04-035, EBP04-036, EBP04-039, EBP04-044, EBP04-045, EBP04-047, EBP04-057, EBP04-066, EBP04-068, EBP04-082, EBP04-088, EBP03-067.
+Cards (18): EBP03-067, EBP04-011, EBP04-021, EBP04-031, EBP04-032, EBP04-033, EBP04-034, EBP04-035, EBP04-036, EBP04-039, EBP04-044, EBP04-045, EBP04-047, EBP04-057, EBP04-066, EBP04-068, EBP04-082, EBP04-088.
 
 #### C5. New selector filters
 
@@ -180,7 +180,7 @@ type Selector = { ...;
 
 Today a selector filters by owner, area, type, name, traits (all of), keyword, colors, rank and zones.
 
-Cards (17): EBP01-015, EBP01-072, EBP02-023, EBP02-036, EBP02-040, EBP02-042, EBP02-064, EBP04-022, EBP04-027, EBP04-043, EBP04-051, EBP03-047, EBP03-050, EBP03-054, EBP03-071, EBP03-076, FC01-003.
+Cards (17): EBP01-015, EBP01-072, EBP02-023, EBP02-036, EBP02-040, EBP02-042, EBP02-064, EBP03-047, EBP03-050, EBP03-054, EBP03-071, EBP03-076, EBP04-022, EBP04-027, EBP04-043, EBP04-051, FC01-003.
 
 #### C6. New amounts
 
@@ -236,7 +236,7 @@ Rules: 12.7.1 to 12.7.3, 10.6.4. Built in: EBP02.
 
 Deferred to the first set that uses it (format.md, Paul approved Oct 21, 2026). It resolves from the discard pile, so the engine needs "look-back" triggers: the ability is checked as it was on the field (inactive if the card was stacked under another, 12.7.3).
 
-Cards (11): EBP02-058, EBP02-059, EBP02-060, EBP02-062, EBP02-064, EBP04-059, EBP04-062, EBP04-063, EBP03-059, EBP03-060, EBP03-062.
+Cards (11): EBP02-058, EBP02-059, EBP02-060, EBP02-062, EBP02-064, EBP03-059, EBP03-060, EBP03-062, EBP04-059, EBP04-062, EBP04-063.
 
 #### T3. Discarded trigger, and abilities that work from the hand or discard pile
 
@@ -250,7 +250,7 @@ type Ability (triggered) = { ...; activeIn?: ("field" | "hand" | "discard")[] } 
 
 "When this card is discarded from your hand by your opponent's effect, you may play this card" (Fire Rodan and others), "whenever you discard a battle card from your hand", "when your card is sent from a strategy zone to the discard pile", and the Burst discard (EBP02-009).
 
-Cards (16): EBP01-059, EBP01-066, EBP02-009, EBP02-022, EBP04-014, EBP04-015, EBP04-046, EBP04-052, EBP04-085, EBP03-015, EBP03-016, EBP03-017, EBP03-039, EBP03-061, EBP03-063, EBP03-067.
+Cards (16): EBP01-059, EBP01-066, EBP02-009, EBP02-022, EBP03-015, EBP03-016, EBP03-017, EBP03-039, EBP03-061, EBP03-063, EBP03-067, EBP04-014, EBP04-015, EBP04-046, EBP04-052, EBP04-085.
 
 #### T4. Countered trigger
 
@@ -263,7 +263,7 @@ type Trigger = ... | { on: "countered"; whose: "this" | "you" | "opponent" }   /
 
 In the schema, not matched today. A move "as though it were countered" is not a counter (Q14, approved).
 
-Cards (6): EBP01-043, EBP04-022, EBP03-019, EBP03-020, EBP03-023, ESC01-001.
+Cards (6): EBP01-043, EBP03-019, EBP03-020, EBP03-023, EBP04-022, ESC01-001.
 
 #### T5. Advanced trigger
 
@@ -288,7 +288,7 @@ type Trigger = ... | { on: "invades"; whose: PlayerRef; intoZones?: ZoneSet }   
 
 "Whenever your monster card invades" fires once per invasion action, unlike [invading] (once per advance, Q4). Base cards use it with `intoZones: [6, 7, 8]` and `whose: "any"` (Q18, Q19).
 
-Cards (6): EBP01-020, EBP01-073, EBP01-076, EBP04-050, EBP03-042, EBP03-062.
+Cards (6): EBP01-020, EBP01-073, EBP01-076, EBP03-042, EBP03-062, EBP04-050.
 
 #### T7. Card-played trigger: source area and the played card
 
@@ -300,7 +300,7 @@ type Trigger (cardPlayed) = { on: "cardPlayed"; by; what; from?: "hand" | "deck"
 
 "Whenever your opponent plays a battle card from their deck" (EBP04-028, -072); "destroy ... in the same column as that battle card" (EBP02-073) binds the played card.
 
-Cards (4): EBP02-073, EBP04-028, EBP04-072, EBP03-063.
+Cards (4): EBP02-073, EBP03-063, EBP04-028, EBP04-072.
 
 #### T8. Delayed triggers made by an effect
 
@@ -338,7 +338,7 @@ Rules: 5.13.1, 5.13.2. Built in: EBP01.
 
 In the schema, not built. Targets carry a `threat` filter (C5) for "an opponent's monster card with 50,000 or lower threat level". `advanceMonster`/`retreatMonster` already exist in the engine (M3c).
 
-Cards (23): EBP01-008, EBP01-011, EBP01-012, EBP01-015, EBP01-030, EBP01-072, EBP01-078, EBP02-003, EBP02-013, EBP02-014, EBP02-019, EBP02-023, EBP02-036, EBP04-013, EBP04-051, EBP03-001, EBP03-023, EBP03-025, EBP03-035, EBP03-050, EBP03-054, EBP03-073, ESC01-003.
+Cards (23): EBP01-008, EBP01-011, EBP01-012, EBP01-015, EBP01-030, EBP01-072, EBP01-078, EBP02-003, EBP02-013, EBP02-014, EBP02-019, EBP02-023, EBP02-036, EBP03-001, EBP03-023, EBP03-025, EBP03-035, EBP03-050, EBP03-054, EBP03-073, EBP04-013, EBP04-051, ESC01-003.
 
 #### E2. Mill (send the top of the deck to the discard pile)
 
@@ -350,7 +350,7 @@ Rules: 5.7.3, 5.10. Built in: EBP01.
 
 In the schema, not built. "If it is a monster card" reads the bound card with an existing `count` condition on `area: "bound"`.
 
-Cards (18): EBP01-001, EBP01-002, EBP01-003, EBP01-072, EBP02-014, EBP02-047, EBP02-048, EBP02-049, EBP02-077, EBP04-013, EBP04-021, EBP04-022, EBP04-049, EBP04-061, EBP04-075, EBP03-073, ESC01-005, FC01-002.
+Cards (18): EBP01-001, EBP01-002, EBP01-003, EBP01-072, EBP02-014, EBP02-047, EBP02-048, EBP02-049, EBP02-077, EBP03-073, EBP04-013, EBP04-021, EBP04-022, EBP04-049, EBP04-061, EBP04-075, ESC01-005, FC01-002.
 
 #### E3. Reveal or look at the top of the deck
 
@@ -364,7 +364,7 @@ Rules: 5.5, 5.10, 4.8.2. Built in: EBP01.
 
 In the schema, not built. Looked-at cards are private to their player (decision 140 pattern); revealed cards show to both (decision 147).
 
-Cards (13): EBP01-015, EBP01-021, EBP01-070, EBP02-007, EBP02-078, EBP02-080, EBP04-077, EBP04-079, EBP03-007, EBP03-011, EBP03-031, EBP03-071, FC01-005.
+Cards (13): EBP01-015, EBP01-021, EBP01-070, EBP02-007, EBP02-078, EBP02-080, EBP03-007, EBP03-011, EBP03-031, EBP03-071, EBP04-077, EBP04-079, FC01-005.
 
 #### E4. Place a card under a card
 
@@ -380,7 +380,7 @@ Rules: 3.2.1 to 3.2.5. Built in: EBP01.
 
 In the schema, not built. Cards under a card have no active abilities (3.2.3.1) and move with the stack (3.2.4). `count` with `area: "under"` already reads them.
 
-Cards (13): EBP01-026, EBP01-073, EBP02-012, EBP02-046, EBP04-043, EBP03-025, EBP03-026, EBP03-028, EBP03-042, EBP03-043, EBP03-052, EBP03-064, PR-016.
+Cards (13): EBP01-026, EBP01-073, EBP02-012, EBP02-046, EBP03-025, EBP03-026, EBP03-028, EBP03-042, EBP03-043, EBP03-052, EBP03-064, EBP04-043, PR-016.
 
 #### E5. Return from the discard pile
 
@@ -419,7 +419,7 @@ Rules: 10.5.2.2.1. Built in: EBP01.
 
 In the schema, not built. Options can carry their own gate or condition: EBP02-071's options need [awakening-6] and [awakening-8]; EBP01-064's second option needs 4 battle cards.
 
-Cards (9): EBP01-064, EBP02-038, EBP02-049, EBP02-050, EBP02-071, EBP04-050, EBP03-029, EBP03-046, EBP03-077.
+Cards (9): EBP01-064, EBP02-038, EBP02-049, EBP02-050, EBP02-071, EBP03-029, EBP03-046, EBP03-077, EBP04-050.
 
 #### E8. Set rage
 
@@ -460,7 +460,7 @@ moveBattle { target: Selector; count?: Count; to: ZoneSet; optional?: boolean } 
 
 `moveBattle` moves one card on its owner's field today (decision 153). Add the choice among several targets, the opponent's cards (EBP02-057) and fixed destinations such as "a zone adjacent to your monster card" (EBP04-039).
 
-Cards (7): EBP01-022, EBP02-010, EBP02-019, EBP02-057, EBP04-039, EBP03-030, EBP03-058.
+Cards (7): EBP01-022, EBP02-010, EBP02-019, EBP02-057, EBP03-030, EBP03-058, EBP04-039.
 
 #### E11. Discard: whole hand, each player, and the discarded cards
 
@@ -502,7 +502,7 @@ Cards (5): EBP01-038, EBP01-066, EBP01-077, EBP02-027, EBP04-014.
 
 #### E14. Vertical monster move
 
-Rules: 4.4.5.1, 11.3. Built in: EBP04.
+Rules: 4.4.5.1, 11.3. Built in: EBP03.
 
 ```typescript
 { effect: "moveMonsterVertically"; target: Selector (area: "monster"); fromZones: Zone[] }   // 3 to 8, 4 to 7, 5 to 6
@@ -510,7 +510,7 @@ Rules: 4.4.5.1, 11.3. Built in: EBP04.
 
 Not an advance or retreat; cards in between are not destroyed (Q21).
 
-Cards (2): EBP04-078, EBP03-068.
+Cards (2): EBP03-068, EBP04-078.
 
 #### E15. Extra advances
 
@@ -550,7 +550,7 @@ Rules: 5.9, 8.3. Built in: EBP01.
 
 "Put it into play ... then activate it" places the card in an empty strategy zone and triggers its placement text (10.1.1.1.2).
 
-Cards (3): EBP01-060, EBP04-005, EBP03-012.
+Cards (3): EBP01-060, EBP03-012, EBP04-005.
 
 #### E18. Play and evolve extensions
 
@@ -564,7 +564,7 @@ evolve { target: Selector; count?: Count }           // "evolve all of your ... 
 
 Playing this card from the discard pile when its own trigger fires (Fire Rodan, Dagahra), playing on top of a chosen card, evolving several cards in turn, and playing a monster from the monster deck.
 
-Cards (17): EBP01-035, EBP01-036, EBP01-059, EBP01-063, EBP02-022, EBP04-046, EBP04-077, EBP04-080, EBP04-086, EBP03-023, EBP03-042, EBP03-043, EBP03-047, EBP03-061, EBP03-063, EBP03-074, ESC01-002.
+Cards (17): EBP01-035, EBP01-036, EBP01-059, EBP01-063, EBP02-022, EBP03-023, EBP03-042, EBP03-043, EBP03-047, EBP03-061, EBP03-063, EBP03-074, EBP04-046, EBP04-077, EBP04-080, EBP04-086, ESC01-002.
 
 #### E19. Effects that last (until end of turn, rest of game, during a phase)
 
@@ -578,7 +578,7 @@ type Amount = ... | { snapshot: ValueRef }                                      
 
 "For the rest of the turn, double the counter power" (EBP02-029, Q26), "this card gains +1000 counter power for each card discarded this way" for the turn (EBP03-032), "cannot be countered by 30,000 or lower this turn" (EBP04-014). The state already has `continuousEffects` with timestamps.
 
-Cards (4): EBP02-006, EBP02-029, EBP04-014, EBP03-032.
+Cards (4): EBP02-006, EBP02-029, EBP03-032, EBP04-014.
 
 #### E20. A third strategy zone
 
@@ -610,7 +610,7 @@ replacement { ...; optional?: boolean }   // "you may ... instead": build option
 
 Optional replacements throw today (`not implemented: optional replacement`). M.O.G.U.E.R.A. (EBP03-052) "when this card would be destroyed by an opponent's effect, add all cards under this card to your hand" is a `destroyed` replacement that changes where the cards underneath go.
 
-Cards (4): EBP02-012, EBP04-010, EBP03-004, EBP03-052.
+Cards (4): EBP02-012, EBP03-004, EBP03-052, EBP04-010.
 
 ### Modifiers, keywords and deck rules
 
@@ -632,7 +632,7 @@ type Modifier = ... | { flag: "cannotEngage"; target; with?: Selector }        /
 
 The schema lists five flags; none is built (only a `cannotEngage` status exists). Each flag is read at the rule it changes, e.g. `cannotAdvance` overrides the mandatory 7.5.2 advance (1.3.3).
 
-Cards (25): EBP01-014, EBP01-028, EBP01-052, EBP01-075, EBP01-080, EBP02-024, EBP02-025, EBP02-055, EBP02-068, EBP02-070, EBP04-006, EBP04-027, EBP04-029, EBP04-030, EBP04-031, EBP04-032, EBP04-048, EBP04-056, EBP04-076, EBP04-081, EBP04-085, EBP03-004, EBP03-053, EBP03-068, FC01-006.
+Cards (25): EBP01-014, EBP01-028, EBP01-052, EBP01-075, EBP01-080, EBP02-024, EBP02-025, EBP02-055, EBP02-068, EBP02-070, EBP03-004, EBP03-053, EBP03-068, EBP04-006, EBP04-027, EBP04-029, EBP04-030, EBP04-031, EBP04-032, EBP04-048, EBP04-056, EBP04-076, EBP04-081, EBP04-085, FC01-006.
 
 #### M2. Play cost: reduced rank, restrictions and alternative plays
 
@@ -647,7 +647,7 @@ Rules: 8.2.1, 8.3.1, 8.5, 1.3.1. Built in: EBP01.
 
 Read when `getLegalActions` checks 8.2.1, 8.3.1 and 8.5 (finding F10). After the play the card has its printed rank again ("After being played, this card is rank 8"). Lake Ashi Monster (EBP02-039) grants the reduction to other cards in the hand.
 
-Cards (18): EBP01-027, EBP01-033, EBP01-058, EBP01-073, EBP01-075, EBP01-080, EBP02-039, EBP02-068, EBP04-012, EBP04-033, EBP04-034, EBP04-044, EBP04-045, EBP04-067, EBP03-051, EBP03-066, ESC01-001, FC01-004.
+Cards (18): EBP01-027, EBP01-033, EBP01-058, EBP01-073, EBP01-075, EBP01-080, EBP02-039, EBP02-068, EBP03-051, EBP03-066, EBP04-012, EBP04-033, EBP04-034, EBP04-044, EBP04-045, EBP04-067, ESC01-001, FC01-004.
 
 #### M3. Rank modifiers on cards in a hand
 
@@ -663,7 +663,7 @@ Cards (3): EBP04-028, EBP04-066, EBP04-068.
 
 #### K1. Base (keyword)
 
-Rules: 12.9.1, 12.9.2, 7.2.3. Built in: EBP04.
+Rules: 12.9.1, 12.9.2, 7.2.3. Built in: EBP03.
 
 ```typescript
 { kind: "keyword"; keyword: { name: "base" } }    // 7.2.3 skips the card; its automatic ability is ordinary data
@@ -672,11 +672,11 @@ type Modifier = ... | { flag: "staysInStrategyZone" }  // Inherited Life (EBP04-
 
 The Base cards' own automatic ability is "When any monster card invades into zones 6-8, [destroy] this card" (T6 with `intoZones`, Q18). Cards that ask "if you have a card with [base] in play" already filter with `keyword: "base"`, which reads ability data.
 
-Cards (8): EBP04-076, EBP04-082, EBP04-086, EBP04-089, EBP03-070, EBP03-075, EBP03-076, EBP03-080.
+Cards (8): EBP03-070, EBP03-075, EBP03-076, EBP03-080, EBP04-076, EBP04-082, EBP04-086, EBP04-089.
 
 #### K2. Resonance (deck rules)
 
-Rules: 6.1.2, 12.8. Built in: EBP04.
+Rules: 6.1.2, 12.8. Built in: EBP03.
 
 ```typescript
 deckRules: [{ rule: "resonance"; colors: Color[];
@@ -686,7 +686,7 @@ deckRules: [{ rule: "resonance"; colors: Color[];
 
 Read by `validateDeck` on the rank I monster (decision 119 waited for this data). EBP03-006, -018, -024 and EBP04-031.
 
-Cards (4): EBP04-031, EBP03-006, EBP03-018, EBP03-024.
+Cards (4): EBP03-006, EBP03-018, EBP03-024, EBP04-031.
 
 #### K3. Start in another zone
 
@@ -707,7 +707,7 @@ Cards (1): EBP02-024.
 
 #### X. Targeting orders and constrained picks
 
-Rules: 4.4.5.5, 5.12, 10.5.3. Built in: EBP04.
+Rules: 4.4.5.5, 5.12, 10.5.3. Built in: EBP03.
 
 ```typescript
 target { ...; order?: "lowestZoneFirst" | "lowestRank" | "leftmost" | "rightmost"; oneByOne?: boolean }
@@ -716,7 +716,7 @@ count  { anyNumber: true; maxTotalRank?: number }       // "any number ... whose
 
 `anyNumber` throws today. Ties go to the effect's chooser (Q33).
 
-Cards (4): EBP04-024, EBP04-035, EBP03-067, EBP03-078.
+Cards (4): EBP03-067, EBP03-078, EBP04-024, EBP04-035.
 
 #### CU. Custom handlers
 
@@ -733,66 +733,63 @@ For one-off rules that a data piece wouldn't reuse: Joint Struggle's trait compa
 
 Cards (4): EBP02-080, EBP04-067, EBP04-073, EBP04-089.
 
-## 4. Rules questions for Paul
+## 4. Rules questions (approved)
 
-These are not settled by the Comprehensive Rules v1.2, by Q1 to Q14 (format.md) or by Paul's rulings in `docs/rules/spec.md`. Numbering continues from Q14. Each has a proposed answer; the PR for the set marked "Needed by" waits for the answer, and every other PR can go ahead.
+These were not settled by the Comprehensive Rules v1.2, by Q1 to Q14 (format.md) or by Paul's earlier rulings in `docs/rules/spec.md`. Numbering continues from Q14. Paul approved every proposed answer on Oct 23, 2026, with Q23 reworded (the answer below is the approved wording); they are in the rulings table of `docs/rules/spec.md`. "Needed by" names the set PRs that use each ruling.
 
-| #   | Needed by    | Card and text                                                                                                                                                                                                                                                                                                                                 | Question                                                                                                                                                                                                                                                                                                                                                                          | Proposed answer                                                                                                                                                                                                                                                                                                                                                               |
-| --- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Q15 | EBP04        | EBP04-007 Godzilla (1962): "[burst-3] (... send this card to your discard pile at the beginning of that turn's end phase.)" Earlier sets (EBP02-009, FC01-001) say "your next end phase".                                                                                                                                                     | Is the newer reminder text the same rule?                                                                                                                                                                                                                                                                                                                                         | Yes. A Burst play happens in your main phase, so "that turn's end phase" and "your next end phase" are the same phase (12.5.2.1). No change to decision 157.                                                                                                                                                                                                                  |
-| Q16 | EBP03, EBP04 | EBP03-004 Godzilla (2001): "This card's [rage] cannot be reduced by your opponent's effects." EBP04-010 Godzilla (2023): "When you would set this card's [rage] to 0 during your start phase ..."                                                                                                                                             | Rage belongs to the player (3.4). Does "this card's [rage]" mean its master's rage?                                                                                                                                                                                                                                                                                               | Yes: the rage of this monster card's master, read while the card is the invading monster.                                                                                                                                                                                                                                                                                     |
-| Q17 | EBP02        | EBP02-058 Dorat and 10 other cards with [revenge]. 12.7.2: "placed into the discard pile from the field for a reason other than duplicate card processing".                                                                                                                                                                                   | Is "duplicate card processing" the overload rule (11.5)? Does Revenge trigger after a crush (11.3) or when a stack's lower cards go to the discard pile because the top card was put on the deck (5.12.1.1)?                                                                                                                                                                      | Duplicate card processing is 11.5. Revenge triggers after a crush, after any destroy by an effect, and for a card under a stack when that card itself goes to the discard pile, except that 12.7.3 keeps a card that was stacked underneath from triggering.                                                                                                                  |
-| Q18 | EBP04        | EBP04-076 Godzilla's Dormancy, EBP03-070 Mechagodzilla Hanger and the other Base cards: "When any monster card invades into zones 6-8, [destroy] this card."                                                                                                                                                                                  | When does this trigger: once per invasion action that moves the monster into zone 6, 7 or 8, or once per zone advanced (like [invading], Q4)? Does an invasion from zone 6 to 7 count?                                                                                                                                                                                            | Once per invasion action (8.6) in which the monster enters zone 6, 7 or 8 at any step, including 6 to 7 and 7 to 8. An invasion that doesn't move (5.13.3) doesn't trigger it.                                                                                                                                                                                                |
-| Q19 | EBP04        | Same Base text: "When any monster card invades ..."                                                                                                                                                                                                                                                                                           | Does "any monster card" include the Base card owner's own monster?                                                                                                                                                                                                                                                                                                                | Yes, either player's monster.                                                                                                                                                                                                                                                                                                                                                 |
-| Q20 | EBP04        | EBP04-014 Godzilla (2002): "... this card cannot be countered by 30,000 or lower counter power this turn. (It will not retreat.)" EBP01-038 Godzilla (1995) says "instead, it only moves as though it were countered".                                                                                                                        | Does EBP04-014 also stay in place when the counter fails, so 7.4.3 does nothing at all?                                                                                                                                                                                                                                                                                           | Yes. EBP04-014 doesn't move and no next monster comes in; EBP01-038 moves back as though countered (Q14).                                                                                                                                                                                                                                                                     |
-| Q21 | EBP04, EBP03 | EBP04-078 The Slithering Disaster: "Move an opponent's monster card in zones 3-5 vertically ... Battle cards in zones between them are not [destroy]." EBP03-068 Godzilla Flies: "Move your rank III or higher monster card in zone 3 vertically to zone 8."                                                                                  | Is a vertical move an advance or retreat (for [invading], advanced triggers and EBP02-079's count)? When the monster lands in zone 8 with its master's battle card there, does crush and destroy (11.3) apply?                                                                                                                                                                    | Neither an advance nor a retreat: no movement triggers, `didAdvance` false. 11.3 still applies in the destination zone, since the reminder text spares only the zones in between.                                                                                                                                                                                             |
-| Q22 | EBP04        | EBP04-012 Biollante Plant Beast Form: "You may play this card from your hand by placing 1 rank III card from your monster deck under one of your rank II [biollante] monster cards. (You may play this card from rank II.)"                                                                                                                   | Which card goes under which: the rank III card from the monster deck goes under the rank II monster, and then this card is played on top? Does this count as the turn's monster play, and does rage go up? Can the rank III card be a monster card that would otherwise be a legal next monster?                                                                                  | This card is played on top of the rank II monster as a normal monster play (once per turn, rage +1); the rank III monster deck card goes into that stack under the rank II card. Stays manual until ruled (section 5).                                                                                                                                                        |
-| Q23 | EBP04        | EBP04-033 and EBP04-034 Kaizer Ghidorah (rank III monster cards, trait Kaizer Ghidorah): "This card can be played by placing it on top of a monster card with [monster-x] in your zones." The only Monster X monster cards are EBP04-031 (rank I) and EBP04-032 (rank II); Monster X battle cards (EBP03-067, EBP04-047) also have the trait. | Is the "monster card with [monster-x] in your zones" your invading monster, so this is a monster play from the hand onto a rank II Monster X, ignoring both the rank and the trait match of 8.5.1? Does it use the turn's monster play and give rage? When a rank II Monster X is countered, can a Kaizer Ghidorah come in from the monster deck (5.15.1.2 needs a shared trait)? | Your invading monster: a main phase monster play (once per turn, rage +1) from the hand onto a Monster X monster, ignoring rank and trait. The counter rule is unchanged: with no rank III Monster X in the monster deck, countering a rank II Monster X loses the game (5.15.1.2.1). Stays manual until ruled (section 5), since a wrong reading changes how the deck plays. |
-| Q24 | EBP02, EBP04 | EBP02-012 Godzilla (2016) Frozen: "counter your opponent's monster card." EBP04-027 Gigan (2004): "... If they do, counter this card."                                                                                                                                                                                                        | Does a counter by an effect fire "countered" triggers, and can it end the game through 5.15.1.2.1 (no rank+1 monster left)?                                                                                                                                                                                                                                                       | Yes to both: it is a counter (5.15.1), unlike "moves as though countered" (Q14). Countering a rank IV monster by effect wins the game for the other player. A counter by effect gives no rage, as in 7.4.3.                                                                                                                                                                   |
-| Q25 | EBP04        | EBP04-089 Inherited Life: "[your-turn] Whenever your monster card's [rage] is reduced, place that many [rage] under this card."                                                                                                                                                                                                               | Does the 7.2.4 reset to 0 in your start phase count as a reduction? Does paying a cost or an own effect count?                                                                                                                                                                                                                                                                    | Every decrease counts, whoever caused it, including the 7.2.4 reset (logged as `rageChanged`). The counter (Q11) grows by the amount of the decrease.                                                                                                                                                                                                                         |
-| Q26 | EBP02        | EBP02-029 Biollante Plant Beast Form: "... for the rest of the turn, double the counter power of all of your opponent's battle cards in the same column as this card. (Refer to those battle card's counter power at the ability resolution timing.)"                                                                                         | Which cards are doubled: the ones in the column at resolution, or any battle card in that column later in the turn?                                                                                                                                                                                                                                                               | Only the cards in the column at resolution; each gains its counter power at resolution as a bonus for the turn. The bonus stays if the card moves to another zone (10.8.2) and ends if it leaves the zones.                                                                                                                                                                   |
-| Q27 | EBP03        | EBP03-074 A Journey of 130 Million Years: "play 1 monster card from your monster deck that shares a trait with it, whose rank is 1 higher than your monster card's current rank. (This play does not increase [rage].)"                                                                                                                       | Is the new card stacked on the current monster, keeping its position (8.5.1.1)? Does it fire [enter], and does it use up the turn's monster play?                                                                                                                                                                                                                                 | Stacked on top, keeps the position, fires [enter] (decision 127). It doesn't use the once-per-turn monster play, which limits the main phase action only.                                                                                                                                                                                                                     |
-| Q28 | EBP04        | EBP04-067 Godzilla Earth: "[enter] Play 1 "Godzilla Earth" token in your zone 3. If either this card or that token leave their zone or move, [destroy] both of them."                                                                                                                                                                         | What if your monster is in zone 3, or zone 3 already holds a battle card?                                                                                                                                                                                                                                                                                                         | Your monster's zone: no token (Q5's rule for unoccupied zones). A battle card in zone 3: the token is played and 11.5 overload resolves it. If the token is not played, nothing links to this card.                                                                                                                                                                           |
-| Q29 | FC01         | FC01-005 (ゴジラゴジラ・フェスに現わる): "Whenever you play a monster card, draw 5 cards from the top of your deck and add any with [fest] to your hand, discarding the remaining cards."                                                                                                                                                     | Is this a draw (5.4, reshuffling an empty deck per 11.2) or a reveal of the top 5 (5.10)?                                                                                                                                                                                                                                                                                         | A reveal of the top 5: [fest] cards go to the hand, the rest to the discard pile. No reshuffle; with fewer than 5 cards, reveal what is there.                                                                                                                                                                                                                                |
-| Q30 | EBP04        | EBP04-041 The New Gotengo: "At the beginning of your counter phase, if this card is in zone 8, trigger all [enter] abilities of your monster card."                                                                                                                                                                                           | Are their conditions, Awakening gates and optional costs checked as usual? Do [enter] abilities of cards under the top monster card count?                                                                                                                                                                                                                                        | Checked as usual. Only the top card's [enter] abilities, since cards underneath have no active abilities (3.2.3.1).                                                                                                                                                                                                                                                           |
-| Q31 | EBP02        | EBP02-024 Biollante Rose Form (rank I): "If this card is in your monster deck, at the start of the game it will be played in Zone 5. This card cannot advance nor invade."                                                                                                                                                                    | Is it the rank I monster placed in zone 5 at 6.3.1.6 instead of zone 1?                                                                                                                                                                                                                                                                                                           | Yes. It is placed, not played, so no [enter] (decision 127); the 7.5.2 advance is skipped while it can't advance.                                                                                                                                                                                                                                                             |
-| Q32 | EBP02        | EBP02-070 Godzilla vs. SpaceGodzilla: "[opponent-turn] Your opponent cannot play strategy cards."                                                                                                                                                                                                                                             | Does it stop only the 8.3 activation, or also effects that put strategy cards into play (E17)?                                                                                                                                                                                                                                                                                    | Both: any strategy card entering a strategy zone by its master's action or effect.                                                                                                                                                                                                                                                                                            |
-| Q33 | EBP04, EBP03 | EBP03-078 Megalon and Gigan: Villain Tag Team: "[destroy] 1 battle card from the rightmost and 1 from the leftmost position from among them". EBP04-035 Kaizer Ghidorah: "Starting with the battle card in your opponent's zone with the lowest number ..."                                                                                   | When several cards tie (two cards in the rightmost column, an overloaded zone), who picks?                                                                                                                                                                                                                                                                                        | The effect's player chooses among the tied cards.                                                                                                                                                                                                                                                                                                                             |
-| Q34 | EBP03        | EBP03-071 Godzilla's Skeleton: "When counting monster cards in your discard pile, treat this card as a monster card as well."                                                                                                                                                                                                                 | Does it count for the opponent's effects that count your discard pile, and for "return a monster card" effects?                                                                                                                                                                                                                                                                   | It counts for any count of monster cards in its owner's discard pile, by either player. It is not a monster card for anything else, so it can't be returned or played as one.                                                                                                                                                                                                 |
+| #   | Needed by    | Card and text                                                                                                                                                                                                                                                                                                                                 | Question                                                                                                                                                                                                                                                                                                                                                                          | Answer (approved)                                                                                                                                                                                                                                                         |
+| --- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q15 | EBP04        | EBP04-007 Godzilla (1962): "[burst-3] (... send this card to your discard pile at the beginning of that turn's end phase.)" Earlier sets (EBP02-009, FC01-001) say "your next end phase".                                                                                                                                                     | Is the newer reminder text the same rule?                                                                                                                                                                                                                                                                                                                                         | Yes. A Burst play happens in your main phase, so "that turn's end phase" and "your next end phase" are the same phase (12.5.2.1). No change to decision 157.                                                                                                              |
+| Q16 | EBP03, EBP04 | EBP03-004 Godzilla (2001): "This card's [rage] cannot be reduced by your opponent's effects." EBP04-010 Godzilla (2023): "When you would set this card's [rage] to 0 during your start phase ..."                                                                                                                                             | Rage belongs to the player (3.4). Does "this card's [rage]" mean its master's rage?                                                                                                                                                                                                                                                                                               | Yes: the rage of this monster card's master, read while the card is the invading monster.                                                                                                                                                                                 |
+| Q17 | EBP02        | EBP02-058 Dorat and 10 other cards with [revenge]. 12.7.2: "placed into the discard pile from the field for a reason other than duplicate card processing".                                                                                                                                                                                   | Is "duplicate card processing" the overload rule (11.5)? Does Revenge trigger after a crush (11.3) or when a stack's lower cards go to the discard pile because the top card was put on the deck (5.12.1.1)?                                                                                                                                                                      | Duplicate card processing is 11.5. Revenge triggers after a crush, after any destroy by an effect, and for a card under a stack when that card itself goes to the discard pile, except that 12.7.3 keeps a card that was stacked underneath from triggering.              |
+| Q18 | EBP03, EBP04 | EBP04-076 Godzilla's Dormancy, EBP03-070 Mechagodzilla Hanger and the other Base cards: "When any monster card invades into zones 6-8, [destroy] this card."                                                                                                                                                                                  | When does this trigger: once per invasion action that moves the monster into zone 6, 7 or 8, or once per zone advanced (like [invading], Q4)? Does an invasion from zone 6 to 7 count?                                                                                                                                                                                            | Once per invasion action (8.6) in which the monster enters zone 6, 7 or 8 at any step, including 6 to 7 and 7 to 8. An invasion that doesn't move (5.13.3) doesn't trigger it.                                                                                            |
+| Q19 | EBP03, EBP04 | Same Base text: "When any monster card invades ..."                                                                                                                                                                                                                                                                                           | Does "any monster card" include the Base card owner's own monster?                                                                                                                                                                                                                                                                                                                | Yes, either player's monster.                                                                                                                                                                                                                                             |
+| Q20 | EBP04        | EBP04-014 Godzilla (2002): "... this card cannot be countered by 30,000 or lower counter power this turn. (It will not retreat.)" EBP01-038 Godzilla (1995) says "instead, it only moves as though it were countered".                                                                                                                        | Does EBP04-014 also stay in place when the counter fails, so 7.4.3 does nothing at all?                                                                                                                                                                                                                                                                                           | Yes. EBP04-014 doesn't move and no next monster comes in; EBP01-038 moves back as though countered (Q14).                                                                                                                                                                 |
+| Q21 | EBP03, EBP04 | EBP04-078 The Slithering Disaster: "Move an opponent's monster card in zones 3-5 vertically ... Battle cards in zones between them are not [destroy]." EBP03-068 Godzilla Flies: "Move your rank III or higher monster card in zone 3 vertically to zone 8."                                                                                  | Is a vertical move an advance or retreat (for [invading], advanced triggers and EBP02-079's count)? When the monster lands in zone 8 with its master's battle card there, does crush and destroy (11.3) apply?                                                                                                                                                                    | Neither an advance nor a retreat: no movement triggers, `didAdvance` false. 11.3 still applies in the destination zone, since the reminder text spares only the zones in between.                                                                                         |
+| Q22 | EBP04        | EBP04-012 Biollante Plant Beast Form: "You may play this card from your hand by placing 1 rank III card from your monster deck under one of your rank II [biollante] monster cards. (You may play this card from rank II.)"                                                                                                                   | Which card goes under which: the rank III card from the monster deck goes under the rank II monster, and then this card is played on top? Does this count as the turn's monster play, and does rage go up? Can the rank III card be a monster card that would otherwise be a legal next monster?                                                                                  | This card is played on top of the rank II monster as a normal monster play (once per turn, rage +1); the rank III monster deck card goes into that stack under the rank II card.                                                                                          |
+| Q23 | EBP04        | EBP04-033 and EBP04-034 Kaizer Ghidorah (rank III monster cards, trait Kaizer Ghidorah): "This card can be played by placing it on top of a monster card with [monster-x] in your zones." The only Monster X monster cards are EBP04-031 (rank I) and EBP04-032 (rank II); Monster X battle cards (EBP03-067, EBP04-047) also have the trait. | Is the "monster card with [monster-x] in your zones" your invading monster, so this is a monster play from the hand onto a rank II Monster X, ignoring both the rank and the trait match of 8.5.1? Does it use the turn's monster play and give rage? When a rank II Monster X is countered, can a Kaizer Ghidorah come in from the monster deck (5.15.1.2 needs a shared trait)? | Kaizer Ghidorah (EBP04-033/034) is played in your main phase on top of your invading Monster X monster card, as your one monster play for the turn, ignoring the rank and trait match. Like every monster play, it increases your rage by 1. Counter rules are unchanged. |
+| Q24 | EBP02, EBP04 | EBP02-012 Godzilla (2016) Frozen: "counter your opponent's monster card." EBP04-027 Gigan (2004): "... If they do, counter this card."                                                                                                                                                                                                        | Does a counter by an effect fire "countered" triggers, and can it end the game through 5.15.1.2.1 (no rank+1 monster left)?                                                                                                                                                                                                                                                       | Yes to both: it is a counter (5.15.1), unlike "moves as though countered" (Q14). Countering a rank IV monster by effect wins the game for the other player. A counter by effect gives no rage, as in 7.4.3.                                                               |
+| Q25 | EBP04        | EBP04-089 Inherited Life: "[your-turn] Whenever your monster card's [rage] is reduced, place that many [rage] under this card."                                                                                                                                                                                                               | Does the 7.2.4 reset to 0 in your start phase count as a reduction? Does paying a cost or an own effect count?                                                                                                                                                                                                                                                                    | Every decrease counts, whoever caused it, including the 7.2.4 reset (logged as `rageChanged`). The counter (Q11) grows by the amount of the decrease.                                                                                                                     |
+| Q26 | EBP02        | EBP02-029 Biollante Plant Beast Form: "... for the rest of the turn, double the counter power of all of your opponent's battle cards in the same column as this card. (Refer to those battle card's counter power at the ability resolution timing.)"                                                                                         | Which cards are doubled: the ones in the column at resolution, or any battle card in that column later in the turn?                                                                                                                                                                                                                                                               | Only the cards in the column at resolution; each gains its counter power at resolution as a bonus for the turn. The bonus stays if the card moves to another zone (10.8.2) and ends if it leaves the zones.                                                               |
+| Q27 | EBP03        | EBP03-074 A Journey of 130 Million Years: "play 1 monster card from your monster deck that shares a trait with it, whose rank is 1 higher than your monster card's current rank. (This play does not increase [rage].)"                                                                                                                       | Is the new card stacked on the current monster, keeping its position (8.5.1.1)? Does it fire [enter], and does it use up the turn's monster play?                                                                                                                                                                                                                                 | Stacked on top, keeps the position, fires [enter] (decision 127). It doesn't use the once-per-turn monster play, which limits the main phase action only.                                                                                                                 |
+| Q28 | EBP04        | EBP04-067 Godzilla Earth: "[enter] Play 1 "Godzilla Earth" token in your zone 3. If either this card or that token leave their zone or move, [destroy] both of them."                                                                                                                                                                         | What if your monster is in zone 3, or zone 3 already holds a battle card?                                                                                                                                                                                                                                                                                                         | Your monster's zone: no token (Q5's rule for unoccupied zones). A battle card in zone 3: the token is played and 11.5 overload resolves it. If the token is not played, nothing links to this card.                                                                       |
+| Q29 | FC01         | FC01-005 (ゴジラゴジラ・フェスに現わる): "Whenever you play a monster card, draw 5 cards from the top of your deck and add any with [fest] to your hand, discarding the remaining cards."                                                                                                                                                     | Is this a draw (5.4, reshuffling an empty deck per 11.2) or a reveal of the top 5 (5.10)?                                                                                                                                                                                                                                                                                         | A reveal of the top 5: [fest] cards go to the hand, the rest to the discard pile. No reshuffle; with fewer than 5 cards, reveal what is there.                                                                                                                            |
+| Q30 | EBP04        | EBP04-041 The New Gotengo: "At the beginning of your counter phase, if this card is in zone 8, trigger all [enter] abilities of your monster card."                                                                                                                                                                                           | Are their conditions, Awakening gates and optional costs checked as usual? Do [enter] abilities of cards under the top monster card count?                                                                                                                                                                                                                                        | Checked as usual. Only the top card's [enter] abilities, since cards underneath have no active abilities (3.2.3.1).                                                                                                                                                       |
+| Q31 | EBP02        | EBP02-024 Biollante Rose Form (rank I): "If this card is in your monster deck, at the start of the game it will be played in Zone 5. This card cannot advance nor invade."                                                                                                                                                                    | Is it the rank I monster placed in zone 5 at 6.3.1.6 instead of zone 1?                                                                                                                                                                                                                                                                                                           | Yes. It is placed, not played, so no [enter] (decision 127); the 7.5.2 advance is skipped while it can't advance.                                                                                                                                                         |
+| Q32 | EBP02        | EBP02-070 Godzilla vs. SpaceGodzilla: "[opponent-turn] Your opponent cannot play strategy cards."                                                                                                                                                                                                                                             | Does it stop only the 8.3 activation, or also effects that put strategy cards into play (E17)?                                                                                                                                                                                                                                                                                    | Both: any strategy card entering a strategy zone by its master's action or effect.                                                                                                                                                                                        |
+| Q33 | EBP03, EBP04 | EBP03-078 Megalon and Gigan: Villain Tag Team: "[destroy] 1 battle card from the rightmost and 1 from the leftmost position from among them". EBP04-035 Kaizer Ghidorah: "Starting with the battle card in your opponent's zone with the lowest number ..."                                                                                   | When several cards tie (two cards in the rightmost column, an overloaded zone), who picks?                                                                                                                                                                                                                                                                                        | The effect's player chooses among the tied cards.                                                                                                                                                                                                                         |
+| Q34 | EBP03        | EBP03-071 Godzilla's Skeleton: "When counting monster cards in your discard pile, treat this card as a monster card as well."                                                                                                                                                                                                                 | Does it count for the opponent's effects that count your discard pile, and for "return a monster card" effects?                                                                                                                                                                                                                                                                   | It counts for any count of monster cards in its owner's discard pile, by either player. It is not a monster card for anything else, so it can't be returned or played as one.                                                                                             |
 
 ## 5. Cards that stay manual
 
-| Card      | Name                       | Reason                                                                                                                                               |
-| --------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| EBP04-012 | Biollante Plant Beast Form | Its play cost puts a monster deck card under a monster; the stack it makes needs Q22. Its [enter] Tentacles text can be written once Q22 is answered |
-| EBP04-033 | Kaizer Ghidorah            | Played on top of a [monster-x] monster card, ignoring rank and trait; which card and how it interacts with counters needs Q23                        |
-| EBP04-034 | Kaizer Ghidorah            | Same as EBP04-033 (Q23)                                                                                                                              |
+None. EBP04-012 Biollante Plant Beast Form and EBP04-033/034 Kaizer Ghidorah were listed here until Paul ruled on Q22 and Q23 (Oct 23, 2026); they moved into the EBP04 PR (M12d).
 
-Every other card gets data in M12. Four cards use a `custom` handler for one rule that no other card shares (EBP02-080, EBP04-067, EBP04-073, EBP04-089, piece CU); they are implemented, not manual. If a ruling makes a piece much larger than planned, the card stays manual with a note in its set file and comes back in a later PR.
+Four cards use a `custom` handler for one rule that no other card shares (EBP02-080, EBP04-067, EBP04-073, EBP04-089, piece CU); they are implemented, not manual. If a ruling makes a piece much larger than planned, the card stays manual with a note in its set file and comes back in a later PR.
 
 ## 6. PR plan
 
 One PR per set, in priority order. Each PR:
 
 - adds the set's new pieces to `docs/abilities/format.md` (from section 3, as approved), the Zod schema in `packages/cards/src/abilities.ts` and the engine;
-- adds `packages/cards/data/abilities/<SET>.json` with data for every card in the set (tokens included), except the cards in section 5;
+- adds `packages/cards/data/abilities/<SET>.json` with data for every card in the set (tokens included);
 - adds an engine test per card, named with the rule numbers it exercises (CLAUDE.md, Testing);
 - logs the rulings it uses in the card's `notes`;
 - updates `docs/rules/spec.md` for engine behavior that changes;
 - reports `pnpm abilities:coverage` before and after;
 - runs `pnpm stress` with random test decks of the set (`buildTestDeck` builds booster sets the same way, decision 92) and with Paul's local decks that use the set, and reports the results (counts only).
 
-| PR   | Set              | Cards | With today's format | New pieces built                                                                                       | Questions it waits for              | Implemented after |
-| ---- | ---------------- | ----- | ------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------- | ----------------- |
-| M12a | EBP01            | 80    | 39                  | 24: C2, C5, C6, C7, T1, T3, T4, T5, T6, T8, E1, E2, E3, E4, E5, E7, E8, E9, E10, E13, E17, E18, M1, M2 | none                                | 111               |
-| M12b | EBP02 + 4 tokens | 80    | 26                  | 12: C1, C3, T2, T7, E6, E11, E12, E15, E19, E21, K3, CU                                                | Q17, Q24, Q26, Q31, Q32             | 191               |
-| M12c | EBP04 + 1 token  | 89    | 22                  | 7: C4, T9, E14, M3, K1, K2, X                                                                          | Q15, Q16, Q18 to Q25, Q28, Q30, Q33 | 277 (3 manual)    |
-| M12d | EBP03            | 80    | 16                  | 2: E16, E20                                                                                            | Q16, Q21, Q27, Q33, Q34             | 357               |
-| M12e | PR, EPR          | 12    | 11                  | none                                                                                                   | none                                | 369               |
-| M12f | ESC01            | 6     | 1                   | none                                                                                                   | none                                | 375               |
-| M12g | FC01             | 6     | 1                   | none                                                                                                   | Q29                                 | 381               |
+| PR     | Set              | Cards | With today's format | New pieces built                                                   | Questions it waits for              | Implemented after |
+| ------ | ---------------- | ----- | ------------------- | ------------------------------------------------------------------ | ----------------------------------- | ----------------- |
+| M12a-1 | EBP01, part 1    | 47    | 39                  | 9: C5, C6, C7, T1, T3, T4, T5, T6, T8                              | none                                | 78                |
+| M12a-2 | EBP01, part 2    | 33    | 0                   | 15: C2, E1, E2, E3, E4, E5, E7, E8, E9, E10, E13, E17, E18, M1, M2 | none                                | 111               |
+| M12b   | EBP02 + 4 tokens | 80    | 26                  | 12: C1, C3, T2, T7, E6, E11, E12, E15, E19, E21, K3, CU            | Q17, Q24, Q26, Q31, Q32             | 191               |
+| M12c   | EBP03            | 80    | 16                  | 7: C4, E14, E16, E20, K1, K2, X                                    | Q16, Q18, Q19, Q21, Q27, Q33, Q34   | 271               |
+| M12d   | EBP04 + 1 token  | 89    | 22                  | 2: T9, M3                                                          | Q15, Q16, Q18 to Q25, Q28, Q30, Q33 | 360               |
+| M12e   | PR, EPR          | 12    | 11                  | none                                                               | none                                | 372               |
+| M12f   | ESC01            | 6     | 1                   | none                                                               | none                                | 378               |
+| M12g   | FC01             | 6     | 1                   | none                                                               | Q29                                 | 384               |
 
-M12a is the largest: half its cards build a new piece. If the review would be too big, it can split into M12a-1 (pieces C5 to T8 plus every card that needs only those) and M12a-2 (the rest), at Monarch's call. After M12g, 381 of 384 cards are implemented; the 3 in section 5 follow Paul's rulings.
+M12a is split in two (Monarch, Oct 23, 2026): M12a-1 builds C5, C6, C7, T1, T3, T4, T5, T6 and T8 with every EBP01 card that needs only those pieces or today's format; M12a-2 builds the rest with the remaining EBP01 cards. The order is EBP01, EBP02, EBP03, EBP04 (Paul, Oct 23, 2026), so EBP03 builds the pieces it shares with EBP04. After M12g, all 384 cards are implemented.
 
 Per-set card lists, with the pieces each card needs (section 3 has the pieces):
 
@@ -970,102 +967,6 @@ Per-set card lists, with the pieces each card needs (section 3 has the pieces):
 
 </details>
 
-<details><summary>EBP04: 89 cards, 22 with today's format, 67 with new pieces</summary>
-
-| Card      | Name                                  | Type     | Pieces                           |
-| --------- | ------------------------------------- | -------- | -------------------------------- |
-| EBP04-001 | Godzilla (2004)                       | Monster  | today's format                   |
-| EBP04-002 | Godzilla (2004)                       | Monster  | T1                               |
-| EBP04-003 | Godzilla (2004)                       | Monster  | today's format                   |
-| EBP04-004 | Godzilla (2004)                       | Monster  | today's format                   |
-| EBP04-005 | Godzilla (2004)                       | Monster  | E17, T1                          |
-| EBP04-006 | Godzilla (2004)                       | Monster  | M1                               |
-| EBP04-007 | Godzilla (1962)                       | Monster  | E15                              |
-| EBP04-008 | Godzilla (2001)                       | Monster  | today's format                   |
-| EBP04-009 | Godzilla (2016) 3rd Form              | Monster  | C1                               |
-| EBP04-010 | Godzilla (2023)                       | Monster  | E21, C1                          |
-| EBP04-011 | Multi-purpose Fighting System-3       | Monster  | C4                               |
-| EBP04-012 | Biollante Plant Beast Form            | Monster  | M2 (stays manual, section 5)     |
-| EBP04-013 | Godzilla (2000)                       | Monster  | E2, C3, E1                       |
-| EBP04-014 | Godzilla (2002)                       | Monster  | T3, E13, C1, E19                 |
-| EBP04-015 | Godzilla (2003)                       | Monster  | T3                               |
-| EBP04-016 | Godzilla (Fest Godzilla II)           | Monster  | C3                               |
-| EBP04-017 | Godzilla (Fest Godzilla II)           | Monster  | C3                               |
-| EBP04-018 | Godzilla (Fest Godzilla II)           | Monster  | C3                               |
-| EBP04-019 | Godzilla (Fest Godzilla II)           | Monster  | C3                               |
-| EBP04-020 | Aqua Mothra                           | Monster  | today's format                   |
-| EBP04-021 | Godzilla Aquatilis                    | Monster  | E2, C4                           |
-| EBP04-022 | Godzilla Amphibia                     | Monster  | T4, E2, C5                       |
-| EBP04-023 | Godzilla Terrestris                   | Monster  | today's format                   |
-| EBP04-024 | Godzilla Ultima                       | Monster  | X                                |
-| EBP04-025 | Godzilla Ultima                       | Monster  | today's format                   |
-| EBP04-026 | SpaceGodzilla                         | Monster  | E6                               |
-| EBP04-027 | Gigan (2004)                          | Monster  | M1, E12, C1, C5                  |
-| EBP04-028 | Gigan (2004)                          | Monster  | M3, T7                           |
-| EBP04-029 | Gigan (2004)                          | Monster  | M1                               |
-| EBP04-030 | Modified Gigan                        | Monster  | M1                               |
-| EBP04-031 | Monster X                             | Monster  | C4, M1, K2                       |
-| EBP04-032 | Monster X                             | Monster  | C4, M1                           |
-| EBP04-033 | Kaizer Ghidorah                       | Monster  | M2, C4 (stays manual, section 5) |
-| EBP04-034 | Kaizer Ghidorah                       | Monster  | M2, C4 (stays manual, section 5) |
-| EBP04-035 | Kaizer Ghidorah                       | Monster  | C4, X                            |
-| EBP04-036 | Kaizer Ghidorah                       | Monster  | C4                               |
-| EBP04-037 | Minilla (2004)                        | Battle   | today's format                   |
-| EBP04-038 | Kamacuras (2004)                      | Battle   | today's format                   |
-| EBP04-039 | Zilla                                 | Battle   | T1, C4, E10                      |
-| EBP04-040 | Anguirus (2004)                       | Battle   | today's format                   |
-| EBP04-041 | The New Gotengo                       | Battle   | T9                               |
-| EBP04-042 | Mothra (Imago) (2004)                 | Battle   | today's format                   |
-| EBP04-043 | Multi-purpose Fighting System-3       | Battle   | E4, C5                           |
-| EBP04-044 | Hedorah (2004)                        | Battle   | M2, C4                           |
-| EBP04-045 | Manda (2004)                          | Battle   | M2, C4                           |
-| EBP04-046 | Rodan (2004)                          | Battle   | T3, E18                          |
-| EBP04-047 | Monster X                             | Battle   | C4                               |
-| EBP04-048 | Little Godzilla                       | Battle   | M1                               |
-| EBP04-049 | Ebirah (2004)                         | Battle   | E2                               |
-| EBP04-050 | Battra (Larva)                        | Battle   | T6, E7, C1                       |
-| EBP04-051 | Super Mechagodzilla                   | Battle   | E1, C5                           |
-| EBP04-052 | Mothra (Imago) (1992)                 | Battle   | T3                               |
-| EBP04-053 | M.O.G.U.E.R.A.                        | Battle   | E9                               |
-| EBP04-054 | Destoroyah Perfect Form               | Battle   | today's format                   |
-| EBP04-055 | Void Ghidorah                         | Battle   | C1                               |
-| EBP04-056 | Kumonga (2004)                        | Battle   | M1                               |
-| EBP04-057 | King Caesar (2004)                    | Battle   | C4                               |
-| EBP04-058 | Servum                                | Battle   | today's format                   |
-| EBP04-059 | Rodan (2021)                          | Battle   | T2                               |
-| EBP04-060 | Vulture                               | Battle   | today's format                   |
-| EBP04-061 | Mechagodzilla (2018)                  | Battle   | E2                               |
-| EBP04-062 | Anguirus (2021)                       | Battle   | T2                               |
-| EBP04-063 | Godzilla Filius                       | Battle   | T2                               |
-| EBP04-064 | Jet Jaguar (2021)                     | Battle   | C1                               |
-| EBP04-065 | Godzilla Earth                        | Battle   | today's format                   |
-| EBP04-066 | Gigan (2004)                          | Battle   | M3, C4                           |
-| EBP04-067 | Godzilla Earth                        | Battle   | CU, M2, E6                       |
-| EBP04-068 | Kaizer Ghidorah                       | Battle   | M3, C4                           |
-| EBP04-069 | Gezora                                | Battle   | today's format                   |
-| EBP04-070 | Ganimes                               | Battle   | today's format                   |
-| EBP04-071 | Kamoebas (1970)                       | Battle   | today's format                   |
-| EBP04-072 | Sanda                                 | Battle   | T7                               |
-| EBP04-073 | Gaira                                 | Battle   | CU                               |
-| EBP04-074 | Rodan (1956)                          | Battle   | today's format                   |
-| EBP04-075 | Spiral Heat Ray                       | Strategy | E2                               |
-| EBP04-076 | Godzilla's Dormancy                   | Strategy | K1, M1                           |
-| EBP04-077 | Akane Yashiro, The MFS-3 Unit         | Strategy | E3, E18                          |
-| EBP04-078 | The Slithering Disaster               | Strategy | E14                              |
-| EBP04-079 | Godzilla Final Wars                   | Strategy | E3                               |
-| EBP04-080 | The Bond Between Mothra and its Child | Strategy | E18                              |
-| EBP04-081 | Entangling Fear                       | Strategy | M1                               |
-| EBP04-082 | Xilien Mothership                     | Strategy | K1, C4                           |
-| EBP04-083 | Godzilla vs. Destoroyah               | Strategy | today's format                   |
-| EBP04-084 | Atomic Breath                         | Strategy | today's format                   |
-| EBP04-085 | The Golden Demise                     | Strategy | T3, M1                           |
-| EBP04-086 | Mechagodzilla City                    | Strategy | K1, E18                          |
-| EBP04-087 | Together / The Two of the Beginning   | Strategy | today's format                   |
-| EBP04-088 | Abducted Monsters                     | Strategy | C4                               |
-| EBP04-089 | Inherited Life                        | Strategy | CU, K1                           |
-
-</details>
-
 <details><summary>EBP03: 80 cards, 16 with today's format, 64 with new pieces</summary>
 
 | Card      | Name                                | Type     | Pieces         |
@@ -1150,6 +1051,102 @@ Per-set card lists, with the pieces each card needs (section 3 has the pieces):
 | EBP03-078 | Megalon and Gigan: Villain Tag Team | Strategy | X              |
 | EBP03-079 | Godzilla Captured!                  | Strategy | E8             |
 | EBP03-080 | Odo Island                          | Strategy | K1             |
+
+</details>
+
+<details><summary>EBP04: 89 cards, 22 with today's format, 67 with new pieces</summary>
+
+| Card      | Name                                  | Type     | Pieces           |
+| --------- | ------------------------------------- | -------- | ---------------- |
+| EBP04-001 | Godzilla (2004)                       | Monster  | today's format   |
+| EBP04-002 | Godzilla (2004)                       | Monster  | T1               |
+| EBP04-003 | Godzilla (2004)                       | Monster  | today's format   |
+| EBP04-004 | Godzilla (2004)                       | Monster  | today's format   |
+| EBP04-005 | Godzilla (2004)                       | Monster  | E17, T1          |
+| EBP04-006 | Godzilla (2004)                       | Monster  | M1               |
+| EBP04-007 | Godzilla (1962)                       | Monster  | E15              |
+| EBP04-008 | Godzilla (2001)                       | Monster  | today's format   |
+| EBP04-009 | Godzilla (2016) 3rd Form              | Monster  | C1               |
+| EBP04-010 | Godzilla (2023)                       | Monster  | E21, C1          |
+| EBP04-011 | Multi-purpose Fighting System-3       | Monster  | C4               |
+| EBP04-012 | Biollante Plant Beast Form            | Monster  | M2               |
+| EBP04-013 | Godzilla (2000)                       | Monster  | E2, C3, E1       |
+| EBP04-014 | Godzilla (2002)                       | Monster  | T3, E13, C1, E19 |
+| EBP04-015 | Godzilla (2003)                       | Monster  | T3               |
+| EBP04-016 | Godzilla (Fest Godzilla II)           | Monster  | C3               |
+| EBP04-017 | Godzilla (Fest Godzilla II)           | Monster  | C3               |
+| EBP04-018 | Godzilla (Fest Godzilla II)           | Monster  | C3               |
+| EBP04-019 | Godzilla (Fest Godzilla II)           | Monster  | C3               |
+| EBP04-020 | Aqua Mothra                           | Monster  | today's format   |
+| EBP04-021 | Godzilla Aquatilis                    | Monster  | E2, C4           |
+| EBP04-022 | Godzilla Amphibia                     | Monster  | T4, E2, C5       |
+| EBP04-023 | Godzilla Terrestris                   | Monster  | today's format   |
+| EBP04-024 | Godzilla Ultima                       | Monster  | X                |
+| EBP04-025 | Godzilla Ultima                       | Monster  | today's format   |
+| EBP04-026 | SpaceGodzilla                         | Monster  | E6               |
+| EBP04-027 | Gigan (2004)                          | Monster  | M1, E12, C1, C5  |
+| EBP04-028 | Gigan (2004)                          | Monster  | M3, T7           |
+| EBP04-029 | Gigan (2004)                          | Monster  | M1               |
+| EBP04-030 | Modified Gigan                        | Monster  | M1               |
+| EBP04-031 | Monster X                             | Monster  | C4, M1, K2       |
+| EBP04-032 | Monster X                             | Monster  | C4, M1           |
+| EBP04-033 | Kaizer Ghidorah                       | Monster  | M2, C4           |
+| EBP04-034 | Kaizer Ghidorah                       | Monster  | M2, C4           |
+| EBP04-035 | Kaizer Ghidorah                       | Monster  | C4, X            |
+| EBP04-036 | Kaizer Ghidorah                       | Monster  | C4               |
+| EBP04-037 | Minilla (2004)                        | Battle   | today's format   |
+| EBP04-038 | Kamacuras (2004)                      | Battle   | today's format   |
+| EBP04-039 | Zilla                                 | Battle   | T1, C4, E10      |
+| EBP04-040 | Anguirus (2004)                       | Battle   | today's format   |
+| EBP04-041 | The New Gotengo                       | Battle   | T9               |
+| EBP04-042 | Mothra (Imago) (2004)                 | Battle   | today's format   |
+| EBP04-043 | Multi-purpose Fighting System-3       | Battle   | E4, C5           |
+| EBP04-044 | Hedorah (2004)                        | Battle   | M2, C4           |
+| EBP04-045 | Manda (2004)                          | Battle   | M2, C4           |
+| EBP04-046 | Rodan (2004)                          | Battle   | T3, E18          |
+| EBP04-047 | Monster X                             | Battle   | C4               |
+| EBP04-048 | Little Godzilla                       | Battle   | M1               |
+| EBP04-049 | Ebirah (2004)                         | Battle   | E2               |
+| EBP04-050 | Battra (Larva)                        | Battle   | T6, E7, C1       |
+| EBP04-051 | Super Mechagodzilla                   | Battle   | E1, C5           |
+| EBP04-052 | Mothra (Imago) (1992)                 | Battle   | T3               |
+| EBP04-053 | M.O.G.U.E.R.A.                        | Battle   | E9               |
+| EBP04-054 | Destoroyah Perfect Form               | Battle   | today's format   |
+| EBP04-055 | Void Ghidorah                         | Battle   | C1               |
+| EBP04-056 | Kumonga (2004)                        | Battle   | M1               |
+| EBP04-057 | King Caesar (2004)                    | Battle   | C4               |
+| EBP04-058 | Servum                                | Battle   | today's format   |
+| EBP04-059 | Rodan (2021)                          | Battle   | T2               |
+| EBP04-060 | Vulture                               | Battle   | today's format   |
+| EBP04-061 | Mechagodzilla (2018)                  | Battle   | E2               |
+| EBP04-062 | Anguirus (2021)                       | Battle   | T2               |
+| EBP04-063 | Godzilla Filius                       | Battle   | T2               |
+| EBP04-064 | Jet Jaguar (2021)                     | Battle   | C1               |
+| EBP04-065 | Godzilla Earth                        | Battle   | today's format   |
+| EBP04-066 | Gigan (2004)                          | Battle   | M3, C4           |
+| EBP04-067 | Godzilla Earth                        | Battle   | CU, M2, E6       |
+| EBP04-068 | Kaizer Ghidorah                       | Battle   | M3, C4           |
+| EBP04-069 | Gezora                                | Battle   | today's format   |
+| EBP04-070 | Ganimes                               | Battle   | today's format   |
+| EBP04-071 | Kamoebas (1970)                       | Battle   | today's format   |
+| EBP04-072 | Sanda                                 | Battle   | T7               |
+| EBP04-073 | Gaira                                 | Battle   | CU               |
+| EBP04-074 | Rodan (1956)                          | Battle   | today's format   |
+| EBP04-075 | Spiral Heat Ray                       | Strategy | E2               |
+| EBP04-076 | Godzilla's Dormancy                   | Strategy | K1, M1           |
+| EBP04-077 | Akane Yashiro, The MFS-3 Unit         | Strategy | E3, E18          |
+| EBP04-078 | The Slithering Disaster               | Strategy | E14              |
+| EBP04-079 | Godzilla Final Wars                   | Strategy | E3               |
+| EBP04-080 | The Bond Between Mothra and its Child | Strategy | E18              |
+| EBP04-081 | Entangling Fear                       | Strategy | M1               |
+| EBP04-082 | Xilien Mothership                     | Strategy | K1, C4           |
+| EBP04-083 | Godzilla vs. Destoroyah               | Strategy | today's format   |
+| EBP04-084 | Atomic Breath                         | Strategy | today's format   |
+| EBP04-085 | The Golden Demise                     | Strategy | T3, M1           |
+| EBP04-086 | Mechagodzilla City                    | Strategy | K1, E18          |
+| EBP04-087 | Together / The Two of the Beginning   | Strategy | today's format   |
+| EBP04-088 | Abducted Monsters                     | Strategy | C4               |
+| EBP04-089 | Inherited Life                        | Strategy | CU, K1           |
 
 </details>
 

@@ -1,5 +1,5 @@
 import { type Card, getCardAbilities } from "@gojisim/cards";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 import {
   applyAction,
   counterPowerOf,
@@ -133,6 +133,13 @@ describe("ESD01-016 Heat Ray", () => {
   });
 
   it("a manual strategy card still logs strategyTextPending (no data yet)", () => {
+    // EBP01-032 has data from M12a-1; treated as manual here.
+    setTestAbilities("EBP01-032", {
+      deckCardNumber: "EBP01-032",
+      status: "manual",
+      abilities: [],
+    });
+    onTestFinished(() => setTestAbilities("EBP01-032", null));
     const state = atPlayTiming();
     const me = turnPlayer(state);
     me.monsterPosition = 8;

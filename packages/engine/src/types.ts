@@ -24,7 +24,7 @@ export interface CardInstance {
    */
   statuses?: CardStatus[];
   /** How the card was played, for "played through ..." conditions (format.md change 7). */
-  playedVia?: "evolution" | "burst" | "effect";
+  playedVia?: "evolution" | "burst" | "effect" | "hand";
 }
 
 /** A status an effect can put on a card. */
@@ -112,15 +112,28 @@ export interface StandbyAbility {
 
 /**
  * A timed trigger (10.6.5), created by an effect or keyword rather than printed on an active card.
- * It fires once (10.6.5.1). `burstDiscard`: at the beginning of the master's next end phase, send
- * the card from the invading monster to the discard pile, even if it isn't on top (12.5.2.1).
+ * `burstDiscard` fires once (10.6.5.1): at the beginning of the master's next end phase, send the
+ * card from the invading monster to the discard pile, even if it isn't on top (12.5.2.1).
+ * `delayed` is an ability an `until` effect created ("when your monster card invades this turn,
+ * ..."): its trigger is checked like a card's, whether or not the card is still active, until the
+ * period ends at 7.5.6.
  */
-export interface TimedTrigger {
-  kind: "burstDiscard";
-  sourceInstanceId: string;
-  sourceCardId: number;
-  master: PlayerId;
-}
+export type TimedTrigger =
+  | {
+      kind: "burstDiscard";
+      sourceInstanceId: string;
+      sourceCardId: number;
+      master: PlayerId;
+    }
+  | {
+      kind: "delayed";
+      /** `<deckCardNumber>#<id>` of the created ability. */
+      abilityId: string;
+      sourceInstanceId: string;
+      sourceCardId: number;
+      master: PlayerId;
+      until: "endOfTurn";
+    };
 
 /** Why a manual override window opens: a card without ability data whose text would apply. */
 export interface ManualCause {
