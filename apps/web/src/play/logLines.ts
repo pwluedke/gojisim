@@ -240,9 +240,18 @@ function eventParts(
       return [`${who} reveal${who === "You" ? "" : "s"} `, card(p["cardId"])];
     case "place":
       // Plays from the hand have their action line; effect plays (5.11) don't.
-      return p["played"] === true
-        ? [card(p["cardId"]), ` enters ${String(p["to"])}`]
-        : null;
+      if (p["played"] !== true) return null;
+      // A monster played by an effect stacks on the invading monster (5.11.2, EBP03-074).
+      if (p["to"] === "invadingMonsterZone")
+        return [card(p["cardId"]), " becomes the invading monster"];
+      // "Play it on top of" a card (E18, 3.2.5).
+      return p["onTopOf"] !== undefined
+        ? [
+            card(p["cardId"]),
+            ` enters ${String(p["to"])} on top of `,
+            card(p["onTopOf"]),
+          ]
+        : [card(p["cardId"]), ` enters ${String(p["to"])}`];
     case "manualWindow":
       return ["Manual override for ", card(p["cardId"])];
     case "gameOver":

@@ -5,6 +5,7 @@ import ebp03 from "../data/abilities/EBP03.json";
 import ebp04 from "../data/abilities/EBP04.json";
 import esd01 from "../data/abilities/ESD01.json";
 import esd02 from "../data/abilities/ESD02.json";
+import pr from "../data/abilities/PR.json";
 
 /**
  * Card ability data (docs/abilities/format.md, the M4 contract). Every type of the format is in
@@ -67,11 +68,15 @@ export const ZoneSetSchema = z.union([
       "behind",
       "sameNumberAs",
       "atOrBefore",
+      /** C3: the zones beside it in its row (4.4.5.2, 4.4.5.5), not in front or behind. */
+      "horizontallyAdjacentTo",
     ]),
     of: ZoneAnchorSchema,
     includeSelf: z.boolean().optional(),
   }),
   z.enum(["unoccupied", "any"]),
+  /** C3: the zones numbered like the ranks of the cards bound with `as` (EBP03-073). */
+  z.strictObject({ ranksOf: z.string().min(1) }),
 ]);
 export type ZoneSet = z.infer<typeof ZoneSetSchema>;
 
@@ -192,6 +197,8 @@ export const TriggerSchema = z.discriminatedUnion("on", [
     /** Only a crush caused by an advance of an invasion ([invading] ... destroys, 12.3). */
     invasion: z.literal(true).optional(),
     as: z.string().min(1).optional(),
+    /** Binds the cards that were under the destroyed card, now in the discard pile (EBP03-052). */
+    underAs: z.string().min(1).optional(),
   }),
   /**
    * A card goes to the discard pile from a hand (5.7, 8.4.1, 8.6.1.1) or a strategy zone (7.2.3,
@@ -368,6 +375,7 @@ export type Effect =
       filter: Selector;
       count: Count;
       zones?: ZoneSet | undefined;
+      onTop?: Selector | undefined;
       asManyAsPossible?: boolean | undefined;
       preferEmpty?: boolean | undefined;
       ignoreRankLimit?: boolean | undefined;
@@ -399,6 +407,7 @@ export type Effect =
       effect: "putOnDeck";
       target: Selector;
       where: "top" | "bottom";
+      count?: Count | undefined;
       as?: string | undefined;
     }
   | {
@@ -407,7 +416,12 @@ export type Effect =
       count?: "all" | undefined;
       as?: string | undefined;
     }
-  | { effect: "chooseZone"; owner: "you" | "opponent"; as: string }
+  | {
+      effect: "chooseZone";
+      owner: "you" | "opponent";
+      zones?: ZoneSet | undefined;
+      as: string;
+    }
   | {
       effect: "advance";
       player: EffectPlayer;
@@ -433,8 +447,10 @@ export type Effect =
   | {
       effect: "revealTop";
       player: "you";
-      count: number;
-      take: { filter: Selector; count: Count };
+      count: Amount;
+      take:
+        | { filter: Selector; count: Count }
+        | { filter: Selector; count: Count }[];
       rest: "discard";
       as?: string | undefined;
     }
@@ -459,6 +475,7 @@ export type Effect =
       target: Selector;
       under: Selector;
       count?: Count | undefined;
+      hostAs?: string | undefined;
       as?: string | undefined;
     }
   | {
@@ -513,6 +530,15 @@ export type Effect =
       effect: "until";
       duration: "endOfTurn";
       abilities: DelayedAbility[];
+      as?: string | undefined;
+    }
+  | {
+      effect: "playMonster";
+      from: "monsterDeck";
+      filter: Selector;
+      rankAbove: number;
+      sharesTrait: boolean;
+      increasesRage: boolean;
       as?: string | undefined;
     }
   | { effect: "custom"; handler: string; as?: string | undefined };
@@ -587,6 +613,8 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
       filter: SelectorSchema,
       count: CountSchema,
       zones: ZoneSetSchema.optional(),
+      /** E18: stacked on top of the card this picks, in its zone (3.2.5, EBP03-043, EBP03-047). */
+      onTop: SelectorSchema.optional(),
       asManyAsPossible: z.boolean().optional(),
       preferEmpty: z.boolean().optional(),
       /** Defaults to true: 8.2.1 limits only the main phase action. */
@@ -630,6 +658,8 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
       effect: z.literal("putOnDeck"),
       target: SelectorSchema,
       where: z.enum(["top", "bottom"]),
+      /** The effect's player picks this many (E5, "up to 1"); without it, every card matches. */
+      count: CountSchema.optional(),
       ...asField,
     }),
     z.strictObject({
@@ -642,6 +672,8 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
     z.strictObject({
       effect: z.literal("chooseZone"),
       owner: ChooserSchema,
+      /** Only these zones of the owner's field are offered (C3, EBP03-009). */
+      zones: ZoneSetSchema.optional(),
       as: z.string().min(1),
     }),
     z.strictObject({
@@ -672,8 +704,14 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
     z.strictObject({
       effect: z.literal("revealTop"),
       player: z.literal("you"),
-      count: z.number().int().positive(),
-      take: z.strictObject({ filter: SelectorSchema, count: CountSchema }),
+      count: AmountSchema,
+      /** Several picks are made in order, each from the cards left (EBP03-011). */
+      take: z.union([
+        z.strictObject({ filter: SelectorSchema, count: CountSchema }),
+        z
+          .array(z.strictObject({ filter: SelectorSchema, count: CountSchema }))
+          .min(1),
+      ]),
       rest: z.literal("discard"),
       ...asField,
     }),
@@ -703,6 +741,8 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
       target: SelectorSchema,
       under: SelectorSchema,
       count: CountSchema.optional(),
+      /** Binds the card the cards went under; with several, the effect's player picks it. */
+      hostAs: z.string().min(1).optional(),
       ...asField,
     }),
     /** E5: the whole discard pile into the deck, then the deck is shuffled. */
@@ -787,6 +827,20 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
           }),
         )
         .min(1),
+      ...asField,
+    }),
+    /**
+     * E18, Q27: a monster card from the monster deck, `rankAbove` ranks above the invading
+     * monster and sharing a trait with it if `sharesTrait`, is stacked on it as the new invading
+     * monster, keeping its zone; [enter] fires; it isn't the 8.5 action.
+     */
+    z.strictObject({
+      effect: z.literal("playMonster"),
+      from: z.literal("monsterDeck"),
+      filter: SelectorSchema,
+      rankAbove: z.number().int().positive(),
+      sharesTrait: z.boolean(),
+      increasesRage: z.boolean(),
       ...asField,
     }),
     z.strictObject({
@@ -997,6 +1051,7 @@ export const ABILITY_FILES: Record<string, unknown> = {
   EBP04: ebp04,
   ESD01: esd01,
   ESD02: esd02,
+  PR: pr,
 };
 
 let loaded: Map<string, CardAbilities> | null = null;

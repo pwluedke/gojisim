@@ -275,8 +275,13 @@ export interface Resolution {
   subject: string | null;
   /** The branch each `if` (0 then, 1 else) or `chooseOne` (option) took, keyed by path. */
   branches?: Record<string, number>;
-  /** Cards an effect still has to work through one at a time ("evolve all", E18). */
+  /**
+   * Cards an effect still has to work through one at a time ("evolve all", E18), or the cards a
+   * `revealTop` revealed.
+   */
   queue?: string[];
+  /** The cards each finished pick of a `revealTop` with several takes took (E3, EBP03-011). */
+  takes?: string[][];
 }
 
 /** A choice the engine is waiting for. Only `player` may act, with `choose` (or `concede`). */
