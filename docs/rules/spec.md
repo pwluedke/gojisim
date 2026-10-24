@@ -265,7 +265,9 @@ The M3 engine must include the framework below, so that M4 adds card abilities a
 
 **Manual override (hybrid mode).** For an effect not yet coded, the engine pauses and gives both players a manual action set: move any card between areas, change rage, advance or retreat the monster, draw, shuffle, reveal. Each manual action is logged with the card that caused it. The opponent sees every manual action.
 
-## Paul's rulings (Oct 21, 2026)
+## Paul's rulings (Oct 21, 2026; Q15 to Q34 Oct 23, 2026)
+
+Q15 to Q34 are the M12 rules questions in `docs/abilities/m12-plan.md`, approved as proposed (Q23 reworded).
 
 | Question | Ruling |
 | --- | --- |
@@ -277,6 +279,26 @@ The M3 engine must include the framework below, so that M4 adds card abilities a
 | Infinite loop | Declare a draw and save a loop report (seed, decks, full action log, state at detection) for review |
 | Discard down to N (5.7.2) | The player picks the cards to discard, not the ones to keep (Oct 22, 2026). Same result as 5.7.2's wording |
 | [enter] on a monster after a counter | [enter] fires when a card enters the board, including the monster that comes in after a counter (5.15.1.2). The rank I monster placed at setup (6.3.1.6) does not trigger it, because the game hasn't started yet |
+| Q15 Burst reminder "that turn's end phase" (EBP04-007) | Yes. A Burst play happens in your main phase, so "that turn's end phase" and "your next end phase" are the same phase (12.5.2.1). No change to decision 157. (Oct 23, 2026) |
+| Q16 "This card's [rage]" on a monster card (EBP03-004, EBP04-010) | Yes: the rage of this monster card's master, read while the card is the invading monster. (Oct 23, 2026) |
+| Q17 Revenge: duplicate card processing, crush, cards under a stack (12.7.2, 12.7.3) | Duplicate card processing is 11.5. Revenge triggers after a crush, after any destroy by an effect, and for a card under a stack when that card itself goes to the discard pile, except that 12.7.3 keeps a card that was stacked underneath from triggering. (Oct 23, 2026) |
+| Q18 Base: "when any monster card invades into zones 6-8" timing | Once per invasion action (8.6) in which the monster enters zone 6, 7 or 8 at any step, including 6 to 7 and 7 to 8. An invasion that doesn't move (5.13.3) doesn't trigger it. (Oct 23, 2026) |
+| Q19 Base: does "any monster card" include your own? | Yes, either player's monster. (Oct 23, 2026) |
+| Q20 EBP04-014: "cannot be countered ... (It will not retreat.)" | Yes. EBP04-014 doesn't move and no next monster comes in; EBP01-038 moves back as though countered (Q14). (Oct 23, 2026) |
+| Q21 Vertical moves (EBP04-078, EBP03-068) | Neither an advance nor a retreat: no movement triggers, `didAdvance` false. 11.3 still applies in the destination zone, since the reminder text spares only the zones in between. (Oct 23, 2026) |
+| Q22 EBP04-012 Biollante Plant Beast Form's play from rank II | This card is played on top of the rank II monster as a normal monster play (once per turn, rage +1); the rank III monster deck card goes into that stack under the rank II card. (Oct 23, 2026) |
+| Q23 EBP04-033/034 Kaizer Ghidorah played onto Monster X | Kaizer Ghidorah (EBP04-033/034) is played in your main phase on top of your invading Monster X monster card, as your one monster play for the turn, ignoring the rank and trait match. Like every monster play, it increases your rage by 1. Counter rules are unchanged. (Oct 23, 2026) |
+| Q24 A counter by an effect (EBP02-012, EBP04-027) | Yes to both: it is a counter (5.15.1), unlike "moves as though countered" (Q14). Countering a rank IV monster by effect wins the game for the other player. A counter by effect gives no rage, as in 7.4.3. (Oct 23, 2026) |
+| Q25 Inherited Life: "whenever your monster card's [rage] is reduced" (EBP04-089) | Every decrease counts, whoever caused it, including the 7.2.4 reset (logged as `rageChanged`). The counter (Q11) grows by the amount of the decrease. (Oct 23, 2026) |
+| Q26 Doubled counter power for the rest of the turn (EBP02-029) | Only the cards in the column at resolution; each gains its counter power at resolution as a bonus for the turn. The bonus stays if the card moves to another zone (10.8.2) and ends if it leaves the zones. (Oct 23, 2026) |
+| Q27 A monster played from the monster deck (EBP03-074) | Stacked on top, keeps the position, fires [enter] (decision 127). It doesn't use the once-per-turn monster play, which limits the main phase action only. (Oct 23, 2026) |
+| Q28 Godzilla Earth token in zone 3 (EBP04-067) | Your monster's zone: no token (Q5's rule for unoccupied zones). A battle card in zone 3: the token is played and 11.5 overload resolves it. If the token is not played, nothing links to this card. (Oct 23, 2026) |
+| Q29 "Draw 5 cards from the top of your deck" (FC01-005) | A reveal of the top 5: [fest] cards go to the hand, the rest to the discard pile. No reshuffle; with fewer than 5 cards, reveal what is there. (Oct 23, 2026) |
+| Q30 "Trigger all [enter] abilities of your monster card" (EBP04-041) | Checked as usual. Only the top card's [enter] abilities, since cards underneath have no active abilities (3.2.3.1). (Oct 23, 2026) |
+| Q31 Biollante Rose Form starts in zone 5 (EBP02-024) | Yes. It is placed, not played, so no [enter] (decision 127); the 7.5.2 advance is skipped while it can't advance. (Oct 23, 2026) |
+| Q32 "Your opponent cannot play strategy cards" (EBP02-070) | Both: any strategy card entering a strategy zone by its master's action or effect. (Oct 23, 2026) |
+| Q33 Ties for rightmost, leftmost or lowest zone (EBP03-078, EBP04-035) | The effect's player chooses among the tied cards. (Oct 23, 2026) |
+| Q34 Godzilla's Skeleton counted as a monster card (EBP03-071) | It counts for any count of monster cards in its owner's discard pile, by either player. It is not a monster card for anything else, so it can't be returned or played as one. (Oct 23, 2026) |
 
 ## Test cases
 
