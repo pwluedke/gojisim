@@ -1,0 +1,19 @@
+Card: EPR-020 Godzilla (2003), entered by hand (godzillatcgdb.com doesn't list it yet).
+Source image: https://en.godzilla-cardgame.com/wordpress/wp-content/images/cardlist/PR/EPR-020-PRol.png
+Decklog image path: PR/EPR-020-PRol.png (Decklog's card_image_path for GCG is https://en.godzilla-cardgame.com/wordpress/wp-content/images/cardlist/)
+Retrieved: 2026-10-24 (the image loaded directly from the official site).
+Transcribed by: Paul, Oct 24, 2026 (relayed by Monarch in #gojisim-dev).
+Seen in: Decklog deck 2545R (card_number EPR-020, name "Godzilla(2003)", grade III, color Blue, rare PR).
+
+Not a reprint of EBP03-016: name, rank, color, trait, threat and invade icon match, but the second
+ability differs. It is its own deck card number (6.1.1.4, 2.11.3), so the EBP03-016 restriction
+doesn't apply to it.
+
+Number: EPR-020 (its own deck card number; not a reprint of EBP03-016)
+Name: Godzilla (2003)
+Card type: Monster   Rank: III   Color: Blue   Rarity: PR
+Threat level: 17000   Invade: 2   Traits: Godzilla
+Source: Godzilla: Tokyo SOS (2003)
+Text:
+Whenever you discard a battle card from your hand, reduce your opponent's [rage] by 1.
+[your-turn] When your opponent's [rage] becomes 0, increase this card's [rage] by 2. (Does not activate if their [rage] was already 0.)

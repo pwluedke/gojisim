@@ -41,6 +41,28 @@ describe("decklogCode", () => {
 });
 
 describe("decklogDeckList", () => {
+  it("Decklog deck 2545R (with the hand-entered EPR-020) reads as 4 + 50 and is legal", () => {
+    const deck2545 = JSON.parse(
+      readFileSync(
+        new URL("fixtures/decklog-2545R.json", import.meta.url),
+        "utf8",
+      ),
+    ) as DecklogDeck & { deck_id: string };
+    const list = decklogDeckList({ ...deck2545, code: deck2545.deck_id });
+    expect(list.unknown).toEqual([]);
+    const { decks, errors } = parseDeckList(list.text);
+    expect(errors).toEqual([]);
+    const [read] = decks;
+    expect(read?.monsterDeck).toHaveLength(4);
+    expect(read?.mainDeck).toHaveLength(50);
+    expect(
+      [...read!.monsterDeck, ...read!.mainDeck].filter(
+        (c) => c.cardNumber === "EPR-020",
+      ),
+    ).toHaveLength(1);
+    expect(validateDeck(read!, new Date("2026-10-24")).failures).toEqual([]);
+  });
+
   it("6.1.1.1, 6.1.1.2: deck 1STAP reads as 4 monster cards and 50 main deck cards, named after its title", () => {
     const list = decklogDeckList(deck);
     expect(list.unknown).toEqual([]);

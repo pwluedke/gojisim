@@ -14,6 +14,10 @@ pnpm scrape
 
 `parentId` is the site's `parent_id`. `deckCardNumber` is the card number of the root of the parent chain, with `+`, `++`, ` (Foil)` and ` (Alt)` removed; it is what the 4-copy deck limit counts against (rule 6.1.1.4). Manual corrections live in `packages/cards/data/overrides.json`, keyed by id, with a `reason`; they are applied after scraping.
 
+## Hand-entered cards
+
+Cards the site doesn't list yet are entered by hand in `packages/cards/data/manual-cards.json`: the full card, plus its source (the official card image, its Decklog image path, who transcribed it and when, and a source file in `data/sources/`). Their ids start at 900001, out of the site's range. Each scrape adds them to `cards.json` (listed under `manualCards` in `summary.json`) until the site lists the same card number; then the site's print wins, the scrape warns "Now on the site, remove from manual-cards.json", and the entry can go. First entry: EPR-020 Godzilla (2003), transcribed by Paul on Oct 24, 2026.
+
 ## Images
 
 `pnpm images` downloads every `imageUrl` in `cards.json` to `.cache/images/<set>/<id>.png` (1 request per second, existing files skipped) and converts them with sharp to `apps/web/public/cards/<id>-full.webp` and `<id>-thumb.webp` (300 px wide). It writes byte sizes to `packages/cards/data/images.json`.
