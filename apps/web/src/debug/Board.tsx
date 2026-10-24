@@ -20,7 +20,11 @@ import { cardData } from "../game/labels";
 
 type Select = (card: CardInstance) => void;
 
-const box = { border: "1px solid #888", padding: 4, margin: 2 } as const;
+const box = {
+  border: "1px solid var(--color-border-strong)",
+  padding: 4,
+  margin: 2,
+} as const;
 
 /** One card: thumbnail, name, type, rank and counter power or threat. */
 export function CardView({
@@ -51,8 +55,8 @@ export function CardView({
           height: 60,
           verticalAlign: "top",
           background:
-            "repeating-linear-gradient(45deg, #345, #345 6px, #456 6px, #456 12px)",
-          color: "#fff",
+            "repeating-linear-gradient(45deg, var(--color-card-back-1), var(--color-card-back-1) 6px, var(--color-card-back-2) 6px, var(--color-card-back-2) 12px)",
+          color: "var(--color-card-back-text)",
           fontSize: 11,
         }}
       >
@@ -95,7 +99,7 @@ export function CardView({
           <span
             data-testid="counter-power-bonus"
             title={`Counter power with effects: ${(data?.counterOrThreat ?? 0) + bonus}`}
-            style={{ color: "#06c", fontWeight: "bold" }}
+            style={{ color: "var(--color-accent)", fontWeight: "bold" }}
           >
             {" "}
             {bonus > 0 ? "+" : ""}
@@ -160,7 +164,7 @@ function ZoneCell({
         width: 120,
         height: 120,
         verticalAlign: "top",
-        background: hasMonster ? "#fde2e2" : undefined,
+        background: hasMonster ? "var(--color-zone-monster-bg)" : undefined,
       }}
     >
       <div>
@@ -169,7 +173,7 @@ function ZoneCell({
       {hasMonster && (
         <div
           data-testid={`monster-${player.id}`}
-          style={{ ...box, background: "#fff" }}
+          style={{ ...box, background: "var(--color-panel)" }}
         >
           <div>
             <strong>MONSTER</strong> rank {monster?.rank} · rage {player.rage} ·
@@ -321,9 +325,9 @@ export function PlayerAreas({
 
 /** Ability status colors: implemented, partial, manual (format.md). */
 const STATUS_COLOR = {
-  implemented: "#080",
-  partial: "#b60",
-  manual: "#b00",
+  implemented: "var(--color-legal)",
+  partial: "var(--color-warning)",
+  manual: "var(--color-illegal)",
 } as const;
 
 /** Full image, text with errata, traits and ability status of the selected card. */
@@ -355,9 +359,9 @@ export function CardDetail({
         width: CARD_DETAIL_WIDTH,
         boxSizing: "border-box",
         padding: 8,
-        borderLeft: "2px solid #888",
+        borderLeft: "2px solid var(--color-border-strong)",
         overflow: "auto",
-        background: "#fff",
+        background: "var(--color-panel)",
         zIndex: 10,
       }}
     >

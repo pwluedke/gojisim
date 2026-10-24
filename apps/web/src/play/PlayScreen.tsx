@@ -37,7 +37,12 @@ import { isLit, playableCards } from "./destinations";
 import { type Mode, NewGame } from "./NewGame";
 import { boardModel, bottomPlayer } from "./model";
 import { visibleCards } from "./Preview";
-import { type AnimationSpeed, useSettings } from "./settings";
+import {
+  type AnimationSpeed,
+  THEMES,
+  type Theme,
+  useSettings,
+} from "./settings";
 import { MAT_MAX_BYTES } from "./matStore";
 import { useCustomMat } from "./useCustomMat";
 
@@ -614,6 +619,21 @@ export function PlayScreen() {
             onChange={(e) => updateSettings({ expandedHand: e.target.checked })}
           />{" "}
           Expanded hand on H
+        </label>
+        <label>
+          Theme{" "}
+          <select
+            data-testid="setting-theme"
+            value={settings.theme}
+            onChange={(e) => updateSettings({ theme: e.target.value as Theme })}
+          >
+            {THEMES.map((theme) => (
+              <option key={theme} value={theme}>
+                {theme[0]?.toUpperCase()}
+                {theme.slice(1)}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Animation speed{" "}

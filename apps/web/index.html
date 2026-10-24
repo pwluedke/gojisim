@@ -4,6 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GojiSim</title>
+    <script>
+      // The theme from the saved settings, set before the first paint, so there is no flash of
+      // another theme on load (M5g). Grey when nothing is saved or storage is blocked.
+      (function () {
+        var theme = "grey";
+        try {
+          var saved = JSON.parse(
+            localStorage.getItem("gojisim.settings") || "{}",
+          ).theme;
+          if (saved === "dark" || saved === "grey" || saved === "light")
+            theme = saved;
+        } catch (e) {}
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

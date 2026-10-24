@@ -3,6 +3,11 @@ import { useState } from "react";
 /** Card movement animation speed (M5f). */
 export type AnimationSpeed = "off" | "normal" | "fast";
 
+/** The color theme (M5g): one variable set each in `theme.css`. */
+export type Theme = "dark" | "grey" | "light";
+
+export const THEMES: readonly Theme[] = ["dark", "grey", "light"];
+
 /**
  * `/play` settings (M5c, M5d, M5f), saved in this browser under `gojisim.settings`. Storage
  * can be missing or blocked, so every read and write is guarded and the defaults always work.
@@ -24,8 +29,10 @@ export interface Settings {
   turnGlow: boolean;
   /** The battle log column is folded to a thin strip (M5f, button or L; default open). */
   logCollapsed: boolean;
-  /** A banner on the board when a combo succeeds (M5g, default on); the log line always shows. */
+  /** The combo modal when a combo succeeds (M5g, default on); the log line always shows. */
   comboCallouts: boolean;
+  /** Color theme (M5g, default grey). `index.html` applies it before the first paint. */
+  theme: Theme;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -38,7 +45,15 @@ export const DEFAULT_SETTINGS: Settings = {
   turnGlow: true,
   logCollapsed: false,
   comboCallouts: true,
+  theme: "grey",
 };
+
+/** Applies a theme to the page (`:root[data-theme]`, see `theme.css`). */
+export function applyTheme(theme: Theme): void {
+  document.documentElement.dataset["theme"] = THEMES.includes(theme)
+    ? theme
+    : "grey";
+}
 
 const STORAGE_KEY = "gojisim.settings";
 
@@ -62,11 +77,13 @@ function saveSettings(settings: Settings): void {
 
 export function useSettings(): [Settings, (change: Partial<Settings>) => void] {
   const [settings, setSettings] = useState(loadSettings);
-  const update = (change: Partial<Settings>) =>
+  const update = (change: Partial<Settings>) => {
+    if (change.theme) applyTheme(change.theme);
     setSettings((current) => {
       const next = { ...current, ...change };
       saveSettings(next);
       return next;
     });
+  };
   return [settings, update];
 }

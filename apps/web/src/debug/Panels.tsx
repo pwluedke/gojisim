@@ -2,7 +2,11 @@ import { type Action, type GameState, getLegalActions } from "@gojisim/engine";
 import { useEffect, useRef } from "react";
 import { actionLabel, decisionHeading } from "../game/labels";
 
-const box = { border: "1px solid #888", padding: 6, margin: 4 } as const;
+const box = {
+  border: "1px solid var(--color-border-strong)",
+  padding: 6,
+  margin: 4,
+} as const;
 
 export function StatusBar({ state }: { state: GameState }) {
   const choice = state.pendingChoice;
@@ -12,7 +16,10 @@ export function StatusBar({ state }: { state: GameState }) {
     </span>
   );
   return (
-    <div data-testid="status" style={{ ...box, background: "#eef" }}>
+    <div
+      data-testid="status"
+      style={{ ...box, background: "var(--color-status-bg)" }}
+    >
       {item("Turn", String(state.turn), "status-turn")}
       {item("Turn player", state.turnPlayer, "status-turn-player")}
       {item("Phase", state.phase, "status-phase")}
@@ -128,7 +135,7 @@ export function LogPanel({
               <div
                 key={l.text}
                 data-testid="bot-label"
-                style={{ color: "#06c", fontWeight: "bold" }}
+                style={{ color: "var(--color-accent)", fontWeight: "bold" }}
               >
                 {l.text}
               </div>

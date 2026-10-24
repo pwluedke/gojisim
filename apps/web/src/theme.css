@@ -1,23 +1,36 @@
 /*
- * GojiSim theme (M5a): every color, spacing value and card size is a variable here, so the M15
- * kaiju theme can swap them without touching components. Scoped to `.gojisim` (the menu and the
- * board), so `/debug` keeps its own plain look.
+ * GojiSim theme (M5a): every color, spacing value and card size is a variable here, so no
+ * component sets its own colors.
+ *
+ * M5g (Paul): three color themes, Light (the original look), Grey (the default: mid-grey, no
+ * white surfaces) and Dark (near-black with light text), one variable set each on
+ * `:root[data-theme=…]`. `index.html` sets `data-theme` from the saved settings before the first
+ * paint; without it, Grey applies. Every page restyles, `/debug` included. M15's kaiju theme
+ * becomes a fourth set. Text meets WCAG AA (4.5:1) in each theme (checked with axe on `/play`).
+ * Sizes and spacing stay on `.gojisim` (the menu and the board).
  */
-.gojisim {
+
+:root[data-theme="light"] {
+  color-scheme: light;
   --color-bg: #f4f5f7;
   --color-panel: #ffffff;
   --color-panel-alt: #eef1f6;
   --color-text: #1d2330;
-  --color-muted: #6b7280;
+  /* Was #6b7280 (4.43:1 on the page background); darkened to meet WCAG AA in every panel. */
+  --color-muted: #636a77;
   --color-border: #c9ced8;
+  --color-border-strong: #888888;
   --color-zone-rage: #fff4e0;
   --color-zone-monster-outline: #e8a0a0;
+  --color-zone-monster-bg: #fde2e2;
   --color-cell-outline: #d5d9e1;
   --color-arrow: #6b7280;
+  --color-arrow-counter: #9aa3b2;
   --color-highlight: #f5a623;
+  /* Text on the highlight color (the strategy mark, change chips): dark in every theme. */
+  --color-highlight-text: #1d2330;
   --color-backdrop: rgb(20 24 33 / 45%);
   --color-cover: #1d2330;
-  --color-arrow-counter: #9aa3b2;
   --color-chip: rgb(20 24 33 / 85%);
   --color-chip-text: #ffffff;
   --color-modifier-up-on-chip: #7cc4ff;
@@ -30,9 +43,143 @@
   --color-button-text: #ffffff;
   --color-card-back-1: #33445a;
   --color-card-back-2: #44566e;
+  --color-card-back-text: #ffffff;
   --color-legal: #1a7f37;
   --color-illegal: #b42318;
+  --color-warning: #9a5b00;
+  --color-status-bg: #eeeeff;
+  --color-alert-bg: #ffcdd2;
+  --color-notice-bg: #ffd54f;
+  --color-combo: #b35c00;
+  --color-lit: #1a7f37;
+  --color-lit-bg: #e6f4ea;
+  --color-selected: #0066cc;
+  --color-cell-backing: rgb(255 255 255 / 60%);
+  --color-label-backing: rgb(255 255 255 / 80%);
+  --color-glow-red: #e0352b;
+  --color-glow-blue: #2f6fdf;
+  --color-glow-green: #2e9e4f;
+  --color-glow-grey: #9aa0a6;
+  --shadow: 0 4px 16px rgb(0 0 0 / 20%);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 25%);
+  --shadow-piece: rgb(0 0 0 / 35%);
+}
 
+:root,
+:root[data-theme="grey"] {
+  color-scheme: light;
+  --color-bg: #a4a8b0;
+  --color-panel: #b9bdc4;
+  --color-panel-alt: #aeb2b9;
+  --color-text: #101318;
+  --color-muted: #2c323b;
+  --color-border: #7d838d;
+  --color-border-strong: #5f656f;
+  --color-zone-rage: #c7b893;
+  --color-zone-monster-outline: #8e3030;
+  --color-zone-monster-bg: #c4a3a3;
+  --color-cell-outline: #858b95;
+  --color-arrow: #3a404a;
+  --color-arrow-counter: #555c67;
+  --color-highlight: #f5a623;
+  /* Text on the highlight color (the strategy mark, change chips): dark in every theme. */
+  --color-highlight-text: #1d2330;
+  --color-backdrop: rgb(20 24 33 / 55%);
+  --color-cover: #1d2330;
+  --color-chip: rgb(20 24 33 / 85%);
+  --color-chip-text: #ffffff;
+  --color-modifier-up-on-chip: #7cc4ff;
+  --color-modifier-down-on-chip: #ff9b8f;
+  --color-center-line: #1d2330;
+  --color-accent: #00336f;
+  --color-modifier-up: #00336f;
+  --color-modifier-down: #6e1207;
+  --color-button: #1d2330;
+  --color-button-text: #ffffff;
+  --color-card-back-1: #33445a;
+  --color-card-back-2: #44566e;
+  --color-card-back-text: #ffffff;
+  --color-legal: #073d1a;
+  --color-illegal: #6e1207;
+  --color-warning: #5a3300;
+  --color-status-bg: #a9afc4;
+  --color-alert-bg: #c49ca0;
+  --color-notice-bg: #c4a659;
+  --color-combo: #5a2c00;
+  --color-lit: #0b5223;
+  --color-lit-bg: #a3c2aa;
+  --color-selected: #00336f;
+  --color-cell-backing: rgb(185 189 196 / 70%);
+  --color-label-backing: rgb(185 189 196 / 85%);
+  --color-glow-red: #e0352b;
+  --color-glow-blue: #2f6fdf;
+  --color-glow-green: #2e9e4f;
+  --color-glow-grey: #5f656f;
+  --shadow: 0 4px 16px rgb(0 0 0 / 30%);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 35%);
+  --shadow-piece: rgb(0 0 0 / 40%);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #121418;
+  --color-panel: #1b1e24;
+  --color-panel-alt: #23272e;
+  --color-text: #e7e9ed;
+  --color-muted: #a5acb7;
+  --color-border: #3b414b;
+  --color-border-strong: #59606b;
+  --color-zone-rage: #3b3020;
+  --color-zone-monster-outline: #c96b6b;
+  --color-zone-monster-bg: #3d2222;
+  --color-cell-outline: #3a404a;
+  --color-arrow: #8e96a3;
+  --color-arrow-counter: #6b7380;
+  --color-highlight: #f5a623;
+  /* Text on the highlight color (the strategy mark, change chips): dark in every theme. */
+  --color-highlight-text: #1d2330;
+  --color-backdrop: rgb(0 0 0 / 60%);
+  --color-cover: #0b0d10;
+  --color-chip: rgb(0 0 0 / 80%);
+  --color-chip-text: #ffffff;
+  --color-modifier-up-on-chip: #7cc4ff;
+  --color-modifier-down-on-chip: #ff9b8f;
+  --color-center-line: #c9ced8;
+  --color-accent: #6cb6ff;
+  --color-modifier-up: #6cb6ff;
+  --color-modifier-down: #ff8a7a;
+  --color-button: #e7e9ed;
+  --color-button-text: #121418;
+  --color-card-back-1: #33445a;
+  --color-card-back-2: #44566e;
+  --color-card-back-text: #ffffff;
+  --color-legal: #56d364;
+  --color-illegal: #ff7b72;
+  --color-warning: #e3b341;
+  --color-status-bg: #23283a;
+  --color-alert-bg: #4a2124;
+  --color-notice-bg: #4a3b10;
+  --color-combo: #ffa657;
+  --color-lit: #56d364;
+  --color-lit-bg: #12321c;
+  --color-selected: #6cb6ff;
+  --color-cell-backing: rgb(27 30 36 / 70%);
+  --color-label-backing: rgb(27 30 36 / 85%);
+  --color-glow-red: #ff5a4f;
+  --color-glow-blue: #58a6ff;
+  --color-glow-green: #3fb950;
+  --color-glow-grey: #9aa0a6;
+  --shadow: 0 4px 16px rgb(0 0 0 / 50%);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 60%);
+  --shadow-piece: rgb(0 0 0 / 60%);
+}
+
+/* Every page takes the theme's background and text, `/debug` included. */
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.gojisim {
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -78,11 +225,6 @@
   /* The battle log column (M5d), or a thin strip while it is collapsed (M5f). */
   --right-column-width: calc(var(--side-column-width) + 2 * var(--space-4));
   --log-strip-width: 36px;
-  --color-combo: #b35c00;
-  --color-lit: #1a7f37;
-  --color-lit-bg: #e6f4ea;
-  --color-selected: #0066cc;
-  --shadow: 0 4px 16px rgb(0 0 0 / 20%);
 }
 
 /* The collapsed battle log (M5f): the board takes the freed width, so --card-h recomputes here. */

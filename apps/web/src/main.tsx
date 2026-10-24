@@ -1,6 +1,8 @@
 import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+// The theme's variables apply to every page, `/debug` included (M5g).
+import "./theme.css";
 
 // The debug viewer and the board pull in the whole card database; load them only on their routes.
 const DebugViewer = lazy(() =>
