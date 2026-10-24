@@ -39,7 +39,7 @@ function step(
     to,
     ...(invasion ? { invasion: true } : {}),
   });
-  crushAndDestroy(state);
+  crushAndDestroy(state, invasion);
 }
 
 /**

@@ -10,10 +10,12 @@ import { openManualWindow } from "./manual";
 import { requireChoice } from "./choices";
 import { resolveLosses } from "./losses";
 import { appendLog, getPlayer, toDiscard } from "./state";
+import { getRank } from "./stats";
 import type {
   CardInstance,
   CardStack,
   GameState,
+  PlayerId,
   PlayerState,
   StandbyAbility,
   ZoneNumber,
@@ -37,6 +39,21 @@ function isBattleStack(state: GameState, stack: CardStack): boolean {
   return top !== undefined && cardOf(state, top).type === "Battle";
 }
 
+/**
+ * The destroyed top card's last known information on the field (10.6.4.1.2), for `destroyed`
+ * triggers: its instance id there and its rank.
+ */
+interface LastKnown {
+  instanceId: string;
+  rank: number | null;
+}
+
+/** Read while the card is still where it is destroyed, so rank modifiers still apply. */
+function lastKnown(state: GameState, stack: CardInstance[]): LastKnown {
+  const top = topOf(stack) as CardInstance;
+  return { instanceId: top.instanceId, rank: getRank(state, top) };
+}
+
 /** Destroys a whole stack: every card goes to its owner's discard pile (5.12, 3.2.4). */
 function destroyStack(
   state: GameState,
@@ -44,11 +61,16 @@ function destroyStack(
   zone: ZoneNumber,
   stack: CardStack,
   rule: string,
+  known: LastKnown,
+  invasion = false,
 ) {
   appendLog(state, "destroy", player.id, {
     rule,
     zone,
     cardIds: stack.map((c) => c.cardId),
+    ...known,
+    // A crush by an advance of an invasion ([invading] ... destroys, 12.3).
+    ...(invasion ? { invasion: true } : {}),
   });
   for (const card of stack) toDiscard(state, card);
 }
@@ -63,6 +85,7 @@ export function destroyCards(
   rule: string,
   cause: string,
   picks: Map<string, string> = new Map(),
+  by: PlayerId | null = null,
 ): void {
   // Replacements first, while each card is still where it would be destroyed (10.9, Q1).
   const replaced = new Set<string>();
@@ -76,7 +99,11 @@ export function destroyCards(
     player: PlayerState;
     zone: ZoneNumber | null;
     cards: CardInstance[];
+    known: LastKnown;
   }[] = [];
+  const known = new Map(
+    targets.map((t) => [t.card.instanceId, lastKnown(state, [t.card])]),
+  );
   for (const { card, player, zone } of targets) {
     if (replaced.has(card.instanceId)) continue;
     if (zone !== undefined) {
@@ -85,7 +112,12 @@ export function destroyCards(
       );
       if (!stack) continue;
       player.zones[zone] = player.zones[zone].filter((s) => s !== stack);
-      removed.push({ player, zone, cards: stack });
+      removed.push({
+        player,
+        zone,
+        cards: stack,
+        known: known.get(card.instanceId) as LastKnown,
+      });
       continue;
     }
     const index = player.strategyZones.findIndex((p) =>
@@ -96,14 +128,22 @@ export function destroyCards(
       player.strategyZones[index]?.filter(
         (p) => p.card.instanceId !== card.instanceId,
       ) ?? [];
-    removed.push({ player, zone: null, cards: [card] });
+    removed.push({
+      player,
+      zone: null,
+      cards: [card],
+      known: known.get(card.instanceId) as LastKnown,
+    });
   }
-  for (const { player, zone, cards } of removed) {
+  for (const { player, zone, cards, known: info } of removed) {
     appendLog(state, "destroy", player.id, {
       rule,
       ...(zone === null ? { area: "strategy zone" } : { zone }),
       cardIds: cards.map((c) => c.cardId),
       cause,
+      ...info,
+      // Whose effect destroyed it, for "destroyed by your opponent's effect" (T1).
+      ...(by === null ? {} : { by }),
     });
     for (const card of cards) toDiscard(state, card);
   }
@@ -113,7 +153,7 @@ export function destroyCards(
  * Crush and destroy (11.3), an interrupt rule action: a battle card in the zone its master's
  * invading monster occupies is destroyed at once. Returns how many stacks were destroyed.
  */
-export function crushAndDestroy(state: GameState): number {
+export function crushAndDestroy(state: GameState, invasion = false): number {
   let destroyed = 0;
   for (const player of state.players) {
     const zone = player.monsterPosition;
@@ -122,6 +162,7 @@ export function crushAndDestroy(state: GameState): number {
       isBattleStack(state, stack),
     );
     if (crushed.length === 0) continue;
+    const known = new Map(crushed.map((s) => [s, lastKnown(state, s)]));
     // A replacement (Q1) takes the card out of the zone instead of destroying it.
     const destroyedStacks = crushed.filter((stack) => {
       const top = topOf(stack) as CardInstance;
@@ -134,7 +175,15 @@ export function crushAndDestroy(state: GameState): number {
       (stack) => !destroyedStacks.includes(stack),
     );
     for (const stack of destroyedStacks)
-      destroyStack(state, player, zone, stack, "11.3");
+      destroyStack(
+        state,
+        player,
+        zone,
+        stack,
+        "11.3",
+        known.get(stack) as LastKnown,
+        invasion,
+      );
     destroyed += crushed.length;
   }
   return destroyed;
@@ -154,6 +203,8 @@ interface RuleActions {
     area: string;
     /** For zones: the top cards that would be destroyed, checked for replacements first. */
     losers?: CardInstance[];
+    /** For zones: each losing stack's last known information. */
+    known?: Map<CardStack, LastKnown>;
   }[];
 }
 
@@ -191,6 +242,7 @@ function pendingRuleActions(state: GameState): RuleActions {
         actions.overloaded.push({
           player,
           area: `zone ${zone}`,
+          known: new Map(losers.map((s) => [s, lastKnown(state, s)])),
           losers: losers.map((stack) => topOf(stack) as CardInstance),
           remove: () => {
             // A loser a replacement already took away (Q1) is not destroyed.
@@ -287,12 +339,13 @@ function resolveRuleActionsOnce(state: GameState): boolean {
     });
     for (const card of cards) toDiscard(state, card);
   }
-  for (const { player, area, stacks } of removedOverloaded) {
+  for (const { player, area, stacks, known } of removedOverloaded) {
     for (const stack of stacks) {
       appendLog(state, "destroy", player.id, {
         rule: "11.5",
         area,
         cardIds: stack.map((c) => c.cardId),
+        ...(known?.get(stack) ?? lastKnown(state, stack)),
       });
       for (const card of stack) toDiscard(state, card);
     }

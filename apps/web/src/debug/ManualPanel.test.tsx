@@ -9,20 +9,23 @@ import { describe, expect, it } from "vitest";
 import { buildTestDeck, getAllCards } from "@gojisim/cards/test-decks";
 import { ManualPanel } from "./ManualPanel";
 
-/** A game where P1 has just played EBP01-047 Orga, a manual card: a manual window is open. */
+/**
+ * A game where P1 has just played EBP04-037 Minilla (2004), a manual card until M12d: a manual
+ * window is open.
+ */
 function withWindow(): GameState {
   const decks = (["ESD01", "ESD02"] as const).map((set, i) => ({
     id: `P${i + 1}`,
     ...buildTestDeck(set, `manual-${i}`),
   }));
   const state = startGame({ seed: 7, decks: [decks[0]!, decks[1]!] });
-  const orga = getAllCards().find((c) => c.cardNumber === "EBP01-047")!;
+  const minilla = getAllCards().find((c) => c.cardNumber === "EBP04-037")!;
   const me = state.players.find((p) => p.id === state.turnPlayer)!;
   const opp = state.players.find((p) => p.id !== state.turnPlayer)!;
-  state.cards = { ...state.cards, [orga.id]: orga };
+  state.cards = { ...state.cards, [minilla.id]: minilla };
   const instance = {
     instanceId: `c${state.nextInstanceId++}`,
-    cardId: orga.id,
+    cardId: minilla.id,
     owner: me.id,
   };
   me.hand.push(instance);
@@ -45,8 +48,8 @@ describe("manual override panel (format.md change 10)", () => {
       <ManualPanel state={state} onAction={() => {}} />,
     );
     expect(html).toContain("Manual override");
-    expect(html).toContain("Orga");
-    expect(html).toContain("Draw 1 card, then discard 1 card.");
+    expect(html).toContain("Minilla (2004)");
+    expect(html).toContain("If you have a rank 1 strategy card in play");
     expect(html).toContain("rage +1");
     expect(html).toContain("move");
   });

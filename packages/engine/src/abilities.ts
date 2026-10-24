@@ -6,7 +6,12 @@ import type {
   StandbyAbility,
 } from "./types";
 import { ZONE_NUMBERS } from "./types";
-import { dataAbilityId, dataTriggers } from "./interpreter";
+import {
+  activeOutsideField,
+  dataAbilityId,
+  dataTriggers,
+  delayedTriggers,
+} from "./interpreter";
 import { manualReason, queueManual } from "./manual";
 
 /** What an ability's trigger check sees. */
@@ -100,6 +105,19 @@ export function fireTriggers(
     state.standby.push(ability);
     entered.push(ability);
   };
+  // Abilities created by an `until` effect (T8, 10.6.5): checked whether or not their card is
+  // still active, until their period ends.
+  for (const timed of state.timedTriggers)
+    if (timed.kind === "delayed" && delayedTriggers(state, event, timed))
+      enter(
+        {
+          instanceId: timed.sourceInstanceId,
+          cardId: timed.sourceCardId,
+          owner: timed.master,
+        },
+        timed.master,
+        timed.abilityId,
+      );
   // Timed triggers (10.6.5) fire once, whether or not their card is still active (12.5.2.1).
   if (event.type === "phaseBegins" && event.payload["phase"] === "end") {
     const due = state.timedTriggers.filter(
@@ -132,5 +150,14 @@ export function fireTriggers(
       enter(card, master, definition.abilityId);
     }
   }
+  // Abilities active in a hand or discard pile ("when this card is discarded from your hand", T3).
+  for (const player of state.players)
+    for (const area of ["hand", "discard"] as const)
+      for (const card of player[area]) {
+        if (!activeOutsideField(state, card, area)) continue;
+        const number = state.cards[card.cardId]?.deckCardNumber ?? "";
+        for (const ability of dataTriggers(state, event, card, player.id, area))
+          enter(card, player.id, dataAbilityId(number, ability.id));
+      }
   return entered;
 }

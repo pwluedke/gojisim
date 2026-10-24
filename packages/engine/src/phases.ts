@@ -113,12 +113,15 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
     player.strategyZones = player.strategyZones.map((placements) => {
       const old = placements.filter((p) => p.placedOnTurn < state.turn);
       for (const placement of old) {
+        // Moved first, so a "sent from a strategy zone" trigger finds the card in the discard
+        // pile (T3).
+        const discarded = toDiscard(state, placement.card);
         appendLog(state, "discardStrategy", player.id, {
           rule: "7.2.3",
           cardId: placement.card.cardId,
           placedOnTurn: placement.placedOnTurn,
+          instanceId: discarded.instanceId,
         });
-        toDiscard(state, placement.card);
       }
       return placements.filter((p) => p.placedOnTurn >= state.turn);
     }) as PlayerState["strategyZones"];
@@ -214,6 +217,10 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
     );
     state.continuousEffects = state.continuousEffects.filter(
       (e) => e.duration !== "untilEndOfTurn",
+    );
+    // Abilities created "this turn" by an `until` effect end with the turn (T8, 10.6.5).
+    state.timedTriggers = state.timedTriggers.filter(
+      (t) => t.kind !== "delayed" || t.until !== "endOfTurn",
     );
     appendLog(state, "expireEffects", null, {
       rule: "7.5.6",

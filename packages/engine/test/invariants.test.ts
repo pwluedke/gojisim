@@ -22,6 +22,30 @@ describe("checkInvariants (spec case 52)", () => {
     expect(checkInvariants(atDecision())).toEqual([]);
   });
 
+  it("1.2.1 a manual window queued just before a win is not a violation once the game is over", () => {
+    const state = atDecision();
+    const card = addCard(state, battleCard(), turnPlayer(state).id);
+    state.manualQueue = [
+      {
+        instanceId: card.instanceId,
+        cardId: card.cardId,
+        master: turnPlayer(state).id,
+        reason: "invading",
+      },
+    ];
+    expect(checkInvariants(state)).toContain(
+      "1 manual windows queued at the play timing",
+    );
+    state.result = {
+      winner: turnPlayer(state).id,
+      reason: "invasion",
+      rule: "5.13.1.1.2",
+    };
+    expect(checkInvariants(state)).not.toContain(
+      "1 manual windows queued at the play timing",
+    );
+  });
+
   it("Engine: 20 random games of fixture decks keep every invariant after every action", () => {
     for (let game = 0; game < 20; game++) {
       let state: GameState = advanceToDecision(newGame(game));

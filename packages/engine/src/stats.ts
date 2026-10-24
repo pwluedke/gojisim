@@ -184,6 +184,8 @@ const PLAYED_VIA: Record<
 > = {
   evolution: { label: "Evolved", detail: "Played through Evolution (5.17)" },
   effect: { label: "By effect", detail: "Played by an effect (5.11)" },
+  // A play from the hand is the normal way: no chip.
+  hand: null,
   burst: null,
 };
 

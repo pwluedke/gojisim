@@ -54,7 +54,12 @@ export function canonicalState(state: GameState): unknown {
     })),
     resolution: state.resolutionArea.map(card),
     standby: state.standby.map((a) => [a.abilityId, a.sourceCardId, a.master]),
-    timed: state.timedTriggers.map((t) => [t.kind, t.sourceCardId, t.master]),
+    timed: state.timedTriggers.map((t) => [
+      t.kind,
+      t.sourceCardId,
+      t.master,
+      ...(t.kind === "delayed" ? [t.abilityId] : []),
+    ]),
     effects: state.continuousEffects.map((e) => [e.effectId, e.duration]),
     choice: state.pendingChoice && [
       state.pendingChoice.player,

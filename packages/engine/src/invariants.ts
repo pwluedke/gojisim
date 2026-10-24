@@ -139,7 +139,9 @@ export function checkInvariants(state: GameState): string[] {
       }
 
   // Manual windows wait only inside a check timing: none is queued at the play timing.
+  // A finished game has no play timing: a window queued just before a win never opens (1.2.1).
   if (
+    state.result === null &&
     state.step === "7.3.2" &&
     state.pendingChoice === null &&
     state.manualQueue.length > 0
