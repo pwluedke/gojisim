@@ -7,6 +7,7 @@ import {
   type MatchMode,
   stepPhase,
 } from "@gojisim/engine";
+import { validateDeck } from "@gojisim/cards";
 import { useEffect, useMemo, useRef, useState } from "react";
 import "../theme.css";
 import { botLabel, difficultyName } from "../game/bots";
@@ -178,6 +179,25 @@ export function PlayScreen() {
     () => (session ? combosInGame(session.states, session.record.actions) : []),
     [session],
   );
+  // Illegal decks (Casual) keep a warning on their mat all game: the legality the record stored at
+  // game start, worded from the deck and that start date.
+  const decks = session?.record.decks;
+  const legality = session?.record.deckLegality;
+  const deckWarnings = useMemo(() => {
+    const warnings: Record<string, string[]> = {};
+    for (const entry of legality ?? []) {
+      const deck = decks?.find((d) => d.id === entry.player);
+      if (entry.legal || !deck) continue;
+      warnings[entry.player] = validateDeck(
+        deck,
+        new Date(entry.asOf),
+      ).failures.map((f) => `${f.rule}: ${f.message}`);
+      // A deck checked legal again today (a list changed) still shows the rules it failed then.
+      if (warnings[entry.player]?.length === 0)
+        warnings[entry.player] = entry.failedRules.map((rule) => `${rule}:`);
+    }
+    return warnings;
+  }, [decks, legality]);
   const lines = useMemo(
     () =>
       session && liveBottom ? buildLog(session, liveBottom, name, combos) : [],
@@ -760,6 +780,7 @@ export function PlayScreen() {
         onAnimating={setAnimating}
         turnGlow={settings.turnGlow}
         mat={customMat.view}
+        deckWarnings={deckWarnings}
         log={
           <BattleLog
             lines={lines}
