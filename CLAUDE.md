@@ -382,3 +382,25 @@ Accepted by Monarch in the M5f review (PR #31).
 266. Destroy shards are a 3 × 4 jittered grid of quads, some split into triangles and some merged into pentagons, tiling the card; the layout is seeded by the card's instance id. Hand cards fill the hand row's height with `--hand-gap` (4 px); the count label sits over the corner and the drag overlay keeps the board card size. The battle log collapses to a strip (button or L, saved); at 1440×900 and 1920×1080 `--card-h` is height-limited, so collapsing widens the board area without larger cards.
 267. A moving card's pile end is measured as one card (the last card in a hand row, the pile's top or back, or a card-sized spot at its center), and it moves with one uniform scale by the longer sides about its center. A destroy explodes, hangs, then reassembles in flight to its destination.
 268. Every e2e spec runs with animations Off (a default storage state in `playwright.config.ts`) unless it opts out; the m5f spec tests Normal.
+
+Accepted by Monarch in the M5g review (PR #32).
+
+269. Combo success conditions take one of six shapes, each with parameters: `sameTurn`, `boardState`, `foundThenBurst`, `paidCost`, `playedThenEvolved`, `evolvedThenDraw`. A new combo is data unless it needs a new shape.
+270. Deep Sea Ambush follows the searched ESD01-006 through the state (the copy that reached the hand in that step), never the log: a hand card's instance id in the log would let the opponent follow a hidden card (decision 44). Any later turn counts while it stays in hand.
+271. Ginza Inferno's two events can come in either order within the turn; a destroy replaced by ESD01-011/012 doesn't count.
+272. Tokyo Wall: ESD01-012 tops a zone 8 stack with at least +8000 counter power from effects while City of Tokyo tops one of the owner's zones, checked at each decision point, once per ESD01-012 instance.
+273. Deep Sea Ambush: the [enter] destroy must happen in the Burst turn.
+274. Oxygen Destroyer: the paid card's printed rank is 8 or higher; once per resolution.
+275. Twin Cocoons: one Mothra (Larva) and one Battra (Larva) from the same ESD02-003 resolution; either may evolve by any means; the window closes when the master's next counter phase begins.
+276. Cosmos Call: The Legend of Infant Island evolves a Mothra (Larva), then ESD02-010's [enter] draw resolves in that turn.
+277. Cadmium Barrage: each source takes at least 1 rage, and at least 2 in total, in one turn.
+278. Every player's combos are called out, in order, one at a time; combos in a loaded record or removed by an undo are not; the hotseat cover hides the callout.
+279. The callout e2e fixtures both land on Tokyo Wall; each combo's own coverage is in the engine tests.
+280. Ginza Inferno never came up in the 200-game greedy run (a bot-strength note for M13); its engine test fires.
+281. The combo callout is a modal: it opens after the cards land with a brief shake (none with Animation speed Off), stays until Close, Space or Esc, and holds the bot; a search result shows first and choice modals wait for it.
+282. Light's muted grey is `#636a77` (it was `#6b7280`, 4.43:1 on the page background, under WCAG AA).
+283. Text on the highlight color (the strategy mark, change chips) has its own variable, dark in every theme.
+284. The theme selector is in `/play` Settings; the menu and `/debug` follow the saved theme, and `/debug` changes colors only.
+285. The theme contrast check is axe's `color-contrast` rule (`@axe-core/playwright` 4.13.0, a web dev dependency).
+286. Every color is a `theme.css` variable, one set per theme on `:root[data-theme=…]` (Grey also with no attribute); `index.html` sets the saved theme before the first paint.
+287. A moving card stays above the stack it lands on: the stack's covered old top stays in place under it until it lands; flights and the input lock render in one top-level layer (a portal) above board cards, hover layers and chips, below the zone banner, the preview and the modals; a card sent to the deck bottom slides under a copy of the pile's top card.

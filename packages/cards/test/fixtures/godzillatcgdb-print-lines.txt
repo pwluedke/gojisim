@@ -1,0 +1,107 @@
+Godzilla Card Game Database - Little King Trash Mouth by Ikaruwa
+Godzilla TCG DB
+Deck: Little King Trash Mouth
+Author: Ikaruwa
+Monster Deck
+Set
+ID
+Count
+Gigan (2004) [I]
+EBP04
+027
+1
+Gigan (1972) [II]
+EBP02
+042
+1
+Gigan (2004) [III]
+EBP04
+029
+1
+Modified Gigan (2004) [IV]
+EBP02
+044
+1
+Monster Cards  (15)
+Gigan (1972)
+EBP02
+041
+2
+Gigan (1972)
+EBP02
+042
+2
+Gigan (2004)
+EBP02
+043
+2
+Modified Gigan (2004)
+EBP02
+044
+1
+Gigan (2004)
+EBP04
+028
+4
+Gigan (2004)
+EBP04
+029
+2
+Modified Gigan
+EBP04
+030
+3
+Battle Cards  (20)
+Chibi Mothra
+EBP02
+075
+2
+Chibi Mechagodzilla
+EBP02
+076
+4
+Dagahra
+EBP03
+061
+3
+King Ghidorah (1998)
+EBP03
+063
+3
+King Ghidorah (1998)
+EBP03
+065
+3
+Thousand-Year Dragon King Ghidorah
+EBP03
+066
+3
+Mothra (Imago) (1992)
+ESC01
+006
+2
+Strategy Cards   (11)
+Destroy All Monsters
+EBP01
+076
+3
+Oxygen Destroyer
+EBP01
+077
+1
+Godzilla Attacks
+EBP01
+078
+1
+Godzilla vs. King Ghidorah
+EBP02
+071
+1
+The Battle at Fukuoka Tower
+EBP03
+076
+2
+Atomic Breath
+EBP04
+084
+3

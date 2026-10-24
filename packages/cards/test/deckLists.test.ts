@@ -4,6 +4,7 @@ import {
   findCardByNumber,
   formatDeckList,
   type NamedDeck,
+  parseAnyDeckList,
   parseDeckList,
 } from "../src/deckLists";
 
@@ -100,5 +101,79 @@ describe("parseDeckList", () => {
       expect(decks[0]?.monsterDeck).toHaveLength(4);
       expect(decks[0]?.mainDeck).toHaveLength(50);
     }
+  });
+});
+
+describe("pasted deck list formats (M7a)", () => {
+  const fixture = (name: string) =>
+    readFileSync(new URL(`fixtures/${name}`, import.meta.url), "utf8");
+
+  it("GojiSim text: detected and parsed as before", () => {
+    const parsed = parseAnyDeckList(sample);
+    expect(parsed.format).toBe("gojisim");
+    expect(shape(parsed.decks)).toEqual(shape(parseDeckList(sample).decks));
+  });
+
+  for (const [shapeName, file] of [
+    ["one cell per line", "godzillatcgdb-print-lines.txt"],
+    ["tab-separated rows", "godzillatcgdb-print-tabs.txt"],
+  ] as const)
+    it(`godzillatcgdb.com printable deck list, ${shapeName}: name, monster deck and main deck`, () => {
+      const parsed = parseAnyDeckList(fixture(file));
+      expect(parsed.format).toBe("godzillatcgdb");
+      expect(parsed.errors).toEqual([]);
+      const [deck] = parsed.decks;
+      expect(deck?.name).toBe("Little King Trash Mouth");
+      expect(deck?.monsterDeck.map((c) => c.cardNumber)).toEqual([
+        "EBP04-027",
+        "EBP02-042",
+        "EBP04-029",
+        "EBP02-044",
+      ]);
+      expect(deck?.mainDeck).toHaveLength(47);
+      // 3 copies of Destroy All Monsters, from its "EBP01 076 3" row.
+      expect(
+        deck?.mainDeck.filter((c) => c.cardNumber === "EBP01-076"),
+      ).toHaveLength(3);
+    });
+
+  it("godzillatcgdb rows separated by spaces (another browser's copy)", () => {
+    const text = [
+      "Deck: Spaced",
+      "Monster Deck",
+      "Godzilla (2023) [I] ESD01 001 1",
+      "Monster Cards (2)",
+      "Godzilla (2023) ESD01 002 2",
+    ].join("\n");
+    const { decks, errors } = parseAnyDeckList(text);
+    expect(errors).toEqual([]);
+    expect(decks[0]?.name).toBe("Spaced");
+    expect(decks[0]?.monsterDeck.map((c) => c.cardNumber)).toEqual([
+      "ESD01-001",
+    ]);
+    expect(decks[0]?.mainDeck.map((c) => c.cardNumber)).toEqual([
+      "ESD01-002",
+      "ESD01-002",
+    ]);
+  });
+
+  it("an unknown card number is an error with its line, in either format", () => {
+    const tcgdb = parseAnyDeckList(
+      "Deck: Bad\nMonster Deck\nNope\tZZZ99\t999\t1\n",
+    );
+    expect(tcgdb.errors).toEqual([
+      expect.objectContaining({
+        line: 3,
+        reason: "Unknown card number ZZZ99-999",
+      }),
+    ]);
+    const ours = parseAnyDeckList("[deck] Bad\n[main deck]\n1 ZZZ99-999\n");
+    expect(ours.errors[0]?.reason).toBe("Unknown card number ZZZ99-999");
+  });
+
+  it("text in no known format is one error; empty text is none", () => {
+    expect(parseAnyDeckList("hello world").errors).toHaveLength(1);
+    expect(parseAnyDeckList("hello world").format).toBeNull();
+    expect(parseAnyDeckList("   ").errors).toEqual([]);
   });
 });

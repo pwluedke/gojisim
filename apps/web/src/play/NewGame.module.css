@@ -101,3 +101,81 @@
 .pickFace[data-picked="true"] {
   outline: 3px solid var(--color-selected);
 }
+
+/* My decks (M7a): saved decks with their actions, and the Import deck modal. */
+.myDecks {
+  margin: var(--space-4) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-panel-alt);
+}
+
+.myDecksHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.deckRows {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.deckRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.deckActions {
+  display: flex;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.importModal {
+  width: min(90vw, 760px);
+}
+
+.importText {
+  box-sizing: border-box;
+  width: 100%;
+  font-family: ui-monospace, monospace;
+  font-size: var(--font-size-sm);
+}
+
+.importErrors {
+  color: var(--color-illegal);
+}
+
+.importWarnings {
+  color: var(--color-warning);
+}
+
+.importLists {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  max-height: 30vh;
+  overflow: auto;
+  margin: var(--space-2) 0;
+  font-size: var(--font-size-sm);
+}
+
+.renameRow {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+/* A deck's legality warnings (M7a): it still plays (Paul's ruling, Oct 21, 2026). */
+.warning {
+  color: var(--color-warning);
+  font-size: var(--font-size-sm);
+}

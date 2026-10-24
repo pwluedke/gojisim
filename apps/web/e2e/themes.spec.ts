@@ -128,3 +128,33 @@ for (const theme of THEMES)
     await expect(page.getByTestId("choice-modal")).toBeVisible();
     expect(await contrastProblems(page)).toEqual([]);
   });
+
+for (const theme of THEMES)
+  test(`the new-game screen, My decks and the import modal meet AA in the ${theme} theme`, async ({
+    page,
+  }) => {
+    await page.addInitScript((t) => {
+      window.localStorage.setItem(
+        "gojisim.settings",
+        JSON.stringify({ animation: "off", theme: t }),
+      );
+    }, theme);
+    await page.goto("/play?mode=bot");
+    await page.getByTestId("import-deck").click();
+    // A deck with an error, warnings and a card list.
+    await page
+      .getByTestId("import-text")
+      .fill(
+        "[deck] Mixed\n[monster deck]\n1 ESD01-001\n[main deck]\n4 ESD01-005\n1 ZZZ99-999\n",
+      );
+    await expect(page.getByTestId("import-errors")).toBeVisible();
+    expect(await contrastProblems(page)).toEqual([]);
+    await page
+      .getByTestId("import-text")
+      .fill(
+        "[deck] Small\n[monster deck]\n1 ESD01-001\n[main deck]\n4 ESD01-005\n",
+      );
+    await page.getByTestId("import-save").click();
+    await expect(page.getByTestId("my-deck")).toHaveCount(1);
+    expect(await contrastProblems(page)).toEqual([]);
+  });
