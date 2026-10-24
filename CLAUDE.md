@@ -447,3 +447,20 @@ Accepted by Monarch in the M12a-2 review (PR #36).
 319. Effect advances and retreats move one zone at a time or "to" a zone (5.13.1.2, 5.13.2.2); an effect advance from zone 8 never wins (5.13.1.1.1).
 320. Shared engine test helpers live in `packages/engine/test/fixtures/play.ts`. The cards test for "no entry means manual" uses FC01-001.
 321. Provisional rulings by Paul go in `docs/rules/rulings-to-confirm.md` and in spec.md's rulings table marked provisional, until an official ruling or FAQ settles them.
+
+Accepted by Monarch in the M12b-1 review (PR #37).
+
+322. E19 is a `boost` effect: bonuses fixed at resolution for the cards picked then, kept in `state.continuousEffects` and ended at 7.5.6; a card that moves to another area loses its bonus (4.1.4).
+323. C3 builds `sameNumberAs` (the zone with that number on each field) and `atOrBefore`; other zone-number pieces come with their first cards.
+324. T7's binding also covers [invading]: the latest card the monster's master discarded for the invasion (EBP02-022).
+325. "Your opponent may discard until N" asks that player yes/no first; the discarded cards are bound in the discard pile.
+326. `cannotPlay` reads its card filter wherever the card is, so effects that would put a strategy card into play are blocked too (Q32).
+327. `cannotAdvance` stops every advance, the 7.5.2 one included (1.3.3), logged `noAdvance`.
+328. Lake Ashi Monster (EBP02-039) is a continuous `playRankReduction` on other hand cards; reductions stack (Q36).
+329. Burst's discard is a discard event (`from: "monster"`, `cause: "burst"`).
+330. Joint Struggle: "differ in at least 1 trait" means different trait sets; with fewer than 2 cards they go to the discard pile.
+331. `play.onePerZone` plays one card per adjacent zone (EBP02-028).
+332. EBP02-079's "2" means 2 or more zones advanced by invasion.
+333. Built-in custom handlers live in `packages/engine/src/customHandlers.ts` and register when the engine loads.
+334. A `rage` effect whose delta is "for each" makes one change per counted card, each its own event (Q38).
+335. Tokens are battle cards wherever battle cards are counted or checked (`isBattle`, Q39, 9.1.4.1).

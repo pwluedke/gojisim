@@ -1,6 +1,7 @@
 import { getLegalActions } from "./actions";
 import { destroyReplacements } from "./interpreter";
 import type { GameRecord } from "./record";
+import { isToken } from "./state";
 import type { CardInstance, GameState, PlayerState } from "./types";
 import { ZONE_NUMBERS } from "./types";
 import { getPlayerView } from "./view";
@@ -48,9 +49,10 @@ export function checkInvariants(state: GameState): string[] {
     const misplaced = cardsOf(player).filter(
       (c) => c.owner !== player.id,
     ).length;
+    // Tokens aren't part of any deck (9.1): they don't count.
     const owned = state.players
       .flatMap(cardsOf)
-      .filter((c) => c.owner === player.id).length;
+      .filter((c) => c.owner === player.id && !isToken(state, c)).length;
     const expected = presented.get(player.id);
     if (owned + inResolution !== expected) {
       problems.push(
@@ -157,7 +159,11 @@ export function checkInvariants(state: GameState): string[] {
     state.pendingChoice?.kind === "confirm" ||
     state.pendingChoice?.kind === "replacementOrder" ||
     state.pendingChoice?.kind === "option";
-  if ((state.resolution !== null) !== effectChoice)
+  // An optional replacement asked during an engine step (E21) has no resolution.
+  const stepAsk =
+    state.pendingChoice?.kind === "confirm" &&
+    state.replacementAsks?.some((a) => a.answer === null) === true;
+  if (!stepAsk && (state.resolution !== null) !== effectChoice)
     problems.push(
       `resolution ${state.resolution ? "in progress" : "missing"} with choice ${state.pendingChoice?.kind ?? "none"}`,
     );

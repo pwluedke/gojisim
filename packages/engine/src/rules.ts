@@ -9,7 +9,7 @@ import { guardLoop } from "./loop";
 import { openManualWindow } from "./manual";
 import { requireChoice } from "./choices";
 import { resolveLosses } from "./losses";
-import { appendLog, getPlayer, toDiscard } from "./state";
+import { appendLog, getPlayer, isToken, toDiscard } from "./state";
 import { getRank, hasFlag } from "./stats";
 import type {
   CardInstance,
@@ -51,6 +51,20 @@ function isBattleStack(state: GameState, stack: CardStack): boolean {
  * The destroyed top card's last known information on the field (10.6.4.1.2), for `destroyed`
  * triggers: its instance id there and its rank.
  */
+/**
+ * The destroyed top card's id in its discard pile (T2, Revenge): only the top card's, since a
+ * card that was under it has no Revenge (12.7.3). A token has none: it disappeared (9.1.4.2).
+ */
+function discardIdOf(
+  state: GameState,
+  discarded: CardInstance[],
+): { discardInstanceId?: string } {
+  const top = discarded[discarded.length - 1];
+  return top && !isToken(state, top)
+    ? { discardInstanceId: top.instanceId }
+    : {};
+}
+
 interface LastKnown {
   instanceId: string;
   rank: number | null;
@@ -72,15 +86,17 @@ function destroyStack(
   known: LastKnown,
   invasion = false,
 ) {
+  // Moved first, so Revenge (12.7.2) finds the card in the discard pile.
+  const discarded = stack.map((card) => toDiscard(state, card));
   appendLog(state, "destroy", player.id, {
     rule,
     zone,
     cardIds: stack.map((c) => c.cardId),
     ...known,
+    ...discardIdOf(state, discarded),
     // A crush by an advance of an invasion ([invading] ... destroys, 12.3).
     ...(invasion ? { invasion: true } : {}),
   });
-  for (const card of stack) toDiscard(state, card);
 }
 
 /**
@@ -158,16 +174,18 @@ export function destroyCards(
     });
   }
   for (const { player, zone, cards, known: info } of removed) {
+    // Moved first, so Revenge (12.7.2) finds the card in the discard pile.
+    const discarded = cards.map((card) => toDiscard(state, card));
     appendLog(state, "destroy", player.id, {
       rule,
       ...(zone === null ? { area: "strategy zone" } : { zone }),
       cardIds: cards.map((c) => c.cardId),
       cause,
       ...info,
+      ...discardIdOf(state, discarded),
       // Whose effect destroyed it, for "destroyed by your opponent's effect" (T1).
       ...(by === null ? {} : { by }),
     });
-    for (const card of cards) toDiscard(state, card);
   }
 }
 

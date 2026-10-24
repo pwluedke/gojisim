@@ -194,7 +194,10 @@ export function determinize(
         .filter((k) => !(isViewer && k.area === "hand"))
         .filter((k) => k.area !== "monsterDeck")
         .map((k) => k.card),
-    ].map((c) => c.cardId);
+    ]
+      // Tokens aren't deck cards (9.1).
+      .filter((c) => view.cards[c.cardId]?.type !== "Token")
+      .map((c) => c.cardId);
     const mainVisible = [...visibleCards];
     // Monsters that came from the monster deck are not main-deck cards.
     subtract(mainVisible, left, `${player.id}'s visible cards`);

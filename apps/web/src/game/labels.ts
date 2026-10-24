@@ -168,6 +168,19 @@ function choiceWhat(state: GameState): string {
       return `choosing a zone${by}`;
     case "confirm": {
       // "Your opponent may discard cards until ..." (EBP02-070): the opponent decides.
+      // An optional replacement asked during a step (E21, EBP02-012 at 7.2.3).
+      if (choice.rule === "10.9") {
+        const option = choice.options[0];
+        const card =
+          option?.cardId === null || option?.cardId === undefined
+            ? undefined
+            : state.cards[option.cardId];
+        const number = option?.abilityId?.split("#")[0];
+        const source = Object.values(state.cards).find(
+          (c) => c.deckCardNumber === number,
+        );
+        return `deciding whether ${source?.name ?? "a card"}'s replacement applies to ${card?.name ?? "a card"}`;
+      }
       const effect = currentEffect(state);
       if (choice.rule === "5.7.2" && effect?.effect === "discardDownTo")
         return `deciding whether to discard down to ${effect.size} cards${by}`;

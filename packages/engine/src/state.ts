@@ -82,11 +82,26 @@ export function appendLog(
   return entry;
 }
 
-/** Moves a card to its owner's discard pile as a new object (4.1.4, 4.1.7). */
+/**
+ * Moves a card to its owner's discard pile as a new object (4.1.4, 4.1.7). A token can't exist
+ * there, so it disappears instead (9.1.4.2), logged as `tokenGone`.
+ */
 export function toDiscard(state: GameState, card: CardInstance): CardInstance {
   const discarded = moved(state, card);
+  if (isToken(state, card)) {
+    appendLog(state, "tokenGone", card.owner, {
+      rule: "9.1.4.2",
+      cardId: card.cardId,
+    });
+    return discarded;
+  }
   getPlayer(state, card.owner).discard.push(discarded);
   return discarded;
+}
+
+/** Whether a card is a token (9.1): it exists only in zones (9.1.4.1). */
+export function isToken(state: GameState, card: { cardId: number }): boolean {
+  return state.cards[card.cardId]?.type === "Token";
 }
 
 /**
