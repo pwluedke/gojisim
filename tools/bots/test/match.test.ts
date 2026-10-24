@@ -1,5 +1,6 @@
 import { ismctsBot, randomBot, weightedBot } from "@gojisim/bot";
 import { describe, expect, it } from "vitest";
+import { getCombos } from "@gojisim/cards";
 import { playMatchGame, summarize, wilson } from "../src/match";
 
 describe("bot tournament harness (M6a)", () => {
@@ -49,5 +50,42 @@ describe("bot tournament harness (M6a)", () => {
     const strip = (results: ReturnType<typeof run>) =>
       results.map(({ ms: _ms, ...rest }) => rest);
     expect(strip(run())).toEqual(strip(run()));
+  }, 120_000);
+
+  it("M5g: self-play (weighted vs weighted) reports each bot's combos per game and in the summary", () => {
+    const results = Array.from({ length: 60 }, (_, game) =>
+      playMatchGame(
+        { bot: weightedBot },
+        { bot: weightedBot },
+        "combos",
+        game,
+        "official",
+      ),
+    );
+    const ids = new Set(getCombos().map((c) => c.id));
+    for (const r of results)
+      for (const side of ["a", "b"] as const)
+        for (const [id, n] of Object.entries(r.combos[side])) {
+          expect(ids).toContain(id);
+          expect(n).toBeGreaterThan(0);
+        }
+    const summary = summarize(
+      weightedBot,
+      weightedBot,
+      "combos",
+      "official",
+      results,
+    );
+    const total = (counts: Record<string, number>) =>
+      Object.values(counts).reduce((x, y) => x + y, 0);
+    const perGame = (side: "a" | "b") =>
+      results.reduce((sum, r) => sum + total(r.combos[side]), 0);
+    expect(total(summary.combos.a)).toBe(perGame("a"));
+    expect(total(summary.combos.b)).toBe(perGame("b"));
+    // The starters do make combos in play.
+    expect(total(summary.combos.a) + total(summary.combos.b)).toBeGreaterThan(
+      0,
+    );
+    expect(summary.combos.gamesWithCombo.a).toBeLessThanOrEqual(60);
   }, 120_000);
 });

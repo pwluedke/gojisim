@@ -14,6 +14,9 @@ import { stateBoard, weightedPick } from "@gojisim/bot";
 import {
   type Action,
   advanceToDecision,
+  type ComboHit,
+  detectCombos,
+  newComboTracker,
   applyAction,
   getLegalActions,
   type GameRecord,
@@ -78,7 +81,16 @@ interface Fixture {
    * Stop before a P1 action whose step (to the next decision) this matches; the record keeps
    * that action as `next`, for the spec to take through the UI (M5f).
    */
-  matchNext?: (before: GameState, action: Action, after: GameState) => boolean;
+  matchNext?: (
+    before: GameState,
+    action: Action,
+    after: GameState,
+    combos: ComboHit[],
+  ) => boolean;
+  /** Whose next action `matchNext` looks at (default P1). */
+  actor?: "P1" | "P2";
+  /** Both seats human (a hotseat record) instead of P2 the Medium bot. */
+  hotseat?: boolean;
 }
 
 /** Zone top cards (instance ids) on the field. */
@@ -98,6 +110,16 @@ const source = (state: GameState) =>
   state.resolution
     ? state.cards[state.resolution.standby.sourceCardId]?.deckCardNumber
     : undefined;
+
+/** Actions a spec can take through the UI: hand actions and choices. */
+const HAND_OR_CHOICE: Action["type"][] = [
+  "playBattle",
+  "activateStrategy",
+  "gainRage",
+  "playMonster",
+  "invade",
+  "choose",
+];
 
 const FIXTURES: Fixture[] = [
   {
@@ -210,6 +232,55 @@ const FIXTURES: Fixture[] = [
     },
   },
   {
+    name: "combo-you",
+    note: "P1's next action (`next`) completes a combo (M5g callout)",
+    decks: official,
+    confirmSingleOption: true,
+    match: () => false,
+    matchNext: (_b, action, _a, combos) =>
+      HAND_OR_CHOICE.includes(action.type) &&
+      combos.some((c) => c.player === "P1"),
+  },
+  {
+    name: "combo-bot-waits",
+    note: "P1's next action (`next`) completes a combo and hands the decision to the bot (M5g modal)",
+    decks: official,
+    confirmSingleOption: true,
+    match: () => false,
+    matchNext: (_b, action, after, combos) =>
+      [...HAND_OR_CHOICE, "pass"].includes(action.type) &&
+      combos.some((c) => c.player === "P1") &&
+      (after.pendingChoice?.player ?? after.turnPlayer) === "P2" &&
+      !after.result,
+  },
+  {
+    name: "combo-p2",
+    note: "Hotseat: P2's next action (`next`) completes a combo (M5g callout)",
+    decks: (g) => (g % 2 ? [esd01, esd02] : [esd02, esd01]),
+    confirmSingleOption: true,
+    actor: "P2",
+    hotseat: true,
+    match: () => false,
+    matchNext: (_b, action, _a, combos) =>
+      HAND_OR_CHOICE.includes(action.type) &&
+      combos.some((c) => c.player === "P2"),
+  },
+  {
+    name: "deck-bottom",
+    note: "P1's next action (`next`) destroys an ESD01-011/012 that goes to the deck bottom instead (M5g layer fix)",
+    decks: (g) => (g % 2 ? [esd02, esd01] : [esd01, esd01]),
+    confirmSingleOption: true,
+    match: () => false,
+    matchNext: (before, action, after) =>
+      HAND_OR_CHOICE.includes(action.type) &&
+      after.log
+        .slice(before.log.length)
+        .some(
+          (e) => e.type === "putOnDeck" && e.payload["where"] === "bottom",
+        ) &&
+      !after.result,
+  },
+  {
     name: "manual",
     note: "P1 resolves EBP01-017 by hand: a manual override window",
     decks: () => [withManual, esd02],
@@ -236,14 +307,19 @@ for (const fixture of FIXTURES.filter(
       actions: [],
       seats: {
         P1: { kind: "human" },
-        P2: { kind: "bot", bot: "ismcts", settings: { difficulty: 55 } },
+        P2: fixture.hotseat
+          ? { kind: "human" }
+          : { kind: "bot", bot: "ismcts", settings: { difficulty: 55 } },
       },
       botSeed: `${g}-bots`,
       ...(fixture.confirmSingleTarget ? { confirmSingleTarget: ["P1"] } : {}),
-      ...(fixture.confirmSingleOption ? { confirmSingleOption: ["P1"] } : {}),
+      ...(fixture.confirmSingleOption
+        ? { confirmSingleOption: fixture.hotseat ? ["P1", "P2"] : ["P1"] }
+        : {}),
     };
     let state = startGame(record);
     const pick = rng(g);
+    const tracker = newComboTracker();
     for (let i = 0; i < 4000 && !state.result; i++) {
       const choice = state.pendingChoice;
       if (choice?.player === "P1" && fixture.match(choice, state)) {
@@ -267,7 +343,17 @@ for (const fixture of FIXTURES.filter(
         Math.floor(pick() * n),
       );
       const after = advanceToDecision(applyAction(state, action));
-      if (who === "P1" && fixture.matchNext?.(state, action, after)) {
+      const combos = detectCombos(
+        tracker,
+        state,
+        action,
+        after,
+        record.actions.length,
+      );
+      if (
+        who === (fixture.actor ?? "P1") &&
+        fixture.matchNext?.(state, action, after, combos)
+      ) {
         found = record;
         next = action;
         break;

@@ -310,6 +310,8 @@ const PERFORM: {
       instanceId: stacked.instanceId,
       from: "resolutionArea",
       to: "invadingMonsterZone",
+      // A Burst play (12.5.2), for combos (M5g).
+      ...(how === "burst" ? { burst: true } : {}),
     });
     setRage(state, player, player.rage + 1, "8.5.1.1");
     appendLog(state, "gainRage", player.id, {

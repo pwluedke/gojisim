@@ -59,3 +59,28 @@ describe("battle log lines (M5d)", () => {
     for (const line of plays) expect(line.rule).toBe("8.2");
   });
 });
+
+describe("combo log lines (M5g)", () => {
+  it("a combo's line follows the action that completed it, naming the seat (a bot by level)", () => {
+    const session = fixture("search");
+    const hit = (player: string, actionIndex: number) => ({
+      comboId: "tokyo-wall",
+      name: "Tokyo Wall",
+      player: player as "P1" | "P2",
+      cards: ["ESD01-010", "ESD01-014", "ESD01-012"],
+      turn: 1,
+      actionIndex,
+      afterSeq: 0,
+    });
+    const lines = buildLog(session, "P1", names, [hit("P1", 3), hit("P2", 5)]);
+    const combos = lines.filter((l) => l.kind === "combo");
+    expect(combos.map(text)).toEqual([
+      "Combo: Tokyo Wall (You)",
+      "Combo: Tokyo Wall (Bot (Medium))",
+    ]);
+    // Right after the lines of action 3 (position 4), before action 4's line.
+    const i = lines.findIndex((l) => l.kind === "combo");
+    expect(lines[i]?.position).toBe(4);
+    expect(lines[i + 1]?.position ?? 99).toBeGreaterThanOrEqual(5);
+  });
+});

@@ -11,7 +11,8 @@
     "data/errata.json",
     "data/restrictions.json",
     "data/cards.json",
-    "data/abilities/*.json"
+    "data/abilities/*.json",
+    "data/combos/*.json"
   ],
   "exclude": ["src/**/*.test.ts"]
 }

@@ -63,6 +63,13 @@ export interface Flight {
    * layout, so a destroy breaks the same way on every replay.
    */
   seed: string;
+  /**
+   * A covered card (M5g fix): the old top of the stack a card lands on (the discard pile, a
+   * Larva, the monster stack). It stays where it was, under the moving card, until it lands.
+   */
+  stay?: true;
+  /** A move to the bottom of the deck: the pile is drawn over it, so it slides under. */
+  underPile?: true;
 }
 
 export const PILES = ["hand", "deck", "monsterDeck", "discard"] as const;
@@ -201,6 +208,8 @@ export function planFlights(
   next: Snapshot,
   destroyed: readonly number[],
   drop: { instanceId: string; box: Box } | null = null,
+  /** Card ids put on the bottom of a deck in this step (`putOnDeck`, bottom). */
+  bottoms: readonly number[] = [],
 ): Flight[] {
   const removed = [...prev.cards.values()].filter(
     (c) => !next.cards.has(c.instanceId),
@@ -273,20 +282,56 @@ export function planFlights(
         seed: card.instanceId,
       });
   }
+  // A card that left the board where a moving card lands was covered, not moved (a stack's old
+  // top): it stays in place, under the moving card, until that card lands.
+  const stays: Flight[] = [];
+  const near = (a: Box, b: Box) =>
+    Math.abs(a.x - b.x) < 3 &&
+    Math.abs(a.y - b.y) < 3 &&
+    Math.abs(a.width - b.width) < 3 &&
+    Math.abs(a.height - b.height) < 3;
   for (const card of removed) {
     if (used.has(card.instanceId)) continue;
-    // Into a pile that gained a card: a discard below the top, the deck bottom, a hidden hand.
-    const to = take(card.owner, 1, ["discard", "deck", "monsterDeck", "hand"]);
-    if (to)
-      flights.push({
-        id: `${card.instanceId}>`,
-        cardId: card.cardId,
-        from: card.box,
-        to,
-        target: null,
-        shatter: shatters(card.cardId),
-        seed: card.instanceId,
-      });
+    if (!flights.some((f) => f.target !== null && near(f.to, card.box)))
+      continue;
+    used.add(card.instanceId);
+    stays.push({
+      id: `${card.instanceId}=`,
+      cardId: card.cardId,
+      from: card.box,
+      to: card.box,
+      target: null,
+      shatter: false,
+      seed: card.instanceId,
+      stay: true,
+    });
+  }
+  const sentToBottom = [...bottoms];
+  for (const card of removed) {
+    if (used.has(card.instanceId)) continue;
+    // Put on the bottom of its deck (the log says so): to the deck, even when the deck's count
+    // fell in the same step (a draw after it). Else into a pile that gained a card: a discard
+    // below the top, a hidden hand.
+    const bottom =
+      card.cardId !== null &&
+      sentToBottom.includes(card.cardId) &&
+      !!next.anchors[`${card.owner}|deck`];
+    if (bottom)
+      sentToBottom.splice(sentToBottom.indexOf(card.cardId as number), 1);
+    const to = bottom
+      ? next.anchors[`${card.owner}|deck`]
+      : take(card.owner, 1, ["discard", "deck", "monsterDeck", "hand"]);
+    if (!to) continue;
+    flights.push({
+      id: `${card.instanceId}>`,
+      cardId: card.cardId,
+      from: card.box,
+      to,
+      target: null,
+      shatter: shatters(card.cardId),
+      seed: card.instanceId,
+      ...(bottom ? { underPile: true as const } : {}),
+    });
   }
   // Hidden cards between piles (an opponent's draw: deck to hand), as card backs.
   for (const key of Object.keys(next.counts)) {
@@ -310,7 +355,19 @@ export function planFlights(
     }
     left.set(key, n);
   }
-  return flights;
+  // Covered cards first, so every moving card is drawn above them.
+  return [...stays, ...flights];
+}
+
+/** Card ids put on the bottom of a deck in the log entries after `from` (`putOnDeck`). */
+export function bottomedCards(
+  log: readonly LogEntry[],
+  from: number,
+): number[] {
+  return log
+    .slice(from)
+    .filter((e) => e.type === "putOnDeck" && e.payload["where"] === "bottom")
+    .map((e) => e.payload["cardId"] as number);
 }
 
 /** Durations in ms for a speed: the move, and each half of a destroy's break (apart, together). */
@@ -332,10 +389,11 @@ export function flightsTime(
   flights: readonly Flight[],
   speed: AnimationSpeed,
 ): number {
-  if (flights.length === 0 || speed === "off") return 0;
+  const moving = flights.filter((f) => !f.stay);
+  if (moving.length === 0 || speed === "off") return 0;
   const { move, explode, hang } = durations(speed);
   return Math.max(
-    ...flights.map((f) => (f.shatter ? explode + hang : 0) + move),
+    ...moving.map((f) => (f.shatter ? explode + hang : 0) + move),
   );
 }
 
@@ -355,7 +413,7 @@ export function FlightLayer({
     const running: Animation[] = [];
     for (const flight of flights) {
       const el = refs.current.get(flight.id);
-      if (!el) continue;
+      if (!el || flight.stay) continue;
       const { from, to } = flight;
       const t = moveTransform(from, to);
       const shift = `translate(${t.x}px, ${t.y}px) scale(${t.scale})`;
@@ -413,7 +471,7 @@ export function FlightLayer({
         const card = flight.cardId === null ? undefined : cards[flight.cardId];
         const src = card ? `/cards/${card.id}-thumb.webp` : null;
         const { from } = flight;
-        return (
+        const ghost = (
           <div
             key={flight.id}
             ref={(el) => {
@@ -424,6 +482,9 @@ export function FlightLayer({
               card ? styles.flight : `${styles.flight} ${styles.flightBack}`
             }
             data-testid="flight"
+            data-flight-id={flight.id}
+            data-stay={flight.stay ? "true" : undefined}
+            data-under-pile={flight.underPile ? "true" : undefined}
             data-card-id={card?.id}
             data-shatter={flight.shatter ? "true" : undefined}
             data-seed={flight.shatter ? flight.seed : undefined}
@@ -471,6 +532,23 @@ export function FlightLayer({
                 )}
           </div>
         );
+        if (!flight.underPile) return ghost;
+        // The pile's top, drawn over a card sent to the deck bottom, so it slides under the pile.
+        const { to } = flight;
+        return [
+          ghost,
+          <div
+            key={`${flight.id}-cover`}
+            className={`${styles.flight} ${styles.flightBack}`}
+            data-testid="flight-cover"
+            style={{
+              left: to.x,
+              top: to.y,
+              width: to.width,
+              height: to.height,
+            }}
+          />,
+        ];
       })}
     </div>
   );
@@ -539,6 +617,7 @@ export function useMoveAnimations({
       snap,
       destroyedCards(model.view.log, before.logLength),
       dropped && performance.now() - dropped.at < 2000 ? dropped : null,
+      bottomedCards(model.view.log, before.logLength),
     );
     if (planned.length === 0) return;
     for (const flight of planned) {

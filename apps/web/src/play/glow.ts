@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 
-/** Glow colors by card color (M5f). White cards glow grey. */
+/** Glow colors by card color (M5f), as theme variables (M5g). White cards glow grey. */
 export const GLOW_COLORS: Record<string, string> = {
-  Red: "#e0352b",
-  Blue: "#2f6fdf",
-  Green: "#2e9e4f",
-  grey: "#9aa0a6",
+  Red: "var(--color-glow-red)",
+  Blue: "var(--color-glow-blue)",
+  Green: "var(--color-glow-green)",
+  grey: "var(--color-glow-grey)",
 };
 
 /**

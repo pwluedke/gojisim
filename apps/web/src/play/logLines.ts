@@ -1,5 +1,5 @@
 import type { Card } from "@gojisim/cards";
-import type { Action, GameState, LogEntry } from "@gojisim/engine";
+import type { Action, ComboHit, GameState, LogEntry } from "@gojisim/engine";
 import { difficultyName } from "../game/bots";
 import { actionLabel, findInstance } from "../game/labels";
 import type { PlayerId, Session } from "../game/session";
@@ -9,7 +9,7 @@ export type LogPart = string | { card: Card };
 
 export interface LogLine {
   key: string;
-  kind: "turn" | "action" | "event";
+  kind: "turn" | "action" | "event" | "combo";
   /** The session position this line shows when clicked (the state after its action). */
   position: number;
   parts: LogPart[];
@@ -214,8 +214,16 @@ export function buildLog(
   session: Session,
   viewer: string,
   name: (id: string) => string,
+  combos: readonly ComboHit[] = [],
 ): LogLine[] {
   const lines: LogLine[] = [];
+  /** A seat as log lines name it: "Bot (Medium)" for a bot, else `name` ("You", "P2"). */
+  const seatName = (player: string) => {
+    const seat = session.seats[player as PlayerId];
+    return seat?.kind === "bot"
+      ? `Bot (${difficultyName(seat.difficulty)})`
+      : name(player);
+  };
   const events = (position: number, from: number) => {
     const state = session.states[position] as GameState;
     for (const entry of state.log.slice(from)) {
@@ -277,6 +285,16 @@ export function buildLog(
           : (ACTION_RULES[action.type] ?? null),
     });
     events(i + 1, before.log.length);
+    // M5g: a combo this action completed, after the action's own lines.
+    for (const hit of combos)
+      if (hit.actionIndex === i)
+        lines.push({
+          key: `c${i}-${hit.comboId}-${hit.player}`,
+          kind: "combo",
+          position: i + 1,
+          parts: [`Combo: ${hit.name} (${seatName(hit.player)})`],
+          rule: null,
+        });
   });
   return lines;
 }

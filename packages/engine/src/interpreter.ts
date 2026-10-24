@@ -1392,6 +1392,10 @@ function perform(state: GameState, effect: Effect): Outcome {
             from: target.card.cardId,
             to: evolved.cardId,
             zone: target.zone,
+            // Which card evolved, into which, and by which ability (M5g combos).
+            fromInstanceId: target.card.instanceId,
+            instanceId: evolved.instanceId,
+            abilityId,
           });
         }
       }

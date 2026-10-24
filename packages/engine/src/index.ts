@@ -65,3 +65,4 @@ export { normalizeSeed } from "./rng";
 export { type CreateGameOptions, createGame, type PlayerSetup } from "./setup";
 export * from "./types";
 export * from "./view";
+export * from "./combos";

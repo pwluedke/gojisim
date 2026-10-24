@@ -101,12 +101,15 @@ function LegalityNote({ option, seed }: { option: DeckOption; seed: number }) {
   try {
     validation = checkDeck(option.build(seed));
   } catch (err) {
-    return <div style={{ color: "#b00" }}>{String(err)}</div>;
+    return <div style={{ color: "var(--color-illegal)" }}>{String(err)}</div>;
   }
   return (
     <div
       data-testid="deck-legality"
-      style={{ color: validation.legal ? "#080" : "#b00", fontSize: 12 }}
+      style={{
+        color: validation.legal ? "var(--color-legal)" : "var(--color-illegal)",
+        fontSize: 12,
+      }}
     >
       {validation.legal
         ? "Legal"
@@ -167,7 +170,11 @@ function NewGameForm({
 
   return (
     <form
-      style={{ border: "1px solid #888", padding: 8, margin: 4 }}
+      style={{
+        border: "1px solid var(--color-border-strong)",
+        padding: 8,
+        margin: 4,
+      }}
       onSubmit={(e) => {
         e.preventDefault();
         try {
@@ -246,7 +253,7 @@ function NewGameForm({
         {importErrors.length > 0 && (
           <ul
             data-testid="deck-list-errors"
-            style={{ color: "#b00", fontSize: 12 }}
+            style={{ color: "var(--color-illegal)", fontSize: 12 }}
           >
             {importErrors.map((e) => (
               <li key={e.line}>
@@ -256,7 +263,7 @@ function NewGameForm({
           </ul>
         )}
       </div>
-      {error && <div style={{ color: "red" }}>{error}</div>}
+      {error && <div style={{ color: "var(--color-illegal)" }}>{error}</div>}
     </form>
   );
 }
@@ -273,7 +280,7 @@ function IllegalDeckBanner({ record }: { record: GameRecord }) {
   return (
     <div
       data-testid="illegal-deck-banner"
-      style={{ background: "#ffcdd2", padding: 6, margin: 4 }}
+      style={{ background: "var(--color-alert-bg)", padding: 6, margin: 4 }}
     >
       <strong>Warning: playing with an illegal deck (allowed).</strong>
       {problems.map((p) => (
@@ -368,7 +375,11 @@ export function DebugViewer() {
       <h1 style={{ fontSize: 18 }}>GojiSim debug viewer</h1>
       <div
         data-testid="debug-banner"
-        style={{ background: "#ffd54f", padding: 6, fontWeight: "bold" }}
+        style={{
+          background: "var(--color-notice-bg)",
+          padding: 6,
+          fontWeight: "bold",
+        }}
       >
         {banner}
       </div>
@@ -411,7 +422,9 @@ export function DebugViewer() {
             }
           />
         </label>
-        {importError && <span style={{ color: "red" }}> {importError}</span>}
+        {importError && (
+          <span style={{ color: "var(--color-illegal)" }}> {importError}</span>
+        )}
       </div>
       {session && state && shown && (
         <>
@@ -420,7 +433,11 @@ export function DebugViewer() {
           {botSeats.length > 0 && (
             <div
               data-testid="bot-controls"
-              style={{ border: "1px solid #06c", padding: 6, margin: 4 }}
+              style={{
+                border: "1px solid var(--color-accent)",
+                padding: 6,
+                margin: 4,
+              }}
             >
               <strong>Bots:</strong>{" "}
               {botSeats
@@ -493,7 +510,10 @@ export function DebugViewer() {
               )}
               <div>
                 {thinking && (
-                  <span data-testid="bot-thinking" style={{ color: "#06c" }}>
+                  <span
+                    data-testid="bot-thinking"
+                    style={{ color: "var(--color-accent)" }}
+                  >
                     Bot ({difficultyName(thinking.difficulty)}) is thinking…{" "}
                     {(Math.max(0, now - thinking.started) / 1000).toFixed(1)}{" "}
                     s{" "}
@@ -504,7 +524,10 @@ export function DebugViewer() {
                   ms
                 </span>
                 {botError && (
-                  <span style={{ color: "red" }}> Bot error: {botError}</span>
+                  <span style={{ color: "var(--color-illegal)" }}>
+                    {" "}
+                    Bot error: {botError}
+                  </span>
                 )}
               </div>
             </div>
@@ -522,7 +545,12 @@ export function DebugViewer() {
                 top
                 onSelect={select}
               />
-              <div style={{ borderTop: "3px solid #333", margin: "4px 0" }} />
+              <div
+                style={{
+                  borderTop: "3px solid var(--color-text)",
+                  margin: "4px 0",
+                }}
+              />
               <Field
                 state={shown}
                 player={shown.players[0]}
@@ -534,7 +562,13 @@ export function DebugViewer() {
                 player={shown.players[0]}
                 onSelect={select}
               />
-              <div style={{ border: "1px solid #888", padding: 4, margin: 2 }}>
+              <div
+                style={{
+                  border: "1px solid var(--color-border-strong)",
+                  padding: 4,
+                  margin: 2,
+                }}
+              >
                 Resolution area ({state.resolutionArea.length}):{" "}
                 {state.resolutionArea
                   .map((c) => state.cards[c.cardId]?.name)
@@ -545,7 +579,11 @@ export function DebugViewer() {
               {botToMove && !state.result ? (
                 <div
                   data-testid="actions"
-                  style={{ border: "1px solid #888", padding: 6, margin: 4 }}
+                  style={{
+                    border: "1px solid var(--color-border-strong)",
+                    padding: 6,
+                    margin: 4,
+                  }}
                 >
                   <strong>
                     {decider} (bot) to act
@@ -562,7 +600,13 @@ export function DebugViewer() {
                   <ActionPanel state={state} onAction={takeAction} />
                 </>
               )}
-              <div style={{ border: "1px solid #888", padding: 6, margin: 4 }}>
+              <div
+                style={{
+                  border: "1px solid var(--color-border-strong)",
+                  padding: 6,
+                  margin: 4,
+                }}
+              >
                 <button
                   type="button"
                   data-testid="step-back"

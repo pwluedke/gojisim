@@ -8,7 +8,11 @@ import type {
 } from "@gojisim/engine";
 import { useState } from "react";
 
-const box = { border: "2px solid #b60", padding: 6, margin: 4 } as const;
+const box = {
+  border: "2px solid var(--color-warning)",
+  padding: 6,
+  margin: 4,
+} as const;
 
 export interface ManualCard {
   card: CardInstance;
