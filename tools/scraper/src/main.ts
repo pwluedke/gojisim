@@ -5,6 +5,8 @@ import {
   type Card,
   CardListSchema,
   CardOverridesSchema,
+  ManualCardsSchema,
+  mergeManualCards,
   TextOverridesSchema,
   TraitSpellingsSchema,
 } from "@gojisim/cards";
@@ -107,14 +109,22 @@ async function main(): Promise<void> {
   const textOverrides = TextOverridesSchema.parse(
     JSON.parse(await readFile(new URL("text-overrides.json", dataDir), "utf8")),
   );
-  const cards = CardListSchema.parse(
+  const manualCards = ManualCardsSchema.parse(
+    JSON.parse(await readFile(new URL("manual-cards.json", dataDir), "utf8")),
+  );
+  // Hand-entered cards the site doesn't list yet; the site's print wins once it does.
+  const merged = mergeManualCards(
     applyTextOverrides(
       applyTraitSpellings(
         linkPrints([...byId.values()], overrides),
         traitSpellings,
       ),
       textOverrides,
-    ).sort((a, b) =>
+    ),
+    manualCards,
+  );
+  const cards = CardListSchema.parse(
+    merged.cards.sort((a, b) =>
       a.cardNumber < b.cardNumber
         ? -1
         : a.cardNumber > b.cardNumber
@@ -148,6 +158,9 @@ async function main(): Promise<void> {
         baseCards: cards.filter((c) => !c.isParallel).length,
         parallels: cards.filter((c) => c.isParallel).length,
         perSet: sortedPerSet,
+        manualCards: manualCards
+          .map((m) => m.card.cardNumber)
+          .filter((n) => !merged.nowOnSite.includes(n)),
         unknownFieldLabels,
         failures,
       },
@@ -160,6 +173,10 @@ async function main(): Promise<void> {
   console.log(`Total cards: ${cards.length}`);
   console.table(sortedPerSet);
   console.log("unknownFields labels:", unknownFieldLabels);
+  if (merged.nowOnSite.length > 0)
+    console.warn(
+      `Now on the site, remove from manual-cards.json: ${merged.nowOnSite.join(", ")}`,
+    );
   if (failures.length > 0) {
     console.error(`${failures.length} failures:`, failures);
     process.exitCode = 1;

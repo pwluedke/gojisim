@@ -294,6 +294,12 @@ The M3 engine must include the framework below, so that M4 adds card abilities a
 - Counter by an effect (M12b-2, E12, Q24): a real counter (5.15.1): countered triggers fire, and a player with no next monster loses (5.15.1.2.1).
 - Extra advances (M12b-2, E15): an `advanced` trigger can ask for the 7.5.2 end phase advance only; EBP02-056's extra advances are by an effect.
 - Strategy cards replaced at 7.2.3 (M12b-2, E21, 10.9): a replacement can send a strategy card elsewhere instead of to the discard pile (EBP02-012: under it). An optional one asks its master per card; the step waits and runs again with the answers.
+- Leaving the field (M12c-1, 10.6.4.1.2): a destroyed card's own "when this card is destroyed" abilities trigger from its last known information on the field; the destroy log lists the discard pile ids of the cards that were under it, which such an ability can bind (EBP03-052: they go to the hand).
+- Played on top (M12c-1, E18, 3.2.5): "play it on top of" a card stacks the played card on that card's stack, with no zone choice and no overload (EBP03-043, EBP03-047). "Play a monster card from your monster deck" one rank higher stacks it on the invading monster, keeping its zone; [enter] fires; it is not the 8.5 action and gives no rage unless the card says so (Q27, EBP03-074).
+- Cards under a card (M12c-1, E4): with several cards it could go under, the effect's player picks one; a card on the field goes under alone.
+- Reveal the top (M12c-1, E3): the number revealed can be an amount (the opponent's monster's rank), and an effect can take several picks in order, each from the cards left (EBP03-011).
+- Zones (M12c-1, C3): "a zone beside it" is an adjacent zone of the same player at another left-right position, so not the zone in front or behind (4.4.5.2, 4.4.5.5); "zones whose numbers match the ranks" are the zones numbered like the bound cards' ranks (EBP03-073). A zone choice can be limited to a zone set (EBP03-009).
+- Each player discards down to N (M12c-1, E11): the master first, then the opponent, each picking their own cards (5.7.2).
 
 **Keyword abilities (12)**, all in M4: Enter (12.2), When invading (12.3), Awakening N (12.4), Burst (12.5), Evolution (12.6), Revenge (12.7), Resonance (12.8), Base (12.9).
 
@@ -338,6 +344,7 @@ Q15 to Q34 are the M12 rules questions in `docs/abilities/m12-plan.md`, approved
 | Q37 Can an ability override the normal rules, e.g. "play it in zone 8 instead" (Akane Yashiro EBP04-077) and effect plays that name a zone (Godzilla Emerges)? | Yes (1.3.1): an effect play ignores the battle card rank vs. the opponent's monster's zone limit (8.2.1) (Oct 24, 2026) |
 | Q38 Is "increase rage by 1 for each X" (EBP01-015) one increase or several? | N separate increases of 1, each firing "whenever your rage is increased" (Ginza Annihilated, EBP01-003, EBP01-010, EBP02-054, EBP02-057) (Oct 24, 2026) |
 | Q39 Are tokens (Crystals, Tentacles, ...) battle cards for counts and checks? | Yes: a token in your zones is a battle card for anything that counts or checks battle cards (EBP03-076, EBP01-027, EBP04-038, EBP03-010, "2 or more battle cards" conditions) (Oct 24, 2026) |
+| Q40 Space Beam (EBP03-069): "if there is a [mechagodzilla] card in zone 8" names no player. Whose zone 8? | Your zone 8 only: a [mechagodzilla] card in the opponent's zone 8 doesn't make it destroy. **Provisional** (Oct 24, 2026): see [rulings-to-confirm.md](rulings-to-confirm.md) |
 
 ## Test cases
 

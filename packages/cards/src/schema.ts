@@ -62,6 +62,58 @@ export type CardColor = z.infer<typeof CardColorSchema>;
 
 export const CardListSchema = z.array(CardSchema);
 
+/** Hand-entered card ids start here, far above the site's own ids, so they never collide. */
+export const MANUAL_CARD_ID_START = 900001;
+
+/**
+ * Cards entered by hand (`manual-cards.json`) because godzillatcgdb.com doesn't list them yet,
+ * each with where its data came from (as for hand-entered errata, decision 27). The scraper adds
+ * them to `cards.json` until the site lists the same card number.
+ */
+export const ManualCardsSchema = z.array(
+  z.strictObject({
+    card: CardSchema.extend({
+      id: z.number().int().min(MANUAL_CARD_ID_START),
+    }),
+    source: z.strictObject({
+      /** The official card image the data was transcribed from. */
+      image: z.url(),
+      /** The same image's path in Decklog (`card_image_path` + this). */
+      decklogImage: z.string().min(1),
+      /** Who transcribed it, and when. */
+      transcribedBy: z.string().min(1),
+      /** The recorded source file in `data/sources/`. */
+      file: z.string().min(1),
+    }),
+  }),
+);
+
+export type ManualCards = z.infer<typeof ManualCardsSchema>;
+
+/**
+ * Adds hand-entered cards to scraped cards. A manual card whose card number the site now lists is
+ * left out (the site's print wins) and returned in `nowOnSite`, so it can be removed from
+ * `manual-cards.json`.
+ */
+export function mergeManualCards(
+  scraped: readonly Card[],
+  manual: ManualCards,
+): { cards: Card[]; nowOnSite: string[] } {
+  const numbers = new Set(scraped.map((c) => c.cardNumber));
+  const nowOnSite = manual
+    .filter((m) => numbers.has(m.card.cardNumber))
+    .map((m) => m.card.cardNumber);
+  return {
+    cards: [
+      ...scraped,
+      ...manual
+        .filter((m) => !numbers.has(m.card.cardNumber))
+        .map((m) => m.card),
+    ],
+    nowOnSite,
+  };
+}
+
 /** Manual corrections applied after scraping, keyed by card id. */
 export const CardOverridesSchema = z.record(
   z.string().regex(/^\d+$/),

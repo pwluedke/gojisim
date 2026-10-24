@@ -1,4 +1,6 @@
 import { readFileSync } from "node:fs";
+import type { Card } from "@gojisim/cards";
+import type { GameState } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
 import { sessionFromRecord } from "../game/session";
 import { buildLog, type LogLine } from "./logLines";
@@ -92,5 +94,24 @@ describe("an optional move's Done (M7a fix)", () => {
     const lines = buildLog(session, "P1", names).map(text);
     expect(lines).toContain("You: Don't move the card");
     expect(lines.filter((l) => /undefined|done's zone/.test(l))).toEqual([]);
+  });
+});
+
+describe("effect plays (M12c-1)", () => {
+  it('a monster played by an effect "becomes the invading monster"; "on top of" names the card under it', () => {
+    const session = fixture("search");
+    const last = session.states[session.states.length - 1] as GameState;
+    const [a, b] = Object.values(last.cards) as Card[];
+    const entry = (payload: Record<string, unknown>) => ({
+      seq: last.log.length + 1,
+      type: "place",
+      player: "P1",
+      payload: { rule: "5.11.1", played: true, ...payload },
+    });
+    last.log.push(entry({ cardId: a?.id, to: "invadingMonsterZone" }));
+    last.log.push(entry({ cardId: a?.id, to: "zone 2", onTopOf: b?.id }));
+    const lines = buildLog(session, "P1", names).map(text);
+    expect(lines).toContain(`${a?.name} becomes the invading monster`);
+    expect(lines).toContain(`${a?.name} enters zone 2 on top of ${b?.name}`);
   });
 });

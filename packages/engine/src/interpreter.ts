@@ -20,6 +20,7 @@ import {
   behind,
   inFrontOf,
   isAdjacent,
+  leftRightPosition,
   sameColumn,
   type ZoneRef,
 } from "./geometry";
@@ -300,6 +301,19 @@ export function resolveZoneSet(
         zone,
       })),
     );
+  if ("ranksOf" in set) {
+    // C3: the zones numbered like the bound cards' ranks; a rank with no zone names none.
+    const binding = ctx.bindings[set.ranksOf];
+    const ranks = new Set(
+      binding?.kind === "cards" ? binding.cards.map((c) => c.rank) : [],
+    );
+    return owners.flatMap((p) =>
+      ZONE_NUMBERS.filter((zone) => ranks.has(zone)).map((zone) => ({
+        player: p.id,
+        zone,
+      })),
+    );
+  }
   const anchor = anchorZone(ctx, set.of);
   if (anchor === null) return [];
   const refs: ZoneRef[] = [];
@@ -310,6 +324,17 @@ export function resolveZoneSet(
   else if (set.relation === "sameNumberAs")
     // C3: the zone with the anchor's number, on each field (EBP02-008, EBP02-015).
     refs.push(...allZones(ctx.state).filter((r) => r.zone === anchor.zone));
+  else if (set.relation === "horizontallyAdjacentTo")
+    // C3: beside it in its row: adjacent (4.4.5.2) and at another left-right position (4.4.5.5).
+    refs.push(
+      ...allZones(ctx.state).filter(
+        (r) =>
+          r.player === anchor.player &&
+          isAdjacent(anchor, r) &&
+          leftRightPosition(r, r.player) !==
+            leftRightPosition(anchor, anchor.player),
+      ),
+    );
   else if (set.relation === "atOrBefore")
     // C3: zones numbered at most the anchor's, on each field (4.4.5.3.1, EBP02-018).
     refs.push(...allZones(ctx.state).filter((r) => r.zone <= anchor.zone));
@@ -1245,8 +1270,15 @@ function bindTriggerCard(
   event: LogEntry,
 ): void {
   const r = state.resolution;
-  if (!r || !("as" in trigger) || !trigger.as) return;
-  const name = trigger.as;
+  if (
+    !r ||
+    !(
+      ("as" in trigger && trigger.as) ||
+      (trigger.on === "destroyed" && trigger.underAs)
+    )
+  )
+    return;
+  const name = ("as" in trigger && trigger.as) || "";
   const ctx = contextOf(state);
   // T7: the played card, where it landed.
   if (trigger.on === "cardPlayed") {
@@ -1272,12 +1304,25 @@ function bindTriggerCard(
     return;
   }
   if (trigger.on !== "destroyed" && trigger.on !== "discarded") return;
+  // The cards that were under the destroyed card, where they are now (EBP03-052).
+  if (trigger.on === "destroyed" && trigger.underAs) {
+    const under = event.payload["underDiscardIds"];
+    bindCards(
+      ctx,
+      trigger.underAs,
+      (Array.isArray(under) ? under : []).flatMap((id) => {
+        const found = locate(state, String(id));
+        return found ? [found.card] : [];
+      }),
+    );
+  }
   const ids = event.payload["cardIds"];
   const cardId = Number(
     Array.isArray(ids) ? ids[ids.length - 1] : event.payload["cardId"],
   );
   const data = state.cards[cardId];
   const rank = event.payload["rank"];
+  if (!name) return;
   r.bindings[name] = {
     kind: "cards",
     cards: [
@@ -1738,12 +1783,42 @@ function perform(state: GameState, effect: Effect): Outcome {
         effect.as,
         picked.map((p) => p.card),
       );
-      discardCards(ctx, picked, "5.7.1");
+      // Bound in the discard pile (public): "for each card discarded this way" (EBP03-032).
+      bindCards(ctx, effect.as, discardCards(ctx, picked, "5.7.1"));
       return "done";
     }
     case "discardDownTo": {
-      if (effect.player === "each")
-        throw new Error("not implemented: discardDownTo each");
+      // E11, "each player": the master first, then the opponent. A player already at the size
+      // is skipped, so the effect resumes where it paused.
+      if (effect.player === "each") {
+        if (effect.optional)
+          throw new Error("not implemented: optional discardDownTo each");
+        const discarded: CardInstance[] = [];
+        for (const who of ["you", "opponent"] as const) {
+          const player = playerOf(ctx, who);
+          if (player.hand.length <= effect.size) continue;
+          const hand = select(ctx, { owner: who, area: "hand" });
+          const rest = pickCards(
+            ctx,
+            hand,
+            { exact: hand.length - effect.size },
+            player.id,
+            "5.7.2",
+            { hidden: true },
+          );
+          if (rest === "paused") return "paused";
+          appendLog(state, "discardDownTo", player.id, {
+            rule: "5.7.2",
+            size: effect.size,
+            discarded: rest.length,
+            abilityId,
+          });
+          discarded.push(...discardCards(ctx, rest, "5.7.2"));
+          r.chosen = [];
+        }
+        bindCards(ctx, effect.as, discarded);
+        return "done";
+      }
       const player = playerOf(ctx, effect.player);
       // A hand at or below the size: nothing happens (5.7.2.1).
       if (player.hand.length <= effect.size) {
@@ -1854,6 +1929,39 @@ function perform(state: GameState, effect: Effect): Outcome {
         hidden: effect.from === "deck" || effect.from === "hand",
       });
       if (cards === "paused") return "paused";
+      // E18: played on top of a card in a zone, stacked on it (3.2.5). With that card gone,
+      // nothing is played.
+      if (effect.onTop) {
+        const [host] = select(ctx, effect.onTop).filter(
+          (l) => l.zone !== undefined,
+        );
+        const [found] = cards;
+        const stack =
+          host?.zone !== undefined
+            ? host.player.zones[host.zone].find(
+                (st) => topOf(st)?.instanceId === host.card.instanceId,
+              )
+            : undefined;
+        if (!found || !host || host.zone === undefined || !stack) {
+          bindCards(ctx, effect.as, []);
+          return "done";
+        }
+        const card = moved(state, takeCard(found));
+        card.playedVia = "effect";
+        stack.push(card);
+        appendLog(state, "place", me.id, {
+          rule: "5.11.1",
+          cardId: card.cardId,
+          instanceId: card.instanceId,
+          from: found.area,
+          to: `zone ${host.zone}`,
+          onTopOf: host.card.cardId,
+          played: true,
+          abilityId,
+        });
+        bindCards(ctx, effect.as, [card]);
+        return "done";
+      }
       // A zone for each card, in order (5.11.1.2, 5.11.1.3, Q3).
       const zones: (ZoneNumber | null)[] = [];
       for (const [i] of cards.entries()) {
@@ -1980,12 +2088,24 @@ function perform(state: GameState, effect: Effect): Outcome {
       const [choice] = r.zonePicks;
       if (choice === undefined) {
         const owner = playerOf(ctx, effect.owner);
+        // C3: only the zones of the owner's field the set names (EBP03-009).
+        const offered = effect.zones
+          ? ZONE_NUMBERS.filter((zone) =>
+              hasZone(
+                resolveZoneSet(ctx, effect.zones as ZoneSet, [owner]),
+                owner.id,
+                zone,
+              ),
+            )
+          : ZONE_NUMBERS;
+        // No zone to choose: the effects after it find nothing there.
+        if (offered.length === 0) return "done";
         requireChoice(
           state,
           ctx.master,
           "zone",
           "10.5.2.2",
-          ZONE_NUMBERS.map((zone) => ({
+          offered.map((zone) => ({
             id: `${owner.id}:${zone}`,
             cardId: null,
             abilityId,
@@ -2052,7 +2172,18 @@ function perform(state: GameState, effect: Effect): Outcome {
       return evolveSubject(state, ctx, abilityId);
     }
     case "putOnDeck": {
-      for (const found of select(ctx, effect.target)) {
+      // E5: with a count, the effect's player picks ("up to 1", EBP03-055).
+      const targets = effect.count
+        ? pickCards(
+            ctx,
+            select(ctx, effect.target),
+            effect.count,
+            ctx.master,
+            "5.2.1",
+          )
+        : select(ctx, effect.target);
+      if (targets === "paused") return "paused";
+      for (const found of targets) {
         const card = takeFromAnywhere(state, found);
         const owner = getPlayer(state, card.owner);
         // A token can't be in a deck: it disappears (9.1.4.2).
@@ -2283,9 +2414,24 @@ function perform(state: GameState, effect: Effect): Outcome {
     }
     case "placeUnder": {
       // E4 (3.2): cards go under a card on the field; they have no abilities there (3.2.3.1).
-      const [under] = select(ctx, effect.under);
+      // With several cards it could go under, the effect's player picks one first.
+      if (r.subject === null) {
+        const hosts = select(ctx, effect.under).filter(
+          (l) => l.zone !== undefined || l.area === "monster",
+        );
+        const picked = pickCards(ctx, hosts, { exact: 1 }, ctx.master, "3.2");
+        if (picked === "paused") return "paused";
+        const [host] = picked;
+        if (!host) return "done";
+        r.subject = host.card.instanceId;
+        r.chosen = [];
+      }
+      const under = locate(state, r.subject);
       if (!under) return "done";
-      const candidates = select(ctx, effect.target);
+      if (effect.hostAs) bindCards(ctx, effect.hostAs, [under.card]);
+      const candidates = select(ctx, effect.target).filter(
+        (l) => l.card.instanceId !== under.card.instanceId,
+      );
       const picked = pickCards(
         ctx,
         candidates,
@@ -2299,19 +2445,34 @@ function perform(state: GameState, effect: Effect): Outcome {
         },
       );
       if (picked === "paused") return "paused";
-      const stack =
-        under.area === "monster"
-          ? under.player.invadingMonsterZone
-          : under.zone !== undefined
-            ? under.player.zones[under.zone].find(
-                (s) => topOf(s)?.instanceId === under.card.instanceId,
+      const stackOf = (l: Located) =>
+        l.area === "monster"
+          ? l.player.invadingMonsterZone
+          : l.zone !== undefined
+            ? l.player.zones[l.zone].find(
+                (st) => topOf(st)?.instanceId === l.card.instanceId,
               )
             : undefined;
-      if (!stack) return "done";
+      if (!stackOf(under)) return "done";
       const placed: CardInstance[] = [];
       for (const found of picked) {
-        const wasPublic = found.area === "discard";
-        const card = moved(state, takeCard(found));
+        const wasPublic = found.area === "discard" || found.area === "zones";
+        let taken: CardInstance;
+        if (found.area === "zones" && found.zone !== undefined) {
+          // A card on the field goes under alone (EBP03-042, EBP03-043); its stack stays.
+          const from = stackOf(found);
+          if (!from) continue;
+          from.pop();
+          const zone = found.zone;
+          if (from.length === 0)
+            found.player.zones[zone] = found.player.zones[zone].filter(
+              (st) => st !== from,
+            );
+          taken = found.card;
+        } else taken = takeCard(found);
+        const card = moved(state, taken);
+        // Read after the move, so the host's stack is current.
+        const stack = stackOf(under) as CardInstance[];
         stack.splice(stack.length - 1, 0, card);
         placed.push(card);
         appendLog(state, "placeUnder", ctx.master, {
@@ -2414,11 +2575,13 @@ function perform(state: GameState, effect: Effect): Outcome {
     }
     case "revealTop": {
       // E3 (5.10): reveal the top cards; the matching ones the effect takes go to the hand, the
-      // rest to the discard pile.
+      // rest to the discard pile. Several takes are picked in order, each from the cards left.
       const me = getPlayer(state, ctx.master);
-      const top = me.deck.slice(0, effect.count);
+      const count = Math.max(0, amountOf(ctx, effect.count));
+      // Fixed once revealed, so a "for each" count can't change between choices.
       if (r.subject === null) {
-        for (const card of top) {
+        r.queue = me.deck.slice(0, count).map((c) => c.instanceId);
+        for (const card of me.deck.slice(0, count)) {
           state.revealed.push(card.instanceId);
           appendLog(state, "reveal", me.id, {
             rule: "5.10.1",
@@ -2427,22 +2590,30 @@ function perform(state: GameState, effect: Effect): Outcome {
           });
         }
         r.subject = "revealed";
+        r.takes = [];
       }
-      const ids = top.map((c) => c.instanceId);
-      const candidates = select(ctx, {
-        ...effect.take.filter,
-        area: "deck",
-      }).filter((l) => ids.includes(l.card.instanceId));
-      const taken = pickCards(
-        ctx,
-        candidates,
-        effect.take.count,
-        me.id,
-        "5.10",
-      );
-      if (taken === "paused") return "paused";
-      const takenIds = taken.map((l) => l.card.instanceId);
-      me.deck = me.deck.slice(top.length);
+      const ids = r.queue ?? [];
+      const top = me.deck.filter((c) => ids.includes(c.instanceId));
+      const takes = Array.isArray(effect.take) ? effect.take : [effect.take];
+      const done = r.takes ?? [];
+      for (let i = done.length; i < takes.length; i++) {
+        const take = takes[i] as (typeof takes)[number];
+        const already = done.flat();
+        const candidates = select(ctx, { ...take.filter, area: "deck" }).filter(
+          (l) =>
+            ids.includes(l.card.instanceId) &&
+            !already.includes(l.card.instanceId),
+        );
+        const taken = pickCards(ctx, candidates, take.count, me.id, "5.10");
+        if (taken === "paused") return "paused";
+        done.push(taken.map((l) => l.card.instanceId));
+        r.takes = done;
+        r.chosen = [];
+      }
+      const takenIds = done.flat();
+      delete r.queue;
+      delete r.takes;
+      me.deck = me.deck.filter((c) => !ids.includes(c.instanceId));
       for (const card of top.filter((c) => takenIds.includes(c.instanceId))) {
         me.hand.push(moved(state, card));
         appendLog(state, "addToHand", me.id, {
@@ -2606,6 +2777,49 @@ function perform(state: GameState, effect: Effect): Outcome {
           until: effect.duration,
         });
       }
+      return "done";
+    }
+    case "playMonster": {
+      // E18, Q27: stacked on the invading monster as the new invading monster (5.11.2), keeping
+      // its zone (4.7.2); [enter] fires; it isn't the 8.5 action, so it doesn't use it up.
+      const me = getPlayer(state, ctx.master);
+      const top = topOf(me.invadingMonsterZone);
+      if (!top) return "done";
+      const rank = getRank(state, top);
+      const traits = getCardTraits(cardOf(state, top));
+      const candidates = select(ctx, {
+        ...effect.filter,
+        area: "monsterDeck",
+      }).filter((l) => {
+        const data = cardOf(state, l.card);
+        return (
+          data.type === "Monster" &&
+          rank !== null &&
+          getRank(state, l.card) === rank + effect.rankAbove &&
+          (!effect.sharesTrait ||
+            getCardTraits(data).some((t) => traits.includes(t)))
+        );
+      });
+      const picked = pickCards(ctx, candidates, { exact: 1 }, me.id, "5.11.2", {
+        hidden: true,
+      });
+      if (picked === "paused") return "paused";
+      const [found] = picked;
+      if (!found) return "done";
+      const card = moved(state, takeCard(found));
+      card.playedVia = "effect";
+      me.invadingMonsterZone.push(card);
+      appendLog(state, "place", me.id, {
+        rule: "5.11.2",
+        cardId: card.cardId,
+        instanceId: card.instanceId,
+        from: "monsterDeck",
+        to: "invadingMonsterZone",
+        played: true,
+        abilityId,
+      });
+      if (effect.increasesRage) setRage(state, me, me.rage + 1, "5.11.2");
+      bindCards(ctx, effect.as, [card]);
       return "done";
     }
     case "custom": {

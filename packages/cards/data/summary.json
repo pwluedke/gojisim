@@ -1,8 +1,8 @@
 {
   "source": "https://www.godzillatcgdb.com",
   "discovery": "POST /search with empty filters (base cards), then allPrints on each card page (variants)",
-  "total": 943,
-  "baseCards": 447,
+  "total": 944,
+  "baseCards": 448,
   "parallels": 496,
   "perSet": {
     "EBP01": 162,
@@ -13,9 +13,12 @@
     "ESD01": 24,
     "ESD02": 20,
     "FC01": 6,
-    "PR": 96,
+    "PR": 97,
     "RAGE": 116
   },
+  "manualCards": [
+    "EPR-020"
+  ],
   "unknownFieldLabels": [
     "Language",
     "Likes (unlabeled)",
