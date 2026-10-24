@@ -23,6 +23,13 @@ import {
   type ZoneRef,
 } from "./geometry";
 import { activeCards } from "./abilities";
+import { moveBehind } from "./counter";
+import {
+  advanceMonster,
+  advanceMonsterTo,
+  retreatMonster,
+  retreatMonsterTo,
+} from "./movement";
 import { cardOf, destroyCards, topOf } from "./rules";
 import { shuffleInPlace } from "./rng";
 import {
@@ -412,8 +419,35 @@ export function select(ctx: Context, selector: Selector): Located[] {
         return false;
     }
     if (zoneRefs && !hasZone(zoneRefs, player.id, zone)) return false;
+    if (selector.stackOf && !inStackOf(state, card, ctx.sourceInstanceId))
+      return false;
     return true;
   });
+}
+
+/** Whether `card` is under the card `topId` in the same stack (E4, 3.2). */
+function inStackOf(
+  state: GameState,
+  card: CardInstance,
+  topId: string,
+): boolean {
+  for (const player of state.players) {
+    const stacks = [
+      ...ZONE_NUMBERS.flatMap((zone) => player.zones[zone]),
+      player.invadingMonsterZone,
+    ];
+    const stack = stacks.find((s) => topOf(s)?.instanceId === topId);
+    if (stack)
+      return stack.slice(0, -1).some((c) => c.instanceId === card.instanceId);
+  }
+  return false;
+}
+
+/** Log entries of the current turn (C2: "this turn"), oldest first. */
+function thisTurnLog(state: GameState): LogEntry[] {
+  for (let i = state.log.length - 1; i >= 0; i--)
+    if (state.log[i]?.type === "beginTurn") return state.log.slice(i);
+  return state.log;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -435,6 +469,16 @@ export function amountOf(ctx: Context, amount: Amount): number {
         return (top && getRank(ctx.state, top)) ?? 0;
       }) * amount.times
     );
+  if ("invasionAdvancesThisTurn" in amount)
+    // Zones the monster actually advanced through invasion this turn (5.13.3, C2).
+    return thisTurnLog(ctx.state)
+      .filter(
+        (e) =>
+          e.type === "invasionDone" &&
+          e.player !== null &&
+          isPlayer(amount.invasionAdvancesThisTurn, e.player, ctx.master),
+      )
+      .reduce((total, e) => total + Number(e.payload["advances"] ?? 0), 0);
   if ("unoccupiedZonesOf" in amount)
     return (
       sum(
@@ -492,6 +536,20 @@ export function conditionHolds(ctx: Context, condition: Condition): boolean {
     if (condition.playedVia === "hand")
       return via === "hand" || via === "burst";
     return via === condition.playedVia;
+  }
+  if ("thisTurn" in condition) {
+    const whose = condition.whose ?? "you";
+    return thisTurnLog(state).some((e) => {
+      if (e.player === null) return false;
+      if (condition.thisTurn === "invaded")
+        return e.type === "invade" && isPlayer(whose, e.player, ctx.master);
+      // An opponent's battle card destroyed (5.12, 11.3, 11.5), from `whose` point of view.
+      if (e.type !== "destroy" || isPlayer(whose, e.player, ctx.master))
+        return false;
+      const ids = e.payload["cardIds"];
+      const top = Array.isArray(ids) ? ids[ids.length - 1] : undefined;
+      return state.cards[String(top)]?.type === "Battle";
+    });
   }
   throw new Error("not implemented: condition didLastStep");
 }
@@ -940,6 +998,38 @@ function evolutionOf(
   return null;
 }
 
+/**
+ * A hand card's play rules (M2, 8.2.1, 8.3.1): how much its rank counts as reduced for the play,
+ * and whether the play is forbidden. Read from its master's side, with the card as the source.
+ */
+export function playRuleOf(
+  state: GameState,
+  card: CardInstance,
+  master: PlayerId,
+): { reduction: number; forbidden: boolean } {
+  const data = abilitiesOf(state, card);
+  const result = { reduction: 0, forbidden: false };
+  if (data.status === "manual") return result;
+  const ctx: Context = {
+    state,
+    master,
+    sourceInstanceId: card.instanceId,
+    bindings: {},
+  };
+  for (const ability of data.abilities) {
+    if (ability.kind !== "playRule") continue;
+    if (ability.forbidden && conditionHolds(ctx, ability.forbidden))
+      result.forbidden = true;
+    if (
+      ability.rankReduction !== undefined &&
+      gatesOpen(state, master, ability.gates) &&
+      (!ability.condition || conditionHolds(ctx, ability.condition))
+    )
+      result.reduction += amountOf(ctx, ability.rankReduction);
+  }
+  return result;
+}
+
 /** A card's Burst rank (12.5), if its data has one. */
 export function burstRankOf(
   state: GameState,
@@ -1074,7 +1164,7 @@ function bindTriggerCard(
 /** Continues the paused resolution after a `target`, `zone` or `confirm` choice. */
 export function resumeResolution(
   state: GameState,
-  kind: "target" | "zone" | "confirm" | "replacementOrder",
+  kind: "target" | "zone" | "confirm" | "replacementOrder" | "option",
   optionId: string,
 ): void {
   const r = state.resolution;
@@ -1086,27 +1176,57 @@ export function resumeResolution(
   runResolution(state);
 }
 
-/** The effect a path points at, in `list` and its nested `effects`. */
-function effectAt(list: Effect[], path: number[]): Effect | undefined {
+/** Which branch an `if` (0 then, 1 else) or a `chooseOne` (option index) took, by path. */
+type Branches = Record<string, number>;
+
+/**
+ * The effects nested in `effect` at `path`: a search's own effects, or the branch an `if` or a
+ * `chooseOne` took (none until it is decided).
+ */
+function childrenOf(
+  effect: Effect,
+  path: number[],
+  branches: Branches,
+): Effect[] {
+  if (effect.effect === "search") return effect.effects;
+  const branch = branches[path.join(".")];
+  if (branch === undefined) return [];
+  if (effect.effect === "if")
+    return (branch === 0 ? effect.then : effect.else) ?? [];
+  if (effect.effect === "chooseOne")
+    return effect.options[branch]?.effects ?? [];
+  return [];
+}
+
+/** The effect a path points at, in `list` and its nested effects. */
+function effectAt(
+  list: Effect[],
+  path: number[],
+  branches: Branches = {},
+): Effect | undefined {
   let effects = list;
   let effect: Effect | undefined;
-  for (const index of path) {
+  for (const [depth, index] of path.entries()) {
     effect = effects[index];
     if (!effect) return undefined;
-    effects = "effects" in effect ? effect.effects : [];
+    effects = childrenOf(effect, path.slice(0, depth + 1), branches);
   }
   return effect;
 }
 
-/** The next effect after `path`: into a search's own effects first, then the next sibling. */
-function nextPath(list: Effect[], path: number[]): number[] | null {
-  const current = effectAt(list, path);
-  if (current && "effects" in current && current.effects.length > 0)
+/** The next effect after `path`: into its nested effects first, then the next sibling. */
+function nextPath(
+  list: Effect[],
+  path: number[],
+  branches: Branches = {},
+): number[] | null {
+  const current = effectAt(list, path, branches);
+  if (current && childrenOf(current, path, branches).length > 0)
     return [...path, 0];
   const next = [...path];
   while (next.length > 0) {
     next[next.length - 1] = (next[next.length - 1] ?? 0) + 1;
-    if (effectAt(list, next)) return next;
+    if (effectAt(list, next, branches)) return next;
     next.pop();
   }
   return null;
@@ -1171,7 +1291,7 @@ function runResolution(state: GameState): void {
     }
     const list =
       r.stage === "cost" ? (ability.cost?.effects ?? []) : ability.effects;
-    const effect = effectAt(list, r.path);
+    const effect = effectAt(list, r.path, r.branches);
     if (!effect) {
       if (r.stage === "cost") {
         r.stage = "main";
@@ -1190,7 +1310,7 @@ function runResolution(state: GameState): void {
     r.zonePicks = [];
     r.replacementPicks = [];
     r.subject = null;
-    const next = nextPath(list, r.path);
+    const next = nextPath(list, r.path, r.branches);
     if (next) r.path = next;
     else if (r.stage === "cost") {
       r.stage = "main";
@@ -1208,6 +1328,16 @@ function canPay(ctx: Context, effects: Effect[]): boolean {
       const delta = amountOf(ctx, effect.delta);
       return (
         delta >= 0 || players(ctx, effect.player).every((p) => p.rage >= -delta)
+      );
+    }
+    // Placing a card under a card as a cost needs that card (EBP01-073).
+    if (effect.effect === "placeUnder") {
+      const count = effect.count ?? { exact: 1 };
+      return (
+        select(ctx, effect.under).length > 0 &&
+        (typeof count === "object" && "exact" in count
+          ? select(ctx, effect.target).length >= exactCount(ctx, count)
+          : true)
       );
     }
     if (effect.effect !== "discard") return true;
@@ -1396,6 +1526,8 @@ function perform(state: GameState, effect: Effect): Outcome {
   switch (effect.effect) {
     case "destroy": {
       const { select: selector, count, chooser } = effect.target;
+      // A card the opponent's effects can't destroy can still be chosen; the destroy does
+      // nothing to it (Q35, Paul's provisional ruling; 1.3.3).
       const targets = pickCards(
         ctx,
         select(ctx, selector),
@@ -1682,6 +1814,29 @@ function perform(state: GameState, effect: Effect): Outcome {
       return "done";
     }
     case "evolve": {
+      // "Evolve all of your ...": each card in turn, in zone order (E18).
+      if (effect.count === "all") {
+        r.queue ??= select(ctx, effect.target)
+          .filter(
+            (l) => l.zone !== undefined && evolutionOf(state, l.card) !== null,
+          )
+          .map((l) => l.card.instanceId);
+        for (;;) {
+          if (r.subject === null) {
+            const next = r.queue.shift();
+            if (next === undefined) {
+              delete r.queue;
+              return "done";
+            }
+            r.subject = next;
+            r.chosen = [];
+          }
+          if (evolveSubject(state, ctx, abilityId) === "paused")
+            return "paused";
+          r.subject = null;
+          r.chosen = [];
+        }
+      }
       // 1. Pick the battle card to evolve: one with an Evolution keyword (5.17, Q8).
       if (r.subject === null) {
         const candidates = select(ctx, effect.target).filter(
@@ -1701,75 +1856,7 @@ function perform(state: GameState, effect: Effect): Outcome {
         r.subject = target.card.instanceId;
         r.chosen = [];
       }
-      const target = locate(state, r.subject);
-      const evolution = target && evolutionOf(state, target.card);
-      if (!target || target.zone === undefined || !evolution) return "done";
-      // 2. Search the deck for 1 battle card with the trait and rank N or lower, which may find
-      // nothing (12.6.2, 5.8.1.2).
-      const me = getPlayer(state, ctx.master);
-      const filter: Selector = {
-        owner: "you",
-        area: "deck",
-        type: "Battle",
-        traits: [evolution.trait],
-        rank: { op: "<=", value: evolution.rank },
-      };
-      const found = pickCards(
-        ctx,
-        select(ctx, filter),
-        { exact: 1 },
-        me.id,
-        "12.6.2",
-        { mayFindNothing: true, hidden: true },
-      );
-      if (found === "paused") return "paused";
-      appendLog(state, "search", me.id, {
-        rule: "12.6.2",
-        found: found.length,
-        abilityId,
-        filter,
-        count: { exact: 1 },
-      });
-      const [card] = found;
-      if (card) {
-        // 3. Reveal it and play it stacked on top of the evolving card (12.6.2, 5.17.1).
-        appendLog(state, "reveal", me.id, {
-          rule: "5.10.1",
-          cardId: card.card.cardId,
-          abilityId,
-        });
-        const stack = me.zones[target.zone].find(
-          (s) => topOf(s)?.instanceId === target.card.instanceId,
-        );
-        if (stack) {
-          const evolved = moved(state, takeCard(card));
-          evolved.playedVia = "evolution";
-          stack.push(evolved);
-          appendLog(state, "place", me.id, {
-            rule: "12.6.2",
-            cardId: evolved.cardId,
-            instanceId: evolved.instanceId,
-            from: "deck",
-            to: `zone ${target.zone}`,
-            played: true,
-            abilityId,
-          });
-          appendLog(state, "evolve", me.id, {
-            rule: "5.17.1.1",
-            from: target.card.cardId,
-            to: evolved.cardId,
-            zone: target.zone,
-            // Which card evolved, into which, and by which ability (M5g combos).
-            fromInstanceId: target.card.instanceId,
-            instanceId: evolved.instanceId,
-            abilityId,
-          });
-        }
-      }
-      // 4. The deck is shuffled whether or not the search found a card.
-      shuffleInPlace(state, me.deck);
-      appendLog(state, "shuffleDeck", me.id, { rule: "12.6.2", abilityId });
-      return "done";
+      return evolveSubject(state, ctx, abilityId);
     }
     case "putOnDeck": {
       for (const found of select(ctx, effect.target)) {
@@ -1792,9 +1879,25 @@ function perform(state: GameState, effect: Effect): Outcome {
       const targets = select(ctx, effect.target).filter(
         (t) => t.zone !== undefined,
       );
-      if (targets.length > 1)
-        throw new Error("not implemented: moveBattle with several cards");
-      const [target] = targets;
+      // Several cards: the effect's player picks the one to move first (E10); with `optional`
+      // they may pick none.
+      if (targets.length > 1 && r.subject === null) {
+        const picked = pickCards(
+          ctx,
+          targets,
+          effect.optional ? { upTo: 1 } : { exact: 1 },
+          ctx.master,
+          "5.2.1",
+        );
+        if (picked === "paused") return "paused";
+        const [card] = picked;
+        if (!card) return "done";
+        r.subject = card.card.instanceId;
+      }
+      const target =
+        targets.length > 1
+          ? targets.find((t) => t.card.instanceId === r.subject)
+          : targets[0];
       if (!target || target.zone === undefined) return "done";
       const owner = target.player;
       // Never into the zone of the owner's own monster (Q5), and not where it already is.
@@ -1851,6 +1954,265 @@ function perform(state: GameState, effect: Effect): Outcome {
       });
       return "done";
     }
+    case "if": {
+      // C1: the branch is decided once, when the resolution reaches it.
+      r.branches = {
+        ...r.branches,
+        [r.path.join(".")]: conditionHolds(ctx, effect.condition) ? 0 : 1,
+      };
+      return "done";
+    }
+    case "chooseOne": {
+      // E7 (10.5.2.2.1): only options whose gates are open and condition holds can be chosen.
+      const open = effect.options
+        .map((option, index) => ({ option, index }))
+        .filter(
+          ({ option }) =>
+            gatesOpen(state, ctx.master, option.gates) &&
+            (!option.condition || conditionHolds(ctx, option.condition)),
+        );
+      const [picked] = r.chosen;
+      let branch: number | undefined =
+        picked === undefined ? undefined : Number(picked);
+      if (branch === undefined) {
+        if (open.length === 0) return "done";
+        if (
+          open.length === 1 &&
+          !confirmsSingleOption(state, ctx.master, "other")
+        )
+          branch = open[0]?.index;
+        else {
+          requireChoice(
+            state,
+            ctx.master,
+            "option",
+            "10.5.2.2.1",
+            open.map(({ index }) => ({
+              id: String(index),
+              cardId: null,
+              abilityId,
+            })),
+          );
+          return "paused";
+        }
+      }
+      r.branches = { ...r.branches, [r.path.join(".")]: branch as number };
+      appendLog(state, "chooseOption", ctx.master, {
+        rule: "10.5.2.2.1",
+        option: branch,
+        abilityId,
+      });
+      return "done";
+    }
+    case "advance":
+    case "retreat": {
+      // E1 (5.13.1, 5.13.2): "by" zones one at a time, or "to" a zone (5.13.1.2, 5.13.2.2).
+      for (const player of players(ctx, effect.player)) {
+        const top = topOf(player.invadingMonsterZone);
+        if (
+          effect.filter &&
+          !select(ctx, effect.filter).some(
+            (l) => l.card.instanceId === top?.instanceId,
+          )
+        )
+          continue;
+        if (effect.effect === "advance") {
+          const options = { invasion: false, rule: "5.13.1" };
+          if (effect.toZone !== undefined)
+            advanceMonsterTo(state, player, effect.toZone, options);
+          else
+            for (let i = 0; i < (effect.by ?? 1); i++)
+              advanceMonster(state, player, options);
+        } else if (effect.toZone !== undefined)
+          retreatMonsterTo(state, player, effect.toZone, "5.13.2");
+        else
+          for (let i = 0; i < (effect.by ?? 1); i++)
+            retreatMonster(state, player, "5.13.2");
+      }
+      return "done";
+    }
+    case "mill": {
+      // E2 (5.7.3): the top cards go to the discard pile, which is public; an empty deck has
+      // nothing to send.
+      const sent: CardInstance[] = [];
+      for (const player of players(ctx, effect.player)) {
+        const cards = player.deck.splice(0, effect.count);
+        const discarded = cards.map((card) => toDiscard(state, card));
+        sent.push(...discarded);
+        appendLog(state, "mill", player.id, {
+          rule: "5.7.3",
+          cardIds: discarded.map((c) => c.cardId),
+          abilityId,
+        });
+      }
+      bindCards(ctx, effect.as, sent);
+      return "done";
+    }
+    case "lookTop": {
+      // E3 (5.5): the player looks at the top cards, puts any number back on top in any order
+      // (the first picked on top), and sends the rest to the discard pile.
+      const me = getPlayer(state, ctx.master);
+      const top = me.deck.slice(0, effect.count).map((card) => ({
+        card,
+        player: me,
+        area: "deck" as const,
+      }));
+      const kept = pickCards(ctx, top, { upTo: top.length }, me.id, "5.5", {
+        hidden: true,
+      });
+      if (kept === "paused") return "paused";
+      const keptIds = kept.map((k) => k.card.instanceId);
+      const rest = top.filter((l) => !keptIds.includes(l.card.instanceId));
+      me.deck = [...kept.map((k) => k.card), ...me.deck.slice(top.length)];
+      const discarded = rest.map((l) => toDiscard(state, l.card));
+      appendLog(state, "lookTop", me.id, {
+        rule: "5.5",
+        count: top.length,
+        kept: kept.length,
+        abilityId,
+      });
+      if (discarded.length > 0)
+        appendLog(state, "mill", me.id, {
+          rule: "5.5",
+          cardIds: discarded.map((c) => c.cardId),
+          abilityId,
+        });
+      return "done";
+    }
+    case "placeUnder": {
+      // E4 (3.2): cards go under a card on the field; they have no abilities there (3.2.3.1).
+      const [under] = select(ctx, effect.under);
+      if (!under) return "done";
+      const candidates = select(ctx, effect.target);
+      const picked = pickCards(
+        ctx,
+        candidates,
+        effect.count ?? { exact: 1 },
+        ctx.master,
+        "3.2",
+        {
+          hidden: candidates.some(
+            (c) => c.area === "hand" || c.area === "deck",
+          ),
+        },
+      );
+      if (picked === "paused") return "paused";
+      const stack =
+        under.area === "monster"
+          ? under.player.invadingMonsterZone
+          : under.zone !== undefined
+            ? under.player.zones[under.zone].find(
+                (s) => topOf(s)?.instanceId === under.card.instanceId,
+              )
+            : undefined;
+      if (!stack) return "done";
+      const placed: CardInstance[] = [];
+      for (const found of picked) {
+        const wasPublic = found.area === "discard";
+        const card = moved(state, takeCard(found));
+        stack.splice(stack.length - 1, 0, card);
+        placed.push(card);
+        appendLog(state, "placeUnder", ctx.master, {
+          rule: "3.2",
+          from: found.area,
+          ...(wasPublic ? { cardId: card.cardId } : {}),
+          under: under.card.cardId,
+          abilityId,
+        });
+      }
+      bindCards(ctx, effect.as, placed);
+      return "done";
+    }
+    case "returnDiscardToDeck": {
+      // E5: the whole discard pile into the deck, then shuffle (5.3).
+      for (const player of players(ctx, effect.player)) {
+        const count = player.discard.length;
+        player.deck.push(...player.discard.map((card) => moved(state, card)));
+        player.discard = [];
+        shuffleInPlace(state, player.deck);
+        appendLog(state, "returnDiscardToDeck", player.id, {
+          rule: "5.3.1",
+          count,
+          abilityId,
+        });
+      }
+      return "done";
+    }
+    case "swap": {
+      // E9 (5.6): two battle cards in that player's zones trade places at once; zone to zone,
+      // they keep their identity (4.1.4). Fewer than 2 picked: nothing happens (5.6.2).
+      const owner = playerOf(ctx, effect.owner);
+      const candidates = select(ctx, {
+        owner: effect.owner,
+        area: "zones",
+        type: "Battle",
+      });
+      const picked = pickCards(
+        ctx,
+        candidates,
+        effect.optional ? { upTo: 2 } : { exact: 2 },
+        ctx.master,
+        "5.6",
+      );
+      if (picked === "paused") return "paused";
+      const [a, b] = picked;
+      if (!a || !b || a.zone === undefined || b.zone === undefined)
+        return "done";
+      const stackOf = (l: Located) =>
+        owner.zones[l.zone as ZoneNumber].find(
+          (s) => topOf(s)?.instanceId === l.card.instanceId,
+        );
+      const stackA = stackOf(a);
+      const stackB = stackOf(b);
+      if (!stackA || !stackB) return "done";
+      owner.zones[a.zone] = owner.zones[a.zone].filter((s) => s !== stackA);
+      owner.zones[b.zone] = owner.zones[b.zone].filter((s) => s !== stackB);
+      owner.zones[b.zone].push(stackA);
+      owner.zones[a.zone].push(stackB);
+      appendLog(state, "swap", owner.id, {
+        rule: "5.6.1",
+        cardIds: [a.card.cardId, b.card.cardId],
+        zones: [a.zone, b.zone],
+        abilityId,
+      });
+      return "done";
+    }
+    case "moveAsCountered": {
+      // E13 (Q14): only the move of 5.15.1.1; it is not a counter and fires no countered event.
+      moveBehind(state, playerOf(ctx, effect.player), true);
+      return "done";
+    }
+    case "activate": {
+      // E17 (5.9): put a strategy card into an empty strategy zone and activate it, whatever its
+      // rank; its placement text triggers as for an 8.3 activation.
+      const me = getPlayer(state, ctx.master);
+      const candidates = select(ctx, { ...effect.filter, area: effect.from });
+      const picked = pickCards(ctx, candidates, effect.count, me.id, "5.9", {
+        hidden: effect.from !== "discard",
+      });
+      if (picked === "paused") return "paused";
+      for (const found of picked) {
+        const index = me.strategyZones.findIndex((z) => z.length === 0);
+        if (index < 0) break;
+        const card = moved(state, takeCard(found));
+        me.strategyZones[index]?.push({ card, placedOnTurn: state.turn });
+        appendLog(state, "place", me.id, {
+          rule: "5.9",
+          cardId: card.cardId,
+          instanceId: card.instanceId,
+          from: found.area,
+          to: `strategy zone ${index + 1}`,
+          played: true,
+          abilityId,
+        });
+      }
+      return "done";
+    }
+    case "setRage": {
+      for (const player of players(ctx, effect.player))
+        setRage(state, player, effect.value, "3.4", { abilityId });
+      return "done";
+    }
     case "until": {
       // Each ability becomes a timed trigger until the end of the turn (T8, 10.6.5).
       const number = cardOf(state, {
@@ -1883,6 +2245,88 @@ function perform(state: GameState, effect: Effect): Outcome {
     default:
       throw new Error(`not implemented: ${effect.effect}`);
   }
+}
+
+/**
+ * Evolves the picked card `r.subject` (5.17, 12.6.2): searches the deck for 1 battle card with
+ * its Evolution trait and rank N or lower, plays it on top, then shuffles.
+ */
+function evolveSubject(
+  state: GameState,
+  ctx: Context,
+  abilityId: string,
+): Outcome {
+  const r = state.resolution as NonNullable<GameState["resolution"]>;
+  if (r.subject === null) return "done";
+  const target = locate(state, r.subject);
+  const evolution = target && evolutionOf(state, target.card);
+  if (!target || target.zone === undefined || !evolution) return "done";
+  // 2. Search the deck for 1 battle card with the trait and rank N or lower, which may find
+  // nothing (12.6.2, 5.8.1.2).
+  const me = getPlayer(state, ctx.master);
+  const filter: Selector = {
+    owner: "you",
+    area: "deck",
+    type: "Battle",
+    traits: [evolution.trait],
+    rank: { op: "<=", value: evolution.rank },
+  };
+  const found = pickCards(
+    ctx,
+    select(ctx, filter),
+    { exact: 1 },
+    me.id,
+    "12.6.2",
+    { mayFindNothing: true, hidden: true },
+  );
+  if (found === "paused") return "paused";
+  appendLog(state, "search", me.id, {
+    rule: "12.6.2",
+    found: found.length,
+    abilityId,
+    filter,
+    count: { exact: 1 },
+  });
+  const [card] = found;
+  if (card) {
+    // 3. Reveal it and play it stacked on top of the evolving card (12.6.2, 5.17.1).
+    appendLog(state, "reveal", me.id, {
+      rule: "5.10.1",
+      cardId: card.card.cardId,
+      abilityId,
+    });
+    const stack = me.zones[target.zone].find(
+      (s) => topOf(s)?.instanceId === target.card.instanceId,
+    );
+    if (stack) {
+      const evolved = moved(state, takeCard(card));
+      evolved.playedVia = "evolution";
+      stack.push(evolved);
+      appendLog(state, "place", me.id, {
+        rule: "12.6.2",
+        cardId: evolved.cardId,
+        instanceId: evolved.instanceId,
+        from: "deck",
+        to: `zone ${target.zone}`,
+        played: true,
+        abilityId,
+      });
+      appendLog(state, "evolve", me.id, {
+        rule: "5.17.1.1",
+        from: target.card.cardId,
+        to: evolved.cardId,
+        zone: target.zone,
+        // Which card evolved, into which, and by which ability (M5g combos).
+        fromInstanceId: target.card.instanceId,
+        instanceId: evolved.instanceId,
+        abilityId,
+      });
+    }
+  }
+  // 4. The deck is shuffled whether or not the search found a card.
+  shuffleInPlace(state, me.deck);
+  appendLog(state, "shuffleDeck", me.id, { rule: "12.6.2", abilityId });
+  return "done";
 }
 
 /**

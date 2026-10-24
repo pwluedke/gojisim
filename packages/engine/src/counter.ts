@@ -58,17 +58,35 @@ export function makeInvadingMonster(
  */
 export function counterMonster(state: GameState, countered: PlayerState): void {
   appendLog(state, "counter", countered.id, { rule: "5.15.1" });
-  const from = countered.monsterPosition;
+  moveBehind(state, countered);
+  continueCounter(state, countered);
+}
+
+/**
+ * 5.15.1.1: a monster in zone 6, 7 or 8 moves to the zone behind; not a retreat. A move "as
+ * though countered" (Q14, E13) is only this, with no counter event and no next monster.
+ */
+export function moveBehind(
+  state: GameState,
+  player: PlayerState,
+  asCountered = false,
+): void {
+  const from = player.monsterPosition;
   const to = from === null ? null : behind(from);
   if (from !== null && to !== null && from >= 6) {
-    countered.monsterPosition = to;
-    appendLog(state, "moveBehind", countered.id, {
+    player.monsterPosition = to;
+    appendLog(state, "moveBehind", player.id, {
       rule: "5.15.1.1",
       from,
       to,
+      ...(asCountered ? { asCountered: true } : {}),
     });
     crushAndDestroy(state);
   }
+}
+
+/** 5.15.1.2: the countered monster's master picks the next monster, or loses. */
+function continueCounter(state: GameState, countered: PlayerState): void {
   const candidates = nextMonsterCandidates(state, countered);
   const [only] = candidates;
   if (candidates.length === 0) {

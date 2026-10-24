@@ -10,7 +10,7 @@ import { openManualWindow } from "./manual";
 import { requireChoice } from "./choices";
 import { resolveLosses } from "./losses";
 import { appendLog, getPlayer, toDiscard } from "./state";
-import { getRank } from "./stats";
+import { getRank, hasFlag } from "./stats";
 import type {
   CardInstance,
   CardStack,
@@ -106,6 +106,20 @@ export function destroyCards(
   );
   for (const { card, player, zone } of targets) {
     if (replaced.has(card.instanceId)) continue;
+    // "Cannot be destroyed by your opponent's effects" (M1): the card may have been chosen, but
+    // the destroy does nothing to it (1.3.3; Q35, Paul's provisional ruling).
+    if (
+      by !== null &&
+      by !== player.id &&
+      hasFlag(state, card, "cannotBeDestroyedByOpponent")
+    ) {
+      appendLog(state, "destroyPrevented", player.id, {
+        rule: "1.3.3",
+        cardId: card.cardId,
+        cause,
+      });
+      continue;
+    }
     if (zone !== undefined) {
       const stack = player.zones[zone].find(
         (s) => topOf(s)?.instanceId === card.instanceId,

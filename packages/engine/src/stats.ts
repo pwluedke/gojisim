@@ -69,6 +69,58 @@ function activeModifiers(state: GameState): ActiveModifier[] {
   }
 }
 
+/** A flag modifier (M1, E13) in force, with the context of the card that grants it. */
+type FlagModifier = Extract<Modifier, { flag: string }>;
+
+/** Flag modifiers in force that target `card` (M1, E13). */
+export function flagsOn(state: GameState, card: CardInstance): FlagModifier[] {
+  const found: FlagModifier[] = [];
+  for (const { modifier, context } of activeModifiers(state)) {
+    if (!("flag" in modifier)) continue;
+    collecting = true;
+    try {
+      if (
+        select(context, modifier.target).some(
+          (l) => l.card.instanceId === card.instanceId,
+        )
+      )
+        found.push(modifier);
+    } finally {
+      collecting = false;
+    }
+  }
+  return found;
+}
+
+export function hasFlag(
+  state: GameState,
+  card: CardInstance,
+  flag: FlagModifier["flag"],
+): boolean {
+  return flagsOn(state, card).some((m) => m.flag === flag);
+}
+
+/**
+ * Whether a counter by `total` counter power fails against the player's monster (E13, 7.4.3):
+ * a `counterProof` flag with `atOrBelow` at least the total. `moves`: it moves as though
+ * countered instead (5.15.1.1).
+ */
+export function counterProofAgainst(
+  state: GameState,
+  player: PlayerState,
+  total: number,
+): { moves: boolean } | null {
+  const top = topOf(player.invadingMonsterZone);
+  if (!top) return null;
+  const proofs = flagsOn(state, top).filter(
+    (m): m is Extract<FlagModifier, { flag: "counterProof" }> =>
+      m.flag === "counterProof" && total <= m.atOrBelow,
+  );
+  return proofs.length === 0
+    ? null
+    : { moves: proofs.some((m) => m.insteadMoves) };
+}
+
 /** Sum of a stat's modifiers that target `card`. */
 function modifierTotal(
   state: GameState,
@@ -152,7 +204,13 @@ export function counterPowerOf(state: GameState, player: PlayerState): number {
   for (const zone of ZONE_NUMBERS) {
     for (const stack of player.zones[zone]) {
       const top = topOf(stack);
-      if (!top || top.statuses?.includes("cannotEngage")) continue;
+      // A card that cannot engage adds nothing (5.16.1): a status, or a flag (M1).
+      if (
+        !top ||
+        top.statuses?.includes("cannotEngage") ||
+        hasFlag(state, top, "cannotEngage")
+      )
+        continue;
       if (cardOf(state, top).type === "Battle")
         total += getCounterPower(state, top);
     }
@@ -162,7 +220,14 @@ export function counterPowerOf(state: GameState, player: PlayerState): number {
 
 /** What a change badge chip shows (M5d): the kind, a short label, and the full wording. */
 export interface CardChange {
-  kind: "burst" | "counterPower" | "rank" | "threat" | "playedVia" | CardStatus;
+  kind:
+    | "burst"
+    | "counterPower"
+    | "rank"
+    | "threat"
+    | "playedVia"
+    | CardStatus
+    | FlagModifier["flag"];
   /** The chip on the card, e.g. "CP +3000". */
   label: string;
   /** The hover list's wording, with its rule number. */
@@ -190,6 +255,24 @@ const PLAYED_VIA: Record<
 };
 
 const signed = (n: number) => `${n > 0 ? "+" : ""}${n}`;
+
+/** Words for each flag (M1, E13); a new flag must name itself here, so it shows on the card. */
+function FLAG_CHANGES(flag: FlagModifier): Omit<CardChange, "kind"> {
+  switch (flag.flag) {
+    case "cannotEngage":
+      return STATUS_CHANGES.cannotEngage;
+    case "cannotBeDestroyedByOpponent":
+      return {
+        label: "Protected",
+        detail: "Cannot be destroyed by the opponent's effects (5.12)",
+      };
+    case "counterProof":
+      return {
+        label: `Counter-proof ≤${flag.atOrBelow}`,
+        detail: `Cannot be countered by ${flag.atOrBelow} or lower counter power${flag.insteadMoves ? "; it only moves as though countered (5.15.1.1)" : ""} (7.4.3)`,
+      };
+  }
+}
 
 /**
  * Every change in force on a card (M5d change badge): a pending Burst discard (12.5.2), stat
@@ -236,6 +319,8 @@ export function cardChanges(
   }
   for (const status of card.statuses ?? [])
     changes.push({ kind: status, ...STATUS_CHANGES[status] });
+  for (const flag of flagsOn(state, card))
+    changes.push({ kind: flag.flag, ...FLAG_CHANGES(flag) });
   const via = card.playedVia ? PLAYED_VIA[card.playedVia] : null;
   if (via) changes.push({ kind: "playedVia", ...via });
   return changes;

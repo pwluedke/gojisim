@@ -418,3 +418,16 @@ Accepted by Monarch in the M7a review (PR #33).
 296. The My decks panel and the import modal sit inside the new-game form with no nested forms; Enter never starts a game from them.
 297. Light's `--color-legal` is `#187634` (it was `#1a7f37`).
 298. The godzillatcgdb fixtures come from a public deck with its title and author replaced.
+
+Accepted by Monarch in the M12a-1 review (PR #35).
+
+299. C5 `countsAs` (Godzilla's Skeleton, EBP03-071) waits for EBP03, its only card.
+300. T1 `destroyed` takes `invasion: true` for EBP01-007's "[invading] When this card destroys your battle cards": only a crush caused by an invasion advance, once per destroyed stack.
+301. T3 `discarded` requires `from: "hand" | "strategy"`; a destroyed strategy card counts as sent from a strategy zone.
+302. `playedVia: "hand"` is recorded for main phase plays of battle and monster cards; a Burst play also counts as played from the hand.
+303. "This card has N or more [rage]" on a monster card reads its master's rage (Q16).
+304. A cost that reduces your own rage needs that much rage, or it can't be paid (10.5.4.1, EBP01-020).
+305. T8 delayed abilities fire whether or not their card is still in play, more than once within their period ("this turn" is the indicated period, 10.6.5.1), and end at 7.5.6.
+306. `pnpm stress` takes `--sets`, `--deck-file` and `--uses`; deck names never appear in the output.
+307. The invariant check skips the "manual windows queued at the play timing" check once the game is over (1.2.1).
+308. Engine tests that use real cards as manual examples set them manual with `setTestAbilities`; the web ManualPanel test and the e2e `manual` fixture use EBP04-037 until M12d.

@@ -1,7 +1,12 @@
 import { getCardTraits } from "@gojisim/cards";
 import { advanceMonster } from "./movement";
 import { closeManualWindow, manualProblem, performManual } from "./manual";
-import { burstRankOf, hasAbilityData, resumeResolution } from "./interpreter";
+import {
+  burstRankOf,
+  hasAbilityData,
+  playRuleOf,
+  resumeResolution,
+} from "./interpreter";
 import { getRank } from "./stats";
 import { activeMonster, makeInvadingMonster } from "./counter";
 import { resetLoopGuard } from "./loop";
@@ -106,7 +111,14 @@ function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
     const cardInstanceId = card.instanceId;
     // 8.2.1: rank at most the zone number of the opponent's monster, read through the 10.8.1
     // layers; 10.5.2.1.2: a zone the player's own monster does not occupy.
-    const rank = data.type === "Monster" ? data.rank : getRank(state, card);
+    // M2: a play rule can reduce the rank for this play, or forbid it.
+    const rule =
+      data.type === "Monster"
+        ? { reduction: 0, forbidden: false }
+        : playRuleOf(state, card, playerId);
+    const printed = data.type === "Monster" ? data.rank : getRank(state, card);
+    const rank =
+      printed === null || rule.forbidden ? null : printed - rule.reduction;
     if (data.type === "Battle" && rank !== null && rank <= opponentZone) {
       for (const zone of ZONE_NUMBERS) {
         if (zone !== player.monsterPosition) {
@@ -377,7 +389,8 @@ const PERFORM: {
       choice.kind === "target" ||
       choice.kind === "zone" ||
       choice.kind === "confirm" ||
-      choice.kind === "replacementOrder"
+      choice.kind === "replacementOrder" ||
+      choice.kind === "option"
     ) {
       resumeResolution(state, choice.kind, action.optionId);
     } else if (choice.kind === "manual") {

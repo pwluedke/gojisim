@@ -324,7 +324,8 @@ type Trigger = ...
 type TriggeredAbility = { ...; activeIn?: ("hand" | "discard")[] };
 
 // T8: abilities that last until the end of the turn, as timed triggers (10.6.5). Their triggers
-// are checked whether or not the card is still active; they end at 7.5.6.
+// are checked whether or not the card is still active, and can fire more than once: "this turn"
+// is the indicated period (10.6.5.1). They end at 7.5.6.
 type Effect = ... | { effect: "until"; duration: "endOfTurn"; abilities: TriggeredAbility[] };
 ```
 
@@ -334,3 +335,47 @@ Built differently from the plan:
 - T1 adds `invasion: true` for EBP01-007's "[invading] When this card destroys your battle cards". A card's own "when this card is destroyed" is not needed by any card yet.
 - T3 `from` is required; a destroyed strategy card counts as sent from a strategy zone (EBP03-039).
 - A cost that reduces your own rage needs that much rage (10.5.4.1, EBP01-020).
+
+### M12a-2: C2, E1 to E5, E7 to E10, E13, E17, E18, M1, M2 (and C1's `if`)
+
+```typescript
+type Selector = { ...; stackOf?: "this" };          // E4: with area "under", the cards under this card
+type Amount = ... | { invasionAdvancesThisTurn: PlayerRef };                     // C2 (5.13.3)
+type Condition = ... | { thisTurn: "invaded" | "opponentBattleDestroyed"; whose?: PlayerRef };  // C2
+
+type Effect = ...
+  | { effect: "if"; condition: Condition; then: Effect[]; else?: Effect[] }       // C1, decided once
+  | { effect: "advance" | "retreat"; player: EffectPlayer; by?: number; toZone?: Zone;
+      filter?: Selector }                                                         // E1: moves only if it matches
+  | { effect: "mill"; player: EffectPlayer; count: number; as?: string }          // E2 (5.7.3)
+  | { effect: "lookTop"; player: "you"; count: number;
+      putBack: "anyNumberAnyOrder"; rest: "discard" }                             // E3 (5.5): first picked on top
+  | { effect: "placeUnder"; target: Selector; under: Selector; count?: Count }    // E4 (3.2), default exactly 1
+  | { effect: "returnDiscardToDeck"; player: EffectPlayer }                       // E5, then shuffle (5.3)
+  | { effect: "chooseOne"; options: { gates?: Gate[]; condition?: Condition; effects: Effect[] }[] }  // E7
+  | { effect: "setRage"; player: EffectPlayer; value: number }                    // E8 (3.4)
+  | { effect: "swap"; owner: "you" | "opponent"; optional?: boolean }             // E9 (5.6)
+  | { effect: "moveBattle"; ... }               // E10: with several targets the effect's player picks one first
+  | { effect: "moveAsCountered"; player: "you" | "opponent" }                     // E13 (5.15.1.1, Q14)
+  | { effect: "activate"; from: "deck" | "hand" | "discard"; filter: Selector; count: Count }  // E17 (5.9)
+  | { effect: "evolve"; target: Selector; count?: "all" };                        // E18: each in turn
+
+type Modifier = ...
+  | { flag: "cannotEngage"; target: Selector }                                    // M1 (5.16.1)
+  | { flag: "cannotBeDestroyedByOpponent"; target: Selector }                     // M1 (5.12)
+  | { flag: "counterProof"; target: Selector; atOrBelow: number; insteadMoves: boolean };  // E13 (7.4.3)
+
+// M2: how a card is played from the hand (8.2.1, 8.3.1); after the play it has its printed rank.
+type Ability = ... | { kind: "playRule"; id: string; gates?: Gate[]; condition?: Condition;
+                       rankReduction?: Amount; forbidden?: Condition };
+```
+
+Built differently from the plan:
+
+- C1's `if` effect is built here (EBP01 needs it after a mill). `didLastStep` stays with EBP02.
+- M1 builds the flags EBP01 uses: `cannotEngage`, `cannotBeDestroyedByOpponent` and E13's `counterProof`. The other M1 flags (cannot advance, invade, play, draw, be moved; rage that can't be reduced) come with their first cards.
+- M2 builds `rankReduction` and `forbidden`. `onlyInZones` and `alternative` come with EBP04.
+- E5's `returnToHand` is `addToHand` from the discard pile, as before; `putOnDeck` already takes cards from the discard pile.
+- E3 `revealTop` is not needed: EBP01-015's "reveal the top 5 and send them to your discard pile" is a mill, since the discard pile is public.
+- A card the opponent's effects can't destroy can still be chosen by them; the destroy does nothing to it (1.3.3; Q35, Paul's provisional ruling, `docs/rules/rulings-to-confirm.md`). Crush and destroy (11.3) and overload (11.5) still destroy it.
+- `chooseOne` offers only the options whose gates are open and whose condition holds, as choice kind `option`. With one, it runs without a choice, except for seats that confirm every choice (`confirmSingleOption`: human seats in `/play`, Paul's ruling), which see the one-option modal.

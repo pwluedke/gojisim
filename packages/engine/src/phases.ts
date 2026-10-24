@@ -1,5 +1,6 @@
 import {
   counterMonster,
+  moveBehind,
   counterPowerOf,
   getThreat,
   activeMonster,
@@ -8,6 +9,7 @@ import { resolveLosses } from "./losses";
 import { guardLoop, resetLoopGuard } from "./loop";
 import { advanceMonster } from "./movement";
 import { checkTiming, hasPendingRuleActions } from "./rules";
+import { counterProofAgainst } from "./stats";
 import {
   appendLog,
   drawCards,
@@ -179,7 +181,19 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
     state.counterTotal = null;
     goTo(state, "counter", "7.4.4");
     // A tie counts as a counter (7.4.3).
-    if (countered) counterMonster(state, opponent);
+    // A counter-proof monster (E13): no counter; with `insteadMoves` it moves as though
+    // countered (5.15.1.1, Q14).
+    const proof = countered
+      ? counterProofAgainst(state, opponent, total)
+      : null;
+    if (proof) {
+      appendLog(state, "counterPrevented", opponent.id, {
+        rule: "7.4.3",
+        total,
+        moves: proof.moves,
+      });
+      if (proof.moves) moveBehind(state, opponent, true);
+    } else if (countered) counterMonster(state, opponent);
   },
   "7.4.4": (state) => {
     goTo(state, "end", "7.5.1");
