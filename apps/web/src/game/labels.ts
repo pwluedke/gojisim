@@ -78,6 +78,8 @@ export function actionLabel(state: GameState, action: Action): string {
         return `Choose ${player}'s zone ${zone}`;
       }
       if (choice?.kind === "manual") return "Done (close the manual override)";
+      if (choice?.kind === "option")
+        return optionText(state, Number(action.optionId));
       if (choice?.kind === "replacementOrder")
         return `Apply ${action.optionId} (${choice.rule})`;
       if (choice?.kind === "confirm")
@@ -109,6 +111,23 @@ export function actionLabel(state: GameState, action: Action): string {
     case "manual":
       return `Manual: ${action.op.kind}`;
   }
+}
+
+/**
+ * The words of a "choose one of the following" option (E7): its "●" line on the source card,
+ * without the bullet; the option number if the text has no such line.
+ */
+export function optionText(state: GameState, index: number): string {
+  const source = state.resolution
+    ? state.cards[state.resolution.standby.sourceCardId]
+    : undefined;
+  const bullets = source
+    ? getCardText(source)
+        .text.split("\n")
+        .filter((line) => line.trim().startsWith("●"))
+        .map((line) => line.trim().replace(/^●\s*/, ""))
+    : [];
+  return bullets[index] ?? `Option ${index + 1}`;
 }
 
 /** The effect a paused ability is performing (format.md), from its card's ability data. */
@@ -153,6 +172,8 @@ function choiceWhat(state: GameState): string {
       return "choosing which replacement applies";
     case "manual":
       return "resolving a card by hand (manual override)";
+    case "option":
+      return `choosing one of the options${by}`;
   }
   const effect = currentEffect(state);
   if (choice.rule === "5.7.2" && effect?.effect === "discardDownTo") {

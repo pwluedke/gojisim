@@ -207,6 +207,8 @@ export type ChoiceKind =
   | "confirm"
   /** Which replacement effect applies first, when 2 or more would (10.9.2.1). */
   | "replacementOrder"
+  /** One of a "choose one of the following" effect's options (10.5.2.2.1, E7). */
+  | "option"
   /**
    * A manual override window (spec "Manual override", format.md change 10): a manual card's
    * ability would trigger. Both players may take `manual` actions; its player chooses `done`.
@@ -262,6 +264,10 @@ export interface Resolution {
   replacementPicks: string[];
   /** The card an effect works on once picked (the battle card being evolved, 5.17). */
   subject: string | null;
+  /** The branch each `if` (0 then, 1 else) or `chooseOne` (option) took, keyed by path. */
+  branches?: Record<string, number>;
+  /** Cards an effect still has to work through one at a time ("evolve all", E18). */
+  queue?: string[];
 }
 
 /** A choice the engine is waiting for. Only `player` may act, with `choose` (or `concede`). */

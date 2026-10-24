@@ -74,3 +74,44 @@ describe("debug decision heading and choice labels", () => {
     );
   });
 });
+
+describe("choose-one option labels (M12a-2, E7)", () => {
+  it("an option choice names each option by its card's ● line", () => {
+    const decks = (["ESD01", "ESD02"] as const).map((set, i) => ({
+      id: `P${i + 1}`,
+      ...buildTestDeck(set, `labels-${i}`),
+    }));
+    const state = startGame({ seed: 3, decks: [decks[0]!, decks[1]!] });
+    const me = state.players.find((p) => p.id === state.turnPlayer)!;
+    const add = (number: string) => {
+      const card = real(number);
+      state.cards = { ...state.cards, [card.id]: card };
+      return {
+        instanceId: `c${state.nextInstanceId++}`,
+        cardId: card.id,
+        owner: me.id,
+      };
+    };
+    // EBP01-064 offers its second option with 4 battle cards in your zones.
+    for (const zone of [2, 3, 4, 5] as const)
+      me.zones[zone].push([add("EBP01-016")]);
+    me.monsterPosition = 6;
+    const card = add("EBP01-064");
+    me.hand.push(card);
+    const after = applyAction(state, {
+      type: "activateStrategy",
+      player: me.id,
+      cardInstanceId: card.instanceId,
+      strategyZone: 1,
+    });
+    expect(after.pendingChoice?.kind).toBe("option");
+    expect(decisionHeading(after)).toContain("choosing one of the options");
+    const labels = getLegalActions(after, me.id)
+      .filter((a) => a.type === "choose")
+      .map((a) => actionLabel(after, a));
+    expect(labels).toEqual([
+      "[destroy] 1 of your opponent's rank 4 or lower battle cards.",
+      "If you have 4 or more battle cards in your zones, choose 1 of your opponent's zones and [destroy] all battle cards in that zone and zones adjacent to it.",
+    ]);
+  });
+});

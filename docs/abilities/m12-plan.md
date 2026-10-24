@@ -789,7 +789,7 @@ One PR per set, in priority order. Each PR:
 | M12f   | ESC01            | 6     | 1                   | none                                                               | none                                | 378               |
 | M12g   | FC01             | 6     | 1                   | none                                                               | Q29                                 | 384               |
 
-M12a is split in two (Monarch, Oct 23, 2026): M12a-1 builds C5, C6, C7, T1, T3, T4, T5, T6 and T8 with every EBP01 card that needs only those pieces or today's format; M12a-2 builds the rest with the remaining EBP01 cards. The order is EBP01, EBP02, EBP03, EBP04 (Paul, Oct 23, 2026), so EBP03 builds the pieces it shares with EBP04. After M12g, all 384 cards are implemented.
+M12a is split in two (Monarch, Oct 23, 2026): M12a-1 builds C5, C6, C7, T1, T3, T4, T5, T6 and T8 with every EBP01 card that needs only those pieces or today's format; M12a-2 builds the rest with the remaining EBP01 cards. M12a-2 also builds C1's `if` effect (EBP01 needs it after a mill; `didLastStep` stays with EBP02), and only the M1 flags and M2 play rules EBP01 uses; the others come with their first cards (format.md, M12 additions). The order is EBP01, EBP02, EBP03, EBP04 (Paul, Oct 23, 2026), so EBP03 builds the pieces it shares with EBP04. After M12g, all 384 cards are implemented.
 
 Per-set card lists, with the pieces each card needs (section 3 has the pieces):
 

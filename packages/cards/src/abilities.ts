@@ -109,6 +109,8 @@ export const SelectorSchema = z.strictObject({
   anyTraits: z.array(z.string().min(1)).min(1).optional(),
   /** The number on the card's invasion icon ("a card with [invade-2]"). */
   invadeIcon: z.number().int().nonnegative().optional(),
+  /** With `area: "under"`: only cards in the stack of this card ("under this card", E4). */
+  stackOf: z.literal("this").optional(),
   /** With `area: "bound"`: the name a card was bound to with `as`. */
   bind: z.string().min(1).optional(),
 });
@@ -121,6 +123,8 @@ const AmountReadSchema = z.union([
   z.strictObject({ rageOf: PlayerRefSchema, times: z.number().int() }),
   /** Per rank of a player's invading monster. */
   z.strictObject({ monsterRankOf: PlayerRefSchema, times: z.number().int() }),
+  /** Zones a player's monster advanced by invasion this turn (C2, 5.13.3). */
+  z.strictObject({ invasionAdvancesThisTurn: PlayerRefSchema }),
   /** Per zone of a player's with no card, not counting the zone their monster occupies. */
   z.strictObject({
     unoccupiedZonesOf: PlayerRefSchema,
@@ -230,6 +234,10 @@ export type Condition =
   | { count: Selector; op: Op; value: number }
   | { monsterRank: PlayerRef; op: Op; value: number }
   | { playedVia: "evolution" | "burst" | "effect" | "hand" }
+  | {
+      thisTurn: "invaded" | "opponentBattleDestroyed";
+      whose?: PlayerRef | undefined;
+    }
   | { didLastStep: true };
 
 export const ConditionSchema: z.ZodType<Condition> = z.lazy(() =>
@@ -258,6 +266,11 @@ export const ConditionSchema: z.ZodType<Condition> = z.lazy(() =>
     }),
     z.strictObject({
       playedVia: z.enum(["evolution", "burst", "effect", "hand"]),
+    }),
+    /** C2: something happened this turn (8.6, 5.12). `whose` defaults to "you". */
+    z.strictObject({
+      thisTurn: z.enum(["invaded", "opponentBattleDestroyed"]),
+      whose: PlayerRefSchema.optional(),
     }),
     z.strictObject({ didLastStep: z.literal(true) }),
   ]),
@@ -346,13 +359,19 @@ export type Effect =
       where: "top" | "bottom";
       as?: string | undefined;
     }
-  | { effect: "evolve"; target: Selector; as?: string | undefined }
+  | {
+      effect: "evolve";
+      target: Selector;
+      count?: "all" | undefined;
+      as?: string | undefined;
+    }
   | { effect: "chooseZone"; owner: "you" | "opponent"; as: string }
   | {
       effect: "advance";
       player: EffectPlayer;
       by?: number | undefined;
       toZone?: Zone | undefined;
+      filter?: Selector | undefined;
       as?: string | undefined;
     }
   | {
@@ -360,6 +379,7 @@ export type Effect =
       player: EffectPlayer;
       by?: number | undefined;
       toZone?: Zone | undefined;
+      filter?: Selector | undefined;
       as?: string | undefined;
     }
   | {
@@ -377,15 +397,47 @@ export type Effect =
     }
   | {
       effect: "lookTop";
-      player: EffectPlayer;
-      count: Amount;
-      effects: Effect[];
+      player: "you";
+      count: number;
+      putBack: "anyNumberAnyOrder";
+      rest: "discard";
       as?: string | undefined;
     }
   | {
       effect: "placeUnder";
       target: Selector;
       under: Selector;
+      count?: Count | undefined;
+      as?: string | undefined;
+    }
+  | {
+      effect: "returnDiscardToDeck";
+      player: EffectPlayer;
+      as?: string | undefined;
+    }
+  | {
+      effect: "swap";
+      owner: "you" | "opponent";
+      optional?: boolean | undefined;
+      as?: string | undefined;
+    }
+  | {
+      effect: "moveAsCountered";
+      player: "you" | "opponent";
+      as?: string | undefined;
+    }
+  | {
+      effect: "activate";
+      from: "deck" | "hand" | "discard";
+      filter: Selector;
+      count: Count;
+      as?: string | undefined;
+    }
+  | {
+      effect: "if";
+      condition: Condition;
+      then: Effect[];
+      else?: Effect[] | undefined;
       as?: string | undefined;
     }
   | {
@@ -400,7 +452,11 @@ export type Effect =
       zones: ZoneSet;
       as?: string | undefined;
     }
-  | { effect: "chooseOne"; options: Effect[][]; as?: string | undefined }
+  | {
+      effect: "chooseOne";
+      options: ChoiceOptionData[];
+      as?: string | undefined;
+    }
   | {
       effect: "until";
       duration: "endOfTurn";
@@ -408,6 +464,13 @@ export type Effect =
       as?: string | undefined;
     }
   | { effect: "custom"; handler: string; as?: string | undefined };
+
+/** One option of a `chooseOne` effect (E7, 10.5.2.2.1); it is offered only while it can apply. */
+export interface ChoiceOptionData {
+  gates?: Gate[] | undefined;
+  condition?: Condition | undefined;
+  effects: Effect[];
+}
 
 /** A triggered ability an `until` effect creates for a while (a timed trigger, 10.6.5). */
 export interface DelayedAbility {
@@ -507,6 +570,8 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
     z.strictObject({
       effect: z.literal("evolve"),
       target: SelectorSchema,
+      /** "Evolve all of your ...": each card in turn (E18). */
+      count: z.literal("all").optional(),
       ...asField,
     }),
     z.strictObject({
@@ -519,6 +584,8 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
       player: EffectPlayerSchema,
       by: z.number().int().positive().optional(),
       toZone: ZoneSchema.optional(),
+      /** The monster moves only if it matches (E1: "with 50,000 or lower threat level"). */
+      filter: SelectorSchema.optional(),
       ...asField,
     }),
     z.strictObject({
@@ -526,6 +593,8 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
       player: EffectPlayerSchema,
       by: z.number().int().positive().optional(),
       toZone: ZoneSchema.optional(),
+      /** The monster moves only if it matches (E1: "with 50,000 or lower threat level"). */
+      filter: SelectorSchema.optional(),
       ...asField,
     }),
     z.strictObject({
@@ -541,17 +610,56 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
       effects: z.array(EffectSchema),
       ...asField,
     }),
+    /** E3: look at the top N; put any number back on top in any order, the rest to the discard pile. */
     z.strictObject({
       effect: z.literal("lookTop"),
-      player: EffectPlayerSchema,
-      count: AmountSchema,
-      effects: z.array(EffectSchema),
+      player: z.literal("you"),
+      count: z.number().int().positive(),
+      putBack: z.literal("anyNumberAnyOrder"),
+      rest: z.literal("discard"),
       ...asField,
     }),
+    /** E4: cards from a hand, deck or discard pile go under a card on the field (3.2). Default: exactly 1. */
     z.strictObject({
       effect: z.literal("placeUnder"),
       target: SelectorSchema,
       under: SelectorSchema,
+      count: CountSchema.optional(),
+      ...asField,
+    }),
+    /** E5: the whole discard pile into the deck, then the deck is shuffled. */
+    z.strictObject({
+      effect: z.literal("returnDiscardToDeck"),
+      player: EffectPlayerSchema,
+      ...asField,
+    }),
+    /** E9: choose 2 battle cards in that player's zones and swap them (5.6). */
+    z.strictObject({
+      effect: z.literal("swap"),
+      owner: ChooserSchema,
+      optional: z.boolean().optional(),
+      ...asField,
+    }),
+    /** E13: move a monster as though it were countered (5.15.1.1 only; not a counter, Q14). */
+    z.strictObject({
+      effect: z.literal("moveAsCountered"),
+      player: ChooserSchema,
+      ...asField,
+    }),
+    /** E17: put a strategy card into an empty strategy zone and activate it, regardless of rank. */
+    z.strictObject({
+      effect: z.literal("activate"),
+      from: z.enum(["deck", "hand", "discard"]),
+      filter: SelectorSchema,
+      count: CountSchema,
+      ...asField,
+    }),
+    /** C1 ("if" part): effects that run only if a condition holds; `else` otherwise. */
+    z.strictObject({
+      effect: z.literal("if"),
+      condition: ConditionSchema,
+      then: z.array(EffectSchema),
+      else: z.array(EffectSchema).optional(),
       ...asField,
     }),
     z.strictObject({
@@ -568,7 +676,15 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
     }),
     z.strictObject({
       effect: z.literal("chooseOne"),
-      options: z.array(z.array(EffectSchema).min(1)).min(2),
+      options: z
+        .array(
+          z.strictObject({
+            gates: z.array(GateSchema).optional(),
+            condition: ConditionSchema.optional(),
+            effects: z.array(EffectSchema).min(1),
+          }),
+        )
+        .min(2),
       ...asField,
     }),
     z.strictObject({
@@ -607,16 +723,22 @@ export const ModifierSchema = z.union([
     stat: z.literal("totalCounterPower"),
     amount: AmountSchema,
   }),
+  /** M1: the target's counter power is not added in the counter phase (5.16.1). */
+  z.strictObject({ flag: z.literal("cannotEngage"), target: SelectorSchema }),
+  /** M1: the target cannot be destroyed by the opponent's effects (5.12). */
   z.strictObject({
-    flag: z.enum([
-      "cannotEngage",
-      "cannotBeDestroyedByOpponent",
-      "cannotAdvanceOrInvade",
-      "cannotBeCounteredAtOrBelow",
-      "rageCannotBeReduced",
-    ]),
+    flag: z.literal("cannotBeDestroyedByOpponent"),
     target: SelectorSchema,
-    value: z.number().int().optional(),
+  }),
+  /**
+   * E13: a monster that cannot be countered by `atOrBelow` or lower counter power (7.4.3); with
+   * `insteadMoves` it moves as though countered (5.15.1.1).
+   */
+  z.strictObject({
+    flag: z.literal("counterProof"),
+    target: SelectorSchema,
+    atOrBelow: z.number().int().positive(),
+    insteadMoves: z.boolean(),
   }),
 ]);
 export type Modifier = z.infer<typeof ModifierSchema>;
@@ -692,6 +814,19 @@ export const AbilitySchema = z.discriminatedUnion("kind", [
     instead: z.array(EffectSchema).min(1),
   }),
   z.strictObject({ kind: z.literal("keyword"), keyword: KeywordAbilitySchema }),
+  /**
+   * M2: how the card is played from the hand (8.2.1, 8.3.1): its rank counts as reduced by
+   * `rankReduction` while the gates are open and the condition holds, or the play is forbidden
+   * while `forbidden` holds. After the play it has its printed rank.
+   */
+  z.strictObject({
+    kind: z.literal("playRule"),
+    id: z.string().min(1),
+    gates: z.array(GateSchema).optional(),
+    condition: ConditionSchema.optional(),
+    rankReduction: AmountSchema.optional(),
+    forbidden: ConditionSchema.optional(),
+  }),
 ]);
 export type Ability = z.infer<typeof AbilitySchema>;
 

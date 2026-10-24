@@ -135,7 +135,9 @@ function eventParts(
     case "retreat":
       return [`${whose} monster ${entry.type}s to zone ${String(p["to"])}`];
     case "moveBehind":
-      return [`${whose} monster moves back to zone ${String(p["to"])}`];
+      return [
+        `${whose} monster moves back to zone ${String(p["to"])}${p["asCountered"] ? " (as though countered)" : ""}`,
+      ];
     case "counterCheck":
       return p["countered"]
         ? [
@@ -172,6 +174,40 @@ function eventParts(
       ];
     case "evolve":
       return [card(p["from"]), " evolves into ", card(p["to"])];
+    case "mill":
+      return [
+        `${who} send${who === "You" ? "" : "s"} `,
+        ...cards(p["cardIds"]),
+        " from the deck to the discard pile",
+      ];
+    case "lookTop":
+      return [
+        `${who} look${who === "You" ? "" : "s"} at the top ${String(p["count"])} and keep${who === "You" ? "" : "s"} ${String(p["kept"])} on top`,
+      ];
+    case "placeUnder":
+      return p["cardId"] === undefined
+        ? [
+            `${who} place${who === "You" ? "" : "s"} a card under `,
+            card(p["under"]),
+          ]
+        : [card(p["cardId"]), " goes under ", card(p["under"])];
+    case "returnDiscardToDeck":
+      return [
+        `${whose} discard pile (${String(p["count"])}) goes back into the deck`,
+      ];
+    case "swap":
+      return [...cards(p["cardIds"]), " swap places"];
+    case "counterPrevented":
+      return p["moves"]
+        ? [`${whose} monster can't be countered: it only moves back`]
+        : [`${whose} monster can't be countered`];
+    case "destroyPrevented":
+      return [
+        card(p["cardId"]),
+        " can't be destroyed by the opponent's effects",
+      ];
+    case "chooseOption":
+      return null;
     case "delayedAbility":
       // An ability that lasts for the turn (T8, 10.6.5), e.g. Destroy All Monsters.
       return [

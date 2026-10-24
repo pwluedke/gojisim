@@ -155,7 +155,8 @@ export function checkInvariants(state: GameState): string[] {
     state.pendingChoice?.kind === "target" ||
     state.pendingChoice?.kind === "zone" ||
     state.pendingChoice?.kind === "confirm" ||
-    state.pendingChoice?.kind === "replacementOrder";
+    state.pendingChoice?.kind === "replacementOrder" ||
+    state.pendingChoice?.kind === "option";
   if ((state.resolution !== null) !== effectChoice)
     problems.push(
       `resolution ${state.resolution ? "in progress" : "missing"} with choice ${state.pendingChoice?.kind ?? "none"}`,

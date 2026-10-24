@@ -40,8 +40,9 @@ describe("ability data (format.md)", () => {
   });
 
   it("a card with no entry counts as manual, with no abilities", () => {
-    expect(getCardAbilities("EBP01-001")).toEqual({
-      deckCardNumber: "EBP01-001",
+    // FC01-001 has no data until M12g, the last set.
+    expect(getCardAbilities("FC01-001")).toEqual({
+      deckCardNumber: "FC01-001",
       status: "manual",
       abilities: [],
     });
@@ -125,8 +126,13 @@ describe("ability data (format.md)", () => {
             {
               effect: "chooseOne",
               options: [
-                [{ effect: "mill", player: "you", count: 3 }],
-                [{ effect: "setRage", player: "opponent", value: 0 }],
+                { effects: [{ effect: "mill", player: "you", count: 3 }] },
+                {
+                  condition: { rage: "you", op: ">=", value: 2 },
+                  effects: [
+                    { effect: "setRage", player: "opponent", value: 0 },
+                  ],
+                },
               ],
             },
           ],
