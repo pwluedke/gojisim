@@ -18,52 +18,28 @@ async function noScroll(page: Page) {
   ).toEqual({ y: true, x: true });
 }
 
-test("#1 zone labels show in the middle of an area only while it is hovered", async ({
+test("#1 zone labels sit under the cards: an empty area shows its name, cards cover it and stay shown on hover", async ({
   page,
 }) => {
   await loadFixture(page, "hand-five");
-  const cases = [
-    // Clicking a discard pile opens the stack viewer (M5h #9), so its label says so.
-    ["discard-P1", "Show discard"],
-    ["deck-P1", "Deck"],
-    ["monster-deck-P1", "Monster deck"],
+  // Empty areas show their names, styled like the zone labels.
+  for (const [testId, text] of [
     ["strategy-P1-1", "Strategy 1"],
     ["strategy-P2-2", "Strategy 2"],
-    ["monster-P1", "Monster"],
-    ["monster-P2", "Monster"],
-  ] as const;
-  for (const [testId, text] of cases) {
-    const area = page.getByTestId(testId);
-    const label = area.getByTestId("hover-label").first();
-    await page.mouse.move(0, 0);
-    await expect(label).toBeHidden();
-    await area.hover();
+  ] as const) {
+    const label = page.getByTestId(testId).getByText(text);
     await expect(label).toBeVisible();
-    await expect(label).toHaveText(text);
-    // Centered on the area, and styled like the zone labels.
-    const [a, l] = [await area.boundingBox(), await label.boundingBox()];
-    if (!a || !l) throw new Error(`no box for ${testId}`);
-    expect(Math.abs(a.x + a.width / 2 - (l.x + l.width / 2))).toBeLessThan(3);
-    expect(Math.abs(a.y + a.height / 2 - (l.y + l.height / 2))).toBeLessThan(3);
-    const style = (sel: string) =>
-      page
-        .locator(sel)
-        .first()
-        .evaluate((el) => {
-          const s = getComputedStyle(el);
-          return [s.fontSize, s.fontWeight, s.color].join(" ");
-        });
-    expect(
-      await style(`[data-testid="${testId}"] [data-testid="hover-label"]`),
-    ).toBe(await style('[data-testid="zone-label"]'));
   }
-  // It never takes the pointer: hand cards still drop on the discard pile (hand.spec covers it).
-  expect(
-    await page
-      .getByTestId("hover-label")
-      .first()
-      .evaluate((el) => getComputedStyle(el).pointerEvents),
-  ).toBe("none");
+  // A pile's card back and the discard pile's top card stay shown while hovered.
+  for (const [testId, card] of [
+    ["deck-P1", "pile-back"],
+    ["deck-P2", "pile-back"],
+    ["discard-P1", "card"],
+  ] as const) {
+    await page.getByTestId(testId).hover();
+    await expect(page.getByTestId(testId).getByTestId(card)).toBeVisible();
+  }
+  await expect(page.getByTestId("hover-label")).toHaveCount(0);
 });
 
 test("#2 both monsters glow in their colors all the time, whoever's turn it is; Turn glow turns it off", async ({

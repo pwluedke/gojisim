@@ -42,6 +42,7 @@ import { GLOW_COLORS, glowCycle, useGlow } from "./glow";
 import { InvadeArrow } from "./InvadeArrow";
 import { Preview } from "./Preview";
 import { type StackKey, StackViewer } from "./StackViewer";
+import { TipBubble } from "./Tooltip";
 import type { AnimationSpeed } from "./settings";
 
 /** A custom mat image (M5f) as the board draws it: an object URL plus its scale and position. */
@@ -79,6 +80,13 @@ export const STEP_NAMES: Record<string, string> = {
   end: "End phase",
 };
 
+/**
+ * Public stacks say a click opens the stack viewer (M5h #9) with the app's tooltip, shown by the
+ * board for the innermost element with `data-view-tip`. The tip is set only while a click would
+ * open the viewer. Zone labels sit under the cards, so an empty area shows its name.
+ */
+const MONSTER_TIP = "Monster stack: click to view";
+
 /** Cards in one mat cell: the first at the cell's place, later ones offset so each shows. */
 function Layer({ index, children }: { index: number; children: ReactNode }) {
   return (
@@ -87,21 +95,6 @@ function Layer({ index, children }: { index: number; children: ReactNode }) {
       style={{ translate: `${index * 6}px ${index * 6}px` }}
     >
       {children}
-    </div>
-  );
-}
-
-/**
- * An area's name in the middle of it while it is hovered (M5h #1), styled like the zone labels
- * and above the cards; it never takes the pointer, so clicks and drops still reach the area.
- */
-function HoverLabel({ text }: { text: string }) {
-  return (
-    <div
-      className={`${styles.cellLabel} ${styles.hoverLabel}`}
-      data-testid="hover-label"
-    >
-      {text}
     </div>
   );
 }
@@ -153,6 +146,7 @@ function ZoneCell({
           ? () => viewStack({ player: player.id, area: "zone", zone })
           : undefined
       }
+      viewTip={`Zone ${zone} stack: click to view`}
     >
       <div className={styles.cellLabel} data-testid="zone-label">
         Z{zone}
@@ -183,9 +177,9 @@ function ZoneCell({
               glow={glowName}
               style={glowStyle}
               onView={viewMonster}
+              viewTip={MONSTER_TIP}
             >
               {monsterView}
-              <HoverLabel text="Monster" />
             </Target>
           ) : (
             <div
@@ -193,6 +187,9 @@ function ZoneCell({
               data-testid={`monster-${player.id}`}
               data-highlight={monsterLit ? "true" : undefined}
               data-monster-glow={glowName ?? undefined}
+              data-view-tip={
+                viewMonster && lit.size === 0 ? MONSTER_TIP : undefined
+              }
               style={glowStyle}
               onClick={
                 viewMonster && lit.size === 0
@@ -204,7 +201,6 @@ function ZoneCell({
               }
             >
               {monsterView}
-              <HoverLabel text="Monster" />
             </div>
           )}
         </Layer>
@@ -225,6 +221,7 @@ function Slot({
   className,
   testId,
   onView,
+  viewTip,
   children,
 }: {
   own: boolean;
@@ -234,6 +231,8 @@ function Slot({
   testId: string;
   /** A click while nothing is lit opens the stack viewer (M5h #9). */
   onView?: (() => void) | undefined;
+  /** The "click to view" tip for the stack viewer. */
+  viewTip?: string | undefined;
   children: ReactNode;
 }) {
   const { zoneChoice, highlight, act, lit: litDests } = useInteraction();
@@ -262,6 +261,7 @@ function Slot({
       testId={testId}
       highlight={lit}
       onView={onView}
+      viewTip={viewTip}
     >
       {children}
     </Target>
@@ -270,6 +270,7 @@ function Slot({
       className={classes}
       data-testid={testId}
       data-highlight={lit ? "true" : undefined}
+      data-view-tip={onView && litDests.size === 0 ? viewTip : undefined}
       onClick={
         onView && litDests.size === 0
           ? (e) => {
@@ -351,7 +352,6 @@ function StrategyZone({
       testId={`strategy-${player.id}-${index}`}
     >
       <div className={styles.cellLabel}>Strategy {index}</div>
-      <HoverLabel text={`Strategy ${index}`} />
       {(zone?.cards ?? []).map((p, i) => (
         <Layer key={p.card.instanceId} index={i}>
           <CardFace
@@ -441,7 +441,6 @@ function Pile({
   return (
     <div className={styles.cell} data-testid={cellTestId}>
       <div className={styles.cellLabel}>{label}</div>
-      <HoverLabel text={label} />
       {count > 0 && (
         <Layer index={0}>
           <CardBack testId="pile-back" />
@@ -476,18 +475,12 @@ function Discard({
           ? () => viewStack({ player: player.id, area: "discard" })
           : undefined
       }
+      viewTip="Discard pile: click to view"
     >
       <div className={styles.cellLabel}>Discard</div>
-      {/* Clicking the pile opens the stack viewer (M5h #9), so the label says so. */}
-      <HoverLabel text="Show discard" />
       {top && (
         <Layer index={0}>
-          <CardFace
-            card={top}
-            data={model.view.cards[top.cardId]}
-            rotate
-            noPreview
-          />
+          <CardFace card={top} data={model.view.cards[top.cardId]} rotate />
         </Layer>
       )}
       <span
@@ -962,6 +955,20 @@ export function BoardView({
     monsterGlow: { [you.id]: youMonsterGlow, [opp.id]: oppMonsterGlow },
     viewStack: setStackView,
   };
+  // The "click to view" tip of the public stack under the pointer (MONSTER_TIP above).
+  const [viewTip, setViewTip] = useState<{ tip: string; box: DOMRect } | null>(
+    null,
+  );
+  const showViewTip = (target: EventTarget) => {
+    const el =
+      target instanceof Element
+        ? target.closest<HTMLElement>("[data-view-tip]")
+        : null;
+    const tip = el?.dataset.viewTip;
+    setViewTip(
+      el && tip && !dragging ? { tip, box: el.getBoundingClientRect() } : null,
+    );
+  };
   const draggedCard = dragging
     ? (you.hand.cards ?? []).find((c) => c.instanceId === dragging)
     : undefined;
@@ -975,6 +982,7 @@ export function BoardView({
           setDragging(String(e.active.id));
           setPreviewed(null);
           setMenu(null);
+          setViewTip(null);
         }}
         onDragEnd={onDragEnd}
         onDragOver={(e) => setOver(e.over ? String(e.over.id) : null)}
@@ -999,7 +1007,14 @@ export function BoardView({
             </section>
             {settings}
           </aside>
-          <main className={styles.main} ref={mainRef}>
+          <main
+            className={styles.main}
+            ref={mainRef}
+            onMouseOver={(e) => showViewTip(e.target)}
+            onMouseLeave={() => setViewTip(null)}
+            onClick={() => setViewTip(null)}
+          >
+            {viewTip && <TipBubble box={viewTip.box} tip={viewTip.tip} />}
             <div className={styles.handBacks} data-testid="opponent-hand">
               <span className={styles.muted}>
                 {opp.id} hand (

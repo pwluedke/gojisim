@@ -23,19 +23,8 @@ export function Tooltip({
   className?: string | undefined;
 }) {
   const host = useRef<HTMLSpanElement>(null);
-  const [at, setAt] = useState<{ x: number; y: number; above: boolean } | null>(
-    null,
-  );
-  const show = () => {
-    const box = host.current?.getBoundingClientRect();
-    if (!box) return;
-    const above = box.bottom + 120 > window.innerHeight;
-    setAt({
-      x: Math.max(4, Math.min(box.left, window.innerWidth - MAX_WIDTH - 4)),
-      y: above ? box.top - 2 : box.bottom + 2,
-      above,
-    });
-  };
+  const [box, setBox] = useState<DOMRect | null>(null);
+  const show = () => setBox(host.current?.getBoundingClientRect() ?? null);
   return (
     <span
       ref={host}
@@ -43,27 +32,39 @@ export function Tooltip({
       data-testid={testId}
       tabIndex={0}
       onMouseEnter={show}
-      onMouseLeave={() => setAt(null)}
+      onMouseLeave={() => setBox(null)}
       onFocus={show}
-      onBlur={() => setAt(null)}
+      onBlur={() => setBox(null)}
     >
       {children}
-      {at &&
-        createPortal(
-          <span
-            className={`gojisim ${styles.tooltip}`}
-            role="tooltip"
-            data-testid="tooltip"
-            style={{
-              left: at.x,
-              top: at.y,
-              translate: at.above ? "0 -100%" : undefined,
-            }}
-          >
-            {tip}
-          </span>,
-          document.body,
-        )}
+      {box && <TipBubble box={box} tip={tip} />}
     </span>
+  );
+}
+
+/**
+ * The tip itself, for an element at `box`: below it, or above when there's no room below, kept
+ * inside the window. Also used on its own where wrapping the element would change the layout
+ * (the board's "click to view" tips).
+ */
+export function TipBubble({ box, tip }: { box: DOMRect; tip: ReactNode }) {
+  const above = box.bottom + 120 > window.innerHeight;
+  return createPortal(
+    <span
+      className={`gojisim ${styles.tooltip}`}
+      role="tooltip"
+      data-testid="tooltip"
+      style={{
+        left: Math.max(
+          4,
+          Math.min(box.left, window.innerWidth - MAX_WIDTH - 4),
+        ),
+        top: above ? box.top - 2 : box.bottom + 2,
+        translate: above ? "0 -100%" : undefined,
+      }}
+    >
+      {tip}
+    </span>,
+    document.body,
   );
 }

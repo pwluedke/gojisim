@@ -57,6 +57,7 @@ export function Target({
   glow,
   style,
   onView,
+  viewTip,
   children,
 }: {
   dest: DestinationKey;
@@ -68,6 +69,8 @@ export function Target({
   style?: CSSProperties | undefined;
   /** A click while nothing is lit opens the stack viewer (M5h #9). */
   onView?: (() => void) | undefined;
+  /** The "click to view" tip, shown while a click would open the stack viewer. */
+  viewTip?: string | undefined;
   children: ReactNode;
 }) {
   const { lit, chooseDestination } = useInteraction();
@@ -82,6 +85,7 @@ export function Target({
       data-lit={isLit ? "true" : undefined}
       data-highlight={highlight ? "true" : undefined}
       data-monster-glow={glow ?? undefined}
+      data-view-tip={onView && lit.size === 0 ? viewTip : undefined}
       style={style}
       onClick={
         isLit

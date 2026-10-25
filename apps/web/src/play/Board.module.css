@@ -178,25 +178,6 @@
   border-radius: var(--radius);
 }
 
-/* An area's name while it is hovered (M5h #1): the zone label's look, above the cards. */
-/*
- * M5h fix: the label covers the whole area with the page background while it shows, so the
- * card image (or back) under it is hidden and the text reads cleanly in every theme; the card
- * comes back on mouse-out. It never takes the pointer, so hover and drops still reach the area.
- */
-.hoverLabel {
-  z-index: 6;
-  visibility: hidden;
-  border-radius: inherit;
-  background: var(--color-bg);
-  pointer-events: none;
-}
-
-.cell:hover > .hoverLabel,
-.monster:hover > .hoverLabel {
-  visibility: visible;
-}
-
 .rageZone {
   padding: var(--space-2);
   overflow: hidden;

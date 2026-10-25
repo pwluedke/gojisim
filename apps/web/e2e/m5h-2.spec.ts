@@ -1,4 +1,3 @@
-import AxeBuilder from "@axe-core/playwright";
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { loadFixture } from "./helpers";
@@ -7,62 +6,41 @@ import { loadFixture } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
-const PILES = [
-  "deck-P1",
-  "monster-deck-P1",
-  "discard-P1",
-  "deck-P2",
-  "monster-deck-P2",
-  "discard-P2",
-];
-
-test('piles blank to the page background under their hover label; the discard pile reads "Show discard" and its top card has no preview', async ({
+test('public stacks say "click to view" in the app\'s tooltip; the discard top card still previews; decks have no tip', async ({
   page,
 }) => {
   await loadFixture(page, "hand-five");
-  const pageBg = await page.evaluate(
-    () => getComputedStyle(document.body).backgroundColor,
-  );
-  for (const id of PILES) {
-    const pile = page.getByTestId(id);
-    await pile.hover();
-    const label = pile.getByTestId("hover-label").first();
-    await expect(label).toBeVisible();
-    // The label covers the whole pile with the page background.
-    const [a, l] = [await pile.boundingBox(), await label.boundingBox()];
-    expect(Math.abs((a?.width ?? 0) - (l?.width ?? 0))).toBeLessThan(4);
-    expect(Math.abs((a?.height ?? 0) - (l?.height ?? 0))).toBeLessThan(4);
-    expect(
-      await label.evaluate((el) => getComputedStyle(el).backgroundColor),
-    ).toBe(pageBg);
-    if (id.startsWith("discard"))
-      await expect(label).toHaveText("Show discard");
+  const tooltip = page.getByTestId("tooltip");
+  const cases: [string, string][] = [
+    ["discard-P1", "Discard pile: click to view"],
+    ["discard-P2", "Discard pile: click to view"],
+    ["monster-P1", "Monster stack: click to view"],
+    ["monster-P2", "Monster stack: click to view"],
+  ];
+  // A battle card stack in a zone (either side) names its zone.
+  const zone = page.locator('[data-view-tip^="Zone "]').first();
+  const zoneId = (await zone.getAttribute("data-testid")) ?? "";
+  const zoneNumber = zoneId.split("-").at(-1);
+  cases.push([zoneId, `Zone ${zoneNumber} stack: click to view`]);
+  for (const [id, text] of cases) {
+    await page.mouse.move(0, 0);
+    await expect(tooltip, id).toHaveCount(0);
+    // Hover a corner of the area clear of any monster card in the same zone.
+    const target = page.getByTestId(id);
+    await target.hover({ position: { x: 4, y: 4 } });
+    await expect(tooltip, id).toHaveText(text);
   }
-  // The discard pile's top card opens no preview on hover.
+  // The deck, the monster deck and empty strategy zones open nothing, so they have no tip.
+  for (const id of ["deck-P1", "monster-deck-P1", "strategy-P1-1"]) {
+    await page.mouse.move(0, 0);
+    await page.getByTestId(id).hover();
+    await expect(tooltip, id).toHaveCount(0);
+  }
+  // The discard pile's top card previews on hover again, beside the tip.
   await page.getByTestId("discard-P1").getByTestId("card").hover();
-  await expect(page.getByTestId("card-preview")).toHaveCount(0);
+  await expect(page.getByTestId("card-preview")).toBeVisible();
+  await expect(tooltip).toHaveText("Discard pile: click to view");
 });
-
-for (const theme of ["dark", "grey", "light"] as const)
-  test(`hover labels pass axe color-contrast over every pile in ${theme}`, async ({
-    page,
-  }) => {
-    await page.addInitScript((t) => {
-      window.localStorage.setItem(
-        "gojisim.settings",
-        JSON.stringify({ animation: "off", theme: t }),
-      );
-    }, theme);
-    await loadFixture(page, "hand-five");
-    for (const id of PILES) {
-      await page.getByTestId(id).hover();
-      const results = await new AxeBuilder({ page })
-        .include(`[data-testid="${id}"] [data-testid="hover-label"]`)
-        .withRules(["color-contrast"])
-        .analyze();
-      expect(results.violations, id).toEqual([]);
-    }
-  });
 
 for (const width of [1280, 1440, 1920])
   test(`the new-game seats stay inside the screen with a 100-character deck name at ${width}`, async ({
