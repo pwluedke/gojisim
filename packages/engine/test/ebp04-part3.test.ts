@@ -1,6 +1,7 @@
 import type { Card } from "@gojisim/cards";
 import { describe, expect, it } from "vitest";
 import { getCounterPower, getLegalActions, type GameState } from "../src";
+import { checkInvariants } from "../src/invariants";
 import {
   destroyWith,
   green,
@@ -96,6 +97,18 @@ describe("EBP04 red strategy cards", () => {
     expect(zoneCardIds(mine)["8"]).toEqual([real("EBP04-043").id]);
     expect(mine.hand.map((c) => c.cardId)).toEqual([964772]);
     expect(mine.discard.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("EBP04-077 5.10, 4.1.4: the added card stays revealed under its new id while you choose to play it", () => {
+    const { state, me } = setup(4);
+    onDeck(state, me, real("EBP04-043"));
+    let after = activate(state, me, inHand(state, me, real("EBP04-077")));
+    after = choose(after, (_, cardId) => cardId === real("EBP04-043").id);
+    expect(after.pendingChoice?.rule).toBe("5.11.1");
+    // Fixture cards change the card count, so only the view check applies here.
+    expect(checkInvariants(after).filter((p) => p.includes("leaks"))).toEqual(
+      [],
+    );
   });
 
   it("EBP04-077 5.10: another [mechagodzilla] battle card goes to your hand", () => {

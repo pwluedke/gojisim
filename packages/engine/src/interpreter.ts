@@ -2857,7 +2857,9 @@ function perform(state: GameState, effect: Effect): Outcome {
             cardId: card.cardId,
             abilityId,
           });
-        // Revealed, so later effects may name them (EBP04-077: "if you added ...").
+        // Still revealed in the hand under their new ids (4.1.4), so later effects of this
+        // resolution may name them (EBP04-077: "if you added ...").
+        state.revealed.push(...added.map((c) => c.instanceId));
         bindCards(ctx, effect.as, added);
       }
       const rest = top
