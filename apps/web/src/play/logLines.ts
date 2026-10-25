@@ -9,13 +9,56 @@ export type LogPart = string | { card: Card };
 
 export interface LogLine {
   key: string;
-  kind: "turn" | "action" | "event" | "combo";
+  kind: "turn" | "action" | "event" | "combo" | "undone";
   /** The session position this line shows when clicked (the state after its action). */
   position: number;
   parts: LogPart[];
   /** Rule number, shown with the "Show rule numbers" setting. */
   rule: string | null;
+  /** M5h #4: who acted (the line's left border color), or `null` for game events. */
+  player?: string | null;
+  /** M5h #4: the event's kind, shown as a small colored tag. */
+  tag?: LogTag | null;
 }
+
+/** Event tags (M5h #4): each kind has its own theme color. */
+export type LogTag =
+  | "destroy"
+  | "rage"
+  | "draw"
+  | "search"
+  | "reveal"
+  | "mill"
+  | "play"
+  | "invade"
+  | "counter"
+  | "combo";
+
+/** The tag of a log entry's line, by entry type. */
+const EVENT_TAGS: Partial<Record<string, LogTag>> = {
+  destroy: "destroy",
+  rageChanged: "rage",
+  draw: "draw",
+  search: "search",
+  reveal: "reveal",
+  mill: "mill",
+  place: "play",
+  newInvadingMonster: "play",
+  evolve: "play",
+  advance: "invade",
+  invasionDone: "invade",
+  counter: "counter",
+};
+
+/** The tag of an action's line, by action type. */
+const ACTION_TAGS: Partial<Record<Action["type"], LogTag>> = {
+  playBattle: "play",
+  activateStrategy: "play",
+  playMonster: "play",
+  gainRage: "rage",
+  invade: "invade",
+  invadeFromDeck: "invade",
+};
 
 /** The rule each hand action follows (8.2 to 8.6); concession is 1.2.3. */
 const ACTION_RULES: Partial<Record<Action["type"], string>> = {
@@ -319,11 +362,28 @@ export function buildLog(
           position,
           parts,
           rule: entry.payload["rule"] ? String(entry.payload["rule"]) : null,
+          player: entry.player,
+          tag: EVENT_TAGS[entry.type] ?? null,
         });
     }
   };
+  /** M5h #10: "Undone: ..." lines where actions were taken back (shown with the setting). */
+  const undone = (index: number, last = false) =>
+    (session.record.undos ?? []).forEach((undo, u) => {
+      if (last ? undo.index < index : undo.index !== index) return;
+      lines.push({
+        key: `u${u}`,
+        kind: "undone",
+        position: Math.min(undo.index, session.record.actions.length),
+        parts: [`Undone: ${seatName(undo.player)}: ${undo.label}`],
+        rule: null,
+        player: undo.player,
+        tag: null,
+      });
+    });
   events(0, 0);
   session.record.actions.forEach((action, i) => {
+    undone(i);
     const before = session.states[i] as GameState;
     const after = session.states[i + 1];
     if (!after) return;
@@ -355,6 +415,8 @@ export function buildLog(
         action.type === "choose"
           ? (before.pendingChoice?.rule ?? null)
           : (ACTION_RULES[action.type] ?? null),
+      player: actor,
+      tag: ACTION_TAGS[action.type] ?? null,
     });
     events(i + 1, before.log.length);
     // M5g: a combo this action completed, after the action's own lines.
@@ -366,7 +428,10 @@ export function buildLog(
           position: i + 1,
           parts: [`Combo: ${hit.name} (${seatName(hit.player)})`],
           rule: null,
+          player: hit.player,
+          tag: "combo",
         });
   });
+  undone(session.record.actions.length, true);
   return lines;
 }

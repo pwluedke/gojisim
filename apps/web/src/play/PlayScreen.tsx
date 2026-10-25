@@ -43,6 +43,7 @@ import {
 import { SearchModal } from "./SearchModal";
 import { type SearchResult, searchResults } from "./searches";
 import { NewGame } from "./NewGame";
+import { RulesPanel } from "../rules/RulesPanel";
 import { boardModel, bottomPlayer } from "./model";
 import { visibleCards } from "./Preview";
 import {
@@ -163,6 +164,8 @@ export function PlayScreen() {
   // M5g: combos waiting for (or showing in) the combo modal, and the steps already checked.
   const [callouts, setCallouts] = useState<ComboHit[]>([]);
   const lastCombo = useRef(0);
+  // M5h #11: the rules panel, open at a rule number.
+  const [rulesAt, setRulesAt] = useState<string | null>(null);
   // M5h #17: the game-over modal's outcome and line, once the game ends; `closed` after Close.
   const [gameOver, setGameOver] = useState<{
     key: OutcomeKey;
@@ -642,6 +645,24 @@ export function PlayScreen() {
         <label>
           <input
             type="checkbox"
+            data-testid="setting-show-undone"
+            checked={settings.showUndone}
+            onChange={(e) => updateSettings({ showUndone: e.target.checked })}
+          />{" "}
+          Show undone actions
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            data-testid="setting-invade-arrow"
+            checked={settings.invadeArrow}
+            onChange={(e) => updateSettings({ invadeArrow: e.target.checked })}
+          />{" "}
+          Invade arrow
+        </label>
+        <label>
+          <input
+            type="checkbox"
             data-testid="setting-expanded-hand"
             checked={settings.expandedHand}
             onChange={(e) => updateSettings({ expandedHand: e.target.checked })}
@@ -787,11 +808,18 @@ export function PlayScreen() {
         animation={settings.animation}
         onAnimating={setAnimating}
         turnGlow={settings.turnGlow}
+        invadeArrow={settings.invadeArrow}
         mat={customMat.view}
         deckWarnings={deckWarnings}
         log={
           <BattleLog
-            lines={lines}
+            lines={
+              settings.showUndone
+                ? lines
+                : lines.filter((l) => l.kind !== "undone")
+            }
+            viewer={liveBottom ?? undefined}
+            onRule={setRulesAt}
             viewing={viewing}
             showRules={settings.showRules}
             onSelect={(position) =>
@@ -939,6 +967,7 @@ export function PlayScreen() {
             </div>
           </div>
         )}
+      {rulesAt && <RulesPanel at={rulesAt} onClose={() => setRulesAt(null)} />}
       {botMove && (
         <div className={styles.toast} data-testid="bot-toast">
           {botMove.text}

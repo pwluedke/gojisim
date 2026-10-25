@@ -9,6 +9,7 @@ import {
   withAction,
 } from "./session";
 import type { DeckOption } from "./decks";
+import { buildLog } from "../play/logLines";
 
 const decks = () => {
   const [a, b] = deckOptions([]);
@@ -134,6 +135,30 @@ describe("First / Second pick and Casual undo (M5e)", () => {
     expect(stateHash(undone.states[undone.position] as never)).toBe(
       stateHash(before as never),
     );
+  });
+
+  it("M5h #10: an undo is kept in the record (who, when, what), counted per player, and never replayed", () => {
+    const { session, player } = afterAPlay("casual");
+    const action = session.record.actions.at(-1);
+    const undone = undoSession(session);
+    expect(undone.record.undos).toHaveLength(1);
+    const [entry] = undone.record.undos ?? [];
+    expect(entry?.player).toBe(player);
+    expect(entry?.action).toEqual(action);
+    expect(entry?.index).toBe(session.record.actions.length - 1);
+    expect(entry?.label).toMatch(/battle card|zone/i);
+    expect(Number.isNaN(Date.parse(entry?.at ?? ""))).toBe(false);
+    expect(undone.record.undoCount).toEqual({ [player]: 1 });
+    // A loaded record keeps them; replay reads only `actions`.
+    const loaded = sessionFromRecord(JSON.stringify(undone.record));
+    expect(loaded.record.undos).toEqual(undone.record.undos);
+    expect(loaded.record.undoCount).toEqual({ [player]: 1 });
+    expect(loaded.record.actions).toEqual(undone.record.actions);
+    // The log lists it as an "Undone" line.
+    const lines = buildLog(loaded, player, (id) => id);
+    expect(
+      lines.filter((l) => l.kind === "undone").map((l) => l.parts.join("")),
+    ).toEqual([`Undone: ${player}: ${entry?.label}`]);
   });
 
   it("Tournament: no undo, and none while viewing an earlier position", () => {

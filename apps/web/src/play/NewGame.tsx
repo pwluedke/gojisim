@@ -37,6 +37,12 @@ export function presetSeats(): Record<PlayerId, SeatConfig> {
   };
 }
 
+/** Deck names in the picker are cut to this many characters plus "…" (M5h overflow fix). */
+const LABEL_MAX = 40;
+
+export const shortLabel = (label: string) =>
+  label.length > LABEL_MAX ? `${label.slice(0, LABEL_MAX).trimEnd()}…` : label;
+
 function Legality({
   legality,
 }: {
@@ -169,8 +175,9 @@ export function NewGame({
                                 key={o.key}
                                 value={o.key}
                                 disabled={illegal}
+                                title={o.label}
                               >
-                                {o.label}
+                                {shortLabel(o.label)}
                                 {illegal ? " (illegal)" : ""}
                               </option>
                             );
@@ -179,7 +186,15 @@ export function NewGame({
                       ) : null;
                     })}
                   </select>
-                </label>{" "}
+                </label>
+                {byKey(keys[id]).label.length > LABEL_MAX && (
+                  <div
+                    className={styles.deckName}
+                    data-testid={`deck-name-${id}`}
+                  >
+                    {byKey(keys[id]).label}
+                  </div>
+                )}{" "}
                 <Legality
                   legality={
                     legality.get(byKey(keys[id]).key) as ReturnType<

@@ -319,6 +319,16 @@ const FIXTURES: Fixture[] = [
       !after.result,
   },
   {
+    name: "confirm-invading",
+    note: "P1 decides on an [invading] ability's optional cost (M5h #16: the prompt names the invading step)",
+    decks: () => [esd02, esd01],
+    confirmSingleOption: true,
+    match: (c, state) =>
+      c.kind === "confirm" &&
+      state.resolution?.standby.event.type === "advance" &&
+      state.resolution.standby.event.payload["invasion"] === true,
+  },
+  {
     name: "manual",
     note: "P1 resolves ESC01-003 by hand: a manual override window",
     decks: () => [withManual, esd02],

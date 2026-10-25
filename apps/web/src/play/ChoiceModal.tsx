@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { type ManualCard, ManualPanel } from "../debug/ManualPanel";
 import styles from "./Board.module.css";
 import { targetLocation } from "./locations";
+import { confirmWords } from "../game/plainWords";
 import { abilityText } from "../game/labels";
 
 type Choose = Extract<Action, { type: "choose" }>;
@@ -136,29 +137,52 @@ export function ChoiceModal({
   if (kind === "confirm") {
     const yes = choose.find((a) => a.optionId === "yes");
     const no = choose.find((a) => a.optionId === "no");
+    // M5h #16: what Yes does in plain words, then the printed text (or the text alone).
+    const words = confirmWords(state);
     body = (
-      <div className={styles.modalButtons}>
-        {yes && (
-          <button
-            type="button"
-            className={styles.button}
-            data-testid="choice-yes"
-            onClick={() => onAction(yes)}
-          >
-            <span className={styles.keyBadge}>1</span> Yes
-          </button>
+      <>
+        {words && (
+          <div className={styles.confirmWords} data-testid="confirm-words">
+            {words.step && (
+              <div className={styles.muted} data-testid="confirm-step">
+                {words.step}
+              </div>
+            )}
+            {words.sentence && (
+              <div data-testid="confirm-sentence">
+                <strong>Yes:</strong> {words.sentence}
+              </div>
+            )}
+            {words.text && (
+              <div className={styles.abilityText} data-testid="confirm-text">
+                {words.text}
+              </div>
+            )}
+          </div>
         )}
-        {no && (
-          <button
-            type="button"
-            className={styles.choiceButton}
-            data-testid="choice-no"
-            onClick={() => onAction(no)}
-          >
-            <span className={styles.keyBadge}>2</span> No
-          </button>
-        )}
-      </div>
+        <div className={styles.modalButtons}>
+          {yes && (
+            <button
+              type="button"
+              className={styles.button}
+              data-testid="choice-yes"
+              onClick={() => onAction(yes)}
+            >
+              <span className={styles.keyBadge}>1</span> Yes
+            </button>
+          )}
+          {no && (
+            <button
+              type="button"
+              className={styles.choiceButton}
+              data-testid="choice-no"
+              onClick={() => onAction(no)}
+            >
+              <span className={styles.keyBadge}>2</span> No
+            </button>
+          )}
+        </div>
+      </>
     );
   } else if (kind === "manual") {
     body = (

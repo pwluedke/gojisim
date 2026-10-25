@@ -63,6 +63,7 @@ export {
   type SeatRecord,
   replayAll,
   startGame,
+  type UndoEntry,
 } from "./record";
 export { canUndo, type UndoBoundary, undoBoundary, undoLast } from "./undo";
 export { isFreezeGuardOn, setFreezeGuard } from "./freeze";

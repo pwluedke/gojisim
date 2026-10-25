@@ -11,9 +11,11 @@ import {
   type MatchMode,
   replayAll,
   startGame,
+  type UndoEntry,
   undoLast,
 } from "@gojisim/engine";
 import { type SeatConfig, seatFromRecord, seatRecord } from "./bots";
+import { actionLabel } from "./labels";
 import type { DeckOption } from "./decks";
 
 /**
@@ -172,6 +174,8 @@ export function sessionFromRecord(text: string): Session {
       ...(record.firstPick ? { firstPick: record.firstPick } : {}),
       ...(record.mode ? { mode: record.mode } : {}),
       ...(record.showOpponentHand ? { showOpponentHand: true } : {}),
+      ...(record.undos ? { undos: record.undos } : {}),
+      ...(record.undoCount ? { undoCount: record.undoCount } : {}),
     },
     states,
     position,
@@ -196,8 +200,25 @@ export function canUndoSession(session: Session, player: PlayerId): boolean {
  * final line only. The undo itself is not a game action.
  */
 export function undoSession(session: Session): Session {
-  const { record, state } = undoLast(session.record);
-  const n = record.actions.length;
+  const { record: shorter, state } = undoLast(session.record);
+  const n = shorter.actions.length;
+  // M5h #10: the undo is kept as information (replay never reads it), with a count per player.
+  const action = session.record.actions[n] as Action;
+  const undo: UndoEntry = {
+    player: action.player,
+    at: new Date().toISOString(),
+    index: n,
+    action,
+    label: actionLabel(session.states[n] as GameState, action),
+  };
+  const record: GameRecord = {
+    ...shorter,
+    undos: [...(shorter.undos ?? []), undo],
+    undoCount: {
+      ...shorter.undoCount,
+      [action.player]: (shorter.undoCount?.[action.player] ?? 0) + 1,
+    },
+  };
   return {
     ...session,
     record,

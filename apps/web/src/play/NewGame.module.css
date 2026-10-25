@@ -12,13 +12,30 @@
   font-size: var(--font-size-xl);
 }
 
+/* M5h fix: the columns may shrink below their content, so a long deck name never widens a seat. */
 .seats {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-4);
 }
 
+.seats label {
+  display: block;
+}
+
+.seats select {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* The picked deck's full name, under its select. */
+.deckName {
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-sm);
+}
+
 .seat {
+  min-width: 0;
   padding: var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);

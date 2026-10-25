@@ -32,6 +32,14 @@ export interface CardSpot {
   cardId: number | null;
   owner: string;
   box: Box;
+  /** Cards in the stack this card tops (M5h #8): a card placed under it, or one leaving. */
+  stack?: number;
+  /** The pile the card is drawn in (a hand, a discard pile's top), so its count is settled. */
+  pile?: "hand" | "discard";
+  /** It is an invading monster (M5h #8): a new one comes from the monster deck first. */
+  monster?: true;
+  /** A token (9.1): it comes from nowhere and goes nowhere, so it never pairs with a pile. */
+  token?: true;
 }
 
 /** The board at one moment: its cards, its piles' places and counts. */
@@ -70,6 +78,11 @@ export interface Flight {
   stay?: true;
   /** A move to the bottom of the deck: the pile is drawn over it, so it slides under. */
   underPile?: true;
+  /**
+   * M5h #8: a card with nowhere to come from or go to (a token, 9.1.4.2) grows in place
+   * (`appear`) or shrinks away (`vanish`); every other flight is a move.
+   */
+  kind?: "appear" | "vanish";
 }
 
 export const PILES = ["hand", "deck", "monsterDeck", "discard"] as const;
@@ -121,6 +134,16 @@ export function snapshot(
         cardId: el.dataset["cardId"] ? Number(el.dataset["cardId"]) : null,
         owner: el.dataset["owner"] ?? "",
         box: boxOf(el),
+        ...(el.dataset["stack"] ? { stack: Number(el.dataset["stack"]) } : {}),
+        ...(el.closest(
+          '[data-testid="hand-strip"], [data-testid="opponent-hand"]',
+        )
+          ? { pile: "hand" as const }
+          : el.closest('[data-testid^="discard-"]')
+            ? { pile: "discard" as const }
+            : {}),
+        ...(el.closest('[data-testid^="monster-P"]') ? { monster: true } : {}),
+        ...(el.dataset["token"] ? { token: true } : {}),
       });
     });
   // Piles are measured as one card where a card sits there, never as their container (a hand
@@ -211,6 +234,20 @@ export function planFlights(
   /** Card ids put on the bottom of a deck in this step (`putOnDeck`, bottom). */
   bottoms: readonly number[] = [],
 ): Flight[] {
+  return planMoves(prev, next, destroyed, drop, bottoms).flights;
+}
+
+/**
+ * `planFlights`, plus what it couldn't pair (M5h #8 audit): pile count changes left over, by
+ * `<player>|<pile>`. Empty when every move between piles has a flight.
+ */
+export function planMoves(
+  prev: Snapshot,
+  next: Snapshot,
+  destroyed: readonly number[],
+  drop: { instanceId: string; box: Box } | null = null,
+  bottoms: readonly number[] = [],
+): { flights: Flight[]; unexplained: Record<string, number> } {
   const removed = [...prev.cards.values()].filter(
     (c) => !next.cards.has(c.instanceId),
   );
@@ -222,6 +259,39 @@ export function planFlights(
   // Pile changes left to explain, by key: negative is cards that left, positive cards that came.
   const left = new Map<string, number>();
   for (const key of Object.keys(next.counts)) left.set(key, delta(key));
+  // M5h #8: a card drawn in a pile (your hand, a discard pile's top) explains that pile's own
+  // change; only the rest is left to pair with other piles.
+  for (const card of added)
+    if (card.pile) {
+      const key = `${card.owner}|${card.pile}`;
+      left.set(key, (left.get(key) ?? 0) - 1);
+    }
+  // M5h #8: a card the log put on the bottom of its deck explains one card of that deck's
+  // change, counted first, so a card drawn or played from the same deck finds its source.
+  const bottomed = [...bottoms];
+  for (const card of removed) {
+    const i = card.cardId === null ? -1 : bottomed.indexOf(card.cardId);
+    if (i < 0 || card.token) continue;
+    bottomed.splice(i, 1);
+    const key = `${card.owner}|deck`;
+    left.set(key, (left.get(key) ?? 0) - 1);
+  }
+  const coveredTops = new Set<string>();
+  for (const card of removed) {
+    if (!card.pile) continue;
+    // A discard pile's old top under a new top was covered, not moved, unless the same card
+    // shows up somewhere else (returned to a hand, played).
+    const covered =
+      card.pile === "discard" &&
+      added.some((a) => a.owner === card.owner && a.pile === "discard") &&
+      !added.some((a) => a.cardId === card.cardId && a.pile !== "discard");
+    if (covered) {
+      coveredTops.add(card.instanceId);
+      continue;
+    }
+    const key = `${card.owner}|${card.pile}`;
+    left.set(key, (left.get(key) ?? 0) + 1);
+  }
   const doomed = [...destroyed];
   const shatters = (cardId: number | null) => {
     const i = cardId === null ? -1 : doomed.indexOf(cardId);
@@ -243,16 +313,39 @@ export function planFlights(
 
   const flights: Flight[] = [];
   const used = new Set<string>();
+  const arrived = new Set<string>();
+  // Instance ids are issued in order on every move (4.1.4), so a card under a stack has a lower
+  // id than the top placed on it, and a card that just moved has a higher one than both.
+  const idNumber = (spot: CardSpot) => Number(spot.instanceId.slice(1));
+  // Uncovered, not moved: under the stack's old top, which left this place (M5h #8).
+  const wasUnder = (card: CardSpot, top: CardSpot) =>
+    samePlace(top.box, card.box) &&
+    (card.stack ?? 1) < (top.stack ?? 1) &&
+    idNumber(card) < idNumber(top);
+  // Same place: a card that is covered there, never one that moved there (M5h #8).
+  const samePlace = (a: Box, b: Box) =>
+    Math.abs(a.x - b.x) < 3 && Math.abs(a.y - b.y) < 3;
   for (const card of added) {
     const partners = removed.filter(
       (r) =>
         !used.has(r.instanceId) &&
         r.cardId !== null &&
-        r.cardId === card.cardId,
+        r.cardId === card.cardId &&
+        !samePlace(r.box, card.box) &&
+        // A countered monster goes under the next one, never into a hand (a drawn copy).
+        !(
+          r.monster &&
+          !card.monster &&
+          added.some(
+            (a) =>
+              a.monster && a.owner === r.owner && idNumber(a) > idNumber(r),
+          )
+        ),
     );
     const partner = partners.find((r) => r.owner === card.owner) ?? partners[0];
     if (partner) {
       used.add(partner.instanceId);
+      arrived.add(card.instanceId);
       flights.push({
         id: card.instanceId,
         cardId: card.cardId,
@@ -264,14 +357,26 @@ export function planFlights(
       });
       continue;
     }
+    // Uncovered, not moved (M5h #8): the stack's top left this place and this card, under it,
+    // is the top now (a Burst monster discarded, 12.5.2): no flight.
+    // A token appears from nowhere (9.1.2): it grows in place below.
+    if (card.token) continue;
+    if (removed.some((r) => wasUnder(card, r))) {
+      arrived.add(card.instanceId);
+      continue;
+    }
     // From a pile that lost a card: a draw, a search, a play from hidden hand or the discard pile.
-    const from = take(card.owner, -1, [
-      "hand",
-      "deck",
-      "monsterDeck",
-      "discard",
-    ]);
-    if (from)
+    // A new invading monster comes from the monster deck first (5.15.1.2), even when a draw
+    // emptied part of the deck in the same step.
+    const from = take(
+      card.owner,
+      -1,
+      card.monster
+        ? ["monsterDeck", "hand", "deck", "discard"]
+        : ["hand", "deck", "monsterDeck", "discard"],
+    );
+    if (from) {
+      arrived.add(card.instanceId);
       flights.push({
         id: card.instanceId,
         cardId: card.cardId,
@@ -281,6 +386,58 @@ export function planFlights(
         shatter: false,
         seed: card.instanceId,
       });
+    }
+  }
+  // M5h #8: a stack whose top stayed but grew took a card under it (from the field or a pile);
+  // one that shrank lost cards from under it (to a pile).
+  for (const card of next.cards.values()) {
+    const before = prev.cards.get(card.instanceId);
+    if (!before) continue;
+    const grew = (card.stack ?? 1) - (before.stack ?? 1);
+    for (let i = 0; i < grew; i++) {
+      const fieldCard = removed.find(
+        (r) => !used.has(r.instanceId) && r.owner === card.owner,
+      );
+      if (fieldCard) {
+        used.add(fieldCard.instanceId);
+        // A discard pile's old top went under the stack after all: it left its pile.
+        if (fieldCard.pile && coveredTops.delete(fieldCard.instanceId)) {
+          const key = `${fieldCard.owner}|${fieldCard.pile}`;
+          left.set(key, (left.get(key) ?? 0) + 1);
+        }
+      }
+      const from =
+        fieldCard?.box ??
+        take(card.owner, -1, ["hand", "discard", "deck", "monsterDeck"]);
+      if (!from) continue;
+      flights.push({
+        id: `${card.instanceId}<${i}`,
+        cardId: fieldCard?.cardId ?? null,
+        from,
+        to: card.box,
+        target: null,
+        shatter: false,
+        seed: card.instanceId,
+      });
+    }
+    for (let i = 0; i < -grew; i++) {
+      const to = take(card.owner, 1, [
+        "discard",
+        "hand",
+        "deck",
+        "monsterDeck",
+      ]);
+      if (!to) continue;
+      flights.push({
+        id: `${card.instanceId}>${i}`,
+        cardId: null,
+        from: card.box,
+        to,
+        target: null,
+        shatter: false,
+        seed: card.instanceId,
+      });
+    }
   }
   // A card that left the board where a moving card lands was covered, not moved (a stack's old
   // top): it stays in place, under the moving card, until that card lands.
@@ -292,9 +449,39 @@ export function planFlights(
     Math.abs(a.height - b.height) < 3;
   for (const card of removed) {
     if (used.has(card.instanceId)) continue;
+    // A countered monster goes under the next one (5.15.1.2), which may stand in another zone
+    // after the move back (5.15.1.1): it flies there, under the new card.
+    const nextMonster = card.monster
+      ? added.find(
+          (a) =>
+            a.monster && a.owner === card.owner && !samePlace(a.box, card.box),
+        )
+      : undefined;
+    if (nextMonster) {
+      used.add(card.instanceId);
+      stays.push({
+        id: `${card.instanceId}^`,
+        cardId: card.cardId,
+        from: card.box,
+        to: nextMonster.box,
+        target: null,
+        shatter: false,
+        seed: card.instanceId,
+      });
+      continue;
+    }
     if (!flights.some((f) => f.target !== null && near(f.to, card.box)))
       continue;
+    // Put on the bottom of its deck instead of destroyed (ESD01-011), or destroyed (11.5): it
+    // moved, it wasn't covered.
+    if (
+      card.cardId !== null &&
+      !card.pile &&
+      (bottoms.includes(card.cardId) || doomed.includes(card.cardId))
+    )
+      continue;
     used.add(card.instanceId);
+    // (A discard pile's covered old top was settled at the start.)
     stays.push({
       id: `${card.instanceId}=`,
       cardId: card.cardId,
@@ -306,9 +493,43 @@ export function planFlights(
       stay: true,
     });
   }
+  // M5h #8: a stack that left the board takes the cards under its top with it (a destroy sends
+  // them to the discard pile), as card backs.
+  for (const card of removed) {
+    // A covered stack (its top stays under the moving card) keeps its cards under it.
+    if (
+      next.cards.has(card.instanceId) ||
+      stays.some((f) => f.seed === card.instanceId)
+    )
+      continue;
+    // The card under it that is the top now (uncovered) keeps its own stack in place.
+    const uncovered = added.find((a) => wasUnder(a, card));
+    const leaving =
+      (card.stack ?? 1) - 1 - (uncovered ? (uncovered.stack ?? 1) : 0);
+    for (let i = 1; i <= leaving; i++) {
+      const to = take(card.owner, 1, [
+        "discard",
+        "deck",
+        "hand",
+        "monsterDeck",
+      ]);
+      if (!to) break;
+      flights.push({
+        id: `${card.instanceId}_${i}`,
+        cardId: null,
+        from: card.box,
+        to,
+        target: null,
+        shatter: false,
+        seed: card.instanceId,
+      });
+    }
+  }
   const sentToBottom = [...bottoms];
   for (const card of removed) {
     if (used.has(card.instanceId)) continue;
+    // A token goes nowhere (9.1.4.2): it shrinks away below.
+    if (card.token) continue;
     // Put on the bottom of its deck (the log says so): to the deck, even when the deck's count
     // fell in the same step (a draw after it). Else into a pile that gained a card: a discard
     // below the top, a hidden hand.
@@ -333,6 +554,20 @@ export function planFlights(
       ...(bottom ? { underPile: true as const } : {}),
     });
   }
+  // M5h #8: a card that appeared from nowhere (a token, 9.1.2) grows in place.
+  for (const card of added) {
+    if (arrived.has(card.instanceId)) continue;
+    flights.push({
+      id: `${card.instanceId}+`,
+      cardId: card.cardId,
+      from: centered(card.box, card.box.width * 0.2, card.box.height * 0.2),
+      to: card.box,
+      target: card.instanceId,
+      shatter: false,
+      seed: card.instanceId,
+      kind: "appear",
+    });
+  }
   // Hidden cards between piles (an opponent's draw: deck to hand), as card backs.
   for (const key of Object.keys(next.counts)) {
     const [owner = "", pile] = key.split("|");
@@ -355,8 +590,52 @@ export function planFlights(
     }
     left.set(key, n);
   }
+  // M5h #8: any other pile change pairs with a pile that changed the other way (a mill of
+  // several cards, a discard pile shuffled back into the deck), as card backs.
+  const losers = Object.keys(next.counts).filter((k) => (left.get(k) ?? 0) < 0);
+  for (const key of losers) {
+    const [owner = ""] = key.split("|");
+    while ((left.get(key) ?? 0) < 0) {
+      const gainer =
+        Object.keys(next.counts).find(
+          (k) => k.startsWith(`${owner}|`) && (left.get(k) ?? 0) > 0,
+        ) ?? Object.keys(next.counts).find((k) => (left.get(k) ?? 0) > 0);
+      const from = prev.anchors[key];
+      const to = gainer ? next.anchors[gainer] : undefined;
+      if (!gainer || !from || !to) break;
+      left.set(key, (left.get(key) ?? 0) + 1);
+      left.set(gainer, (left.get(gainer) ?? 0) - 1);
+      flights.push({
+        id: `${key}>${gainer}#${left.get(key)}`,
+        cardId: null,
+        from,
+        to,
+        target: null,
+        shatter: false,
+        seed: key,
+      });
+    }
+  }
+  // M5h #8: a card that left for nowhere (a token, 9.1.4.2) shrinks away where it was.
+  for (const card of removed) {
+    if (used.has(card.instanceId)) continue;
+    if (flights.some((f) => f.id === `${card.instanceId}>`)) continue;
+    flights.push({
+      id: `${card.instanceId}-`,
+      cardId: card.cardId,
+      from: card.box,
+      to: centered(card.box, card.box.width * 0.2, card.box.height * 0.2),
+      target: null,
+      shatter: shatters(card.cardId),
+      seed: card.instanceId,
+      kind: "vanish",
+    });
+  }
   // Covered cards first, so every moving card is drawn above them.
-  return [...stays, ...flights];
+  return {
+    flights: [...stays, ...flights],
+    unexplained: Object.fromEntries([...left].filter(([, n]) => n !== 0)),
+  };
 }
 
 /** Card ids put on the bottom of a deck in the log entries after `from` (`putOnDeck`). */

@@ -9,6 +9,7 @@ import {
 } from "react";
 import styles from "./Board.module.css";
 import type { DestinationKey } from "./destinations";
+import type { StackKey } from "./StackViewer";
 
 /** What the board's parts need from the hand interaction (M5b). */
 export interface Interaction {
@@ -28,6 +29,8 @@ export interface Interaction {
   act: (action: Action) => void;
   /** Each player's monster glow color name now (M5h #2), or none while Turn glow is off. */
   monsterGlow?: Readonly<Record<string, string | null>>;
+  /** Opens the public stack viewer (M5h #9). */
+  viewStack?: (stack: StackKey) => void;
 }
 
 export const InteractionContext = createContext<Interaction>({
@@ -53,6 +56,8 @@ export function Target({
   highlight = false,
   glow,
   style,
+  onView,
+  viewTip,
   children,
 }: {
   dest: DestinationKey;
@@ -62,6 +67,10 @@ export function Target({
   /** The monster glow's color name (M5h #2), shown as `data-monster-glow`. */
   glow?: string | null;
   style?: CSSProperties | undefined;
+  /** A click while nothing is lit opens the stack viewer (M5h #9). */
+  onView?: (() => void) | undefined;
+  /** The "click to view" tip, shown while a click would open the stack viewer. */
+  viewTip?: string | undefined;
   children: ReactNode;
 }) {
   const { lit, chooseDestination } = useInteraction();
@@ -76,6 +85,7 @@ export function Target({
       data-lit={isLit ? "true" : undefined}
       data-highlight={highlight ? "true" : undefined}
       data-monster-glow={glow ?? undefined}
+      data-view-tip={onView && lit.size === 0 ? viewTip : undefined}
       style={style}
       onClick={
         isLit
@@ -84,7 +94,12 @@ export function Target({
               e.stopPropagation();
               chooseDestination(dest);
             }
-          : undefined
+          : onView && lit.size === 0
+            ? (e) => {
+                e.stopPropagation();
+                onView();
+              }
+            : undefined
       }
     >
       {children}
