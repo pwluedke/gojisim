@@ -51,6 +51,16 @@
   --color-alert-bg: #ffcdd2;
   --color-notice-bg: #ffd54f;
   --color-combo: #b35c00;
+  /* M5h #4: battle log line borders (you / the opponent) and event tags (white text on them). */
+  --color-log-you: #1f5fbf;
+  --color-log-opp: #b42318;
+  --color-tag-text: #ffffff;
+  --color-tag-destroy: #b42318;
+  --color-tag-rage: #b54708;
+  --color-tag-info: #6941c6;
+  --color-tag-play: #067647;
+  --color-tag-move: #175cd3;
+  --color-tag-combo: #8a6100;
   --color-lit: #1a7f37;
   --color-lit-bg: #e6f4ea;
   --color-selected: #0066cc;
@@ -105,6 +115,16 @@
   --color-alert-bg: #c49ca0;
   --color-notice-bg: #c4a659;
   --color-combo: #5a2c00;
+  /* M5h #4: battle log line borders (you / the opponent) and event tags (white text on them). */
+  --color-log-you: #0e2f66;
+  --color-log-opp: #6b1010;
+  --color-tag-text: #ffffff;
+  --color-tag-destroy: #b42318;
+  --color-tag-rage: #b54708;
+  --color-tag-info: #6941c6;
+  --color-tag-play: #067647;
+  --color-tag-move: #175cd3;
+  --color-tag-combo: #8a6100;
   --color-lit: #0b5223;
   --color-lit-bg: #a3c2aa;
   --color-selected: #00336f;
@@ -158,6 +178,16 @@
   --color-alert-bg: #4a2124;
   --color-notice-bg: #4a3b10;
   --color-combo: #ffa657;
+  /* M5h #4: battle log line borders (you / the opponent) and event tags (white text on them). */
+  --color-log-you: #58a6ff;
+  --color-log-opp: #ff7b72;
+  --color-tag-text: #ffffff;
+  --color-tag-destroy: #b42318;
+  --color-tag-rage: #b54708;
+  --color-tag-info: #6941c6;
+  --color-tag-play: #067647;
+  --color-tag-move: #175cd3;
+  --color-tag-combo: #8a6100;
   --color-lit: #56d364;
   --color-lit-bg: #12321c;
   --color-selected: #6cb6ff;

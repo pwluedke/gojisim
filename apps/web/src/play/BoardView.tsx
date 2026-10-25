@@ -40,6 +40,7 @@ import type { BoardModel } from "./model";
 import { PhaseTracker } from "./PhaseTracker";
 import { GLOW_COLORS, glowCycle, useGlow } from "./glow";
 import { Preview } from "./Preview";
+import { type StackKey, StackViewer } from "./StackViewer";
 import type { AnimationSpeed } from "./settings";
 
 /** A custom mat image (M5f) as the board draws it: an object URL plus its scale and position. */
@@ -119,7 +120,10 @@ function ZoneCell({
   const monsterCards = player.invadingMonsterZone.cards ?? [];
   const monster = monsterCards[monsterCards.length - 1];
   const own = player.id === model.bottom;
-  const { highlight, monsterGlow } = useInteraction();
+  const { highlight, monsterGlow, viewStack, lit } = useInteraction();
+  const viewMonster = viewStack
+    ? () => viewStack({ player: player.id, area: "monster" })
+    : undefined;
   const monsterLit = highlight.has(`${player.id}|monster`);
   // M5h #2: the monster card glows in its colors, like the turn player's mat border.
   const glowName = monsterGlow?.[player.id] ?? null;
@@ -143,6 +147,11 @@ function ZoneCell({
       dest={`zone:${zone}`}
       className={`${styles.cell} ${monsterHere ? styles.zoneMonster : ""}`}
       testId={`zone-${player.id}-${zone}`}
+      onView={
+        viewStack && stacks.length > 0
+          ? () => viewStack({ player: player.id, area: "zone", zone })
+          : undefined
+      }
     >
       <div className={styles.cellLabel} data-testid="zone-label">
         Z{zone}
@@ -172,6 +181,7 @@ function ZoneCell({
               highlight={monsterLit}
               glow={glowName}
               style={glowStyle}
+              onView={viewMonster}
             >
               {monsterView}
               <HoverLabel text="Monster" />
@@ -183,6 +193,14 @@ function ZoneCell({
               data-highlight={monsterLit ? "true" : undefined}
               data-monster-glow={glowName ?? undefined}
               style={glowStyle}
+              onClick={
+                viewMonster && lit.size === 0
+                  ? (e) => {
+                      e.stopPropagation();
+                      viewMonster();
+                    }
+                  : undefined
+              }
             >
               {monsterView}
               <HoverLabel text="Monster" />
@@ -205,6 +223,7 @@ function Slot({
   dest,
   className,
   testId,
+  onView,
   children,
 }: {
   own: boolean;
@@ -212,9 +231,11 @@ function Slot({
   dest: DestinationKey;
   className: string | undefined;
   testId: string;
+  /** A click while nothing is lit opens the stack viewer (M5h #9). */
+  onView?: (() => void) | undefined;
   children: ReactNode;
 }) {
-  const { zoneChoice, highlight, act } = useInteraction();
+  const { zoneChoice, highlight, act, lit: litDests } = useInteraction();
   const lit = highlight.has(`${playerId}|${dest}`);
   const classes = `${className ?? ""} ${lit ? styles.highlight : ""}`;
   const zoneKey = dest.startsWith("zone:")
@@ -234,7 +255,13 @@ function Slot({
       </div>
     );
   return own ? (
-    <Target dest={dest} className={classes} testId={testId} highlight={lit}>
+    <Target
+      dest={dest}
+      className={classes}
+      testId={testId}
+      highlight={lit}
+      onView={onView}
+    >
       {children}
     </Target>
   ) : (
@@ -242,6 +269,14 @@ function Slot({
       className={classes}
       data-testid={testId}
       data-highlight={lit ? "true" : undefined}
+      onClick={
+        onView && litDests.size === 0
+          ? (e) => {
+              e.stopPropagation();
+              onView();
+            }
+          : undefined
+      }
     >
       {children}
     </div>
@@ -427,6 +462,7 @@ function Discard({
 }) {
   const discard = player.discard.cards ?? [];
   const top = discard[discard.length - 1];
+  const { viewStack } = useInteraction();
   return (
     <Slot
       playerId={player.id}
@@ -434,12 +470,23 @@ function Discard({
       dest="discard"
       className={styles.cell}
       testId={`discard-${player.id}`}
+      onView={
+        viewStack
+          ? () => viewStack({ player: player.id, area: "discard" })
+          : undefined
+      }
     >
       <div className={styles.cellLabel}>Discard</div>
-      <HoverLabel text="Discard" />
+      {/* Clicking the pile opens the stack viewer (M5h #9), so the label says so. */}
+      <HoverLabel text="Show discard" />
       {top && (
         <Layer index={0}>
-          <CardFace card={top} data={model.view.cards[top.cardId]} rotate />
+          <CardFace
+            card={top}
+            data={model.view.cards[top.cardId]}
+            rotate
+            noPreview
+          />
         </Layer>
       )}
       <span
@@ -811,6 +858,16 @@ export function BoardView({
   };
   const youMonsterGlow = useGlow(monsterCycle(you));
   const oppMonsterGlow = useGlow(monsterCycle(opp));
+  // M5h #9: the public stack viewer.
+  const [stackView, setStackView] = useState<StackKey | null>(null);
+  const stackHeading = (stack: StackKey) => {
+    const who = name(stack.player);
+    const whose = who === "You" ? "Your" : `${who}'s`;
+    if (stack.area === "discard")
+      return `${whose} discard pile (${view.players.find((p) => p.id === stack.player)?.discard.count ?? 0})`;
+    if (stack.area === "monster") return `${whose} monster stack`;
+    return `${whose} zone ${stack.zone}`;
+  };
 
   const playable = useMemo(
     () => (locked ? new Set<string>() : playableCards(actions)),
@@ -896,6 +953,7 @@ export function BoardView({
     highlight,
     act: onAction,
     monsterGlow: { [you.id]: youMonsterGlow, [opp.id]: oppMonsterGlow },
+    viewStack: setStackView,
   };
   const draggedCard = dragging
     ? (you.hand.cards ?? []).find((c) => c.instanceId === dragging)
@@ -981,6 +1039,14 @@ export function BoardView({
                 setSelected((s) => (s === id ? null : id));
               }}
             />
+            {stackView && (
+              <StackViewer
+                view={view}
+                stack={stackView}
+                heading={stackHeading(stackView)}
+                onClose={() => setStackView(null)}
+              />
+            )}
             {menu && (
               <div className={styles.menu} data-testid="action-menu">
                 <div className={styles.panelTitle}>Which one?</div>

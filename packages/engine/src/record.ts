@@ -45,6 +45,25 @@ export interface GameRecord {
    * games never count toward win/loss statistics (M11).
    */
   showOpponentHand?: boolean;
+  /**
+   * Casual undos (M5h #10), oldest first: what was taken back, by whom and when. Information
+   * only: replay never reads it (the taken-back actions are gone from `actions`).
+   */
+  undos?: UndoEntry[];
+  /** How many times each player undid in this game (M5h #10; "takesies-backsies" in M11). */
+  undoCount?: Partial<Record<PlayerId, number>>;
+}
+
+/** One undo (M5h #10): the action taken back, and where it was in the record. */
+export interface UndoEntry {
+  player: PlayerId;
+  /** ISO time of the undo. */
+  at: string;
+  /** The taken-back action's index in `actions` when it was taken back. */
+  index: number;
+  action: Action;
+  /** How the log read the action (`actionLabel`), kept since its state is gone. */
+  label: string;
 }
 
 export type MatchMode = "casual" | "tournament";

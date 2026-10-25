@@ -29,6 +29,10 @@ export interface Settings {
   comboCallouts: boolean;
   /** Color theme (M5g, default grey). `index.html` applies it before the first paint. */
   theme: Theme;
+  /** "Undone: ..." lines in the battle log (M5h #10, default off). */
+  showUndone: boolean;
+  /** The invade arrow while a card is dragged over your discard pile (M5h #7, default on). */
+  invadeArrow: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -40,6 +44,8 @@ export const DEFAULT_SETTINGS: Settings = {
   logCollapsed: false,
   comboCallouts: true,
   theme: "grey",
+  showUndone: false,
+  invadeArrow: true,
 };
 
 /** Applies a theme to the page (`:root[data-theme]`, see `theme.css`). */

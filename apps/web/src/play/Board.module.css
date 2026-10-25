@@ -179,9 +179,16 @@
 }
 
 /* An area's name while it is hovered (M5h #1): the zone label's look, above the cards. */
+/*
+ * M5h fix: the label covers the whole area with the page background while it shows, so the
+ * card image (or back) under it is hidden and the text reads cleanly in every theme; the card
+ * comes back on mouse-out. It never takes the pointer, so hover and drops still reach the area.
+ */
 .hoverLabel {
   z-index: 6;
   visibility: hidden;
+  border-radius: inherit;
+  background: var(--color-bg);
   pointer-events: none;
 }
 
@@ -802,17 +809,139 @@
   line-height: 1.4;
 }
 
+/* M5h #4: turn markers are bold dividers across the log. */
 .logTurn {
   margin-top: var(--space-2);
-  padding-bottom: 2px;
+  padding: 2px 0;
+  border-top: 3px solid var(--color-text);
   border-bottom: 1px solid var(--color-border);
-  font-weight: bold;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .logLine {
   padding: 1px var(--space-1);
+  border-left: 3px solid transparent;
   border-radius: 3px;
   cursor: pointer;
+}
+
+/* M5h #4: the acting player's color on the left of each line. */
+.logLine[data-side="you"] {
+  border-left-color: var(--color-log-you);
+}
+
+.logLine[data-side="opp"] {
+  border-left-color: var(--color-log-opp);
+}
+
+.logTag {
+  display: inline-block;
+  margin-right: var(--space-1);
+  padding: 0 4px;
+  border-radius: 3px;
+  color: var(--color-tag-text);
+  font-size: 10px;
+  font-weight: bold;
+  line-height: 14px;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+
+/* M5h #11: the rules panel, a drawer over the right side of the screen. */
+.rulesPanel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  width: min(520px, 90vw);
+  border-left: 2px solid var(--color-border);
+  background: var(--color-panel);
+  box-shadow: var(--shadow);
+}
+
+.rulesHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.rulesList {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.rule {
+  margin: 2px 0;
+}
+
+.ruleHeading {
+  margin: var(--space-2) 0 2px;
+  font-weight: bold;
+}
+
+.ruleNumber {
+  font-weight: bold;
+}
+
+.ruleAt {
+  outline: 2px solid var(--color-lit);
+  background: var(--color-lit-bg);
+}
+
+.ruleLink {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+
+/* M5h #10: a taken-back action, dimmed. */
+.logUndone {
+  color: var(--color-muted);
+  font-style: italic;
+  cursor: default;
+}
+
+.logTag::before {
+  content: attr(data-label);
+}
+
+.tagDestroy {
+  background: var(--color-tag-destroy);
+}
+
+.tagRage {
+  background: var(--color-tag-rage);
+}
+
+.tagInfo {
+  background: var(--color-tag-info);
+}
+
+.tagPlay {
+  background: var(--color-tag-play);
+}
+
+.tagMove {
+  background: var(--color-tag-move);
+}
+
+.tagCombo {
+  background: var(--color-tag-combo);
 }
 
 .logLine:hover {
@@ -949,6 +1078,31 @@
 
 .changes:hover .changeList {
   display: block;
+}
+
+/* The app's tooltip (M5h): the change list's look, for phase steps and rule numbers. */
+.tooltipHost {
+  display: inline-block;
+}
+
+/* Drawn at a fixed position in a top-level layer, so scrolling panels never clip it. */
+.tooltip {
+  position: fixed;
+  z-index: 60;
+  width: max-content;
+  max-width: 280px;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-panel);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  font-size: var(--font-size-sm);
+  font-weight: normal;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
 }
 
 /* A hovered card's layer rises over its neighbors, so the change list shows whole. */

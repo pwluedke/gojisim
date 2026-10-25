@@ -1,5 +1,6 @@
 import { type PlayerView, STEPS, stepPhase } from "@gojisim/engine";
 import styles from "./Board.module.css";
+import { Tooltip } from "./Tooltip";
 
 const PHASES = [
   { phase: "start", name: "Start" },
@@ -75,17 +76,21 @@ export function PhaseTracker({
           >
             <span className={styles.trackerName}>{label}</span>
             {STEPS.filter((s) => stepPhase(s) === p).map((s) => (
-              <span
+              <Tooltip
                 key={s}
-                className={
-                  s === current ? styles.trackerStepOn : styles.trackerStep
-                }
-                data-testid={`tracker-step-${s}`}
-                data-current={s === current ? "true" : undefined}
-                title={`${STEP_TITLES[s]} (${s})`}
+                tip={`${STEP_TITLES[s]} (${s})`}
+                testId={`tracker-tip-${s}`}
               >
-                {s.slice(4)}
-              </span>
+                <span
+                  className={
+                    s === current ? styles.trackerStepOn : styles.trackerStep
+                  }
+                  data-testid={`tracker-step-${s}`}
+                  data-current={s === current ? "true" : undefined}
+                >
+                  {s.slice(4)}
+                </span>
+              </Tooltip>
             ))}
           </div>
         ))}

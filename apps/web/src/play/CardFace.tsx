@@ -42,6 +42,7 @@ export function CardFace({
   extra = null,
   rotate = false,
   landscape = false,
+  noPreview = false,
 }: {
   card: CardInstance;
   data: Card | undefined;
@@ -64,6 +65,8 @@ export function CardFace({
   rotate?: boolean;
   /** A strategy card in its landscape strategy zone slot (M5f): drawn landscape, whole. */
   landscape?: boolean;
+  /** No preview on hover (M5h: the discard pile's top card; clicking the pile shows it all). */
+  noPreview?: boolean;
 }) {
   const { preview } = useInteraction();
   if (!data) return <CardBack small={small} />;
@@ -81,8 +84,8 @@ export function CardFace({
       data-instance-id={card.instanceId}
       data-card-id={data.id}
       title={`${data.name} [${data.cardNumber}]`}
-      onMouseEnter={() => preview(card.instanceId)}
-      onMouseLeave={() => preview(null)}
+      onMouseEnter={noPreview ? undefined : () => preview(card.instanceId)}
+      onMouseLeave={noPreview ? undefined : () => preview(null)}
     >
       {/* Shown only when the image is missing (as on CI, where `pnpm images` hasn't run). */}
       <div className={styles.cardFallback}>{data.name}</div>
