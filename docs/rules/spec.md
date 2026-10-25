@@ -311,6 +311,12 @@ The M3 engine must include the framework below, so that M4 adds card abilities a
 - Colors and orders (M12c-2, C4, X): "different colors among" counts distinct colors, White included; "the lowest ranked", "rightmost" and "leftmost" (from the effect's player's view, 4.4.5.5) pick among the extreme cards, the chooser breaking ties (Q33).
 - Counts as a monster card (M12c-2, C5, Q34): Godzilla's Skeleton counts in any count of monster cards in its owner's discard pile, and is nothing else.
 - Undo (M12c-2): a mill is an undo boundary (the milled cards become known), as a reveal is.
+- More restrictions (M12d-1, M1, 1.3.3): `cannotDraw` stops a player's draws during one phase, the 7.5.4 draw included (logged `noDraw`, EBP04-030); `cannotPayInvasionWith` removes invade actions paid with the cards it names (8.6.1, EBP04-029); `cannotBeMovedByOpponent` stops the opponent's effects from advancing, retreating, moving vertically or moving as though countered that monster (logged `moveProtected`), while a counter (7.4.3, or an effect's, Q24) still moves it (EBP04-076).
+- Counter-proof (M12d-1, E13): "cannot be countered" has no counter power limit (EBP04-031/032); like EBP04-014's (Q20), the monster doesn't move. A counter-proof granted "this turn" lasts until 7.5.6 on the card it was given to (E19, `grant`).
+- Zone numbers (M12d-1, C3, 4.4.3): "the number of the zone this card is in is equal to or greater than the number of the zone the opponent's monster card is in" compares the two zone numbers across the fields (EBP04-016 to -019).
+- Picks (M12d-1, X, 10.5.3): "any number whose total ranks add up to 7 or less" picks one card at a time until Done, within the total (EBP04-024); "starting with the lowest-numbered zone, one by one" takes each card from the lowest zone left, the chooser breaking ties (Q33, EBP04-035).
+- Reveal and play (M12d-1, E3, 5.11): "reveal the top 7, play all [final-wars] battle cards" keeps the taken cards revealed on the deck and plays them from there, empty zones first; the rest go to the discard pile (EBP04-079).
+- Discards by the opponent's effect (M12d-1, T3): "whenever your opponent's effect causes you to discard cards" triggers once per effect, however many cards (EBP04-052).
 
 **Keyword abilities (12)**, all in M4: Enter (12.2), When invading (12.3), Awakening N (12.4), Burst (12.5), Evolution (12.6), Revenge (12.7), Resonance (12.8), Base (12.9).
 

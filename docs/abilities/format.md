@@ -517,3 +517,35 @@ Built differently from the plan:
 - An "X" counter power or threat (printed as -1 in the card data) reads as 0; the card's ability gives it (EBP03-067).
 - Base's automatic ability ("When any monster card invades into zones 6-8, [destroy] this card") is ordinary data: an `invades` trigger with `whose: "any"` and `intoZones: [6, 7, 8]` (Q18, Q19).
 - EBP03-078's two destroys run in turn, the rightmost first; the leftmost is then picked among the cards left.
+
+### M12d-1: EBP04 with built pieces (and small extensions)
+
+No new pieces from the plan: T9 and M3, the two new monster plays (Q22, Q23), EBP04-045's play cost, EBP04-010's rage replacement and the three custom handlers come with M12d-2. These extensions of built pieces carry 77 EBP04 cards:
+
+```typescript
+type Selector = { ...; notColors?: Color[] };                        // C4: "non-red"
+type Amount = ... | { per: Selector; times: number; every?: number }; // "for every 5" (rounded down)
+type Condition = ... | { zoneNumber: "this"; op: Op; of: "opponentMonster" };  // C3 (EBP04-016)
+
+target { ...; order?: ... | "lowestZone"; maxTotalRank?: number }   // X: one by one; "any number ... 7 or less"
+
+type Trigger = ... | { on: "discarded"; ...; oncePerEffect?: true }  // EBP04-052
+
+type Effect = ...
+  | { effect: "revealTop"; ...; keep?: boolean }                     // E3: taken cards stay revealed for the next effect
+  | { effect: "grant"; duration: "endOfTurn"; modifier: Modifier }   // E19: a flag for the turn (EBP04-014)
+  | { effect: "sendToDiscard"; target: Selector };                   // a found card to the discard pile (EBP04-061)
+
+type Modifier = ...
+  | { flag: "counterProof"; target; atOrBelow?: number; insteadMoves: boolean }  // E13: no limit (EBP04-031)
+  | { flag: "cannotPayInvasionWith"; player: PlayerRef; what: Selector }          // M1 (8.6.1, EBP04-029)
+  | { flag: "cannotDraw"; player: PlayerRef; phase: Phase }                       // M1 (EBP04-030)
+  | { flag: "cannotBeMovedByOpponent"; target: Selector };                        // M1 (EBP04-076)
+```
+
+Built differently from the plan:
+
+- EBP04-014's "cannot be countered by 30,000 or lower counter power this turn" is a `grant` of E13's `counterProof`, fixed on the card at resolution and ended at 7.5.6 like a `boost` (Q20: it doesn't move).
+- "You may play it in zone 8 instead" (EBP04-077) adds the card to the hand, revealed, then offers a play from the hand into zone 8.
+- EBP04-055's "you may destroy 4 ... If you do not, destroy this card" is a `chooseOne`: the first option needs 4 other green battle cards, so with fewer only "destroy this card" is left (decision 311).
+- Your opponent's "may discard 1 card with [invade-2]. If they do, counter this card" (EBP04-027) is an up-to-1 discard they pick, then an `if` on the bound card.
