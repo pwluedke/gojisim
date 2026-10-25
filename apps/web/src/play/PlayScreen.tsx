@@ -808,6 +808,7 @@ export function PlayScreen() {
         animation={settings.animation}
         onAnimating={setAnimating}
         turnGlow={settings.turnGlow}
+        invadeArrow={settings.invadeArrow}
         mat={customMat.view}
         deckWarnings={deckWarnings}
         log={

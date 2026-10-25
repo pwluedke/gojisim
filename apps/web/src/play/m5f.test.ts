@@ -206,12 +206,24 @@ describe("card movement flights (M5f)", () => {
   });
 
   it("M5g fix: the old top of the stack a card lands on stays under it, and moves nowhere", () => {
-    // A hand card (c1) onto a discard pile whose top (c5) is covered by it.
-    const before = snap([spot("c1", 10, 100), spot("c5", 30, 900)]);
+    // A hand card (c1) onto a discard pile whose top (c5) is covered by it. Cards in a hand or
+    // on a discard pile say so (M5h #8), as the board's snapshot does.
+    const inPile = (
+      [id, c]: [string, CardSpot],
+      pile: "hand" | "discard",
+    ): [string, CardSpot] => [id, { ...c, pile }];
+    const before = snap([
+      inPile(spot("c1", 10, 100), "hand"),
+      inPile(spot("c5", 30, 900), "discard"),
+    ]);
     const after = snap(
-      [{ ...spot("c7", 10, 900)[1], instanceId: "c7" }].map(
-        (c) => [c.instanceId, c] as [string, CardSpot],
-      ),
+      [
+        {
+          ...spot("c7", 10, 900)[1],
+          instanceId: "c7",
+          pile: "discard" as const,
+        },
+      ].map((c) => [c.instanceId, c] as [string, CardSpot]),
       { "P1|discard": 1, "P1|hand": 4 },
     );
     const flights = planFlights(before, after, []);

@@ -83,6 +83,8 @@ export function CardFace({
       data-owner={card.owner}
       data-instance-id={card.instanceId}
       data-card-id={data.id}
+      data-stack={stack > 1 ? stack : undefined}
+      data-token={data.traits.includes("Token") ? "true" : undefined}
       title={`${data.name} [${data.cardNumber}]`}
       onMouseEnter={noPreview ? undefined : () => preview(card.instanceId)}
       onMouseLeave={noPreview ? undefined : () => preview(null)}

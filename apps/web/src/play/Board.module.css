@@ -909,6 +909,37 @@
   text-decoration: underline dotted;
 }
 
+/* M5h #16: a yes/no prompt's plain words and printed text. */
+.confirmWords {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: 520px;
+  margin: var(--space-2) 0;
+}
+
+/* M5h #7: the invade arrow, over the whole window; it never takes the pointer. */
+.invadeArrow {
+  position: fixed;
+  inset: 0;
+  z-index: 28;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.invadeArc {
+  fill: none;
+  stroke: var(--color-invade-arrow);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.invadeHead {
+  fill: var(--color-invade-arrow);
+}
+
 /* M5h #10: a taken-back action, dimmed. */
 .logUndone {
   color: var(--color-muted);

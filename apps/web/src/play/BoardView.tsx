@@ -39,6 +39,7 @@ import {
 import type { BoardModel } from "./model";
 import { PhaseTracker } from "./PhaseTracker";
 import { GLOW_COLORS, glowCycle, useGlow } from "./glow";
+import { InvadeArrow } from "./InvadeArrow";
 import { Preview } from "./Preview";
 import { type StackKey, StackViewer } from "./StackViewer";
 import type { AnimationSpeed } from "./settings";
@@ -768,6 +769,7 @@ export function BoardView({
   animation = "off",
   onAnimating,
   turnGlow = false,
+  invadeArrow = false,
   mat = null,
   logCollapsed = false,
   onToggleLog,
@@ -804,6 +806,8 @@ export function BoardView({
   onAnimating?: (animating: boolean) => void;
   /** Glow the turn player's mat border in their monster's colors (M5f setting). */
   turnGlow?: boolean;
+  /** Draw the invade arrow while a card is dragged over your discard pile (M5h #7). */
+  invadeArrow?: boolean;
   /** A custom mat image behind both mats (M5f), or `null` for the default mat. */
   mat?: MatView | null;
   /** The battle log column is folded to a strip (M5f); `onToggleLog` folds or opens it. */
@@ -920,7 +924,10 @@ export function BoardView({
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor),
   );
+  // M5h #7: the destination the dragged card is over, for the invade arrow.
+  const [over, setOver] = useState<string | null>(null);
   const onDragEnd = (event: DragEndEvent) => {
+    setOver(null);
     const key = event.over?.id as DestinationKey | undefined;
     // The card settles into its slot from where it was let go (M5f).
     const at = event.active.rect.current.translated;
@@ -970,7 +977,11 @@ export function BoardView({
           setMenu(null);
         }}
         onDragEnd={onDragEnd}
-        onDragCancel={() => setDragging(null)}
+        onDragOver={(e) => setOver(e.over ? String(e.over.id) : null)}
+        onDragCancel={() => {
+          setDragging(null);
+          setOver(null);
+        }}
       >
         <div
           className={styles.layout}
@@ -1039,6 +1050,20 @@ export function BoardView({
                 setSelected((s) => (s === id ? null : id));
               }}
             />
+            {invadeArrow &&
+              over === "discard" &&
+              draggedCard &&
+              you.monsterPosition !== null &&
+              (destinations.get("discard") ?? []).some(
+                (a) => a.type === "invade",
+              ) && (
+                <InvadeArrow
+                  you={you.id}
+                  opponent={opp.id}
+                  from={you.monsterPosition}
+                  icon={view.cards[draggedCard.cardId]?.invadeZones ?? 0}
+                />
+              )}
             {stackView && (
               <StackViewer
                 view={view}
