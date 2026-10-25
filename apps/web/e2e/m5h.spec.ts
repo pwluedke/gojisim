@@ -23,7 +23,8 @@ test("#1 zone labels show in the middle of an area only while it is hovered", as
 }) => {
   await loadFixture(page, "hand-five");
   const cases = [
-    ["discard-P1", "Discard"],
+    // Clicking a discard pile opens the stack viewer (M5h #9), so its label says so.
+    ["discard-P1", "Show discard"],
     ["deck-P1", "Deck"],
     ["monster-deck-P1", "Monster deck"],
     ["strategy-P1-1", "Strategy 1"],
@@ -100,22 +101,24 @@ test("#2 both monsters glow in their colors all the time, whoever's turn it is; 
   );
 });
 
-test("#3 each phase tracker step has a hover with its name and rule number", async ({
+test("#3 each phase tracker step has a hover with its name and rule number, in the app's tooltip (no browser title)", async ({
   page,
 }) => {
   await vsBot(page, 2);
-  await expect(page.getByTestId("tracker-step-7.2.2")).toHaveAttribute(
-    "title",
-    "Draw cards equal to the opponent's monster's rank (7.2.2)",
-  );
-  await expect(page.getByTestId("tracker-step-7.3.2")).toHaveAttribute(
-    "title",
-    "Play timing: main phase actions (7.3.2)",
-  );
   const steps = page.locator('[data-testid^="tracker-step-"]');
   await expect(steps).toHaveCount(18);
   for (const step of await steps.all())
-    await expect(step).toHaveAttribute("title", /^.+ \(7\.\d\.\d\)$/);
+    await expect(step).not.toHaveAttribute("title", /.*/);
+  await page.getByTestId("tracker-step-7.2.2").hover();
+  await expect(page.getByTestId("tooltip")).toHaveText(
+    "Draw cards equal to the opponent's monster's rank (7.2.2)",
+  );
+  await page.getByTestId("tracker-step-7.3.2").hover();
+  await expect(page.getByTestId("tooltip")).toHaveText(
+    "Play timing: main phase actions (7.3.2)",
+  );
+  await page.mouse.move(0, 0);
+  await expect(page.getByTestId("tooltip")).toHaveCount(0);
 });
 
 test('#6 the hand label reads "Your Hand (N)"', async ({ page }) => {
