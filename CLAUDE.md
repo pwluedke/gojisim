@@ -536,3 +536,13 @@ Accepted by Monarch in the M12d-1 review (PR #44).
 387. An opponent's "may discard 1 ... If they do" (EBP04-027) is an up-to-1 discard they pick.
 388. "For every 5" counts at resolution, rounded down (EBP04-086); the Vultures in the discard pile count as green battle cards.
 389. A card a search sends to the discard pile (EBP04-061) isn't a discard (5.7). The ManualPanel test and the e2e `manual` fixture use ESC01-003 (manual until M12f) since EBP04-037 has data (amends decision 308).
+
+Accepted by Monarch in the M5h-1 review (PR #45).
+
+390. Hotseat is removed until M9: `/play` is human vs bot, and P1 may be a bot to watch two bots (decision 193 stands). Only P1 can be human; P2 is always a bot. Saved settings keep known keys only, so `hotseatCover` and `confirmPass` drop quietly.
+391. A record with two human seats, or with no `seats` (before M6d, which loads as two humans), is refused in `/play` with a pointer to `/debug`, which still loads it.
+392. Search picks (5.8.1, 12.6.2) show no number badges; other card choices keep them. Location labels drop only when 2 or more options come from one place, so a single target keeps its zone label (decision 235).
+393. Draws (1.2.2, loops) have their own `draw` lines in `gameOverLines.json`. `lossTimer` waits for the match clock. Between two bots the game-over modal speaks to P1.
+394. Phase step hovers use the app's tooltip style, not a browser `title` (Monarch's change to M5h-1 decision 5).
+395. The monster glow is a thinner ring than the mat's (2 px plus a 12 px blur), so it doesn't spill onto the next zone.
+396. Every Pass asks "End Main and move to the Counter Phase?" (it replaced "Pass with playable cards left?" and its setting). "Show opponent's hand" is flagged in the record as `showOpponentHand`, and M11 statistics leave such games out.
