@@ -81,6 +81,8 @@ describe("EBP04 red strategy cards", () => {
   it("EBP04-077 5.10, 5.11: reveals the top 3 and takes up to 1 [mechagodzilla] battle card; Multi-purpose Fighting System-3 may be played in zone 8 instead", () => {
     const { state, me } = setup(4);
     me.hand = [];
+    // Only the added card may be played, not another card in the hand.
+    inHand(state, me, strategyCard({ id: 964772 }));
     for (const card of [
       real("EBP04-043"),
       monsterCard(1),
@@ -92,7 +94,7 @@ describe("EBP04 red strategy cards", () => {
     );
     const mine = self(after, me);
     expect(zoneCardIds(mine)["8"]).toEqual([real("EBP04-043").id]);
-    expect(mine.hand).toEqual([]);
+    expect(mine.hand.map((c) => c.cardId)).toEqual([964772]);
     expect(mine.discard.length).toBeGreaterThanOrEqual(2);
   });
 
