@@ -10,7 +10,7 @@ import {
   playRuleOf,
   resumeResolution,
 } from "./interpreter";
-import { getRank, hasFlag, playAllowed } from "./stats";
+import { getRank, hasFlag, invasionPayable, playAllowed } from "./stats";
 import { activeMonster, makeInvadingMonster } from "./counter";
 import { resetLoopGuard } from "./loop";
 import { markLoss, resolveLosses } from "./losses";
@@ -192,7 +192,12 @@ function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
       actions.push({ type: "playMonster", player: playerId, cardInstanceId });
     }
     // 8.6.1: any card in hand; 8.6.2: once per turn.
-    if (!state.turnFlags.invasionUsed && canInvade) {
+    // M1: cards the opponent's effects forbid as the invasion's cost (EBP04-029).
+    if (
+      !state.turnFlags.invasionUsed &&
+      canInvade &&
+      invasionPayable(state, player, card)
+    ) {
       actions.push({ type: "invade", player: playerId, cardInstanceId });
     }
   }

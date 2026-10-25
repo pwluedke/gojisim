@@ -83,6 +83,8 @@ function anyModifier(
   state: GameState,
   kind: (modifier: Modifier) => boolean,
 ): boolean {
+  for (const effect of state.continuousEffects)
+    if (effect.flags?.some((f) => kind(f.modifier))) return true;
   for (const { card } of activeCards(state)) {
     const data = abilitiesOf(state, card);
     if (data.status === "manual") continue;
@@ -99,6 +101,15 @@ const isFlag = (flag: string) => (m: Modifier) =>
 /** Flag modifiers in force that target `card` (M1, E13). */
 export function flagsOn(state: GameState, card: CardInstance): FlagModifier[] {
   const found: FlagModifier[] = [];
+  // Flags granted for the turn (E19 `grant`), fixed on the cards picked at resolution.
+  for (const effect of state.continuousEffects)
+    for (const f of effect.flags ?? [])
+      if (
+        f.instanceId === card.instanceId &&
+        "flag" in f.modifier &&
+        "target" in f.modifier
+      )
+        found.push(f.modifier);
   for (const { modifier, context } of activeModifiers(state)) {
     if (!("flag" in modifier) || !("target" in modifier)) continue;
     collecting = true;
@@ -139,7 +150,8 @@ export function counterProofAgainst(
   if (!top || !anyModifier(state, isFlag("counterProof"))) return null;
   const proofs = flagsOn(state, top).filter(
     (m): m is Extract<FlagModifier, { flag: "counterProof" }> =>
-      m.flag === "counterProof" && total <= m.atOrBelow,
+      m.flag === "counterProof" &&
+      (m.atOrBelow === undefined || total <= m.atOrBelow),
   );
   return proofs.length === 0
     ? null
@@ -179,6 +191,57 @@ export function playAllowed(
         zone !== undefined &&
         resolveZoneSet(context, modifier.zones, [player]).some(
           (r) => r.player === player.id && r.zone === zone,
+        )
+      )
+        return false;
+    } finally {
+      collecting = false;
+    }
+  }
+  return true;
+}
+
+/** Modifiers in force of a player flag (M1) that applies to `player`, with their contexts. */
+function playerFlags<F extends "cannotDraw" | "cannotPayInvasionWith">(
+  state: GameState,
+  player: PlayerState,
+  flag: F,
+): { modifier: Extract<Modifier, { flag: F }>; context: Context }[] {
+  if (!anyModifier(state, isFlag(flag))) return [];
+  return activeModifiers(state).flatMap(({ modifier, context }) =>
+    "flag" in modifier &&
+    modifier.flag === flag &&
+    "player" in modifier &&
+    (modifier.player === "any" ||
+      (player.id === context.master) === (modifier.player === "you"))
+      ? [{ modifier: modifier as Extract<Modifier, { flag: F }>, context }]
+      : [],
+  );
+}
+
+/** Whether `player` can't draw now (M1 `cannotDraw`, EBP04-030: "during the end phase"). */
+export function cannotDraw(state: GameState, player: PlayerState): boolean {
+  return playerFlags(state, player, "cannotDraw").some(
+    ({ modifier }) => modifier.phase === state.phase,
+  );
+}
+
+/** Whether `player` may discard the hand card `card` for an invasion (8.6.1, EBP04-029). */
+export function invasionPayable(
+  state: GameState,
+  player: PlayerState,
+  card: CardInstance,
+): boolean {
+  for (const { modifier, context } of playerFlags(
+    state,
+    player,
+    "cannotPayInvasionWith",
+  )) {
+    collecting = true;
+    try {
+      if (
+        select(context, { ...modifier.what, area: "hand" }).some(
+          (l) => l.card.instanceId === card.instanceId,
         )
       )
         return false;
@@ -380,10 +443,12 @@ function FLAG_CHANGES(flag: FlagModifier): Omit<CardChange, "kind"> {
         detail: "Cannot be destroyed by the opponent's effects (5.12)",
       };
     case "counterProof":
-      return {
-        label: `Counter-proof ≤${flag.atOrBelow}`,
-        detail: `Cannot be countered by ${flag.atOrBelow} or lower counter power${flag.insteadMoves ? "; it only moves as though countered (5.15.1.1)" : ""} (7.4.3)`,
-      };
+      return flag.atOrBelow === undefined
+        ? { label: "Counter-proof", detail: "Cannot be countered (7.4.3)" }
+        : {
+            label: `Counter-proof ≤${flag.atOrBelow}`,
+            detail: `Cannot be countered by ${flag.atOrBelow} or lower counter power${flag.insteadMoves ? "; it only moves as though countered (5.15.1.1)" : ""} (7.4.3)`,
+          };
     case "cannotAdvance":
       return { label: "Can't advance", detail: "Cannot advance (5.13.1)" };
     case "cannotInvade":
@@ -392,6 +457,12 @@ function FLAG_CHANGES(flag: FlagModifier): Omit<CardChange, "kind"> {
       return {
         label: "Rage protected",
         detail: "Its rage cannot be reduced by the opponent's effects (Q16)",
+      };
+    case "cannotBeMovedByOpponent":
+      return {
+        label: "Can't be moved",
+        detail:
+          "Cannot be moved by the opponent's effects; a counter still moves it (5.13, 5.15.1.1)",
       };
   }
 }

@@ -15,7 +15,7 @@ import {
   hasKeyword,
   strategyReplacementFor,
 } from "./interpreter";
-import { counterProofAgainst } from "./stats";
+import { cannotDraw, counterProofAgainst } from "./stats";
 import {
   appendLog,
   drawCards,
@@ -279,7 +279,10 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
   "7.5.4": (state) => {
     const player = turnPlayer(state);
     const needed = Math.max(0, END_PHASE_HAND_SIZE - player.hand.length);
-    const count = drawCards(state, player, needed);
+    // M1: "your opponent cannot draw cards during the end phase" (EBP04-030, 1.3.3).
+    const blocked = needed > 0 && cannotDraw(state, player);
+    if (blocked) appendLog(state, "noDraw", player.id, { rule: "1.3.3" });
+    const count = blocked ? 0 : drawCards(state, player, needed);
     appendLog(state, "draw", player.id, { rule: "7.5.4", count });
     goTo(state, "end", "7.5.5");
   },

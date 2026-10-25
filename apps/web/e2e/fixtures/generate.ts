@@ -53,11 +53,11 @@ const noBurstIII: Deck = {
     c.deckCardNumber === "ESD01-006" ? byId(7) : c,
   ),
 };
-/** P1 plays EBP04-037, which has no ability data until M12d: it opens a manual window. */
+/** P1 plays ESC01-003, which has no ability data until M12f: it opens a manual window. */
 const withManual: Deck = {
   monsterDeck: esd01.monsterDeck,
   mainDeck: esd01.mainDeck.map((c) =>
-    c.deckCardNumber === "ESD01-013" ? byId(755) : c,
+    c.deckCardNumber === "ESD01-013" ? byId(901) : c,
   ),
 };
 
@@ -282,7 +282,7 @@ const FIXTURES: Fixture[] = [
   },
   {
     name: "manual",
-    note: "P1 resolves EBP04-037 by hand: a manual override window",
+    note: "P1 resolves ESC01-003 by hand: a manual override window",
     decks: () => [withManual, esd02],
     match: (c) => c.kind === "manual",
   },

@@ -206,6 +206,17 @@ function eventParts(
         card(p["cardId"]),
         " can't be destroyed by the opponent's effects",
       ];
+    case "noDraw":
+      return [`${who} can't draw`];
+    case "moveProtected":
+      return [`${whose} monster can't be moved by the opponent's effects`];
+    case "grant":
+      return [
+        ...cards(p["cardIds"]),
+        p["flag"] === "counterProof"
+          ? " can't be countered until the end of the turn"
+          : " changes until the end of the turn",
+      ];
     case "chooseOption":
       return null;
     case "tokenGone":

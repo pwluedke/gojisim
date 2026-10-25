@@ -51,6 +51,7 @@ import {
   getCounterPower,
   getRank,
   getThreat,
+  cannotDraw,
   hasFlag,
   playAllowed,
   playRankReduction,
@@ -458,6 +459,8 @@ export function select(ctx: Context, selector: Selector): Located[] {
       !selector.colors.some((c) => data.colors.includes(c))
     )
       return false;
+    // C4: "non-red" (EBP04-039).
+    if (selector.notColors?.some((c) => data.colors.includes(c))) return false;
     if (selector.rank) {
       const rank = getRank(state, card);
       const value =
@@ -529,6 +532,26 @@ function rageProtected(
 }
 
 /**
+ * Whether `player`'s monster can't be moved by `by`'s effects (M1, EBP04-076), logged as no
+ * change (1.3.3). A counter still moves it (5.15.1.1).
+ */
+function moveProtected(
+  state: GameState,
+  player: PlayerState,
+  by: PlayerId,
+): boolean {
+  const top = topOf(player.invadingMonsterZone);
+  if (
+    by === player.id ||
+    !top ||
+    !hasFlag(state, top, "cannotBeMovedByOpponent")
+  )
+    return false;
+  appendLog(state, "moveProtected", player.id, { rule: "1.3.3", by });
+  return true;
+}
+
+/**
  * How many cards a selector counts. Counting monster cards in a discard pile also counts a card
  * that says to treat it as one there (C5, Q34: EBP03-071), if it passes the other filters.
  */
@@ -551,7 +574,11 @@ export function countOf(ctx: Context, selector: Selector): number {
 
 export function amountOf(ctx: Context, amount: Amount): number {
   if (typeof amount === "number") return amount;
-  if ("per" in amount) return countOf(ctx, amount.per) * amount.times;
+  if ("per" in amount)
+    // "For every 5": whole groups only (EBP04-086).
+    return (
+      Math.floor(countOf(ctx, amount.per) / (amount.every ?? 1)) * amount.times
+    );
   if ("colorsAmong" in amount) {
     // C4: distinct colors among the cards, White included (EBP03-067).
     const colors = new Set(
@@ -648,6 +675,16 @@ export function conditionHolds(ctx: Context, condition: Condition): boolean {
       condition.op,
       condition.value,
     );
+  if ("zoneNumber" in condition) {
+    // C3: zone numbers compared across the two fields (4.4.3, EBP04-016).
+    const subject = anchorZone(ctx, condition.zoneNumber);
+    const other = anchorZone(ctx, condition.of);
+    return (
+      subject !== null &&
+      other !== null &&
+      compare(subject.zone, condition.op, other.zone)
+    );
+  }
   if ("thisTurn" in condition) {
     const whose = condition.whose ?? "you";
     return thisTurnLog(state).some((e) => {
@@ -811,6 +848,20 @@ function triggerMatches(
         const by = event.payload["by"];
         if (typeof by !== "string" || by === event.player) return false;
       }
+      // Once per effect (EBP04-052): one effect's discards are logged one after another, each
+      // followed by the standby entries it caused.
+      if (trigger.oncePerEffect && fromHand) {
+        let i = state.log.indexOf(event) - 1;
+        while (state.log[i]?.type === "enterStandby") i--;
+        const previous = state.log[i];
+        if (
+          previous?.type === "discard" &&
+          previous.player === event.player &&
+          previous.payload["by"] === event.payload["by"] &&
+          previous.payload["abilityId"] === event.payload["abilityId"]
+        )
+          return false;
+      }
       // The card is in its owner's discard pile now; a destroyed strategy card is matched by
       // its last known information.
       if (event.type === "destroy")
@@ -956,6 +1007,7 @@ function lastKnownMatches(
     return false;
   if (what.colors && !what.colors.some((c) => data.colors.includes(c)))
     return false;
+  if (what.notColors?.some((c) => data.colors.includes(c))) return false;
   if (
     what.keyword &&
     !data.text.toLowerCase().includes(`[${what.keyword.toLowerCase()}`)
@@ -1710,6 +1762,64 @@ function pickCards(
   return "paused";
 }
 
+/**
+ * Destroy targets (10.5.3). With an order (X), each pick is from the extreme cards among those
+ * left, so "one by one from the lowest zone" moves on to the next zone (EBP04-035). "Any number"
+ * picks one at a time until Done, within `maxTotalRank` (EBP04-024).
+ */
+function pickDestroyTargets(
+  ctx: Context,
+  all: Located[],
+  target: Extract<Effect, { effect: "destroy" }>["target"],
+  extremes: (found: Located[]) => Located[],
+  chooser: PlayerId,
+): Located[] | "paused" {
+  const { state } = ctx;
+  const r = state.resolution as NonNullable<GameState["resolution"]>;
+  const { count, order, maxTotalRank } = target;
+  if (count === "anyNumber") {
+    const chosen = located(
+      state,
+      r.chosen.filter((id) => id !== "done"),
+    );
+    const used = chosen.reduce((t, l) => t + (getRank(state, l.card) ?? 0), 0);
+    const left = all.filter(
+      (l) =>
+        !r.chosen.includes(l.card.instanceId) &&
+        (maxTotalRank === undefined ||
+          used + (getRank(state, l.card) ?? 0) <= maxTotalRank),
+    );
+    if (r.chosen.includes("done") || left.length === 0) return chosen;
+    return pickCards(
+      ctx,
+      [...chosen, ...left],
+      { upTo: chosen.length + 1 },
+      chooser,
+      "10.5.3",
+    );
+  }
+  if (!order || count === "all")
+    return pickCards(ctx, extremes(all), count, chooser, "10.5.3");
+  for (;;) {
+    const chosen = located(
+      state,
+      r.chosen.filter((id) => id !== "done"),
+    );
+    const rest = all.filter((l) => !r.chosen.includes(l.card.instanceId));
+    const picked = pickCards(
+      ctx,
+      [...chosen, ...extremes(rest)],
+      count,
+      chooser,
+      "10.5.3",
+    );
+    if (picked === "paused") return "paused";
+    const added = picked.filter((l) => !r.chosen.includes(l.card.instanceId));
+    if (added.length === 0) return picked;
+    r.chosen.push(...added.map((l) => l.card.instanceId));
+  }
+}
+
 /** Takes a card out of a hand, deck, discard pile or monster deck. */
 function takeCard(found: Located): CardInstance {
   const { player, area, card } = found;
@@ -1813,7 +1923,7 @@ function perform(state: GameState, effect: Effect): Outcome {
   const chooserOf = (who: "you" | "opponent") => playerOf(ctx, who).id;
   switch (effect.effect) {
     case "destroy": {
-      const { select: selector, count, chooser, order } = effect.target;
+      const { select: selector, chooser, order } = effect.target;
       // X: only the extreme cards; the chooser picks among ties (Q33).
       const extremes = (found: Located[]): Located[] => {
         if (!order || found.length === 0) return found;
@@ -1822,22 +1932,24 @@ function perform(state: GameState, effect: Effect): Outcome {
             ? (getRank(state, l.card) ?? Infinity)
             : l.zone === undefined
               ? Infinity
-              : (order === "leftmost" ? 1 : -1) *
-                leftRightPosition(
-                  { player: l.player.id, zone: l.zone },
-                  ctx.master,
-                );
+              : order === "lowestZone"
+                ? l.zone
+                : (order === "leftmost" ? 1 : -1) *
+                  leftRightPosition(
+                    { player: l.player.id, zone: l.zone },
+                    ctx.master,
+                  );
         const best = Math.min(...found.map(score));
         return found.filter((l) => score(l) === best);
       };
       // A card the opponent's effects can't destroy can still be chosen; the destroy does
       // nothing to it (Q35, Paul's provisional ruling; 1.3.3).
-      const targets = pickCards(
+      const targets = pickDestroyTargets(
         ctx,
-        extremes(select(ctx, selector)),
-        count,
+        select(ctx, selector),
+        effect.target,
+        extremes,
         chooserOf(chooser),
-        "10.5.3",
       );
       if (targets === "paused") return "paused";
       bindCards(
@@ -2181,6 +2293,11 @@ function perform(state: GameState, effect: Effect): Outcome {
     case "draw": {
       const count = amountOf(ctx, effect.count);
       for (const player of players(ctx, effect.player)) {
+        // M1: a player who can't draw now draws nothing (EBP04-030, 1.3.3).
+        if (count > 0 && cannotDraw(state, player)) {
+          appendLog(state, "noDraw", player.id, { rule: "1.3.3", abilityId });
+          continue;
+        }
         const drawn = drawCards(state, player, count);
         appendLog(state, "draw", player.id, {
           rule: "5.4.2",
@@ -2455,6 +2572,7 @@ function perform(state: GameState, effect: Effect): Outcome {
           )
         )
           continue;
+        if (moveProtected(state, player, ctx.master)) continue;
         // "By" can be an amount ("1 additional zone for each Crystals", E15).
         const by = effect.by === undefined ? 1 : amountOf(ctx, effect.by);
         if (effect.effect === "advance") {
@@ -2648,7 +2766,9 @@ function perform(state: GameState, effect: Effect): Outcome {
     }
     case "moveAsCountered": {
       // E13 (Q14): only the move of 5.15.1.1; it is not a counter and fires no countered event.
-      moveBehind(state, playerOf(ctx, effect.player), true);
+      const player = playerOf(ctx, effect.player);
+      if (!moveProtected(state, player, ctx.master))
+        moveBehind(state, player, true);
       return "done";
     }
     case "activate": {
@@ -2719,15 +2839,28 @@ function perform(state: GameState, effect: Effect): Outcome {
       const takenIds = done.flat();
       delete r.queue;
       delete r.takes;
-      me.deck = me.deck.filter((c) => !ids.includes(c.instanceId));
-      for (const card of top.filter((c) => takenIds.includes(c.instanceId))) {
-        me.hand.push(moved(state, card));
-        appendLog(state, "addToHand", me.id, {
-          rule: "4.9",
-          from: "deck",
-          cardId: card.cardId,
-          abilityId,
-        });
+      const taken = top.filter((c) => takenIds.includes(c.instanceId));
+      me.deck = me.deck.filter(
+        (c) =>
+          !ids.includes(c.instanceId) ||
+          (effect.keep === true && takenIds.includes(c.instanceId)),
+      );
+      // Kept: they stay on the deck, revealed, for the next effect (EBP04-079 plays them).
+      if (effect.keep) bindCards(ctx, effect.as, taken);
+      else {
+        const added = taken.map((card) => moved(state, card));
+        me.hand.push(...added);
+        for (const card of added)
+          appendLog(state, "addToHand", me.id, {
+            rule: "4.9",
+            from: "deck",
+            cardId: card.cardId,
+            abilityId,
+          });
+        // Still revealed in the hand under their new ids (4.1.4), so later effects of this
+        // resolution may name them (EBP04-077: "if you added ...").
+        state.revealed.push(...added.map((c) => c.instanceId));
+        bindCards(ctx, effect.as, added);
       }
       const rest = top
         .filter((c) => !takenIds.includes(c.instanceId))
@@ -2738,6 +2871,44 @@ function perform(state: GameState, effect: Effect): Outcome {
           cardIds: rest.map((c) => c.cardId),
           abilityId,
         });
+      return "done";
+    }
+    case "grant": {
+      // E19: a flag for the rest of the turn on the cards the target picks now; it ends at 7.5.6.
+      const { modifier } = effect;
+      if (!("flag" in modifier) || !("target" in modifier))
+        throw new Error("not implemented: grant without a target");
+      const timestamp = state.nextTimestamp++;
+      const flags = select(ctx, modifier.target).map((l) => ({
+        instanceId: l.card.instanceId,
+        modifier,
+      }));
+      state.continuousEffects.push({
+        effectId: `grant:${abilityId}:${timestamp}`,
+        timestamp,
+        duration: "untilEndOfTurn",
+        flags,
+      });
+      appendLog(state, "grant", ctx.master, {
+        rule: "10.8.2",
+        flag: modifier.flag,
+        cardIds: flags.map((f) => locate(state, f.instanceId)?.card.cardId),
+        abilityId,
+      });
+      return "done";
+    }
+    case "sendToDiscard": {
+      // Cards a search found go to their owner's discard pile (public), not a discard (5.7).
+      const sent = select(ctx, effect.target).map((l) =>
+        toDiscard(state, takeCard(l)),
+      );
+      if (sent.length > 0)
+        appendLog(state, "mill", ctx.master, {
+          rule: "4.9",
+          cardIds: sent.map((c) => c.cardId),
+          abilityId,
+        });
+      bindCards(ctx, effect.as, sent);
       return "done";
     }
     case "boost": {
@@ -2904,7 +3075,8 @@ function perform(state: GameState, effect: Effect): Outcome {
       )
         return "done";
       const to = inFrontOf(from) ?? behind(from);
-      if (to === null) return "done";
+      if (to === null || moveProtected(state, player, ctx.master))
+        return "done";
       player.monsterPosition = to;
       appendLog(state, "moveVertically", player.id, {
         rule: "4.4.5.1",

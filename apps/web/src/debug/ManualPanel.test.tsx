@@ -10,8 +10,8 @@ import { buildTestDeck, getAllCards } from "@gojisim/cards/test-decks";
 import { ManualPanel } from "./ManualPanel";
 
 /**
- * A game where P1 has just played EBP04-037 Minilla (2004), a manual card until M12d: a manual
- * window is open.
+ * A game where P1 has just played ESC01-003 Godzilla (2016) 4th Form, a manual card until
+ * M12f: a manual window is open.
  */
 function withWindow(): GameState {
   const decks = (["ESD01", "ESD02"] as const).map((set, i) => ({
@@ -19,13 +19,13 @@ function withWindow(): GameState {
     ...buildTestDeck(set, `manual-${i}`),
   }));
   const state = startGame({ seed: 7, decks: [decks[0]!, decks[1]!] });
-  const minilla = getAllCards().find((c) => c.cardNumber === "EBP04-037")!;
+  const manual = getAllCards().find((c) => c.cardNumber === "ESC01-003")!;
   const me = state.players.find((p) => p.id === state.turnPlayer)!;
   const opp = state.players.find((p) => p.id !== state.turnPlayer)!;
-  state.cards = { ...state.cards, [minilla.id]: minilla };
+  state.cards = { ...state.cards, [manual.id]: manual };
   const instance = {
     instanceId: `c${state.nextInstanceId++}`,
-    cardId: minilla.id,
+    cardId: manual.id,
     owner: me.id,
   };
   me.hand.push(instance);
@@ -48,8 +48,8 @@ describe("manual override panel (format.md change 10)", () => {
       <ManualPanel state={state} onAction={() => {}} />,
     );
     expect(html).toContain("Manual override");
-    expect(html).toContain("Minilla (2004)");
-    expect(html).toContain("If you have a rank 1 strategy card in play");
+    expect(html).toContain("Godzilla (2016) 4th Form");
+    expect(html).toContain("your monster card invaded this turn");
     expect(html).toContain("rage +1");
     expect(html).toContain("move");
   });

@@ -106,6 +106,11 @@ export const SelectorSchema = z.strictObject({
     .array(z.enum(["Red", "Blue", "Green", "White"]))
     .min(1)
     .optional(),
+  /** C4: none of the listed colors ("non-red"). */
+  notColors: z
+    .array(z.enum(["Red", "Blue", "Green", "White"]))
+    .min(1)
+    .optional(),
   rank: z
     .strictObject({
       op: OpSchema,
@@ -134,7 +139,12 @@ export type Selector = z.infer<typeof SelectorSchema>;
 
 /** An amount read from the game ("for each ..."), as opposed to a fixed number. */
 const AmountReadSchema = z.union([
-  z.strictObject({ per: SelectorSchema, times: z.number().int() }),
+  /** `every`: whole groups of that many cards ("for every 5 ...", rounded down). */
+  z.strictObject({
+    per: SelectorSchema,
+    times: z.number().int(),
+    every: z.number().int().min(2).optional(),
+  }),
   /** Per point of a player's rage ("for each of your opponent's [rage]"). */
   z.strictObject({ rageOf: PlayerRefSchema, times: z.number().int() }),
   /** Per rank of a player's invading monster. */
@@ -213,6 +223,8 @@ export const TriggerSchema = z.discriminatedUnion("on", [
     from: z.enum(["hand", "strategy", "monster"]),
     cause: z.enum(["effect", "cost", "invasion", "rage", "burst"]).optional(),
     byOpponentEffect: z.boolean().optional(),
+    /** Once per effect that discards, however many cards it discards (EBP04-052). */
+    oncePerEffect: z.literal(true).optional(),
     as: z.string().min(1).optional(),
   }),
   z.strictObject({
@@ -275,6 +287,7 @@ export type Condition =
       whose?: PlayerRef | undefined;
     }
   | { amount: Amount; op: Op; value: number }
+  | { zoneNumber: "this"; op: Op; of: "opponentMonster" }
   | { didLastStep: true };
 
 export const ConditionSchema: z.ZodType<Condition> = z.lazy(() =>
@@ -315,6 +328,12 @@ export const ConditionSchema: z.ZodType<Condition> = z.lazy(() =>
       op: OpSchema,
       value: z.number().int(),
     }),
+    /** C3: the number of this card's zone compared with the other card's (EBP04-016). */
+    z.strictObject({
+      zoneNumber: z.literal("this"),
+      op: OpSchema,
+      of: z.literal("opponentMonster"),
+    }),
     z.strictObject({ didLastStep: z.literal(true) }),
   ]),
 );
@@ -327,7 +346,11 @@ const DestroyTargetSchema = z.strictObject({
    * X: only the extreme cards among those selected: the lowest rank, or the leftmost / rightmost
    * from the effect's player's view (4.4.5.5). Ties go to the chooser (Q33).
    */
-  order: z.enum(["lowestRank", "leftmost", "rightmost"]).optional(),
+  order: z
+    .enum(["lowestRank", "leftmost", "rightmost", "lowestZone"])
+    .optional(),
+  /** X: with `count: "anyNumber"`, the picked cards' ranks total at most this (EBP04-024). */
+  maxTotalRank: z.number().int().positive().optional(),
 });
 
 /** Every effect may bind what it touched with `as`, for later effects of one resolution. */
@@ -458,6 +481,7 @@ export type Effect =
       take:
         | { filter: Selector; count: Count }
         | { filter: Selector; count: Count }[];
+      keep?: boolean | undefined;
       rest: "discard";
       as?: string | undefined;
     }
@@ -566,6 +590,13 @@ export type Effect =
       count: 3;
       as?: string | undefined;
     }
+  | {
+      effect: "grant";
+      duration: "endOfTurn";
+      modifier: Modifier;
+      as?: string | undefined;
+    }
+  | { effect: "sendToDiscard"; target: Selector; as?: string | undefined }
   | { effect: "custom"; handler: string; as?: string | undefined };
 
 /** One option of a `chooseOne` effect (E7, 10.5.2.2.1); it is offered only while it can apply. */
@@ -737,6 +768,11 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
           .array(z.strictObject({ filter: SelectorSchema, count: CountSchema }))
           .min(1),
       ]),
+      /**
+       * The taken cards stay on the deck, revealed and bound with `as`, for the next effect
+       * (EBP04-079 plays them); otherwise they go to the hand.
+       */
+      keep: z.boolean().optional(),
       rest: z.literal("discard"),
       ...asField,
     }),
@@ -892,6 +928,22 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
       count: z.literal(3),
       ...asField,
     }),
+    /**
+     * E19: a modifier that lasts for the rest of the turn (EBP04-014's counter-proof). Its target
+     * is fixed at resolution; it ends at 7.5.6.
+     */
+    z.strictObject({
+      effect: z.literal("grant"),
+      duration: z.literal("endOfTurn"),
+      modifier: z.lazy(() => ModifierSchema),
+      ...asField,
+    }),
+    /** Cards a search found (bound) go from the deck to the discard pile (EBP04-061). */
+    z.strictObject({
+      effect: z.literal("sendToDiscard"),
+      target: SelectorSchema,
+      ...asField,
+    }),
     z.strictObject({
       effect: z.literal("custom"),
       handler: z.string().min(1),
@@ -945,8 +997,26 @@ export const ModifierSchema = z.union([
   z.strictObject({
     flag: z.literal("counterProof"),
     target: SelectorSchema,
-    atOrBelow: z.number().int().positive(),
+    /** Without it, no counter power counters it ("cannot be countered", EBP04-031). */
+    atOrBelow: z.number().int().positive().optional(),
     insteadMoves: z.boolean(),
+  }),
+  /** M1: `player` can't discard cards `what` picks to pay for an invasion (8.6.1, EBP04-029). */
+  z.strictObject({
+    flag: z.literal("cannotPayInvasionWith"),
+    player: PlayerRefSchema,
+    what: SelectorSchema,
+  }),
+  /** M1: `player` can't draw cards (5.4) during `phase` (EBP04-030). */
+  z.strictObject({
+    flag: z.literal("cannotDraw"),
+    player: PlayerRefSchema,
+    phase: PhaseSchema,
+  }),
+  /** M1: the target monster can't be moved by its opponent's effects; a counter still moves it. */
+  z.strictObject({
+    flag: z.literal("cannotBeMovedByOpponent"),
+    target: SelectorSchema,
   }),
 ]);
 export type Modifier = z.infer<typeof ModifierSchema>;

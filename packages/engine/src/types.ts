@@ -1,4 +1,4 @@
-import type { Card } from "@gojisim/cards";
+import type { Card, Modifier } from "@gojisim/cards";
 import type { LoopInfo } from "./loop";
 
 export type PlayerId = string;
@@ -188,6 +188,8 @@ export interface ContinuousEffect {
     stat: "counterPower" | "threat" | "rank";
     amount: number;
   }[];
+  /** E19 (`grant`): a flag modifier for the rest of the turn on the cards picked at resolution. */
+  flags?: { instanceId: string; modifier: Modifier }[];
 }
 
 export type ResultReason =

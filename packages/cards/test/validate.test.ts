@@ -235,6 +235,18 @@ describe("Resonance (K2, 6.1.2, 12.8.2)", () => {
     ]);
   });
 
+  it("EBP04-031: battle cards must be [final-wars] only, in red, blue or green", () => {
+    const monsters = ["EBP04-031", "EBP04-032", "EBP04-033", "EBP04-035"];
+    expect(
+      resonance(deck(monsters, [card("EBP04-037"), card("EBP04-047")])),
+    ).toEqual([]);
+    expect(
+      resonance(deck(monsters, [card("EBP04-037"), card("EBP04-043")])),
+    ).toEqual([
+      "Resonance (EBP04-031): Battle cards must be [final-wars] only: EBP04-043 Multi-purpose Fighting System-3",
+    ]);
+  });
+
   it("6.1.1.3, 12.8.2: Resonance's colors are allowed; others still aren't", () => {
     const monsters = ["EBP03-024", "EBP03-025", "EBP03-026", "EBP03-028"];
     const colors = validateDeck(
