@@ -214,6 +214,9 @@ function choiceWhat(state: GameState): string {
     return `choosing what to discard${by}, down to ${effect.size} card${effect.size === 1 ? "" : "s"} (discard ${left} more)`;
   }
   if (choice.rule === "5.7.1") return `choosing a card to discard${by}`;
+  // M5h #14: a search names what it searches for (the source card is the modal's source line).
+  if (choice.rule === "5.8.1" && effect?.effect === "search")
+    return `searching their deck for ${describeSearch(effect.filter, effect.count)}`;
   if (choice.rule === "5.8.1" || choice.rule === "12.6.2")
     return `searching their deck${by}`;
   if (choice.rule === "5.17") return "choosing a card to evolve";

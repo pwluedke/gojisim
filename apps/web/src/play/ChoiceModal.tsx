@@ -173,16 +173,24 @@ export function ChoiceModal({
       </>
     );
   } else {
+    const locationOf = (action: Extract<Action, { type: "choose" }>) =>
+      kind === "target" || kind === "nextMonster"
+        ? targetLocation(state, action.optionId, choice.player)
+        : null;
+    // M5h #14: when every option comes from the same place ("Deck (searched)"), the label
+    // would only repeat, so it's left out; a single option keeps it.
+    const labels = numbered.map((a) => locationOf(a)?.label ?? null);
+    const samePlace =
+      labels.length > 1 && labels.every((l) => l !== null && l === labels[0]);
+    // M5h #14: search picks show the cards without number badges (the keys still work, see ?).
+    const search = choice.rule === "5.8.1" || choice.rule === "12.6.2";
     body = (
       <>
         <div className={styles.choiceCards}>
           {numbered.map((action, i) => {
             const card = optionCard(action);
             const option = choice.options.find((o) => o.id === action.optionId);
-            const location =
-              kind === "target" || kind === "nextMonster"
-                ? targetLocation(state, action.optionId, choice.player)
-                : null;
+            const location = locationOf(action);
             const showRing = () => {
               const cell =
                 location &&
@@ -208,7 +216,7 @@ export function ChoiceModal({
                     {abilityText(state, option.abilityId)}
                   </div>
                 )}
-                {location && (
+                {location && !samePlace && (
                   <div
                     className={styles.choiceLocation}
                     data-testid="choice-location"
@@ -227,7 +235,7 @@ export function ChoiceModal({
                   onMouseEnter={showRing}
                   onMouseLeave={() => setRing(null)}
                 >
-                  <span className={styles.keyBadge}>{i + 1}</span>
+                  {!search && <span className={styles.keyBadge}>{i + 1}</span>}
                   {card ? (
                     <>
                       <div className={styles.cardFallback}>{card.name}</div>

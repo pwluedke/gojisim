@@ -83,6 +83,8 @@ export interface NewGameOptions {
   firstPick?: FirstPick;
   /** Casual (undo allowed) or Tournament (no undo). */
   mode?: MatchMode;
+  /** The human sees the bot's hand (M5h #13); the record flags the game. */
+  showOpponentHand?: boolean;
 }
 
 /** A new game. */
@@ -90,7 +92,12 @@ export function newSession(
   seed: number,
   picked: [DeckOption, DeckOption],
   seats: Record<PlayerId, SeatConfig>,
-  { confirmTargets = false, firstPick, mode }: NewGameOptions = {},
+  {
+    confirmTargets = false,
+    firstPick,
+    mode,
+    showOpponentHand = false,
+  }: NewGameOptions = {},
 ): Session {
   const humans = PLAYER_IDS.filter((id) => seats[id].kind === "human");
   const named = picked.map((option) => option.build(seed));
@@ -112,6 +119,7 @@ export function newSession(
       : {}),
     ...(firstPick ? { firstPick } : {}),
     ...(mode ? { mode } : {}),
+    ...(showOpponentHand ? { showOpponentHand } : {}),
   };
   return {
     record,
@@ -163,6 +171,7 @@ export function sessionFromRecord(text: string): Session {
         : {}),
       ...(record.firstPick ? { firstPick: record.firstPick } : {}),
       ...(record.mode ? { mode: record.mode } : {}),
+      ...(record.showOpponentHand ? { showOpponentHand: true } : {}),
     },
     states,
     position,

@@ -32,6 +32,14 @@ import { type Combo, getCombos } from "@gojisim/cards";
 
 import { cardByNumber } from "../game/labels";
 import { FirstPick } from "./FirstPick";
+import {
+  lastLine,
+  type OutcomeKey,
+  outcomeHeading,
+  outcomeKey,
+  pickLine,
+  rememberLine,
+} from "./gameOver";
 import { SearchModal } from "./SearchModal";
 import { type SearchResult, searchResults } from "./searches";
 import { NewGame } from "./NewGame";
@@ -78,7 +86,10 @@ function landing(before: GameState, action: Action): Set<string> {
 /** The keyboard shortcuts (M5d), as the ? list shows them. */
 const SHORTCUTS: [string, string][] = [
   ["Space", "Pass (the prompt panel's main button)"],
-  ["1 to 9", "Pick an option in a choice"],
+  [
+    "1 to 9",
+    "Pick an option in a choice, numbered left to right (search cards have no number badges)",
+  ],
   ["H", "Expand / close the hand"],
   [
     "Esc",
@@ -124,6 +135,8 @@ interface PendingGame {
   picked: [DeckOption, DeckOption];
   seats: Record<PlayerId, SeatConfig>;
   matchMode: MatchMode;
+  /** M5h #13: the human sees the bot's hand. */
+  showOpponentHand: boolean;
   picker: PlayerId;
 }
 
@@ -150,6 +163,12 @@ export function PlayScreen() {
   // M5g: combos waiting for (or showing in) the combo modal, and the steps already checked.
   const [callouts, setCallouts] = useState<ComboHit[]>([]);
   const lastCombo = useRef(0);
+  // M5h #17: the game-over modal's outcome and line, once the game ends; `closed` after Close.
+  const [gameOver, setGameOver] = useState<{
+    key: OutcomeKey;
+    line: string;
+    closed: boolean;
+  } | null>(null);
   // `/play` never shows hidden cards, so bot labels always keep private choices private.
   // Bot seats play at once, two bots included (`/play` has no Play button before a game).
   const game = useGameSession({
@@ -162,6 +181,7 @@ export function PlayScreen() {
       seenLog.current = start.log.length;
       // A loaded record's combos are history: no callouts for them.
       setCallouts([]);
+      setGameOver(null);
       lastCombo.current = next.record.actions.length;
     },
     // While the history view or a search result is open, a bot's answer waits.
@@ -229,6 +249,18 @@ export function PlayScreen() {
   }, [combos]);
   const callout = callouts[0] ?? null;
   const closeCallout = () => setCallouts((queue) => queue.slice(1));
+
+  // M5h #17: when the game ends, pick the game-over line for the human (P1 between two bots).
+  const result = state?.result ?? null;
+  useEffect(() => {
+    if (!result || gameOver || !liveBottom) return;
+    const key = outcomeKey(result, liveBottom);
+    const line = pickLine(key, lastLine());
+    rememberLine(line);
+    setGameOver({ key, line, closed: false });
+  }, [result]);
+  const closeGameOver = () =>
+    setGameOver((g) => (g ? { ...g, closed: true } : g));
 
   // A deck search by a human seat, found or not, opens the search modal (M5e). An undo shortens
   // the log, so its searches are never shown again.
@@ -310,6 +342,14 @@ export function PlayScreen() {
       // Input waits while cards move (M5f) and while the combo modal is open (its own keys).
       if (animating || callouts.length > 0) return;
       if (e.ctrlKey || e.metaKey || e.altKey || !session) return;
+      // The game-over modal takes Space and Esc (M5h #17).
+      if (gameOver && !gameOver.closed) {
+        if (e.key === " " || e.key === "Escape") {
+          e.preventDefault();
+          closeGameOver();
+        }
+        return;
+      }
       switch (e.key) {
         case "Escape":
           setOverlay(null);
@@ -367,6 +407,7 @@ export function PlayScreen() {
     newSession(setup.seed, setup.picked, setup.seats, {
       confirmTargets: true,
       mode: setup.matchMode,
+      showOpponentHand: setup.showOpponentHand,
       ...(picker && card !== undefined
         ? { firstPick: { player: picker, card } }
         : {}),
@@ -386,8 +427,14 @@ export function PlayScreen() {
           />
         ) : (
           <NewGame
-            onStart={(seed, picked, seats, matchMode) => {
-              const setup = { seed, picked, seats, matchMode };
+            onStart={(seed, picked, seats, matchMode, showOpponentHand) => {
+              const setup = {
+                seed,
+                picked,
+                seats,
+                matchMode,
+                showOpponentHand,
+              };
               // The human picks; two bots skip the pick.
               const picker = (["P1", "P2"] as const).find(
                 (id) => seats[id].kind === "human",
@@ -413,7 +460,11 @@ export function PlayScreen() {
   const shown = (
     viewing === null ? state : session.states[viewing]
   ) as GameState;
-  const model = boardModel(shown, liveBottom ?? "P1");
+  const model = boardModel(
+    shown,
+    liveBottom ?? "P1",
+    session.record.showOpponentHand === true,
+  );
 
   const search = viewing === null ? (searches[0] ?? null) : null;
 
@@ -757,10 +808,11 @@ export function PlayScreen() {
       />
       {viewing !== null && (
         <div className={styles.historyBanner} data-testid="history-banner">
-          History: turn {shown.turn}, read-only.{" "}
+          <span>History: turn {shown.turn}, read-only.</span>
           <button
             type="button"
-            className={styles.button}
+            className={`${styles.button} ${styles.backToLive}`}
+            data-testid="history-back-to-live"
             onClick={() => setHistoryAt(null)}
           >
             Back to live
@@ -858,6 +910,35 @@ export function PlayScreen() {
           onClose={closeCallout}
         />
       )}
+      {gameOver &&
+        !gameOver.closed &&
+        viewing === null &&
+        !animating &&
+        !callout && (
+          <div className={styles.modalBackdrop} data-testid="game-over-modal">
+            <div className={styles.modal}>
+              <div
+                className={styles.modalHeading}
+                data-testid="game-over-heading"
+              >
+                {outcomeHeading(gameOver.key)}
+              </div>
+              <p data-testid="game-over-line" data-outcome={gameOver.key}>
+                {gameOver.line}
+              </p>
+              <div className={styles.modalButtons}>
+                <button
+                  type="button"
+                  className={styles.button}
+                  data-testid="game-over-close"
+                  onClick={closeGameOver}
+                >
+                  Close [Space]
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       {botMove && (
         <div className={styles.toast} data-testid="bot-toast">
           {botMove.text}

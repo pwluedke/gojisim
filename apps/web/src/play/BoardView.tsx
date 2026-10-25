@@ -89,6 +89,21 @@ function Layer({ index, children }: { index: number; children: ReactNode }) {
   );
 }
 
+/**
+ * An area's name in the middle of it while it is hovered (M5h #1), styled like the zone labels
+ * and above the cards; it never takes the pointer, so clicks and drops still reach the area.
+ */
+function HoverLabel({ text }: { text: string }) {
+  return (
+    <div
+      className={`${styles.cellLabel} ${styles.hoverLabel}`}
+      data-testid="hover-label"
+    >
+      {text}
+    </div>
+  );
+}
+
 function ZoneCell({
   model,
   player,
@@ -104,7 +119,14 @@ function ZoneCell({
   const monsterCards = player.invadingMonsterZone.cards ?? [];
   const monster = monsterCards[monsterCards.length - 1];
   const own = player.id === model.bottom;
-  const monsterLit = useInteraction().highlight.has(`${player.id}|monster`);
+  const { highlight, monsterGlow } = useInteraction();
+  const monsterLit = highlight.has(`${player.id}|monster`);
+  // M5h #2: the monster card glows in its colors, like the turn player's mat border.
+  const glowName = monsterGlow?.[player.id] ?? null;
+  const glowColor = glowName ? GLOW_COLORS[glowName] : undefined;
+  const glowStyle = glowColor
+    ? { boxShadow: `0 0 0 2px ${glowColor}, 0 0 12px 3px ${glowColor}` }
+    : undefined;
   const monsterView = monster && (
     <CardFace
       card={monster}
@@ -148,16 +170,22 @@ function ZoneCell({
               className={`${styles.monster} ${monsterLit ? styles.highlight : ""}`}
               testId={`monster-${player.id}`}
               highlight={monsterLit}
+              glow={glowName}
+              style={glowStyle}
             >
               {monsterView}
+              <HoverLabel text="Monster" />
             </Target>
           ) : (
             <div
               className={`${styles.monster} ${monsterLit ? styles.highlight : ""}`}
               data-testid={`monster-${player.id}`}
               data-highlight={monsterLit ? "true" : undefined}
+              data-monster-glow={glowName ?? undefined}
+              style={glowStyle}
             >
               {monsterView}
+              <HoverLabel text="Monster" />
             </div>
           )}
         </Layer>
@@ -287,6 +315,7 @@ function StrategyZone({
       testId={`strategy-${player.id}-${index}`}
     >
       <div className={styles.cellLabel}>Strategy {index}</div>
+      <HoverLabel text={`Strategy ${index}`} />
       {(zone?.cards ?? []).map((p, i) => (
         <Layer key={p.card.instanceId} index={i}>
           <CardFace
@@ -376,6 +405,7 @@ function Pile({
   return (
     <div className={styles.cell} data-testid={cellTestId}>
       <div className={styles.cellLabel}>{label}</div>
+      <HoverLabel text={label} />
       {count > 0 && (
         <Layer index={0}>
           <CardBack testId="pile-back" />
@@ -406,6 +436,7 @@ function Discard({
       testId={`discard-${player.id}`}
     >
       <div className={styles.cellLabel}>Discard</div>
+      <HoverLabel text="Discard" />
       {top && (
         <Layer index={0}>
           <CardFace card={top} data={model.view.cards[top.cardId]} rotate />
@@ -771,6 +802,15 @@ export function BoardView({
   );
   const glowFor = (player: PlayerAreasView) =>
     player.id === view.turnPlayer ? glow : null;
+  // M5h #2: both monsters glow all the time in their own colors, under the Turn glow setting.
+  const monsterCycle = (player: PlayerAreasView) => {
+    const top = player.invadingMonsterZone.cards?.at(-1);
+    return turnGlow && top
+      ? glowCycle(view.cards[top.cardId]?.colors ?? [])
+      : null;
+  };
+  const youMonsterGlow = useGlow(monsterCycle(you));
+  const oppMonsterGlow = useGlow(monsterCycle(opp));
 
   const playable = useMemo(
     () => (locked ? new Set<string>() : playableCards(actions)),
@@ -855,6 +895,7 @@ export function BoardView({
     zoneChoice,
     highlight,
     act: onAction,
+    monsterGlow: { [you.id]: youMonsterGlow, [opp.id]: oppMonsterGlow },
   };
   const draggedCard = dragging
     ? (you.hand.cards ?? []).find((c) => c.instanceId === dragging)

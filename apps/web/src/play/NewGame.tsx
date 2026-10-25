@@ -79,6 +79,7 @@ export function NewGame({
     picked: [DeckOption, DeckOption],
     seats: Record<PlayerId, SeatConfig>,
     matchMode: MatchMode,
+    showOpponentHand: boolean,
   ) => void;
 }) {
   // M7a: the starters, My decks (saved in this browser), then the development decks.
@@ -97,6 +98,7 @@ export function NewGame({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [seed, setSeed] = useState(() => String(randomSeed()));
   const [matchMode, setMatchMode] = useState<MatchMode>("casual");
+  const [showOpponentHand, setShowOpponentHand] = useState(false);
   const byKey = (key: string) =>
     options.find((o) => o.key === key) ?? (options[0] as DeckOption);
   const tournament = matchMode === "tournament";
@@ -122,6 +124,7 @@ export function NewGame({
           [byKey(keys.P1), byKey(keys.P2)],
           seats,
           matchMode,
+          showOpponentHand && seats.P1.kind === "human",
         );
       }}
     >
@@ -319,6 +322,22 @@ export function NewGame({
           </label>
         ))}
       </div>
+      {seats.P1.kind === "human" && (
+        <div className={styles.row}>
+          <label>
+            <input
+              type="checkbox"
+              data-testid="show-opponent-hand"
+              checked={showOpponentHand}
+              onChange={(e) => setShowOpponentHand(e.target.checked)}
+            />{" "}
+            Show opponent&apos;s hand{" "}
+            <span className={styles.note}>
+              (practice: the game won&apos;t count in statistics)
+            </span>
+          </label>
+        </div>
+      )}
       <button
         type="submit"
         className={styles.start}

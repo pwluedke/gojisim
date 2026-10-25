@@ -182,6 +182,34 @@ describe("strategy zones on the mat (M12c-2)", () => {
   const real = (number: string) =>
     getAllCards().find((c) => c.cardNumber === number && c.parentId === null)!;
 
+  it("M5h #13: with Show opponent's hand, the board model has the top player's hand face up; without it, none", () => {
+    const state = game();
+    const p2 = state.players.find((p) => p.id === "P2")!;
+    const hidden = boardModel(state, "P1");
+    expect(
+      hidden.view.players.find((p) => p.id === "P2")?.hand.cards,
+    ).toBeNull();
+    const open = boardModel(state, "P1", true);
+    const hand = open.view.players.find((p) => p.id === "P2")?.hand.cards;
+    expect(hand?.map((c) => c.instanceId)).toEqual(
+      p2.hand.map((c) => c.instanceId),
+    );
+    for (const card of p2.hand)
+      expect(open.view.cards[card.cardId]).toBeDefined();
+  });
+
+  it('M5h #6: the hand label reads "Your Hand (N)", with no seat id', () => {
+    const state = game();
+    const count = state.players.find((p) => p.id === "P1")?.hand.length;
+    const html = renderToStaticMarkup(
+      <BoardView model={boardModel(state, "P1")} prompt={null} />,
+    )
+      // The text without tags, so the count's span doesn't split it.
+      .replace(/<[^>]+>/g, "");
+    expect(html).toContain(`Your Hand (${count})`);
+    expect(html).not.toContain("P1,");
+  });
+
   it("E20: a third strategy zone appears only once the player has one", () => {
     const state = game();
     const html = (s: GameState) =>

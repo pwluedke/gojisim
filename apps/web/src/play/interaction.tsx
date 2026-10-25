@@ -1,7 +1,12 @@
 import { useDroppable } from "@dnd-kit/core";
 import type { Card } from "@gojisim/cards";
 import type { Action } from "@gojisim/engine";
-import { createContext, type ReactNode, useContext } from "react";
+import {
+  createContext,
+  type CSSProperties,
+  type ReactNode,
+  useContext,
+} from "react";
 import styles from "./Board.module.css";
 import type { DestinationKey } from "./destinations";
 
@@ -21,6 +26,8 @@ export interface Interaction {
   highlight: ReadonlySet<string>;
   /** Sends an action (a zone choice). */
   act: (action: Action) => void;
+  /** Each player's monster glow color name now (M5h #2), or none while Turn glow is off. */
+  monsterGlow?: Readonly<Record<string, string | null>>;
 }
 
 export const InteractionContext = createContext<Interaction>({
@@ -44,12 +51,17 @@ export function Target({
   className,
   testId,
   highlight = false,
+  glow,
+  style,
   children,
 }: {
   dest: DestinationKey;
   className?: string | undefined;
   testId?: string | undefined;
   highlight?: boolean;
+  /** The monster glow's color name (M5h #2), shown as `data-monster-glow`. */
+  glow?: string | null;
+  style?: CSSProperties | undefined;
   children: ReactNode;
 }) {
   const { lit, chooseDestination } = useInteraction();
@@ -63,6 +75,8 @@ export function Target({
       data-target={dest}
       data-lit={isLit ? "true" : undefined}
       data-highlight={highlight ? "true" : undefined}
+      data-monster-glow={glow ?? undefined}
+      style={style}
       onClick={
         isLit
           ? (e) => {

@@ -27,6 +27,33 @@ export function bottomPlayer(
   return humans.length === 1 ? (humans[0] as PlayerId) : "P1";
 }
 
+/** The view with the other player's hand cards face up (and in the view's card catalog). */
+function withOpenHand(
+  view: PlayerView,
+  state: GameState,
+  bottom: PlayerId,
+): PlayerView {
+  const other = state.players.find((p) => p.id !== bottom);
+  if (!other) return view;
+  const cards = { ...view.cards };
+  for (const card of other.hand) {
+    const data = state.cards[card.cardId];
+    if (data) cards[card.cardId] = data;
+  }
+  return {
+    ...view,
+    cards,
+    players: view.players.map((p) =>
+      p.id === other.id
+        ? {
+            ...p,
+            hand: { ...p.hand, cards: other.hand.map((c) => ({ ...c })) },
+          }
+        : p,
+    ) as PlayerView["players"],
+  };
+}
+
 /**
  * Everything the board shows, built for the bottom player: their `getPlayerView` (so hidden
  * information never reaches the board) plus public numbers read through the 10.8.1 layers.
@@ -50,8 +77,17 @@ export interface BoardModel {
   changes: Record<string, CardChange[]>;
 }
 
-export function boardModel(state: GameState, bottom: PlayerId): BoardModel {
-  const view = getPlayerView(state, bottom);
+/**
+ * `openHand` (M5h #13, "Show opponent's hand"): the top player's hand shows face up. Only the
+ * board sees it; the bot still plays from its own view.
+ */
+export function boardModel(
+  state: GameState,
+  bottom: PlayerId,
+  openHand = false,
+): BoardModel {
+  const base = getPlayerView(state, bottom);
+  const view = openHand ? withOpenHand(base, state, bottom) : base;
   const counterPower: Record<string, number> = {};
   const threat: Record<string, number> = {};
   const totalCounterPower: Record<string, number> = {};
