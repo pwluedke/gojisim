@@ -13,10 +13,6 @@ export const THEMES: readonly Theme[] = ["dark", "grey", "light"];
  * can be missing or blocked, so every read and write is guarded and the defaults always work.
  */
 export interface Settings {
-  /** Ask "Pass with playable cards left?" when a lit hand card exists (default on). */
-  confirmPass: boolean;
-  /** In hotseat, cover the board when the decider changes. */
-  hotseatCover: boolean;
   /** Bot delay per action, 0 to 3,000 ms (M5d). */
   botDelay: number;
   /** Show rule numbers in the battle log (M5d, default off). */
@@ -36,8 +32,6 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  confirmPass: true,
-  hotseatCover: true,
   botDelay: 600,
   showRules: false,
   expandedHand: true,
@@ -60,8 +54,13 @@ const STORAGE_KEY = "gojisim.settings";
 export function loadSettings(): Settings {
   try {
     const text = window.localStorage.getItem(STORAGE_KEY);
-    const saved = text ? (JSON.parse(text) as Partial<Settings>) : {};
-    return { ...DEFAULT_SETTINGS, ...saved };
+    const saved = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+    // Only known keys: removed settings (M5h: `hotseatCover`, `confirmPass`) drop quietly and
+    // are gone after the next save.
+    const known = Object.fromEntries(
+      Object.entries(saved).filter(([key]) => key in DEFAULT_SETTINGS),
+    ) as Partial<Settings>;
+    return { ...DEFAULT_SETTINGS, ...known };
   } catch {
     return DEFAULT_SETTINGS;
   }

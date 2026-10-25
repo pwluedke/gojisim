@@ -61,7 +61,7 @@ describe("/play board model (M5a)", () => {
     }
   });
 
-  it("bottom player: the human against a bot, the decider in hotseat, P1 with two bots", () => {
+  it("bottom player: the human against a bot, P1 with two bots", () => {
     const state = game();
     expect(
       bottomPlayer(state, {
@@ -69,9 +69,6 @@ describe("/play board model (M5a)", () => {
         P2: { kind: "human" },
       }),
     ).toBe("P2");
-    expect(
-      bottomPlayer(state, { P1: { kind: "human" }, P2: { kind: "human" } }),
-    ).toBe(state.pendingChoice?.player ?? state.turnPlayer);
     expect(
       bottomPlayer(state, {
         P1: { kind: "bot", difficulty: 1 },

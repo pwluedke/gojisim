@@ -14,8 +14,8 @@ import type { SeatConfig } from "../game/bots";
 import type { PlayerId } from "../game/session";
 
 /**
- * Who sits at the bottom of the board (M5a): the human seat against a bot; in hotseat, the
- * player who must decide now (the board flips when that changes); with two bots, P1.
+ * Who sits at the bottom of the board (M5a): the human seat against a bot; with two bots, P1.
+ * `/play` has at most one human seat (M5h removed hotseat).
  */
 export function bottomPlayer(
   state: GameState,
@@ -24,10 +24,7 @@ export function bottomPlayer(
   const humans = (["P1", "P2"] as const).filter(
     (id) => seats[id].kind === "human",
   );
-  if (humans.length === 1) return humans[0] as PlayerId;
-  if (humans.length === 2)
-    return (state.pendingChoice?.player ?? state.turnPlayer) as PlayerId;
-  return "P1";
+  return humans.length === 1 ? (humans[0] as PlayerId) : "P1";
 }
 
 /**

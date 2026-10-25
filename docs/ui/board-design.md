@@ -4,6 +4,8 @@ Approved by Paul, Oct 22, 2026, with all proposed defaults for the open question
 
 ## Summary
 
+**M5h change (Paul, Oct 25, 2026):** hotseat is removed until M9 adds online play. `/play` is human vs bot (P1 can also be a bot, to watch two bots); the privacy cover, its setting, "Pass to P2" and P2's First / Second pick are gone. Records with two human seats load in `/debug`. Every Pass asks "End Main and move to the Counter Phase?" (it replaces "Pass with playable cards left?" and its setting). The text below is the original plan.
+
 M5 builds the real game board at `/play`, for hotseat and human-vs-bot games. Its layout and match flow follow ucgrising.com; styling is clean and functional (the kaiju theme comes in M15). `/debug` stays as is for rules checking.
 
 The engine, `getLegalActions`, `getPlayerView`, the bot worker, game records, export/import and deck import are unchanged. The board only reads state and sends actions; it holds no game rules.

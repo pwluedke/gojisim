@@ -30,7 +30,8 @@ describe("confirmSingleOption seats (M5d, renamed in M5e)", () => {
     );
     expect(vsBot.record.confirmSingleOption).toEqual(["P1"]);
     expect(vsBot.states[0]?.confirmSingleOption).toEqual(["P1"]);
-    const hotseat = newSession(
+    // Two human seats, as `/debug` has.
+    const twoHumans = newSession(
       1,
       decks(),
       { P1: human, P2: human },
@@ -38,7 +39,7 @@ describe("confirmSingleOption seats (M5d, renamed in M5e)", () => {
         confirmTargets: true,
       },
     );
-    expect(hotseat.states[0]?.confirmSingleOption).toEqual(["P1", "P2"]);
+    expect(twoHumans.states[0]?.confirmSingleOption).toEqual(["P1", "P2"]);
     const bots = newSession(
       1,
       decks(),
@@ -87,7 +88,7 @@ describe("First / Second pick and Casual undo (M5e)", () => {
     expect(loaded.states[0]?.firstPlayer).toBe(session.states[0]?.firstPlayer);
   });
 
-  /** A hotseat game advanced to the first battle card play, then that play. */
+  /** A game with two human seats (as in `/debug`) advanced to the first battle card play. */
   function afterAPlay(mode: "casual" | "tournament") {
     let session = newSession(2, decks(), { P1: human, P2: human }, { mode });
     for (let i = 0; i < 40; i++) {

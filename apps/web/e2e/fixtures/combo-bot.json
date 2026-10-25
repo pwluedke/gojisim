@@ -1,7 +1,7 @@
 {
-  "note": "Hotseat: P2's next action (`next`) completes a combo (M5g callout)",
+  "note": "The bot's only legal action (`next`) completes its combo (M5g callout, M5h: no hotseat)",
   "version": 1,
-  "seed": 4,
+  "seed": 112,
   "decks": [
     {
       "id": "P1",
@@ -2395,288 +2395,106 @@
     }
   ],
   "actions": [
-    { "type": "gainRage", "player": "P2", "cardInstanceId": "c117" },
-    { "type": "gainRage", "player": "P2", "cardInstanceId": "c121" },
+    { "type": "gainRage", "player": "P1", "cardInstanceId": "c111" },
     {
       "type": "activateStrategy",
-      "player": "P2",
-      "cardInstanceId": "c115",
-      "strategyZone": 2
-    },
-    { "type": "gainRage", "player": "P2", "cardInstanceId": "c116" },
-    { "type": "pass", "player": "P2" },
-    {
-      "type": "playBattle",
       "player": "P1",
       "cardInstanceId": "c112",
-      "zone": 8
+      "strategyZone": 2
     },
+    { "type": "invade", "player": "P1", "cardInstanceId": "c110" },
+    { "type": "pass", "player": "P1" },
+    { "type": "pass", "player": "P2" },
+    { "type": "gainRage", "player": "P1", "cardInstanceId": "c126" },
     {
       "type": "playBattle",
       "player": "P1",
       "cardInstanceId": "c113",
-      "zone": 6
+      "zone": 8
     },
+    { "type": "gainRage", "player": "P1", "cardInstanceId": "c129" },
+    { "type": "pass", "player": "P1" },
+    { "type": "pass", "player": "P2" },
+    { "type": "choose", "player": "P1", "choiceId": 1, "optionId": "no" },
+    {
+      "type": "playBattle",
+      "player": "P1",
+      "cardInstanceId": "c138",
+      "zone": 1
+    },
+    { "type": "gainRage", "player": "P1", "cardInstanceId": "c136" },
+    { "type": "invade", "player": "P1", "cardInstanceId": "c127" },
+    {
+      "type": "activateStrategy",
+      "player": "P1",
+      "cardInstanceId": "c109",
+      "strategyZone": 1
+    },
+    { "type": "choose", "player": "P1", "choiceId": 2, "optionId": "c140" },
+    { "type": "choose", "player": "P1", "choiceId": 3, "optionId": "c29" },
     { "type": "pass", "player": "P1" },
     {
       "type": "playBattle",
       "player": "P2",
-      "cardInstanceId": "c118",
+      "cardInstanceId": "c114",
       "zone": 8
     },
-    { "type": "gainRage", "player": "P2", "cardInstanceId": "c128" },
-    { "type": "gainRage", "player": "P2", "cardInstanceId": "c136" },
-    { "type": "gainRage", "player": "P2", "cardInstanceId": "c129" },
+    {
+      "type": "playBattle",
+      "player": "P2",
+      "cardInstanceId": "c137",
+      "zone": 2
+    },
+    {
+      "type": "playBattle",
+      "player": "P2",
+      "cardInstanceId": "c128",
+      "zone": 1
+    },
+    {
+      "type": "playBattle",
+      "player": "P2",
+      "cardInstanceId": "c116",
+      "zone": 2
+    },
     { "type": "pass", "player": "P2" },
-    { "type": "choose", "player": "P1", "choiceId": 1, "optionId": "s3" },
-    { "type": "choose", "player": "P1", "choiceId": 2, "optionId": "no" },
-    { "type": "choose", "player": "P1", "choiceId": 3, "optionId": "no" },
-    { "type": "gainRage", "player": "P1", "cardInstanceId": "c130" },
-    { "type": "gainRage", "player": "P1", "cardInstanceId": "c111" },
-    { "type": "invade", "player": "P1", "cardInstanceId": "c110" },
-    { "type": "pass", "player": "P1" },
-    { "type": "gainRage", "player": "P2", "cardInstanceId": "c145" },
-    { "type": "pass", "player": "P2" },
-    { "type": "choose", "player": "P1", "choiceId": 4, "optionId": "s4" },
+    { "type": "choose", "player": "P1", "choiceId": 4, "optionId": "s6" },
     { "type": "choose", "player": "P1", "choiceId": 5, "optionId": "yes" },
-    { "type": "choose", "player": "P1", "choiceId": 6, "optionId": "c134" },
-    { "type": "choose", "player": "P1", "choiceId": 7, "optionId": "c37" },
-    { "type": "choose", "player": "P1", "choiceId": 8, "optionId": "s6" },
-    { "type": "choose", "player": "P1", "choiceId": 9, "optionId": "yes" },
-    { "type": "choose", "player": "P1", "choiceId": 10, "optionId": "c132" },
-    { "type": "choose", "player": "P1", "choiceId": 11, "optionId": "c23" },
-    { "type": "gainRage", "player": "P1", "cardInstanceId": "c150" },
+    { "type": "choose", "player": "P1", "choiceId": 6, "optionId": "c133" },
+    { "type": "choose", "player": "P1", "choiceId": 7, "optionId": "done" },
+    { "type": "choose", "player": "P1", "choiceId": 8, "optionId": "no" },
     {
       "type": "playBattle",
       "player": "P1",
       "cardInstanceId": "c135",
-      "zone": 1
+      "zone": 5
     },
-    {
-      "type": "activateStrategy",
-      "player": "P1",
-      "cardInstanceId": "c156",
-      "strategyZone": 2
-    },
-    { "type": "choose", "player": "P1", "choiceId": 12, "optionId": "c157" },
-    { "type": "choose", "player": "P1", "choiceId": 13, "optionId": "done" },
-    { "type": "gainRage", "player": "P1", "cardInstanceId": "c151" },
+    { "type": "gainRage", "player": "P1", "cardInstanceId": "c160" },
     { "type": "pass", "player": "P1" },
     {
-      "type": "playBattle",
-      "player": "P2",
-      "cardInstanceId": "c127",
-      "zone": 2
-    },
-    {
-      "type": "playBattle",
+      "type": "activateStrategy",
       "player": "P2",
       "cardInstanceId": "c168",
-      "zone": 1
+      "strategyZone": 2
     },
-    { "type": "pass", "player": "P2" },
-    { "type": "choose", "player": "P1", "choiceId": 14, "optionId": "no" },
-    { "type": "pass", "player": "P1" },
-    {
-      "type": "playBattle",
-      "player": "P2",
-      "cardInstanceId": "c152",
-      "zone": 3
-    },
-    {
-      "type": "playBattle",
-      "player": "P2",
-      "cardInstanceId": "c173",
-      "zone": 4
-    },
-    {
-      "type": "playBattle",
-      "player": "P2",
-      "cardInstanceId": "c144",
-      "zone": 3
-    },
-    { "type": "pass", "player": "P2" },
-    { "type": "choose", "player": "P1", "choiceId": 15, "optionId": "c2" },
-    { "type": "choose", "player": "P1", "choiceId": 16, "optionId": "c139" },
-    { "type": "choose", "player": "P1", "choiceId": 17, "optionId": "no" },
-    { "type": "pass", "player": "P1" },
-    { "type": "pass", "player": "P2" },
-    { "type": "choose", "player": "P1", "choiceId": 18, "optionId": "yes" },
-    { "type": "choose", "player": "P1", "choiceId": 19, "optionId": "c157" },
-    { "type": "choose", "player": "P1", "choiceId": 20, "optionId": "done" },
-    { "type": "pass", "player": "P1" },
-    { "type": "invade", "player": "P2", "cardInstanceId": "c190" },
-    {
-      "type": "playBattle",
-      "player": "P2",
-      "cardInstanceId": "c186",
-      "zone": 7
-    },
-    {
-      "type": "playBattle",
-      "player": "P2",
-      "cardInstanceId": "c189",
-      "zone": 6
-    },
-    { "type": "gainRage", "player": "P2", "cardInstanceId": "c192" },
-    { "type": "pass", "player": "P2" },
-    { "type": "choose", "player": "P1", "choiceId": 21, "optionId": "c3" },
-    { "type": "choose", "player": "P1", "choiceId": 22, "optionId": "c164" },
-    { "type": "choose", "player": "P1", "choiceId": 23, "optionId": "P1:6" },
-    { "type": "choose", "player": "P1", "choiceId": 24, "optionId": "s16" },
-    { "type": "choose", "player": "P1", "choiceId": 25, "optionId": "yes" },
-    { "type": "choose", "player": "P1", "choiceId": 26, "optionId": "c157" },
-    { "type": "choose", "player": "P1", "choiceId": 27, "optionId": "c35" },
-    { "type": "choose", "player": "P1", "choiceId": 28, "optionId": "s15" },
-    { "type": "choose", "player": "P1", "choiceId": 29, "optionId": "yes" },
-    { "type": "choose", "player": "P1", "choiceId": 30, "optionId": "c201" },
-    { "type": "choose", "player": "P1", "choiceId": 31, "optionId": "c36" },
-    { "type": "choose", "player": "P1", "choiceId": 32, "optionId": "s18" },
-    {
-      "type": "playBattle",
-      "player": "P1",
-      "cardInstanceId": "c154",
-      "zone": 2
-    },
-    {
-      "type": "playBattle",
-      "player": "P1",
-      "cardInstanceId": "c205",
-      "zone": 4
-    },
-    { "type": "gainRage", "player": "P1", "cardInstanceId": "c167" },
-    {
-      "type": "playBattle",
-      "player": "P1",
-      "cardInstanceId": "c109",
-      "zone": 3
-    },
-    {
-      "type": "playBattle",
-      "player": "P1",
-      "cardInstanceId": "c202",
-      "zone": 2
-    },
-    { "type": "gainRage", "player": "P1", "cardInstanceId": "c191" },
-    {
-      "type": "playBattle",
-      "player": "P1",
-      "cardInstanceId": "c146",
-      "zone": 4
-    },
+    { "type": "playMonster", "player": "P2", "cardInstanceId": "c159" },
+    { "type": "choose", "player": "P2", "choiceId": 9, "optionId": "s9" },
+    { "type": "choose", "player": "P2", "choiceId": 10, "optionId": "c145" },
+    { "type": "choose", "player": "P2", "choiceId": 11, "optionId": "s10" },
+    { "type": "choose", "player": "P2", "choiceId": 12, "optionId": "done" },
     {
       "type": "activateStrategy",
-      "player": "P1",
-      "cardInstanceId": "c166",
+      "player": "P2",
+      "cardInstanceId": "c118",
       "strategyZone": 1
     },
-    { "type": "gainRage", "player": "P1", "cardInstanceId": "c188" },
-    {
-      "type": "activateStrategy",
-      "player": "P1",
-      "cardInstanceId": "c206",
-      "strategyZone": 2
-    },
-    {
-      "type": "playBattle",
-      "player": "P1",
-      "cardInstanceId": "c174",
-      "zone": 7
-    },
-    { "type": "pass", "player": "P1" },
-    { "type": "choose", "player": "P2", "choiceId": 33, "optionId": "c6" },
-    { "type": "gainRage", "player": "P2", "cardInstanceId": "c240" },
-    {
-      "type": "playBattle",
-      "player": "P2",
-      "cardInstanceId": "c238",
-      "zone": 8
-    },
-    { "type": "gainRage", "player": "P2", "cardInstanceId": "c239" },
-    { "type": "pass", "player": "P2" },
-    { "type": "choose", "player": "P1", "choiceId": 34, "optionId": "yes" },
-    { "type": "choose", "player": "P1", "choiceId": 35, "optionId": "c228" },
-    { "type": "choose", "player": "P1", "choiceId": 36, "optionId": "done" },
-    { "type": "gainRage", "player": "P1", "cardInstanceId": "c235" },
-    { "type": "gainRage", "player": "P1", "cardInstanceId": "c236" },
-    { "type": "invade", "player": "P1", "cardInstanceId": "c234" },
-    {
-      "type": "activateStrategy",
-      "player": "P1",
-      "cardInstanceId": "c247",
-      "strategyZone": 1
-    },
-    { "type": "choose", "player": "P1", "choiceId": 37, "optionId": "P2:7" },
-    { "type": "pass", "player": "P1" },
-    { "type": "choose", "player": "P2", "choiceId": 38, "optionId": "c7" },
-    {
-      "type": "playBattle",
-      "player": "P2",
-      "cardInstanceId": "c267",
-      "zone": 8
-    },
-    {
-      "type": "playBattle",
-      "player": "P2",
-      "cardInstanceId": "c265",
-      "zone": 3
-    },
-    {
-      "type": "activateStrategy",
-      "player": "P2",
-      "cardInstanceId": "c193",
-      "strategyZone": 2
-    },
-    { "type": "pass", "player": "P2" },
-    {
-      "type": "playBattle",
-      "player": "P1",
-      "cardInstanceId": "c275",
-      "zone": 6
-    },
-    {
-      "type": "playBattle",
-      "player": "P1",
-      "cardInstanceId": "c263",
-      "zone": 7
-    },
-    { "type": "gainRage", "player": "P1", "cardInstanceId": "c274" },
-    {
-      "type": "activateStrategy",
-      "player": "P1",
-      "cardInstanceId": "c264",
-      "strategyZone": 2
-    },
-    { "type": "choose", "player": "P1", "choiceId": 39, "optionId": "P2:5" },
-    { "type": "pass", "player": "P1" },
-    { "type": "choose", "player": "P2", "choiceId": 40, "optionId": "c8" },
-    { "type": "pass", "player": "P2" },
-    { "type": "choose", "player": "P1", "choiceId": 41, "optionId": "yes" },
-    { "type": "choose", "player": "P1", "choiceId": 42, "optionId": "c281" },
-    { "type": "choose", "player": "P1", "choiceId": 43, "optionId": "done" },
-    {
-      "type": "activateStrategy",
-      "player": "P1",
-      "cardInstanceId": "c276",
-      "strategyZone": 1
-    },
-    { "type": "gainRage", "player": "P1", "cardInstanceId": "c291" },
-    { "type": "pass", "player": "P1" },
-    { "type": "playMonster", "player": "P2", "cardInstanceId": "c301" },
-    {
-      "type": "activateStrategy",
-      "player": "P2",
-      "cardInstanceId": "c303",
-      "strategyZone": 2
-    }
+    { "type": "invade", "player": "P2", "cardInstanceId": "c115" }
   ],
-  "seats": { "P1": { "kind": "human" }, "P2": { "kind": "human" } },
-  "botSeed": "4-bots",
-  "confirmSingleOption": ["P1", "P2"],
-  "next": {
-    "type": "playBattle",
-    "player": "P2",
-    "cardInstanceId": "c289",
-    "zone": 8
-  }
+  "seats": {
+    "P1": { "kind": "human" },
+    "P2": { "kind": "bot", "bot": "ismcts", "settings": { "difficulty": 55 } }
+  },
+  "botSeed": "112-bots",
+  "confirmSingleOption": ["P1"],
+  "next": { "type": "pass", "player": "P2" }
 }

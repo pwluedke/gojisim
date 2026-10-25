@@ -9,16 +9,11 @@ import styles from "./NewGame.module.css";
  */
 export function FirstPick({
   picker,
-  pickerName,
-  heading,
   build,
   onStart,
 }: {
-  /** The seat that picks: the human against a bot, P2 in hotseat. */
+  /** The seat that picks: the human, against a bot. */
   picker: string;
-  /** "You" against a bot, the seat id in hotseat. */
-  pickerName: string;
-  heading: string;
   build: (card: 0 | 1) => Session;
   onStart: (session: Session) => void;
 }) {
@@ -51,10 +46,10 @@ export function FirstPick({
       data-testid="first-pick"
       data-picker={picker}
     >
-      <h1 className={styles.title}>{heading}</h1>
+      <h1 className={styles.title}>Pick First or Second</h1>
       <p>
         {picked
-          ? `${pickerName} ${pickerName === "You" ? "go" : "goes"} ${goesFirst ? "first" : "second"}.`
+          ? `You go ${goesFirst ? "first" : "second"}.`
           : "One card is First, the other is Second. Pick one."}
       </p>
       <div className={styles.pickCards}>

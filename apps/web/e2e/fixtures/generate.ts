@@ -89,9 +89,30 @@ interface Fixture {
   ) => boolean;
   /** Whose next action `matchNext` looks at (default P1). */
   actor?: "P1" | "P2";
-  /** Both seats human (a hotseat record) instead of P2 the Medium bot. */
-  hotseat?: boolean;
+  /**
+   * With `actor: "P2"`: only where the bot has a single legal action, so the loaded record's bot
+   * must take it (its search is otherwise not repeatable).
+   */
+  forced?: boolean;
+  /** P1 only passes (first option in choices), so its hand grows (M5h `hand-ten`). */
+  p1Passes?: boolean;
 }
+
+/** Hand action types P1 can take at a play timing. */
+const handActionTypes = (state: GameState) =>
+  new Set(
+    getLegalActions(state, "P1")
+      .filter((a) =>
+        [
+          "playBattle",
+          "activateStrategy",
+          "gainRage",
+          "playMonster",
+          "invade",
+        ].includes(a.type),
+      )
+      .map((a) => a.type),
+  );
 
 /** Zone top cards (instance ids) on the field. */
 const zoneTops = (state: GameState) =>
@@ -254,16 +275,33 @@ const FIXTURES: Fixture[] = [
       !after.result,
   },
   {
-    name: "combo-p2",
-    note: "Hotseat: P2's next action (`next`) completes a combo (M5g callout)",
+    name: "combo-bot",
+    note: "The bot's only legal action (`next`) completes its combo (M5g callout, M5h: no hotseat)",
     decks: (g) => (g % 2 ? [esd01, esd02] : [esd02, esd01]),
     confirmSingleOption: true,
     actor: "P2",
-    hotseat: true,
+    forced: true,
     match: () => false,
-    matchNext: (_b, action, _a, combos) =>
-      HAND_OR_CHOICE.includes(action.type) &&
+    matchNext: (_b, _action, _a, combos) =>
       combos.some((c) => c.player === "P2"),
+  },
+  {
+    name: "hand-five",
+    note: "P1's play timing with all five hand actions (8.2 to 8.6) against the Medium bot",
+    decks: official,
+    confirmSingleOption: true,
+    match: () => false,
+    matchPlay: (state) => handActionTypes(state).size === 5,
+  },
+  {
+    name: "hand-ten",
+    note: "P1, only passing, holds 10 cards at its play timing against the Medium bot",
+    decks: official,
+    confirmSingleOption: true,
+    p1Passes: true,
+    match: () => false,
+    matchPlay: (state) =>
+      state.players.find((p) => p.id === "P1")?.hand.length === 10,
   },
   {
     name: "deck-bottom",
@@ -307,15 +345,11 @@ for (const fixture of FIXTURES.filter(
       actions: [],
       seats: {
         P1: { kind: "human" },
-        P2: fixture.hotseat
-          ? { kind: "human" }
-          : { kind: "bot", bot: "ismcts", settings: { difficulty: 55 } },
+        P2: { kind: "bot", bot: "ismcts", settings: { difficulty: 55 } },
       },
       botSeed: `${g}-bots`,
       ...(fixture.confirmSingleTarget ? { confirmSingleTarget: ["P1"] } : {}),
-      ...(fixture.confirmSingleOption
-        ? { confirmSingleOption: fixture.hotseat ? ["P1", "P2"] : ["P1"] }
-        : {}),
+      ...(fixture.confirmSingleOption ? { confirmSingleOption: ["P1"] } : {}),
     };
     let state = startGame(record);
     const pick = rng(g);
@@ -339,9 +373,13 @@ for (const fixture of FIXTURES.filter(
       const legal = getLegalActions(state, who).filter(
         (x) => x.type !== "concede",
       );
-      const action = weightedPick(stateBoard(state), legal, (n) =>
-        Math.floor(pick() * n),
-      );
+      const passes =
+        fixture.p1Passes && who === "P1"
+          ? (legal.find((a) => a.type === "pass") ?? legal[0])
+          : undefined;
+      const action =
+        passes ??
+        weightedPick(stateBoard(state), legal, (n) => Math.floor(pick() * n));
       const after = advanceToDecision(applyAction(state, action));
       const combos = detectCombos(
         tracker,
@@ -352,6 +390,7 @@ for (const fixture of FIXTURES.filter(
       );
       if (
         who === (fixture.actor ?? "P1") &&
+        (!fixture.forced || legal.length === 1) &&
         fixture.matchNext?.(state, action, after, combos)
       ) {
         found = record;

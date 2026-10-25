@@ -1,18 +1,13 @@
 import { expect, type Page, test } from "@playwright/test";
-import { passTurn, startGame } from "./helpers";
+import { loadFixture } from "./helpers";
 
 /**
  * The M5b fix (godzilla-sim formatting): every card is the full card image at one size derived
- * from the window, and the board never scrolls. Seed 1 in hotseat, both players only passing:
- * P1 holds 10 cards on turn 9.
+ * from the window, and the board never scrolls. The `hand-ten` fixture (M5h, replacing a hotseat
+ * seed): P1, only passing against the Medium bot, holds 10 cards at its play timing.
  */
 async function handOfTen(page: Page) {
-  await page.goto("/play?mode=hotseat");
-  await page.getByTestId("seed-input").fill("1");
-  await startGame(page);
-  for (let i = 0; i < 8; i++) {
-    await passTurn(page);
-  }
+  await loadFixture(page, "hand-ten");
   await expect(page.getByTestId("board")).toHaveAttribute("data-bottom", "P1");
   await expect(page.getByTestId("your-hand-count")).toHaveText("10");
 }
@@ -68,19 +63,30 @@ for (const [width, height] of [
       page,
     }) => {
       await handOfTen(page);
-      // Put a battle card on the mat, next to the two monsters.
+      // The bot's battle cards are on the mat too (the fixture is a real game).
+      const chips = await page.getByTestId("counter-power-chip").count();
+      // Put a battle card on the mat.
       const lit = page.locator(
         '[data-testid="hand-card"][data-hand-lit="true"]',
       );
-      await lit.first().click();
-      await page.locator('[data-lit][data-target^="zone:"]').first().click();
+      // The first lit card that can go to a zone (strategy and monster cards light other areas).
+      const zone = page.locator('[data-lit][data-target^="zone:"]').first();
+      for (const card of await lit.all()) {
+        await card.click();
+        if (await zone.count()) break;
+        await page.keyboard.press("Escape");
+      }
+      await zone.click();
       await expect(page.getByTestId("your-hand-count")).toHaveText("9");
-      await expect(page.getByTestId("counter-power-chip")).toHaveCount(1);
+      await expect(page.getByTestId("counter-power-chip")).toHaveCount(
+        chips + 1,
+      );
       await expect(page.getByTestId("threat-chip")).toHaveCount(2);
 
-      const sizesOf = async (selector: string, expected: number) => {
+      const sizesOf = async (selector: string, expected?: number) => {
         const cards = page.getByTestId("board").locator(selector);
-        expect(await cards.count()).toBe(expected);
+        if (expected !== undefined) expect(await cards.count()).toBe(expected);
+        else expect(await cards.count()).toBeGreaterThanOrEqual(3);
         const sizes: { width: number; height: number }[] = [];
         for (const card of await cards.all()) {
           const cardId = await card.getAttribute("data-card-id");
@@ -104,10 +110,10 @@ for (const [width, height] of [
         );
         return first;
       };
-      // 1 battle card and 2 monsters on the mats; 9 cards in the hand.
+      // Every portrait card on the mats (the bot's too, and both monsters; strategy cards lie
+      // sideways); 9 cards in the hand.
       const board = await sizesOf(
-        '[data-testid="card"]:not([data-testid="opponent-hand"] *):not([data-testid="your-hand"] *)',
-        3,
+        '[data-testid="card"]:not([data-testid="opponent-hand"] *):not([data-testid="your-hand"] *):not([data-testid^="strategy-"] *)',
       );
       const hand = await sizesOf(
         '[data-testid="your-hand"] [data-testid="card"]',

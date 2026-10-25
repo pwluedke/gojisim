@@ -1,42 +1,85 @@
+import { readFileSync } from "node:fs";
 import { expect, type Page } from "@playwright/test";
 
-/** The turn number, or -1 while the hotseat cover hides the board. */
+/** The turn number. */
 export async function turnNumber(page: Page): Promise<number> {
-  const turn = page.getByTestId("turn");
-  return (await turn.count()) ? Number(await turn.textContent()) : -1;
+  return Number(await page.getByTestId("turn").textContent());
 }
 
 /**
- * Passes and waits for the next turn: confirms "Pass with playable cards left?" and clears the
- * hotseat privacy cover when they appear (M5c).
+ * Passes and waits for the next turn: confirms "End Main and move to the Counter Phase?",
+ * which every Pass asks (M5h).
  */
 export async function passTurn(page: Page): Promise<void> {
   const turn = await turnNumber(page);
   await page.getByTestId("pass").click();
+  await page.getByTestId("confirm-yes").click();
   await expect
-    .poll(
-      async () => {
-        for (const id of ["confirm-yes", "privacy-cover"]) {
-          const button = page.getByTestId(id);
-          if (await button.count()) await button.click();
-        }
-        return turnNumber(page);
-      },
-      { intervals: [100] },
-    )
+    .poll(() => turnNumber(page), { intervals: [100] })
     .toBe(turn + 1);
 }
 
-/** Opens `/play` and loads a choice fixture record (e2e/fixtures, made by generate.ts). */
-export async function loadFixture(page: Page, name: string): Promise<void> {
+/** Passes, then waits through the bot's turn until it is the human's play timing again. */
+export async function passToMyTurn(page: Page): Promise<void> {
+  const turn = await turnNumber(page);
+  await passTurn(page);
+  await expect
+    .poll(() => turnNumber(page), { intervals: [100], timeout: 30_000 })
+    .toBe(turn + 2);
+  await expect(page.getByTestId("pass")).toBeVisible({ timeout: 30_000 });
+}
+
+/**
+ * Starts P1 (human) vs P2 (the Medium bot) with `seed`. `first`: P1 goes first, so the board
+ * waits at the human's turn 1 (the First / Second pick picks the card that says so).
+ */
+export async function vsBot(
+  page: Page,
+  seed: number,
+  first = true,
+): Promise<void> {
   await page.goto("/play?mode=bot");
-  await page
-    .getByTestId("load-record")
-    .setInputFiles(
-      new URL(`./fixtures/${name}.json`, import.meta.url).pathname,
-    );
+  await page.getByTestId("seed-input").fill(String(seed));
+  await page.getByTestId("start-game").click();
+  await page.getByTestId("first-pick-card-0").click();
+  const face = await page
+    .getByTestId("first-pick-card-0")
+    .getAttribute("data-face");
+  // The other card says the opposite, but the pick is made: start again with the other card.
+  if ((face === "First") !== first) {
+    await page.goto("/play?mode=bot");
+    await page.getByTestId("seed-input").fill(String(seed));
+    await page.getByTestId("start-game").click();
+    await page.getByTestId("first-pick-card-1").click();
+  }
+  await page.getByTestId("first-pick-continue").click();
+  await expect(page.getByTestId("board")).toBeVisible();
+  if (first) await expect(page.getByTestId("pass")).toBeVisible();
+}
+
+/**
+ * Opens `/play` and loads a choice fixture record (e2e/fixtures, made by generate.ts); `patch`
+ * changes the record's fields first (e.g. `{ mode: "tournament" }`).
+ */
+export async function loadFixture(
+  page: Page,
+  name: string,
+  patch: Record<string, unknown> = {},
+): Promise<void> {
+  await page.goto("/play?mode=bot");
+  await page.getByTestId("load-record").setInputFiles({
+    name: `${name}.json`,
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify({ ...fixture(name), ...patch })),
+  });
   await expect(page.getByTestId("board")).toBeVisible();
 }
+
+/** A fixture record's JSON. */
+export const fixture = (name: string): Record<string, unknown> =>
+  JSON.parse(
+    readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), "utf8"),
+  ) as Record<string, unknown>;
 
 /**
  * Starts the game set up on the new-game screen. The First / Second pick (M5e) picks the card

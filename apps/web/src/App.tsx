@@ -1,7 +1,7 @@
 import "./theme.css";
 import styles from "./Menu.module.css";
 
-/** The `/` menu (M5a): Play vs bot, Hotseat, Debug. */
+/** The `/` menu (M5a): Play vs bot and Debug (hotseat was removed in M5h). */
 export function App() {
   return (
     <div className="gojisim">
@@ -13,13 +13,6 @@ export function App() {
           data-testid="menu-play-bot"
         >
           Play vs bot
-        </a>
-        <a
-          className={styles.item}
-          href="/play?mode=hotseat"
-          data-testid="menu-hotseat"
-        >
-          Hotseat
         </a>
         <a className={styles.debug} href="/debug" data-testid="menu-debug">
           Debug

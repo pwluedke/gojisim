@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { loadFixture, passTurn, startGame } from "./helpers";
+import { loadFixture, startGame, vsBot } from "./helpers";
 
 /**
  * M5f: card animations at Normal speed (every other spec runs with them Off), the destroy
@@ -60,12 +60,9 @@ function settings(page: Page, values: Record<string, unknown>) {
   }, JSON.stringify(values));
 }
 
-/** Hotseat seed 2 plus one Pass: P1's turn 2 offers all five hand actions (the cover is off). */
-async function hotseatTurn2(page: Page) {
-  await page.goto("/play?mode=hotseat");
-  await page.getByTestId("seed-input").fill("2");
-  await startGame(page);
-  await passTurn(page);
+/** The hand-five fixture (M5h, replacing a hotseat seed): P1's turn with all five hand actions. */
+async function handFive(page: Page) {
+  await loadFixture(page, "hand-five");
   await settled(page);
   await expect(page.getByTestId("board")).toHaveAttribute("data-bottom", "P1");
 }
@@ -83,15 +80,21 @@ async function drag(page: Page, from: Locator, to: Locator) {
   await page.mouse.up();
 }
 
-/** The first hand card lit for a zone, its card id, and a lit zone for it. */
+/** The first hand card lit for a zone, its card id, and an empty lit zone for it (no overload). */
 async function battleCardAndZone(page: Page) {
   const card = page
     .locator('[data-testid="hand-card"][data-hand-lit="true"]')
     .first();
   const cardId = await card.getByTestId("card").getAttribute("data-card-id");
   await card.click();
-  const zone = page.locator('[data-lit][data-target^="zone:"]').first();
-  const target = await zone.getAttribute("data-target");
+  let target: string | null = null;
+  for (const zone of await page
+    .locator('[data-lit][data-target^="zone:"]')
+    .all()) {
+    target = await zone.getAttribute("data-target");
+    const cell = page.getByTestId(`zone-P1-${target?.slice(5)}`);
+    if ((await cell.getByTestId("card").count()) === 0) break;
+  }
   await page.keyboard.press("Escape");
   return {
     card,
@@ -102,14 +105,13 @@ async function battleCardAndZone(page: Page) {
 
 test.describe("card movement", () => {
   test.beforeEach(async ({ page }) => {
-    await settings(page, { hotseatCover: false });
     await watchFlights(page);
   });
 
   test("drag and drop: the card flies from the drop point and settles into the slot, input locked meanwhile", async ({
     page,
   }) => {
-    await hotseatTurn2(page);
+    await handFive(page);
     const { card, cardId, zone } = await battleCardAndZone(page);
     const before = (await flights(page)).length;
     await drag(page, card, zone);
@@ -135,7 +137,7 @@ test.describe("card movement", () => {
         JSON.stringify({ ...saved, animation: "off" }),
       );
     });
-    await hotseatTurn2(page);
+    await handFive(page);
     const { card, cardId, zone } = await battleCardAndZone(page);
     await drag(page, card, zone);
     await expect(zone.locator(`[data-card-id="${cardId}"]`)).toBeVisible();
@@ -261,8 +263,7 @@ test.describe("custom mat", () => {
   );
 
   async function start(page: Page) {
-    await page.goto("/play?mode=hotseat");
-    await startGame(page);
+    await vsBot(page, 2);
     await page.getByTestId("settings").click();
   }
 
@@ -398,8 +399,7 @@ test.describe("turn glow", () => {
 
   test("the setting turns it off", async ({ page }) => {
     await settings(page, { turnGlow: false });
-    await page.goto("/play?mode=hotseat");
-    await startGame(page);
+    await vsBot(page, 2);
     expect(await glowing(page)).toEqual([]);
   });
 });
@@ -407,14 +407,18 @@ test.describe("turn glow", () => {
 test("a strategy card in a strategy zone fills its landscape slot, uncropped", async ({
   page,
 }) => {
-  await settings(page, { hotseatCover: false });
-  await hotseatTurn2(page);
-  const card = page
+  await handFive(page);
+  // The first strategy card (rotated in the hand) that can be activated now.
+  const dest = page.locator('[data-lit][data-target^="strategy:"]').first();
+  for (const card of await page
     .locator('[data-testid="hand-card"]')
     .filter({ has: page.locator('[data-rotated="true"]') })
-    .first();
-  await card.click();
-  await page.locator('[data-lit][data-target^="strategy:"]').first().click();
+    .all()) {
+    await card.click();
+    if (await dest.count()) break;
+    await page.keyboard.press("Escape");
+  }
+  await dest.click();
   await settled(page);
   const slots = page.locator('[data-testid^="strategy-P1-"]');
   await expect(slots.getByTestId("card")).toHaveCount(1);
@@ -459,8 +463,7 @@ for (const [width, height] of [
     page,
   }) => {
     await page.setViewportSize({ width, height });
-    await page.goto("/play?mode=hotseat");
-    await startGame(page);
+    await vsBot(page, 2);
     const pad = await page.evaluate(() =>
       parseFloat(
         getComputedStyle(
@@ -508,8 +511,8 @@ for (const [width, height] of [
     page,
   }) => {
     await page.setViewportSize({ width, height });
-    await settings(page, { hotseatCover: false, animation: "off" });
-    await hotseatTurn2(page);
+    await settings(page, { animation: "off" });
+    await handFive(page);
     const gap = await page.evaluate(() =>
       parseFloat(
         getComputedStyle(
@@ -547,7 +550,7 @@ for (const [width, height] of [
 
 test.describe("collapsible battle log", () => {
   test.beforeEach(async ({ page }) => {
-    await settings(page, { hotseatCover: false, animation: "off" });
+    await settings(page, { animation: "off" });
   });
 
   const width = async (page: Page, id: string) =>
@@ -556,7 +559,7 @@ test.describe("collapsible battle log", () => {
   test("the button and L collapse and expand it; collapsed, the board widens and the state survives a reload", async ({
     page,
   }) => {
-    await hotseatTurn2(page);
+    await handFive(page);
     await expect(page.getByTestId("log-panel")).toBeVisible();
     const open = {
       main: (await page.locator("main").boundingBox())?.width ?? 0,
@@ -595,7 +598,7 @@ test.describe("collapsible battle log", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 1300 });
-    await hotseatTurn2(page);
+    await handFive(page);
     const open = await width(page, "zone-P1-1");
     await page.getByTestId("log-collapse").click();
     // --card-h recomputes: the zones (and every card) grow by a quarter or more.
@@ -615,7 +618,7 @@ test.describe("collapsible battle log", () => {
       page,
     }) => {
       await page.setViewportSize({ width: w, height: h });
-      await hotseatTurn2(page);
+      await handFive(page);
       await page.getByTestId("log-collapse").click();
       expect(
         await page.evaluate(() => ({

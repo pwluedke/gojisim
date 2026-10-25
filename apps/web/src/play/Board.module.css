@@ -757,27 +757,6 @@
   margin: 0;
 }
 
-/* The hotseat privacy cover replaces the board until the next player clicks. */
-.cover {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  width: 100%;
-  min-height: 100vh;
-  border: none;
-  background: var(--color-cover);
-  color: var(--color-button-text);
-  font-size: var(--font-size-lg);
-  cursor: pointer;
-}
-
-.coverTitle {
-  font-size: var(--font-size-xl);
-  font-weight: bold;
-}
-
 /* The bot's last move, one line. */
 .toast {
   position: fixed;

@@ -558,8 +558,8 @@ export function FlightLayer({
  * Animates every board change of one step (M5f): after each commit it reads the board, and when
  * the shown state is one action after the last one (same bottom player), it flies the cards that
  * moved. The arrived cards stay hidden until their flight lands. `onAnimating` reports when
- * flights start and end, so input and the bot wait. A history jump, an undo, a hotseat flip or
- * a new game shows at once.
+ * flights start and end, so input and the bot wait. A history jump, an undo or a new game shows
+ * at once.
  */
 export function useMoveAnimations({
   root,

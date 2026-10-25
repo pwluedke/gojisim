@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
-import { loadFixture, startGame } from "./helpers";
+import { loadFixture, startGame, vsBot } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -11,15 +11,13 @@ const THEMES = ["dark", "grey", "light"] as const;
 const background = (page: Page) =>
   page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 
-async function hotseatBoard(page: Page) {
-  await page.goto("/play?mode=hotseat");
-  await startGame(page);
-}
+/** A board on the human's turn 1 against the bot (M5h: no hotseat). */
+const humanBoard = (page: Page) => vsBot(page, 2);
 
 test("each theme changes the page background and survives a reload; Grey is the default", async ({
   page,
 }) => {
-  await hotseatBoard(page);
+  await humanBoard(page);
   await expect(page.locator("html")).toHaveAttribute("data-theme", "grey");
   const seen = new Set<string>();
   for (const theme of THEMES) {
@@ -87,7 +85,7 @@ for (const theme of THEMES)
         JSON.stringify({ animation: "off", theme: t }),
       );
     }, theme);
-    await hotseatBoard(page);
+    await humanBoard(page);
     // Open Settings too, so its controls are checked.
     await page.getByTestId("settings").click();
     const results = await new AxeBuilder({ page })
