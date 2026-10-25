@@ -47,7 +47,12 @@ export interface PlayerState {
   /** Zones 1 to 8 (4.4). Each normally holds at most one battle card stack (11.5). */
   zones: Record<ZoneNumber, CardStack[]>;
   /** The 2 strategy zones (4.5). Each normally holds at most one strategy card (11.5). */
-  strategyZones: [StrategyPlacement[], StrategyPlacement[]];
+  /** 2 strategy zones (4.5.2), or 3 once an effect gives a third for the rest of the game (E20). */
+  strategyZones: [
+    StrategyPlacement[],
+    StrategyPlacement[],
+    ...StrategyPlacement[][],
+  ];
   /** Monster cards not yet played (4.6). Hidden from the opponent. */
   monsterDeck: CardInstance[];
   /** The invading monster stack (4.7); the top card is the active monster (3.2.3.1). */
@@ -403,7 +408,7 @@ export interface FirstPick {
 }
 
 /** One of a player's two strategy zones (4.5.2). */
-export type StrategyZoneNumber = 1 | 2;
+export type StrategyZoneNumber = 1 | 2 | 3;
 
 /** A turn player's choice at the main phase play timing (spec "Actions", 8). */
 export type Action =
@@ -413,6 +418,11 @@ export type Action =
       player: PlayerId;
       cardInstanceId: string;
       zone: ZoneNumber;
+      /**
+       * M2: played on top of the card in that zone, stacked on it (3.2.5), with the play rule's
+       * reduced rank (EBP03-051).
+       */
+      onTop?: true;
     }
   /** Activate a strategy card from hand into an empty strategy zone (8.3). */
   | {
@@ -427,6 +437,11 @@ export type Action =
   | { type: "playMonster"; player: PlayerId; cardInstanceId: string }
   /** Discard a card from hand and advance once per invasion icon point (8.6). */
   | { type: "invade"; player: PlayerId; cardInstanceId: string }
+  /**
+   * Invade paying with the top card of the deck instead of a hand card (8.6, E21 `invasionCost`,
+   * EBP03-004): offered while the invading monster has that replacement.
+   */
+  | { type: "invadeFromDeck"; player: PlayerId }
   /** End the play timing and the main phase (10.4.4.3). */
   | { type: "pass"; player: PlayerId }
   /**

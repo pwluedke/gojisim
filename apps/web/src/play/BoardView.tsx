@@ -10,7 +10,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import type { Card } from "@gojisim/cards";
+import { type Card, getCardAbilities } from "@gojisim/cards";
 import type {
   Action,
   CardStack,
@@ -220,10 +220,20 @@ function Slot({
   );
 }
 
+/** A Base card stays in its strategy zone at the start phase (K1, 12.9.2). */
+function isBase(card: Card | undefined): boolean {
+  return (
+    card !== undefined &&
+    getCardAbilities(card.deckCardNumber).abilities.some(
+      (a) => a.kind === "keyword" && a.keyword.name === "base",
+    )
+  );
+}
+
 /** One area of a player's mat. */
 type MatArea =
   | { kind: "zone"; zone: ZoneNumber }
-  | { kind: "strategy"; index: 1 | 2 }
+  | { kind: "strategy"; index: 1 | 2 | 3 }
   | { kind: "rage" }
   | { kind: "deck" }
   | { kind: "discard" }
@@ -254,6 +264,8 @@ const MAT: readonly {
     row: 2,
   })),
   { area: { kind: "discard" }, col: 6, row: 2 },
+  // E20 (EBP03-013): a third strategy zone, only once a player has one.
+  { area: { kind: "strategy", index: 3 }, col: 6, row: 0 },
 ];
 
 function StrategyZone({
@@ -263,7 +275,7 @@ function StrategyZone({
 }: {
   model: BoardModel;
   player: PlayerAreasView;
-  index: 1 | 2;
+  index: 1 | 2 | 3;
 }) {
   const zone = player.strategyZones[index - 1];
   return (
@@ -289,11 +301,17 @@ function StrategyZone({
                 data-this-turn={
                   p.placedOnTurn === model.view.turn ? "true" : "false"
                 }
-                title={`Placed on turn ${p.placedOnTurn}; it leaves at its owner's next start phase (7.2.3)`}
+                title={
+                  isBase(model.view.cards[p.card.cardId])
+                    ? `Placed on turn ${p.placedOnTurn}; Base: it stays at the start phase (12.9.2)`
+                    : `Placed on turn ${p.placedOnTurn}; it leaves at its owner's next start phase (7.2.3)`
+                }
               >
                 {p.placedOnTurn === model.view.turn
                   ? "New"
-                  : `T${p.placedOnTurn}`}
+                  : isBase(model.view.cards[p.card.cardId])
+                    ? "Base"
+                    : `T${p.placedOnTurn}`}
               </span>
             }
           />
@@ -562,16 +580,16 @@ function Mat({
         />
       )}
       {warning && warning.length > 0 && (
-        // Casual games play illegal decks with a warning for the whole game, in the mat's free
-        // corner past zone 8 (the top right of your mat, the bottom left of the opponent's).
+        // Casual games play illegal decks with a warning for the whole game, in a free cell past
+        // zone 8 (the corner beyond it holds a third strategy zone, E20).
         <div
           className={styles.deckWarning}
           data-testid={`deck-warning-${player.id}`}
           title={warning.join("\n")}
           style={
             side === "you"
-              ? { gridColumn: "7", gridRow: "1" }
-              : { gridColumn: "1", gridRow: "3" }
+              ? { gridColumn: "6", gridRow: "1" }
+              : { gridColumn: "2", gridRow: "3" }
           }
         >
           <strong>Illegal deck</strong>
@@ -580,7 +598,10 @@ function Mat({
           </span>
         </div>
       )}
-      {MAT.map(({ area, col, row, cols = 1, rows = 1 }) => {
+      {MAT.filter(
+        ({ area }) =>
+          area.kind !== "strategy" || area.index <= player.strategyZones.length,
+      ).map(({ area, col, row, cols = 1, rows = 1 }) => {
         const c = side === "you" ? col : 6 - (col + cols - 1);
         const r = side === "you" ? row : 2 - (row + rows - 1);
         return (

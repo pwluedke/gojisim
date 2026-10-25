@@ -42,7 +42,11 @@ export interface PlayerAreasView {
   id: PlayerId;
   rage: number;
   zones: Record<ZoneNumber, AreaView<CardStack>>;
-  strategyZones: [AreaView<StrategyPlacement>, AreaView<StrategyPlacement>];
+  strategyZones: [
+    AreaView<StrategyPlacement>,
+    AreaView<StrategyPlacement>,
+    ...AreaView<StrategyPlacement>[],
+  ];
   monsterDeck: AreaView<CardInstance>;
   invadingMonsterZone: AreaView<CardInstance>;
   monsterPosition: ZoneNumber | null;
@@ -111,10 +115,9 @@ function playerView(player: PlayerState, viewer: Viewer): PlayerAreasView {
     id: player.id,
     rage: player.rage,
     zones,
-    strategyZones: [
-      shown(player.strategyZones[0]),
-      shown(player.strategyZones[1]),
-    ],
+    strategyZones: player.strategyZones.map((zone) =>
+      shown(zone),
+    ) as PlayerAreasView["strategyZones"],
     // The monster deck zone is hidden from the opponent (4.6.2).
     monsterDeck: isOwner
       ? shown(player.monsterDeck)

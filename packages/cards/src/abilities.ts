@@ -141,6 +141,8 @@ const AmountReadSchema = z.union([
   z.strictObject({ monsterRankOf: PlayerRefSchema, times: z.number().int() }),
   /** Zones a player's monster advanced by invasion this turn (C2, 5.13.3). */
   z.strictObject({ invasionAdvancesThisTurn: PlayerRefSchema }),
+  /** C4: distinct colors among the cards a selector picks, White included (EBP03-067). */
+  z.strictObject({ colorsAmong: SelectorSchema, times: z.number().int() }),
   /** Per zone of a player's with no card, not counting the zone their monster occupies. */
   z.strictObject({
     unoccupiedZonesOf: PlayerRefSchema,
@@ -321,6 +323,11 @@ const DestroyTargetSchema = z.strictObject({
   select: SelectorSchema,
   count: CountSchema,
   chooser: ChooserSchema,
+  /**
+   * X: only the extreme cards among those selected: the lowest rank, or the leftmost / rightmost
+   * from the effect's player's view (4.4.5.5). Ties go to the chooser (Q33).
+   */
+  order: z.enum(["lowestRank", "leftmost", "rightmost"]).optional(),
 });
 
 /** Every effect may bind what it touched with `as`, for later effects of one resolution. */
@@ -539,6 +546,24 @@ export type Effect =
       rankAbove: number;
       sharesTrait: boolean;
       increasesRage: boolean;
+      as?: string | undefined;
+    }
+  | {
+      effect: "moveMonsterVertically";
+      player: "you" | "opponent";
+      filter: Selector;
+      fromZones: Zone[];
+      as?: string | undefined;
+    }
+  | {
+      effect: "loseGame" | "winGame";
+      player: "you" | "opponent";
+      as?: string | undefined;
+    }
+  | {
+      effect: "setStrategyZones";
+      player: "you";
+      count: 3;
       as?: string | undefined;
     }
   | { effect: "custom"; handler: string; as?: string | undefined };
@@ -843,6 +868,30 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
       increasesRage: z.boolean(),
       ...asField,
     }),
+    /**
+     * E14 (4.4.5.1, Q21): the monster moves straight across, 3 to 8, 4 to 7 or 5 to 6, from one
+     * of `fromZones`. Neither an advance nor a retreat; 11.3 applies where it lands.
+     */
+    z.strictObject({
+      effect: z.literal("moveMonsterVertically"),
+      player: ChooserSchema,
+      filter: SelectorSchema,
+      fromZones: z.array(ZoneSchema).min(1),
+      ...asField,
+    }),
+    /** E16 (1.2.1, 1.2.4): that player loses (or wins) the game. */
+    z.strictObject({
+      effect: z.enum(["loseGame", "winGame"]),
+      player: ChooserSchema,
+      ...asField,
+    }),
+    /** E20 (4.5.2): for the rest of the game the player has 3 strategy zones (EBP03-013). */
+    z.strictObject({
+      effect: z.literal("setStrategyZones"),
+      player: z.literal("you"),
+      count: z.literal(3),
+      ...asField,
+    }),
     z.strictObject({
       effect: z.literal("custom"),
       handler: z.string().min(1),
@@ -877,6 +926,11 @@ export const ModifierSchema = z.union([
     what: SelectorSchema,
     zones: ZoneSetSchema.optional(),
   }),
+  /** M1, Q16: the target monster's master's rage can't be reduced by the opponent's effects. */
+  z.strictObject({
+    flag: z.literal("rageCannotBeReducedByOpponent"),
+    target: SelectorSchema,
+  }),
   /** M1: the target's counter power is not added in the counter phase (5.16.1). */
   z.strictObject({ flag: z.literal("cannotEngage"), target: SelectorSchema }),
   /** M1: the target cannot be destroyed by the opponent's effects (5.12). */
@@ -906,9 +960,10 @@ export type Cost = z.infer<typeof CostSchema>;
 export const ReplaceableEventSchema = z.strictObject({
   /**
    * `destroyed` (10.9, Q1); `strategyToDiscard`: a strategy card would go from its strategy zone
-   * to the discard pile at 7.2.3 (E21, EBP02-012).
+   * to the discard pile at 7.2.3 (E21, EBP02-012); `invasionCost`: the card discarded for an
+   * invasion (8.6.1), here by `what`'s monster (EBP03-004: the top card of the deck instead).
    */
-  event: z.enum(["destroyed", "strategyToDiscard"]),
+  event: z.enum(["destroyed", "strategyToDiscard", "invasionCost"]),
   what: SelectorSchema,
 });
 export type ReplaceableEvent = z.infer<typeof ReplaceableEventSchema>;
@@ -994,6 +1049,21 @@ export const AbilitySchema = z.discriminatedUnion("kind", [
     condition: ConditionSchema.optional(),
     rankReduction: AmountSchema.optional(),
     forbidden: ConditionSchema.optional(),
+    /**
+     * M2: the reduction applies only to a main phase play on top of a card this picks, which
+     * stacks the card on it (3.2.5, EBP03-051).
+     */
+    onTopOf: SelectorSchema.optional(),
+  }),
+  /**
+   * C5, Q34: when its owner's cards in `area` are counted as `type` cards, by either player, this
+   * card counts as one too (EBP03-071). It is not that type for anything else.
+   */
+  z.strictObject({
+    kind: z.literal("countsAs"),
+    id: z.string().min(1),
+    type: z.literal("Monster"),
+    area: z.literal("discard"),
   }),
 ]);
 export type Ability = z.infer<typeof AbilitySchema>;
@@ -1001,10 +1071,31 @@ export type Ability = z.infer<typeof AbilitySchema>;
 /** Deck construction rules on a card (Q13, Resonance 12.8). */
 export const DeckRuleSchema = z.discriminatedUnion("rule", [
   z.strictObject({ rule: z.literal("anyNumber") }),
+  /**
+   * K2 (6.1.2, 12.8.2): on a rank I monster, cards of `colors` may be in the deck, and every
+   * condition must hold: every card of `cards` type has one of `anyTraits` and at least `minRank`,
+   * or the deck holds at least `atLeast` cards of `cards` type.
+   */
   z.strictObject({
     rule: z.literal("resonance"),
     colors: z.array(z.enum(["Red", "Blue", "Green", "White"])).min(2),
-    conditions: z.array(z.string().min(1)),
+    conditions: z
+      .array(
+        z.union([
+          z.strictObject({
+            every: z.enum(["Monster", "Battle", "Strategy"]),
+            anyTraits: z.array(z.string().min(1)).min(1).optional(),
+            minRank: z.number().int().positive().optional(),
+            text: z.string().min(1),
+          }),
+          z.strictObject({
+            atLeast: z.number().int().positive(),
+            cards: z.enum(["Monster", "Battle", "Strategy"]),
+            text: z.string().min(1),
+          }),
+        ]),
+      )
+      .min(1),
   }),
 ]);
 export type DeckRule = z.infer<typeof DeckRuleSchema>;

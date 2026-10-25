@@ -300,6 +300,17 @@ The M3 engine must include the framework below, so that M4 adds card abilities a
 - Reveal the top (M12c-1, E3): the number revealed can be an amount (the opponent's monster's rank), and an effect can take several picks in order, each from the cards left (EBP03-011).
 - Zones (M12c-1, C3): "a zone beside it" is an adjacent zone of the same player at another left-right position, so not the zone in front or behind (4.4.5.2, 4.4.5.5); "zones whose numbers match the ranks" are the zones numbered like the bound cards' ranks (EBP03-073). A zone choice can be limited to a zone set (EBP03-009).
 - Each player discards down to N (M12c-1, E11): the master first, then the opponent, each picking their own cards (5.7.2).
+- Invasion paid another way (M12c-2, E21, 8.6.1): EBP03-004's replacement adds an invade action paid with the top card of the deck (sent to the discard pile); that card's invasion icon counts (8.6.1.1). Once per turn with the normal invasion (8.6.2).
+- Play on top (M12c-2, M2, 3.2.5): a play rule with `onTopOf` adds a main phase battle play stacked on that card, at its reduced rank (EBP03-051); the card has its printed rank again once played.
+- Protected rage (M12c-2, M1, Q16): "this card's [rage] cannot be reduced by your opponent's effects" protects its master's rage from the opponent's `rage` and `setRage` effects, logged `rageProtected` (1.3.3).
+- Third strategy zone (M12c-2, E20, 4.5.2): an effect can give a player 3 strategy zones for the rest of the game; 8.3.2 then needs all 3 filled to stop strategy activations.
+- Losing by an effect (M12c-2, E16, 1.2.4): settled with the process's other losses (decision 85).
+- Vertical moves (M12c-2, E14, Q21): straight across (3 and 8, 4 and 7, 5 and 6); not an advance or retreat, so no movement triggers; crush and destroy (11.3) applies where it lands.
+- Base (M12c-2, K1, 12.9.2): a strategy card with Base stays at 7.2.3. Cards without data yet are read by their printed icon.
+- Resonance (M12c-2, K2, 6.1.2, 12.8.2): the deck validator reads the rank I monster's Resonance: its colors are allowed (6.1.1.3), and each condition that fails is a "12.8.2" failure.
+- Colors and orders (M12c-2, C4, X): "different colors among" counts distinct colors, White included; "the lowest ranked", "rightmost" and "leftmost" (from the effect's player's view, 4.4.5.5) pick among the extreme cards, the chooser breaking ties (Q33).
+- Counts as a monster card (M12c-2, C5, Q34): Godzilla's Skeleton counts in any count of monster cards in its owner's discard pile, and is nothing else.
+- Undo (M12c-2): a mill is an undo boundary (the milled cards become known), as a reveal is.
 
 **Keyword abilities (12)**, all in M4: Enter (12.2), When invading (12.3), Awakening N (12.4), Burst (12.5), Evolution (12.6), Revenge (12.7), Resonance (12.8), Base (12.9).
 

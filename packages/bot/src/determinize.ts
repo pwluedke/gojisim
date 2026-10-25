@@ -107,7 +107,9 @@ export function determinize(
     const player: PlayerState = {
       id: pv.id,
       zones,
-      strategyZones: [shown(pv.strategyZones[0]), shown(pv.strategyZones[1])],
+      strategyZones: pv.strategyZones.map((zone) =>
+        shown(zone),
+      ) as PlayerState["strategyZones"],
       monsterDeck: shown(pv.monsterDeck),
       invadingMonsterZone: shown(pv.invadingMonsterZone),
       monsterPosition: pv.monsterPosition,

@@ -230,3 +230,41 @@ describe("cards under a card and monster deck plays (M12c-1)", () => {
     );
   });
 });
+
+describe("M12c-2 action labels", () => {
+  it("names an invasion paid with the deck's top card (EBP03-004) and a play on top of a card (EBP03-051)", () => {
+    const decks = (["ESD01", "ESD02"] as const).map((set, i) => ({
+      id: `P${i + 1}`,
+      ...buildTestDeck(set, `labels-${i}`),
+    }));
+    const state = startGame({ seed: 3, decks: [decks[0]!, decks[1]!] });
+    const me = state.players.find((p) => p.id === state.turnPlayer)!;
+    expect(actionLabel(state, { type: "invadeFromDeck", player: me.id })).toBe(
+      "Invade: send the top card of your deck to the discard pile",
+    );
+    const add = (number: string) => {
+      const card = real(number);
+      state.cards = { ...state.cards, [card.id]: card };
+      return {
+        instanceId: `c${state.nextInstanceId++}`,
+        cardId: card.id,
+        owner: me.id,
+      };
+    };
+    const baby = add("EBP02-030");
+    me.zones[2].push([baby]);
+    const jr = add("EBP03-051");
+    me.hand.push(jr);
+    expect(
+      actionLabel(state, {
+        type: "playBattle",
+        player: me.id,
+        cardInstanceId: jr.instanceId,
+        zone: 2,
+        onTop: true,
+      }),
+    ).toBe(
+      "Play Godzilla Jr. [EBP03-051] on top of Baby Godzilla [EBP02-030] → zone 2",
+    );
+  });
+});

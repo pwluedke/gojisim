@@ -23,6 +23,8 @@ export const POLICY_WEIGHTS: Record<Action["type"], number> = {
   activateStrategy: 8,
   pass: 8,
   invade: 1,
+  // An invasion paid with the deck's top card (EBP03-004), as rare as a normal one.
+  invadeFromDeck: 1,
   choose: 4,
   concede: 0,
   // Manual override actions are never listed, so never chosen.

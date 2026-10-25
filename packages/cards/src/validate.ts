@@ -39,8 +39,8 @@ const copiesOf = (count: number, number: string) =>
 /**
  * Checks a deck against the deck construction rules in force on `asOf` (spec "Deck validator
  * checks"): 6.1.1.1 to 6.1.1.5, the restriction lists and choice restrictions (M1c data).
- * Resonance (6.1.2, 12.8) arrives with ability data in M4. Paul's ruling: an illegal deck can
- * still be played; callers show the failures as a warning.
+ * Resonance (6.1.2, 12.8) reads the rank I monster's deck rules (M12c-2). Paul's ruling: an
+ * illegal deck can still be played; callers show the failures as a warning.
  */
 export function validateDeck(deck: Deck, asOf: Date): DeckValidation {
   const failures: DeckFailure[] = [];
@@ -87,21 +87,56 @@ export function validateDeck(deck: Deck, asOf: Date): DeckValidation {
   }
 
   // 6.1.1.3: every card is White or shares a color with the rank I monster. A multi-color card
-  // passes if any of its colors matches (Paul's ruling).
+  // passes if any of its colors matches (Paul's ruling). A rank I monster with Resonance also
+  // allows its colors and adds its condition list (6.1.2, 12.8.2).
   const rankOne = monsterDeck.find((c) => c.type === "Monster" && c.rank === 1);
   if (rankOne) {
+    const resonance = getCardAbilities(rankOne.deckCardNumber).deckRules?.find(
+      (r) => r.rule === "resonance",
+    );
+    const allowed = [
+      ...rankOne.colors,
+      ...(resonance?.rule === "resonance" ? resonance.colors : []),
+    ];
     const offColor = all.filter(
       (c) =>
         !c.colors.includes("White") &&
-        !c.colors.some((color) => rankOne.colors.includes(color)),
+        !c.colors.some((color) => allowed.includes(color)),
     );
     if (offColor.length > 0) {
       const names = [...new Set(offColor.map(label))].join(", ");
       fail(
         "6.1.1.3",
-        `Cards must be White or ${rankOne.colors.join("/") || "colorless"} like the rank I monster: ${names}`,
+        `Cards must be White or ${[...new Set(allowed)].join("/") || "colorless"} like the rank I monster: ${names}`,
       );
     }
+    if (resonance?.rule === "resonance")
+      for (const condition of resonance.conditions) {
+        if ("every" in condition) {
+          const breaking = all.filter((c) => {
+            if (c.type !== condition.every) return false;
+            const traits = getCardTraits(c);
+            return (
+              (condition.anyTraits !== undefined &&
+                !condition.anyTraits.some((t) => traits.includes(t))) ||
+              (condition.minRank !== undefined &&
+                (c.rank ?? 0) < condition.minRank)
+            );
+          });
+          if (breaking.length > 0)
+            fail(
+              "12.8.2",
+              `Resonance (${rankOne.cardNumber}): ${condition.text}: ${[...new Set(breaking.map(label))].join(", ")}`,
+            );
+        } else {
+          const count = all.filter((c) => c.type === condition.cards).length;
+          if (count < condition.atLeast)
+            fail(
+              "12.8.2",
+              `Resonance (${rankOne.cardNumber}): ${condition.text} (has ${count})`,
+            );
+        }
+      }
   }
 
   // 6.1.1.4: at most 4 copies per card number across both decks; "+" is ignored (6.1.1.4.1).

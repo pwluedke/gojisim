@@ -68,6 +68,7 @@ function landing(before: GameState, action: Action): Set<string> {
     case "gainRage":
       return new Set([`${p}|rage`]);
     case "invade":
+    case "invadeFromDeck":
       return new Set([`${p}|discard`, `${p}|monster`]);
     case "choose": {
       if (before.pendingChoice?.kind !== "zone") return new Set();
@@ -275,6 +276,8 @@ export function PlayScreen() {
       ? getLegalActions(state, decider).filter((a) => a.type !== "concede")
       : [];
   const pass = actions.find((a) => a.type === "pass");
+  // EBP03-004 (E21): an invasion paid with the deck's top card has no hand card to drag.
+  const deckInvade = actions.find((a) => a.type === "invadeFromDeck");
   const hasLit = [...playableCards(actions)].some((id) => isLit(id, actions));
   const choice = state?.pendingChoice ?? null;
   // Casual undo (M5e): the deciding human takes back their own last action.
@@ -544,16 +547,29 @@ export function PlayScreen() {
               {choiceHeading(state, name)}
             </div>
           ) : (
-            pass && (
-              <button
-                type="button"
-                className={styles.button}
-                data-testid="pass"
-                onClick={takePass}
-              >
-                Pass [Space]
-              </button>
-            )
+            <>
+              {deckInvade && (
+                <button
+                  type="button"
+                  className={styles.button}
+                  data-testid="invade-from-deck"
+                  title={actionLabel(state, deckInvade)}
+                  onClick={() => game.takeAction(deckInvade)}
+                >
+                  Invade with your deck&apos;s top card
+                </button>
+              )}
+              {pass && (
+                <button
+                  type="button"
+                  className={styles.button}
+                  data-testid="pass"
+                  onClick={takePass}
+                >
+                  Pass [Space]
+                </button>
+              )}
+            </>
           )}
           {casual && human && decider === model.bottom && (
             <button

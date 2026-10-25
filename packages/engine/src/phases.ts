@@ -10,7 +10,11 @@ import { guardLoop, resetLoopGuard } from "./loop";
 import { advanceMonster } from "./movement";
 import { checkTiming, hasPendingRuleActions } from "./rules";
 import { requireChoice } from "./choices";
-import { applyReplacement, strategyReplacementFor } from "./interpreter";
+import {
+  applyReplacement,
+  hasKeyword,
+  strategyReplacementFor,
+} from "./interpreter";
 import { counterProofAgainst } from "./stats";
 import {
   appendLog,
@@ -20,7 +24,13 @@ import {
   setRage,
   toDiscard,
 } from "./state";
-import type { GameState, Phase, PlayerState, Step } from "./types";
+import type {
+  GameState,
+  Phase,
+  PlayerState,
+  Step,
+  StrategyPlacement,
+} from "./types";
 
 /** Hand size the end phase draws up to (7.5.4). */
 export const END_PHASE_HAND_SIZE = 5;
@@ -112,11 +122,11 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
     goTo(state, "start", "7.2.3");
   },
   "7.2.3": (state) => {
-    // Base (12.9) keeps a strategy card in play; it arrives with keyword abilities in M4.
+    // Base (K1, 12.9.2) keeps a strategy card in play: it isn't sent here.
     const player = turnPlayer(state);
-    const leaving = player.strategyZones
-      .flat()
-      .filter((p) => p.placedOnTurn < state.turn);
+    const stays = (p: StrategyPlacement) =>
+      p.placedOnTurn >= state.turn || hasKeyword(state, p.card, "base");
+    const leaving = player.strategyZones.flat().filter((p) => !stays(p));
     // E21: a replacement can send a card elsewhere instead (EBP02-012). An optional one asks
     // its master first; the step waits for the answer and runs again (10.9).
     for (const { card } of leaving) {
@@ -165,7 +175,7 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
     }
     delete state.replacementAsks;
     player.strategyZones = player.strategyZones.map((placements) => {
-      const old = placements.filter((p) => p.placedOnTurn < state.turn);
+      const old = placements.filter((p) => !stays(p));
       for (const placement of old) {
         // Moved first, so a "sent from a strategy zone" trigger finds the card in the discard
         // pile (T3).
@@ -177,7 +187,7 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
           instanceId: discarded.instanceId,
         });
       }
-      return placements.filter((p) => p.placedOnTurn >= state.turn);
+      return placements.filter(stays);
     }) as PlayerState["strategyZones"];
     goTo(state, "start", "7.2.4");
   },

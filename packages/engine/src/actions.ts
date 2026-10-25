@@ -2,8 +2,11 @@ import { getCardTraits } from "@gojisim/cards";
 import { advanceMonster } from "./movement";
 import { closeManualWindow, manualProblem, performManual } from "./manual";
 import {
+  applyReplacement,
   burstRankOf,
   hasAbilityData,
+  invasionCostReplacement,
+  onTopPlays,
   playRuleOf,
   resumeResolution,
 } from "./interpreter";
@@ -28,6 +31,7 @@ import {
 } from "./state";
 import type {
   Action,
+  Binding,
   CardInstance,
   GameState,
   PlayerId,
@@ -36,10 +40,15 @@ import type {
 } from "./types";
 import { ZONE_NUMBERS } from "./types";
 
-const STRATEGY_ZONES: readonly StrategyZoneNumber[] = [1, 2];
+/** The player's strategy zones by number: 1 and 2, and 3 after an effect adds it (E20). */
+function strategyZoneNumbers(player: PlayerState): StrategyZoneNumber[] {
+  return player.strategyZones.map((_, i) => (i + 1) as StrategyZoneNumber);
+}
 
 function strategyZoneOf(player: PlayerState, zone: StrategyZoneNumber) {
-  return player.strategyZones[zone === 1 ? 0 : 1];
+  const placements = player.strategyZones[zone - 1];
+  if (!placements) throw new Error(`No strategy zone ${zone}`);
+  return placements;
 }
 
 /** Traits in force for a card, after trait errata (M1d). */
@@ -138,6 +147,20 @@ function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
         }
       }
     }
+    // M2: on top of a card in the zone, with that play's rank reduction (EBP03-051).
+    if (data.type === "Battle" && printed !== null && !rule.forbidden)
+      for (const { zone, reduction } of onTopPlays(state, card, playerId))
+        if (
+          printed - rule.reduction - reduction <= opponentZone &&
+          playAllowed(state, player, card, zone)
+        )
+          actions.push({
+            type: "playBattle",
+            player: playerId,
+            cardInstanceId,
+            zone,
+            onTop: true,
+          });
     // 8.3.1: rank at most the zone number of the player's own monster (10.8.1 layers); 8.3.2: an
     // empty strategy zone.
     if (
@@ -146,7 +169,7 @@ function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
       rank <= ownZone &&
       playAllowed(state, player, card)
     ) {
-      for (const strategyZone of STRATEGY_ZONES) {
+      for (const strategyZone of strategyZoneNumbers(player)) {
         if (strategyZoneOf(player, strategyZone).length === 0) {
           actions.push({
             type: "activateStrategy",
@@ -173,6 +196,14 @@ function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
       actions.push({ type: "invade", player: playerId, cardInstanceId });
     }
   }
+  // E21: the top card of the deck pays for the invasion instead (EBP03-004).
+  if (
+    !state.turnFlags.invasionUsed &&
+    canInvade &&
+    player.deck.length > 0 &&
+    invasionCostReplacement(state, player) !== null
+  )
+    actions.push({ type: "invadeFromDeck", player: playerId });
   actions.push({ type: "pass", player: playerId });
   return actions;
 }
@@ -241,6 +272,38 @@ function discardFromHand(
   return card;
 }
 
+/**
+ * The rest of an invasion once it is paid (8.6.1.1, 8.6.1.2): the paying card's invasion icon
+ * says how many times the monster advances; no card or no icon advances 0 times (1.3.2.2).
+ */
+function invadeWith(
+  state: GameState,
+  player: PlayerState,
+  paid: { cardId: number } | null,
+): void {
+  const icon = paid ? (state.cards[paid.cardId]?.invadeZones ?? 0) : 0;
+  appendLog(state, "invade", player.id, {
+    rule: "8.6.1.1",
+    cardId: paid?.cardId ?? null,
+    icon,
+  });
+  let advances = 0;
+  const from = player.monsterPosition;
+  for (let i = 0; i < icon && state.result === null; i++) {
+    if (advanceMonster(state, player, { invasion: true, rule: "8.6.1.2" }))
+      advances++;
+  }
+  // 5.13.3: whether the monster actually advanced during this invasion (for When invading, M4).
+  appendLog(state, "invasionDone", player.id, {
+    rule: "5.13.3",
+    advances,
+    didAdvance: advances > 0,
+    // Where the invasion started and ended, for "invades into zones 6-8" (T6).
+    from,
+    to: player.monsterPosition,
+  });
+}
+
 const PERFORM: {
   [T in Action["type"]]: (
     state: GameState,
@@ -258,15 +321,20 @@ const PERFORM: {
     const placed = resolveFromResolutionArea(state, card);
     // "If this card was played from your hand" (C7).
     placed.playedVia = "hand";
+    // M2: on top of the card there, stacked on it (3.2.5, EBP03-051).
+    const host = action.onTop ? player.zones[action.zone].at(-1) : undefined;
+    const under = host?.at(-1);
+    if (host && under) host.push(placed);
     // A zone that already holds a battle card now holds two; 11.5 destroys the older one at
     // the check timing that follows the action (10.4.4.1).
-    player.zones[action.zone].push([placed]);
+    else player.zones[action.zone].push([placed]);
     appendLog(state, "place", player.id, {
       rule: "10.5.2.3.2",
       cardId: placed.cardId,
       instanceId: placed.instanceId,
       from: "resolutionArea",
       to: `zone ${action.zone}`,
+      ...(under ? { onTopOf: under.cardId } : {}),
     });
   },
   activateStrategy: (state, action) => {
@@ -357,28 +425,27 @@ const PERFORM: {
     const player = getPlayer(state, action.player);
     state.turnFlags.invasionUsed = true;
     const card = discardFromHand(state, player, action.cardInstanceId, "8.6.1");
-    // 8.6.1.1: the number on the discarded card's invasion icon. No icon advances 0 times (1.3.2.2).
-    const icon = cardOf(state, card).invadeZones ?? 0;
-    appendLog(state, "invade", player.id, {
-      rule: "8.6.1.1",
-      cardId: card.cardId,
-      icon,
-    });
-    let advances = 0;
-    const from = player.monsterPosition;
-    for (let i = 0; i < icon && state.result === null; i++) {
-      if (advanceMonster(state, player, { invasion: true, rule: "8.6.1.2" }))
-        advances++;
-    }
-    // 5.13.3: whether the monster actually advanced during this invasion (for When invading, M4).
-    appendLog(state, "invasionDone", player.id, {
-      rule: "5.13.3",
-      advances,
-      didAdvance: advances > 0,
-      // Where the invasion started and ended, for "invades into zones 6-8" (T6).
-      from,
-      to: player.monsterPosition,
-    });
+    invadeWith(state, player, card);
+  },
+  invadeFromDeck: (state, action) => {
+    const player = getPlayer(state, action.player);
+    state.turnFlags.invasionUsed = true;
+    const replacement = invasionCostReplacement(state, player);
+    const top = player.invadingMonsterZone.at(-1);
+    if (!replacement || !top) throw new Error("No invasion cost replacement");
+    // 10.9.1: the replacement's effects (a mill of 1) pay instead; its card is bound as `paid`.
+    const bindings: Record<string, Binding> = {};
+    applyReplacement(
+      state,
+      replacement,
+      top,
+      "invasionCost",
+      "8.6.1",
+      bindings,
+    );
+    const paid = bindings["paid"];
+    const card = paid?.kind === "cards" ? paid.cards[0] : undefined;
+    invadeWith(state, player, card ? { cardId: card.cardId } : null);
   },
   choose: (state, action) => {
     const choice = state.pendingChoice;

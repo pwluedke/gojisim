@@ -22,6 +22,8 @@ const BOUNDARY_LOGS: Record<string, UndoBoundary> = {
   search: "search",
   reveal: "reveal",
   shuffleDeck: "shuffle",
+  // Cards sent from the top of a deck to the discard pile become known (E2, EBP03-004).
+  mill: "reveal",
 };
 
 /** Whether the pending choice shows `player` cards from a deck or monster deck (a search pick). */

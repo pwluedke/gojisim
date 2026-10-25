@@ -484,3 +484,36 @@ Built differently from the plan:
 - A `discard` effect binds the discarded cards with `as` (EBP03-032: "+1,000 for each card discarded this way").
 - "A card with [base] in play" is a strategy card with Base in your strategy zones; it reads the printed [base] icon until the Base cards get data in M12c-2 (decision 131).
 - EPR-020's data is in a new `PR.json` set file; the rest of PR waits for M12e.
+
+### M12c-2: C4, E14, E16, E20, K1, K2, X, C5 `countsAs`, and two new actions (EBP03 done)
+
+```typescript
+type Amount = ... | { colorsAmong: Selector; times: number };      // C4: distinct colors, White included
+
+target { select; count; chooser; order?: "lowestRank" | "leftmost" | "rightmost" }   // X: ties to the chooser (Q33)
+
+type Effect = ...
+  | { effect: "moveMonsterVertically"; player: "you" | "opponent"; filter: Selector; fromZones: Zone[] }  // E14, Q21
+  | { effect: "loseGame" | "winGame"; player: "you" | "opponent" }                                        // E16 (1.2.4)
+  | { effect: "setStrategyZones"; player: "you"; count: 3 };                                              // E20 (4.5.2)
+
+type Modifier = ... | { flag: "rageCannotBeReducedByOpponent"; target: Selector };   // M1, Q16
+type ReplaceableEvent = { event: "destroyed" | "strategyToDiscard" | "invasionCost"; what: Selector };  // E21
+
+playRule { ...; onTopOf?: Selector }                                  // M2: a main phase play on top of that card
+{ kind: "countsAs"; id; type: "Monster"; area: "discard" }            // C5, Q34 (an ability kind)
+{ kind: "keyword"; keyword: { name: "base" } }                        // K1: 7.2.3 skips the card
+deckRules: [{ rule: "resonance"; colors: Color[]; conditions: (       // K2 (6.1.2, 12.8.2)
+  { every: "Monster" | "Battle" | "Strategy"; anyTraits?: string[]; minRank?: number; text: string }
+  | { atLeast: number; cards: "Monster" | "Battle" | "Strategy"; text: string })[] }]
+```
+
+Built differently from the plan:
+
+- EBP03-004's `invasionCost` replacement is a new main phase action, `invadeFromDeck`, offered while the invading monster has it: the replacement's effects (a mill of 1, bound as `paid`) pay for the invasion, and the milled card's invasion icon counts (8.6.1.1). The `/play` prompt shows it as a button next to Pass.
+- EBP03-051's play rule is a `playBattle` action with `onTop: true`, offered for zones whose top card the rule's `onTopOf` picks, at the reduced rank; the card is stacked on that card (3.2.5), with no overload. The plain play into that zone stays.
+- C5's `countsAs` is an ability kind, not a selector filter: counting monster cards in its owner's discard pile (a condition's `count` or an amount's `per`) also counts the card, by either player (Q34); selecting monster cards never picks it.
+- A strategy zone list holds 2 zones, or 3 after E20; strategy zone 3 shows on the mat in the corner past zone 8 only once a player has it.
+- An "X" counter power or threat (printed as -1 in the card data) reads as 0; the card's ability gives it (EBP03-067).
+- Base's automatic ability ("When any monster card invades into zones 6-8, [destroy] this card") is ordinary data: an `invades` trigger with `whose: "any"` and `intoZones: [6, 7, 8]` (Q18, Q19).
+- EBP03-078's two destroys run in turn, the rightmost first; the leftmost is then picked among the cards left.
