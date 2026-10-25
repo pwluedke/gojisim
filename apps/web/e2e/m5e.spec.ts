@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { loadFixture, passTurn, startGame } from "./helpers";
+import { fixture, loadFixture, passTurn } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -47,43 +47,32 @@ test("vs bot: the human picks one of two face-down cards, and First goes first",
   );
 });
 
-test("hotseat: P2 picks, and the game record keeps the pick", async ({
+test("a record with two human seats (hotseat, removed in M5h) doesn't load in /play; /debug still loads it", async ({
   page,
 }) => {
-  await page.goto("/play?mode=hotseat");
-  await page.getByTestId("seed-input").fill("5");
-  await page.getByTestId("start-game").click();
-  await expect(page.getByTestId("first-pick")).toHaveAttribute(
-    "data-picker",
-    "P2",
-  );
-  await expect(page.getByTestId("first-pick")).toContainText(
-    "P2 picks First or Second",
-  );
-  const face = await pick(page, 0);
-  await page.getByTestId("first-pick-continue").click();
-  await expect(page.getByTestId("log-turn").first()).toHaveText(
-    face === "First" ? "Turn 1: P2" : "Turn 1: P1",
-  );
+  const record = {
+    ...fixture("hand-five"),
+    seats: { P1: { kind: "human" }, P2: { kind: "human" } },
+  };
+  const file = {
+    name: "hotseat.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(record)),
+  };
+  await page.goto("/play");
+  await page.getByTestId("load-record").setInputFiles(file);
+  await expect(page.getByTestId("load-error")).toContainText("/debug");
+  await expect(page.getByTestId("board")).toHaveCount(0);
+  await page.goto("/debug");
+  await page.getByTestId("import-file").setInputFiles(file);
+  await expect(page.getByTestId("status-turn")).toHaveText("13");
 });
 
 test.describe("undo", () => {
-  // Hotseat seed 2 plus one Pass: P1's turn 2 can gain rage. The cover stays off.
-  test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() =>
-      window.localStorage.setItem(
-        "gojisim.settings",
-        JSON.stringify({ animation: "off", hotseatCover: false }),
-      ),
-    );
-  });
-
-  async function hotseat(page: Page, mode: "casual" | "tournament") {
-    await page.goto("/play?mode=hotseat");
-    await page.getByTestId("seed-input").fill("2");
-    await page.getByTestId(`match-mode-${mode}`).check();
-    await startGame(page);
-    await passTurn(page);
+  // The hand-five fixture: P1's turn 13 against the Medium bot can gain rage and play a battle
+  // card. It began with the bot's turn and P1's draw, so there is nothing to undo yet.
+  async function handFive(page: Page, mode: "casual" | "tournament") {
+    await loadFixture(page, "hand-five", { mode });
     await expect(page.getByTestId("board")).toHaveAttribute(
       "data-bottom",
       "P1",
@@ -105,50 +94,55 @@ test.describe("undo", () => {
     throw new Error(`no hand card can go to ${target}`);
   }
   const gainRage = (page: Page) => act(page, "rage");
-  const zoneCards = (page: Page) =>
-    page.locator('[data-testid^="zone-P1-"] [data-testid="card"]').count();
 
   test("Casual: Undo and U take back your own actions, one at a time, but not past the opponent's turn", async ({
     page,
   }) => {
-    await hotseat(page, "casual");
+    await handFive(page, "casual");
     const undo = page.getByTestId("undo");
-    // P1's turn began with P2's Pass and P1's draw: nothing of P1's to undo yet.
     await expect(undo).toBeDisabled();
     const hand = await page.getByTestId("your-hand-count").textContent();
+    const rage = Number(await page.getByTestId("rage-P1").textContent());
+    const rageLines = await page
+      .getByTestId("log-line")
+      .filter({ hasText: /rage/i })
+      .count();
     await gainRage(page);
-    await expect(page.getByTestId("rage-P1")).toHaveText("1");
-    const zones = await zoneCards(page);
+    await expect(page.getByTestId("rage-P1")).toHaveText(String(rage + 1));
+    // A battle card play (it may go to an occupied zone, so count the hand, not the zones).
+    const handCount = () =>
+      page
+        .getByTestId("your-hand-count")
+        .textContent()
+        .then((t) => Number(t));
+    const afterRage = await handCount();
     await act(page, "zone:");
-    await expect.poll(() => zoneCards(page)).toBe(zones + 1);
+    await expect.poll(handCount).toBe(afterRage - 1);
     await undo.click();
-    await expect.poll(() => zoneCards(page)).toBe(zones);
-    await expect(page.getByTestId("rage-P1")).toHaveText("1");
+    await expect.poll(handCount).toBe(afterRage);
+    await expect(page.getByTestId("rage-P1")).toHaveText(String(rage + 1));
     await page.keyboard.press("u");
-    await expect(page.getByTestId("rage-P1")).toHaveText("0");
+    await expect(page.getByTestId("rage-P1")).toHaveText(String(rage));
     await expect(page.getByTestId("your-hand-count")).toHaveText(hand ?? "");
     await expect(undo).toBeDisabled();
     // The undone actions are gone from the log too: the record keeps the final line only.
     await expect(
       page.getByTestId("log-line").filter({ hasText: /rage/i }),
-    ).toHaveCount(0);
-    // After P1 passes, P2 decides: P1's actions are behind an opponent action for P2.
+    ).toHaveCount(rageLines);
+    // After P1 passes, the bot decides: there is no undo for the human until their own action.
     await gainRage(page);
     await passTurn(page);
-    await expect(page.getByTestId("board")).toHaveAttribute(
-      "data-bottom",
-      "P2",
-    );
-    await expect(page.getByTestId("undo")).toBeDisabled();
+    await expect(page.getByTestId("undo")).toHaveCount(0);
   });
 
   test("Tournament: no undo", async ({ page }) => {
-    await hotseat(page, "tournament");
+    await handFive(page, "tournament");
+    const rage = Number(await page.getByTestId("rage-P1").textContent());
     await gainRage(page);
-    await expect(page.getByTestId("rage-P1")).toHaveText("1");
+    await expect(page.getByTestId("rage-P1")).toHaveText(String(rage + 1));
     await expect(page.getByTestId("undo")).toHaveCount(0);
     await page.keyboard.press("u");
-    await expect(page.getByTestId("rage-P1")).toHaveText("1");
+    await expect(page.getByTestId("rage-P1")).toHaveText(String(rage + 1));
   });
 });
 

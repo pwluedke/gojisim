@@ -8,6 +8,28 @@ const PHASES = [
   { phase: "end", name: "End" },
 ] as const;
 
+/** Each step's name for its hover (M5h #3), from the Comprehensive Rules (7.2 to 7.5). */
+export const STEP_TITLES: Record<(typeof STEPS)[number], string> = {
+  "7.2.1": "Beginning of the start phase",
+  "7.2.2": "Draw cards equal to the opponent's monster's rank",
+  "7.2.3": "Strategy cards placed before this turn go to the discard pile",
+  "7.2.4": "Rage is set to 0",
+  "7.2.5": "Check timing; the start phase ends",
+  "7.3.1": "Beginning of the main phase",
+  "7.3.2": "Play timing: main phase actions",
+  "7.4.1": "Beginning of the counter phase",
+  "7.4.2": "Add up your counter power",
+  "7.4.3": "Counter the opponent's monster if the total reaches its threat",
+  "7.4.4": "Check timing; the counter phase ends",
+  "7.5.1": "Beginning of the end phase",
+  "7.5.2": "Your monster advances (zone 7 or less)",
+  "7.5.3": "Check timing",
+  "7.5.4": "Draw up to 5 cards",
+  "7.5.5": "Check timing",
+  "7.5.6": '"Until end of turn" effects end',
+  "7.5.7": "The turn ends",
+};
+
 /**
  * The phase tracker (M5d): Start, Main, Counter and End with their steps (7.2 to 7.5), the step
  * in progress lit (`currentStep`, not `step`, which names the next one), the turn number, and the
@@ -60,7 +82,7 @@ export function PhaseTracker({
                 }
                 data-testid={`tracker-step-${s}`}
                 data-current={s === current ? "true" : undefined}
-                title={`Step ${s}`}
+                title={`${STEP_TITLES[s]} (${s})`}
               >
                 {s.slice(4)}
               </span>

@@ -30,7 +30,6 @@
   /* Text on the highlight color (the strategy mark, change chips): dark in every theme. */
   --color-highlight-text: #1d2330;
   --color-backdrop: rgb(20 24 33 / 45%);
-  --color-cover: #1d2330;
   --color-chip: rgb(20 24 33 / 85%);
   --color-chip-text: #ffffff;
   --color-modifier-up-on-chip: #7cc4ff;
@@ -86,7 +85,6 @@
   /* Text on the highlight color (the strategy mark, change chips): dark in every theme. */
   --color-highlight-text: #1d2330;
   --color-backdrop: rgb(20 24 33 / 55%);
-  --color-cover: #1d2330;
   --color-chip: rgb(20 24 33 / 85%);
   --color-chip-text: #ffffff;
   --color-modifier-up-on-chip: #7cc4ff;
@@ -140,7 +138,6 @@
   /* Text on the highlight color (the strategy mark, change chips): dark in every theme. */
   --color-highlight-text: #1d2330;
   --color-backdrop: rgb(0 0 0 / 60%);
-  --color-cover: #0b0d10;
   --color-chip: rgb(0 0 0 / 80%);
   --color-chip-text: #ffffff;
   --color-modifier-up-on-chip: #7cc4ff;

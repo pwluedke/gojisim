@@ -1,29 +1,15 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { passTurn, startGame } from "./helpers";
+import { loadFixture, startGame } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
-// These tests follow P1's hand: an opponent choice (an [enter] discard) must not cover the board.
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() =>
-    window.localStorage.setItem(
-      "gojisim.settings",
-      JSON.stringify({ animation: "off", hotseatCover: false }),
-    ),
-  );
-});
-
 /**
- * Hotseat with a fixed seed. Seed 2: P2 starts; after one Pass, P1's turn 2 offers all five hand
- * actions (8.2 to 8.6). Seed 1, both only passing: P1 holds 10 cards on turn 9.
+ * The `hand-five` fixture (M5h, replacing a hotseat seed): P1's play timing on turn 13 against
+ * the Medium bot, with all five hand actions (8.2 to 8.6) and cards that can only invade or gain
+ * rage. Animations are off for every spec (decision 268).
  */
-async function hotseat(page: Page, seed: number, passes: number) {
-  await page.goto("/play?mode=hotseat");
-  await page.getByTestId("seed-input").fill(String(seed));
-  await startGame(page);
-  for (let i = 0; i < passes; i++) {
-    await passTurn(page);
-  }
+async function handFive(page: Page) {
+  await loadFixture(page, "hand-five");
   await expect(page.getByTestId("board")).toHaveAttribute("data-bottom", "P1");
 }
 
@@ -95,7 +81,7 @@ for (const [width, height] of [
     for (const how of ["click", "drag"] as const)
       for (const { action, prefix } of CASES)
         test(`${action} by ${how}`, async ({ page }) => {
-          await hotseat(page, 2, 1);
+          await handFive(page);
           const { card, dest, cardId } = await cardFor(page, prefix);
           const target = page.locator(`[data-target="${dest}"]`).first();
           const before = {
@@ -149,7 +135,7 @@ for (const [width, height] of [
 test("Esc cancels a selection; clicking the card again cancels too", async ({
   page,
 }) => {
-  await hotseat(page, 2, 1);
+  await handFive(page);
   const card = handCards(page)
     .and(page.locator('[data-playable="true"]'))
     .first();
@@ -168,7 +154,7 @@ test("Esc cancels a selection; clicking the card again cancels too", async ({
 test("an illegal drop does nothing: the card returns to the hand", async ({
   page,
 }) => {
-  await hotseat(page, 2, 1);
+  await handFive(page);
   const { card, cardId } = await cardFor(page, "zone:");
   const handBefore = await count(page.getByTestId("your-hand-count"));
   const inHandBefore = await inHand(page, cardId);
@@ -179,13 +165,13 @@ test("an illegal drop does nothing: the card returns to the hand", async ({
   await expect(lit(page)).toHaveCount(0);
   expect(await count(page.getByTestId("your-hand-count"))).toBe(handBefore);
   expect(await inHand(page, cardId)).toBe(inHandBefore);
-  await expect(page.getByTestId("turn")).toHaveText("2");
+  await expect(page.getByTestId("turn")).toHaveText("13");
 });
 
 test("preview: hovering a card shows it; hovering an opponent card back shows nothing", async ({
   page,
 }) => {
-  await hotseat(page, 2, 1);
+  await handFive(page);
   const first = handCards(page).first().getByTestId("card");
   await first.hover();
   await expect(page.getByTestId("card-preview")).toHaveAttribute(
@@ -230,8 +216,8 @@ test("while the bot decides, the hand is locked: dimmed, no selection", async ({
 test("a card that can only invade or gain rage is not lit, but selecting it still lights the discard pile", async ({
   page,
 }) => {
-  await hotseat(page, 2, 1);
-  // Seed 2, turn 2: Godzilla (2023) R5 battle cards are above the rank limit (8.2.1).
+  await handFive(page);
+  // ESD01-015 can only invade, and ESD01-006 only invade or gain rage, in this position.
   const unlit = handCards(page).and(
     page.locator('[data-playable="true"][data-hand-lit="false"]'),
   );

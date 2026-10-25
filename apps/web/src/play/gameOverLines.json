@@ -1,0 +1,122 @@
+{
+  "winInvasion": [
+    "Tokyo is yours. Property values are not.",
+    "You walked into zone 8 like you owned it. You did.",
+    "Victory through invasion. The kaiju union thanks you for your service.",
+    "Zone 8 reached. Somebody call the city planners.",
+    "You invaded so hard the map needs a new edition.",
+    "That city had a skyline. Had.",
+    "Invasion complete. Please collect your rubble at the exit.",
+    "Your monster took the scenic route straight through their defenses.",
+    "Nothing stood in zone 8. Now nothing stands anywhere.",
+    "They left zone 8 open. You said thank you with a tail swipe."
+  ],
+  "winCounter": [
+    "Their monster ran out of forms. Embarrassing for them.",
+    "Countered into oblivion. Somebody check on their monster deck.",
+    "No next rank, no next turn. Brutal.",
+    "Their monster evolved all the way into nothing.",
+    "You countered them until they had no monster left to send. Rude. Effective.",
+    "Their monster deck is empty and so are their hopes.",
+    "Countered, countered, countered. They ran out of kaiju before you ran out of power.",
+    "They needed a rank IV miracle. They got a rank IV counter.",
+    "Out of monsters on their side. Out of excuses too.",
+    "Your battle cards formed a wall. Their monsters formed a queue."
+  ],
+  "winConcede": [
+    "They conceded. Smart. Cowardly, but smart.",
+    "They looked at the board and chose peace.",
+    "A concession. You win by being terrifying.",
+    "They gave up. Your reputation precedes you.",
+    "They tapped out before the kaiju even got warmed up.",
+    "Victory by forfeit. Still counts. Frame it.",
+    "They saw what was coming and left through the back door.",
+    "They waved the white flag. Godzilla doesn't know what that means, but you do.",
+    "Conceded. They'll tell their friends it was lag.",
+    "They quit. You didn't even get to do the cool part."
+  ],
+  "winEffect": [
+    "They lost to their own card. You'll take it.",
+    "A card said they lose. Who are you to argue?",
+    "They read the fine print too late. You win.",
+    "Their own effect finished them. You just watched.",
+    "Won by card text. The rules lawyers salute you.",
+    "Their deck turned on them. Loyalty is hard to find.",
+    "An effect ended the game. Efficient, cold, perfect.",
+    "They built a deck with a self-destruct button and pressed it.",
+    "Victory by effect. Paperwork wins wars.",
+    "The card said game over. The card was right."
+  ],
+  "lossInvasion": [
+    "You've been invaded. Maybe try putting something in zone 8.",
+    "Your city has been flattened. Insurance does not cover kaiju.",
+    "That was less of a game and more of a guided tour of your defeat.",
+    "Zone 8 was empty. Zone 8 was a welcome mat.",
+    "They walked right in. You held the door.",
+    "Your defenses were more of a suggestion.",
+    "Invaded. The tourists are already taking pictures of the crater.",
+    "Their monster strolled through your zones like a Sunday walk.",
+    "You lost your city. Godzilla says hi.",
+    "Next time, maybe block. Just a thought."
+  ],
+  "lossCounter": [
+    "Out of monsters. Even Minilla had a better plan.",
+    "Your monster deck ran dry. So did your luck.",
+    "Countered out of existence. Your monsters filed for unemployment.",
+    "No next monster. The kaiju agency has no one to send.",
+    "They countered you until you ran out of forms. Ouch.",
+    "Your monster kept getting smaller until it was gone.",
+    "Countered to zero. Bring more monsters next time.",
+    "You ran out of kaiju. Embarrassing at a kaiju game.",
+    "Their battle cards said no. Repeatedly.",
+    "Your monster retired early. Involuntarily."
+  ],
+  "lossConcede": [
+    "You conceded. Godzilla would never.",
+    "You gave up. The bot will remember this.",
+    "Conceded. A strategic retreat, we'll call it.",
+    "You quit. Mothra is disappointed in you.",
+    "White flag raised. The kaiju are laughing.",
+    "You conceded. The board wasn't that bad. Okay, it was.",
+    "Surrender accepted. Please exit through the rubble.",
+    "You folded. King Ghidorah didn't even need all three heads.",
+    "Concession noted. Your monster is sulking.",
+    "You left the fight. The fight didn't miss you."
+  ],
+  "lossEffect": [
+    "You lost to your own card. Read it next time.",
+    "Your own effect took you out. Impressive, in a bad way.",
+    "Defeated by card text. The fine print wins again.",
+    "A card said you lose. You should have believed it sooner.",
+    "Your deck betrayed you. It was always going to.",
+    "You lost by effect. Somebody built that deck. It was you.",
+    "The card did exactly what it says. That's the problem.",
+    "Lost to an effect. Paperwork beat you.",
+    "Your strategy zone filed a complaint and won.",
+    "That effect ended the game. Your face says you didn't see it coming."
+  ],
+  "lossTimer": [
+    "Time's up. The kaiju got bored and left.",
+    "The clock beat you. The kaiju didn't have to.",
+    "Out of time. Godzilla doesn't wait for anyone.",
+    "Time ran out while you were thinking. It happens. It happened.",
+    "The timer won this round. It has no monsters and still won.",
+    "Tick, tock, loss.",
+    "You ran out of time before they ran out of monsters.",
+    "Slow and steady loses the clock.",
+    "The clock called it. Next time, think faster.",
+    "Time's up. The city survives because of a stopwatch."
+  ],
+  "draw": [
+    "A draw. Two kaiju, no winner, a lot of property damage.",
+    "Nobody wins. Everybody's city is on fire.",
+    "A draw. The kaiju agreed to call it a tie and go home.",
+    "Even. Perfectly, annoyingly even.",
+    "A draw. The rematch writes itself.",
+    "Stalemate. The monsters are staring at each other awkwardly.",
+    "Nobody won. The loop won.",
+    "Draw. Both of you lose, technically. Congratulations?",
+    "It's a tie. Mothra suggests you both think about what you did.",
+    "A draw. Ask for a rematch before they leave."
+  ]
+}

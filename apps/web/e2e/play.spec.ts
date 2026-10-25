@@ -20,10 +20,7 @@ async function matRow(page: Page, side: "opp" | "you", row: number) {
   return items.sort((a, b) => a.x - b.x).map((item) => item.area);
 }
 
-async function startFromMenu(
-  page: Page,
-  entry: "menu-play-bot" | "menu-hotseat",
-) {
+async function startFromMenu(page: Page, entry: "menu-play-bot") {
   await page.goto("/");
   await page.getByTestId(entry).click();
   await page.getByTestId("seed-input").fill("20261022");
@@ -31,23 +28,23 @@ async function startFromMenu(
   await expect(page.getByTestId("board")).toBeVisible();
 }
 
-test("the / menu reaches Play vs bot, Hotseat and Debug", async ({ page }) => {
+test("the / menu reaches Play vs bot and Debug (no hotseat, M5h)", async ({
+  page,
+}) => {
   await page.goto("/");
   await page.getByTestId("menu-play-bot").click();
   await expect(
     page.getByRole("heading", { name: "Play vs bot" }),
   ).toBeVisible();
   await expect(page.getByTestId("seat-P1")).toHaveValue("human");
-  await expect(page.getByTestId("seat-P2")).toHaveValue("bot");
+  // P2 is always a bot: no Human option (M5h).
+  await expect(page.getByTestId("seat-P2")).toHaveAttribute("data-seat", "bot");
   await expect(page.getByTestId("difficulty-value-P2")).toHaveText(
     "55 (Medium)",
   );
 
   await page.goto("/");
-  await page.getByTestId("menu-hotseat").click();
-  await expect(page.getByRole("heading", { name: "Hotseat" })).toBeVisible();
-  await expect(page.getByTestId("seat-P1")).toHaveValue("human");
-  await expect(page.getByTestId("seat-P2")).toHaveValue("human");
+  await expect(page.getByTestId("menu-hotseat")).toHaveCount(0);
 
   await page.goto("/");
   await page.getByTestId("menu-debug").click();
@@ -142,16 +139,21 @@ test("the opponent's hand shows as card backs, as many as its count", async ({
   ).toHaveCount(0);
 });
 
-test("hotseat: after Pass, the board flips to the next decider", async ({
+test("an old hotseat link opens Play vs bot; the board stays on the human's side after Pass", async ({
   page,
 }) => {
-  await startFromMenu(page, "menu-hotseat");
+  await page.goto("/play?mode=hotseat");
+  await expect(
+    page.getByRole("heading", { name: "Play vs bot" }),
+  ).toBeVisible();
+  await page.getByTestId("seed-input").fill("20261022");
+  await startGame(page);
   const board = page.getByTestId("board");
-  const first = await board.getAttribute("data-bottom");
-  const turnPlayer = first === "P1" ? "P2" : "P1";
+  await expect(board).toHaveAttribute("data-bottom", "P1");
+  await expect(page.getByTestId("pass")).toBeVisible({ timeout: 30_000 });
   await passTurn(page);
-  await expect(board).toHaveAttribute("data-bottom", turnPlayer);
-  await expect(page.getByTestId("turn")).toHaveText("2");
+  await expect(board).toHaveAttribute("data-bottom", "P1");
+  await expect(page.getByTestId("privacy-cover")).toHaveCount(0);
 });
 
 test("bot vs bot on /play plays by itself, and Pause stops it", async ({

@@ -172,9 +172,22 @@
 }
 
 .monster {
+  position: relative;
   width: 100%;
   height: 100%;
   border-radius: var(--radius);
+}
+
+/* An area's name while it is hovered (M5h #1): the zone label's look, above the cards. */
+.hoverLabel {
+  z-index: 6;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.cell:hover > .hoverLabel,
+.monster:hover > .hoverLabel {
+  visibility: visible;
 }
 
 .rageZone {
@@ -757,27 +770,6 @@
   margin: 0;
 }
 
-/* The hotseat privacy cover replaces the board until the next player clicks. */
-.cover {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  width: 100%;
-  min-height: 100vh;
-  border: none;
-  background: var(--color-cover);
-  color: var(--color-button-text);
-  font-size: var(--font-size-lg);
-  cursor: pointer;
-}
-
-.coverTitle {
-  font-size: var(--font-size-xl);
-  font-weight: bold;
-}
-
 /* The bot's last move, one line. */
 .toast {
   position: fixed;
@@ -987,17 +979,28 @@
 }
 
 /* The history view's banner, at the bottom over the (locked) hand, clear of the side columns. */
+/* The history view's bar (M5h #12): full width at the bottom, with a big Back to live button. */
 .historyBanner {
   position: fixed;
-  bottom: var(--space-2);
-  left: 50%;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 26;
-  translate: -50% 0;
-  padding: var(--space-1) var(--space-3);
-  border: 2px solid var(--color-lit);
-  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-top: 3px solid var(--color-lit);
   background: var(--color-panel);
   box-shadow: var(--shadow);
+  font-size: var(--font-size-lg);
+}
+
+.backToLive {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-xl);
+  font-weight: bold;
 }
 
 /* The expanded hand (H): full-size cards over most of the board, read-only. */

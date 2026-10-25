@@ -6,8 +6,9 @@ import { loadFixture } from "./helpers";
 test.use({ viewport: { width: 1440, height: 900 } });
 
 /**
- * M5g: combo callouts. The `combo-you` and `combo-p2` fixtures stop just before an action that
- * completes a combo (their `next`): P1's against the Medium bot, and P2's in hotseat.
+ * M5g: combo callouts. The `combo-you` and `combo-bot` fixtures stop just before an action that
+ * completes a combo (their `next`): P1's against the Medium bot, and the bot's own (its only
+ * legal action, so the loaded game's bot takes it; M5h replaced the hotseat P2 fixture).
  */
 
 const nextOf = (name: string) =>
@@ -141,15 +142,20 @@ test("the bot doesn't move while the combo modal is open", async ({ page }) => {
   await expect.poll(botLines, { timeout: 30_000 }).toBeGreaterThan(before);
 });
 
-test("the other side's combo (P2 in hotseat) names its seat", async ({
-  page,
-}) => {
-  await loadFixture(page, "combo-p2");
-  await expect(page.getByTestId("board")).toHaveAttribute("data-bottom", "P2");
-  await take(page, nextOf("combo-p2"));
-  await expect(page.getByTestId("combo-name")).toHaveText("Tokyo Wall");
-  await expect(page.getByTestId("combo-who")).toHaveText("Combo · P2");
-  await expect(comboLines(page).last()).toHaveText("Combo: Tokyo Wall (P2)");
+test("the bot's combo is called out too, naming the bot", async ({ page }) => {
+  await settingsWith(page, { botDelay: 0 });
+  await loadFixture(page, "combo-bot");
+  await expect(page.getByTestId("board")).toHaveAttribute("data-bottom", "P1");
+  // The bot takes its only legal action (`next`), which completes its combo.
+  await expect(page.getByTestId("combo-modal")).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByTestId("combo-who")).toHaveText(
+    "Combo · Bot (Medium)",
+  );
+  await expect(comboLines(page).last()).toHaveText(
+    /^Combo: .+ \(Bot \(Medium\)\)$/,
+  );
 });
 
 test("with Combo callouts off, no modal, but the log line stays", async ({
@@ -277,13 +283,10 @@ test.describe("moving cards stay on top (M5g fix)", () => {
   test("a hand card onto a non-empty discard pile is on top the whole flight", async ({
     page,
   }) => {
-    await normal(page, { hotseatCover: false });
+    await normal(page, {});
     await sampleLayers(page);
-    await page.goto("/play?mode=hotseat");
-    await page.getByTestId("seed-input").fill("2");
-    const { startGame, passTurn } = await import("./helpers");
-    await startGame(page);
-    await passTurn(page);
+    // The hand-five fixture can gain rage and invade.
+    await loadFixture(page, "hand-five");
     await settled(page);
     // Gain rage first, so the discard pile has a top card, then invade onto it.
     for (const target of ["rage", "discard"]) {

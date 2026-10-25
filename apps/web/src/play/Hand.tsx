@@ -84,8 +84,9 @@ export function Hand({
       data-testid="your-hand"
       data-locked={locked ? "true" : "false"}
     >
-      <div className={styles.handLabel}>
-        Your hand ({player.id},{" "}
+      {/* "Your Hand (6)": no seat id (M5h). */}
+      <div className={styles.handLabel} data-testid="hand-label">
+        Your Hand (
         <span data-testid="your-hand-count">{player.hand.count}</span>)
         {locked ? " · waiting" : ""}
       </div>

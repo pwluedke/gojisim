@@ -19,7 +19,7 @@ export function ComboModal({
   onClose,
 }: {
   combo: Combo;
-  /** "You", "Bot (Hard)", or the seat id in hotseat. */
+  /** "You" or "Bot (Hard)". */
   who: string;
   /** The combo's cards, by its card numbers (undefined for a card not in this game). */
   cards: (Card | undefined)[];

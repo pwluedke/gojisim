@@ -521,3 +521,18 @@ Accepted by Monarch in the M12c-2 review (PR #43).
 375. Villain Tag Team (EBP03-078) destroys the rightmost first, then picks the leftmost among the cards left; ties at one position go to the effect's player (Q33).
 376. A Base card's strategy mark reads "Base", and its tooltip says it stays at the start phase.
 377. A mill is an undo boundary (a reveal), so a Casual undo can't take back cards that were seen.
+
+Accepted by Monarch in the M12d-1 review (PR #44).
+
+378. "Cannot be countered" (EBP04-031/032) is `counterProof` with no counter power limit; the monster doesn't move (as Q20).
+379. EBP04-014's "this turn" counter-proof is a `grant`, fixed on the monster card at resolution and ended at 7.5.6.
+380. "Whenever your opponent's effect causes you to discard cards" (EBP04-052) triggers once per effect, however many cards.
+381. `cannotBeMovedByOpponent` (EBP04-076) stops the opponent's advances, retreats, vertical moves and moves as though countered; a counter, including one by an effect (Q24), still moves the monster.
+382. `cannotDraw` (EBP04-030, "during the end phase") also stops effect draws in that phase.
+383. "Any number whose ranks total 7 or less" (EBP04-024) picks one card at a time, offering only cards that still fit, until Done. "Starting with the lowest-numbered zone, one by one" (EBP04-035) takes each card from the lowest zone left; ties go to the chooser (Q33).
+384. "You may play it in zone 8 instead" (EBP04-077) adds the card to the hand, revealed, then offers a play from there into zone 8. A card revealed into a hand stays revealed under its new id until the resolution ends.
+385. EBP04-079 plays the revealed cards from the deck (empty zones first, Q3), so "played from the deck" triggers see them.
+386. "You may destroy 4 ... If you do not, destroy this card" (EBP04-055) is a `chooseOne`; with fewer than 4 other green battle cards only "destroy this card" is left.
+387. An opponent's "may discard 1 ... If they do" (EBP04-027) is an up-to-1 discard they pick.
+388. "For every 5" counts at resolution, rounded down (EBP04-086); the Vultures in the discard pile count as green battle cards.
+389. A card a search sends to the discard pile (EBP04-061) isn't a discard (5.7). The ManualPanel test and the e2e `manual` fixture use ESC01-003 (manual until M12f) since EBP04-037 has data (amends decision 308).

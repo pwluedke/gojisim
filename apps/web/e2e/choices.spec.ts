@@ -1,5 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
-import { loadFixture, passTurn, startGame } from "./helpers";
+import { expect, test } from "@playwright/test";
+import { loadFixture, startGame } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -150,55 +150,24 @@ test("holding the eye button hides the modal", async ({ page }) => {
   await expect(page.getByTestId("choice-heading")).toBeVisible();
 });
 
-async function hotseat(page: Page, seed: number) {
-  await page.goto("/play?mode=hotseat");
-  await page.getByTestId("seed-input").fill(String(seed));
-  await startGame(page);
-  await expect(page.getByTestId("board")).toBeVisible();
-}
-
-test("Pass asks first while a lit hand card exists; Cancel keeps the turn", async ({
+test("End Main asks first with lit hand cards too; Cancel keeps the turn", async ({
   page,
 }) => {
-  // Seed 2: P2 starts; on P1's turn 2 several hand cards are lit.
-  await hotseat(page, 2);
-  await passTurn(page);
+  // The hand-five fixture: several hand cards are lit.
+  await loadFixture(page, "hand-five");
   await expect(page.locator('[data-hand-lit="true"]').first()).toBeVisible();
   await page.getByTestId("pass").click();
   await expect(page.getByTestId("confirm-dialog")).toContainText(
-    "Pass with playable cards left?",
+    "End Main and move to the Counter Phase?",
   );
   await page.getByTestId("confirm-cancel").click();
   await expect(page.getByTestId("confirm-dialog")).toHaveCount(0);
-  await expect(page.getByTestId("turn")).toHaveText("2");
+  await expect(page.getByTestId("turn")).toHaveText("13");
   // Space is the main button too.
   await page.keyboard.press("Space");
   await expect(page.getByTestId("confirm-dialog")).toBeVisible();
   await page.getByTestId("confirm-yes").click();
-  await expect(page.getByTestId("privacy-cover")).toBeVisible();
-});
-
-test("the hotseat cover replaces the board between players: P2's hand is not in the DOM", async ({
-  page,
-}) => {
-  // Seed 2: P2 starts, so passing hands the board to P1.
-  await hotseat(page, 2);
-  await expect(page.getByTestId("board")).toHaveAttribute("data-bottom", "P2");
-  await page.getByTestId("pass").click();
-  await page.getByTestId("confirm-yes").click();
-  const cover = page.getByTestId("privacy-cover");
-  await expect(cover).toContainText("Pass to P1");
-  await expect(page.getByTestId("board")).toHaveCount(0);
-  await expect(page.locator('[data-testid="card"]')).toHaveCount(0);
-  await expect(page.getByTestId("hand-card")).toHaveCount(0);
-  await cover.click();
-  await expect(page.getByTestId("board")).toHaveAttribute("data-bottom", "P1");
-  // The setting turns it off.
-  await page.locator("summary", { hasText: "Settings" }).click();
-  await page.getByTestId("setting-hotseat-cover").uncheck();
-  await page.getByTestId("pass").click();
-  await page.getByTestId("confirm-yes").click();
-  await expect(page.getByTestId("board")).toHaveAttribute("data-bottom", "P2");
+  await expect(page.getByTestId("turn")).toHaveText("14");
 });
 
 test("Concede is shown for human seats only, with a confirm step", async ({

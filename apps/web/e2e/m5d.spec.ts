@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { loadFixture, passTurn, startGame } from "./helpers";
+import { loadFixture, passTurn, startGame, vsBot } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -111,17 +111,10 @@ test("currentStep: a choice from a counter-triggered [enter] shows the counter p
   );
 });
 
-async function hotseat(page: Page, seed: number) {
-  await page.goto("/play?mode=hotseat");
-  await page.getByTestId("seed-input").fill(String(seed));
-  await startGame(page);
-  await expect(page.getByTestId("board")).toBeVisible();
-}
-
 test("H opens and closes the expanded hand; clicking a card there does nothing", async ({
   page,
 }) => {
-  await hotseat(page, 2);
+  await vsBot(page, 2);
   const count = Number(await page.getByTestId("your-hand-count").textContent());
   await page.keyboard.press("h");
   const expanded = page.getByTestId("expanded-hand");
@@ -147,7 +140,7 @@ test("H opens and closes the expanded hand; clicking a card there does nothing",
 test("shortcuts: Space passes, L toggles the log, ? lists the shortcuts, Esc closes", async ({
   page,
 }) => {
-  await hotseat(page, 2);
+  await vsBot(page, 2);
   await expect(page.getByTestId("log-panel")).toBeVisible();
   await page.keyboard.press("l");
   await expect(page.getByTestId("log-panel")).toHaveCount(0);
@@ -159,33 +152,51 @@ test("shortcuts: Space passes, L toggles the log, ? lists the shortcuts, Esc clo
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("shortcut-list")).toHaveCount(0);
 
-  // Space is Pass (P2 has a lit card on turn 1, so it asks first).
+  // Space is Pass, which always asks first (M5h).
   await page.keyboard.press("Space");
-  await expect(page.getByTestId("confirm-dialog")).toBeVisible();
-  await expect(page.getByTestId("confirm-yes")).toHaveText("Pass [Space]");
+  await expect(page.getByTestId("confirm-dialog")).toContainText(
+    "End Main and move to the Counter Phase?",
+  );
+  await expect(page.getByTestId("confirm-yes")).toHaveText("Confirm [Space]");
   await expect(page.getByTestId("confirm-cancel")).toHaveText("Cancel [Esc]");
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("confirm-dialog")).toHaveCount(0);
   await expect(page.getByTestId("turn")).toHaveText("1");
 });
 
-test("Pass confirm: Space then Space passes, also after clicking the Pass button", async ({
+test("End Main confirm (M5h): every Pass asks; Space then Space passes, also after clicking the Pass button", async ({
   page,
 }) => {
-  await hotseat(page, 2);
+  await vsBot(page, 2);
   await page.keyboard.press("Space");
   await expect(page.getByTestId("confirm-dialog")).toBeVisible();
   await page.keyboard.press("Space");
   await expect(page.getByTestId("confirm-dialog")).toHaveCount(0);
-  await page.getByTestId("privacy-cover").click();
-  await expect(page.getByTestId("turn")).toHaveText("2");
+  // The bot's turn 2, then mine again: turn 3.
+  await expect(page.getByTestId("turn")).toHaveText("3", { timeout: 30_000 });
+  await expect(page.getByTestId("pass")).toBeVisible({ timeout: 30_000 });
   // A mouse click on Pass leaves focus on it; the second Space still passes, once.
   await page.getByTestId("pass").click();
   await expect(page.getByTestId("confirm-dialog")).toBeVisible();
   await page.keyboard.press("Space");
-  await page.getByTestId("privacy-cover").click();
-  await expect(page.getByTestId("turn")).toHaveText("3");
+  await expect(page.getByTestId("turn")).toHaveText("4");
   await expect(page.getByTestId("confirm-dialog")).toHaveCount(0);
+});
+
+test("End Main confirm: Cancel and Esc keep the main phase; the old Pass setting is gone", async ({
+  page,
+}) => {
+  await vsBot(page, 2);
+  await page.getByTestId("pass").click();
+  await page.getByTestId("confirm-cancel").click();
+  await expect(page.getByTestId("confirm-dialog")).toHaveCount(0);
+  await page.getByTestId("pass").click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("confirm-dialog")).toHaveCount(0);
+  await expect(page.getByTestId("prompt-step")).toContainText("Main");
+  await expect(page.getByTestId("turn")).toHaveText("1");
+  await page.getByTestId("settings").click();
+  await expect(page.getByTestId("setting-confirm-pass")).toHaveCount(0);
 });
 
 test("a single-target destroy is still asked (confirmSingleTarget), with its zone label; hovering it rings the zone", async ({
@@ -230,7 +241,7 @@ test("a single-target destroy is still asked (confirmSingleTarget), with its zon
 });
 
 test("shortcuts never fire while focus is in an input", async ({ page }) => {
-  await hotseat(page, 2);
+  await vsBot(page, 2);
   await page.getByTestId("settings").click();
   await page.getByTestId("setting-bot-delay").focus();
   for (const key of ["h", "l", "?", "Space"]) await page.keyboard.press(key);
@@ -244,21 +255,23 @@ test("shortcuts never fire while focus is in an input", async ({ page }) => {
 test('a strategy card placed this turn has the "New" corner mark', async ({
   page,
 }) => {
-  await hotseat(page, 2);
-  await passTurn(page);
+  // The hand-five fixture can activate a strategy card.
+  await loadFixture(page, "hand-five");
   const cards = page.getByTestId("hand-card");
+  let zone = "";
   for (let i = 0; i < (await cards.count()); i++) {
     await cards.nth(i).click();
     const dest = page.locator('[data-lit][data-target^="strategy:"]').first();
     if (await dest.count()) {
+      zone = ((await dest.getAttribute("data-target")) ?? "").slice(9);
       await dest.click();
       break;
     }
     await page.keyboard.press("Escape");
   }
-  await expect(page.getByTestId("strategy-mark")).toHaveText("New");
-  await expect(page.getByTestId("strategy-mark")).toHaveAttribute(
-    "data-this-turn",
-    "true",
-  );
+  const mark = page
+    .getByTestId(`strategy-P1-${zone}`)
+    .getByTestId("strategy-mark");
+  await expect(mark).toHaveText("New");
+  await expect(mark).toHaveAttribute("data-this-turn", "true");
 });

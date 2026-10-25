@@ -40,6 +40,11 @@ export interface GameRecord {
    * record, so the record keeps the final line only. Information only for the engine.
    */
   mode?: MatchMode;
+  /**
+   * The human saw the bot's hand all game (M5h #13, a `/play` setting). Information only: such
+   * games never count toward win/loss statistics (M11).
+   */
+  showOpponentHand?: boolean;
 }
 
 export type MatchMode = "casual" | "tournament";

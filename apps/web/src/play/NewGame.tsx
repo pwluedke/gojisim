@@ -26,13 +26,15 @@ import { useMyDecks } from "../game/useMyDecks";
 import { ImportDeck } from "./ImportDeck";
 import styles from "./NewGame.module.css";
 
-export type Mode = "bot" | "hotseat";
-
-/** The seats each menu entry presets (M5a): Play vs bot is P1 Human vs P2 Bot Medium. */
-export function presetSeats(mode: Mode): Record<PlayerId, SeatConfig> {
-  return mode === "bot"
-    ? { P1: { kind: "human" }, P2: { kind: "bot", difficulty: PRESETS.medium } }
-    : { P1: { kind: "human" }, P2: { kind: "human" } };
+/**
+ * The preset seats (M5a): P1 Human vs P2 Bot Medium. `/play` is human vs bot (M5h removed
+ * hotseat): only P1 can be human, and P1 can be a bot too, to watch two bots play.
+ */
+export function presetSeats(): Record<PlayerId, SeatConfig> {
+  return {
+    P1: { kind: "human" },
+    P2: { kind: "bot", difficulty: PRESETS.medium },
+  };
 }
 
 function Legality({
@@ -67,11 +69,9 @@ function Legality({
  * the seat says why. Casual games play it with a warning on the board.
  */
 export function NewGame({
-  mode,
   onStart,
   onLoad,
 }: {
-  mode: Mode;
   /** Loads an exported game record (M5c); returns an error message, or `null`. */
   onLoad: (file: File) => Promise<string | null>;
   onStart: (
@@ -79,6 +79,7 @@ export function NewGame({
     picked: [DeckOption, DeckOption],
     seats: Record<PlayerId, SeatConfig>,
     matchMode: MatchMode,
+    showOpponentHand: boolean,
   ) => void;
 }) {
   // M7a: the starters, My decks (saved in this browser), then the development decks.
@@ -93,10 +94,11 @@ export function NewGame({
     P1: "official:ESD01",
     P2: "official:ESD02",
   });
-  const [seats, setSeats] = useState(() => presetSeats(mode));
+  const [seats, setSeats] = useState(presetSeats);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [seed, setSeed] = useState(() => String(randomSeed()));
   const [matchMode, setMatchMode] = useState<MatchMode>("casual");
+  const [showOpponentHand, setShowOpponentHand] = useState(false);
   const byKey = (key: string) =>
     options.find((o) => o.key === key) ?? (options[0] as DeckOption);
   const tournament = matchMode === "tournament";
@@ -122,12 +124,11 @@ export function NewGame({
           [byKey(keys.P1), byKey(keys.P2)],
           seats,
           matchMode,
+          showOpponentHand && seats.P1.kind === "human",
         );
       }}
     >
-      <h1 className={styles.title}>
-        {mode === "bot" ? "Play vs bot" : "Hotseat"}
-      </h1>
+      <h1 className={styles.title}>Play vs bot</h1>
       <div className={styles.seats}>
         {PLAYER_IDS.map((id) => {
           const seat = seats[id];
@@ -201,25 +202,32 @@ export function NewGame({
                 </div>
               )}
               <div className={styles.row}>
-                <label>
-                  Seat{" "}
-                  <select
-                    data-testid={`seat-${id}`}
-                    value={seat.kind}
-                    onChange={(e) =>
-                      setSeats((s) => ({
-                        ...s,
-                        [id]:
-                          e.target.value === "bot"
-                            ? { kind: "bot", difficulty: PRESETS.medium }
-                            : { kind: "human" },
-                      }))
-                    }
-                  >
-                    <option value="human">Human</option>
-                    <option value="bot">Bot</option>
-                  </select>
-                </label>
+                {id === "P1" ? (
+                  <label>
+                    Seat{" "}
+                    <select
+                      data-testid={`seat-${id}`}
+                      value={seat.kind}
+                      onChange={(e) =>
+                        setSeats((s) => ({
+                          ...s,
+                          [id]:
+                            e.target.value === "bot"
+                              ? { kind: "bot", difficulty: PRESETS.medium }
+                              : { kind: "human" },
+                        }))
+                      }
+                    >
+                      <option value="human">Human</option>
+                      <option value="bot">Bot</option>
+                    </select>
+                  </label>
+                ) : (
+                  // The other seat is always a bot (M5h: no hotseat until M9's online play).
+                  <span data-testid={`seat-${id}`} data-seat="bot">
+                    Seat: Bot
+                  </span>
+                )}
               </div>
               {seat.kind === "bot" && (
                 <div className={styles.row}>
@@ -314,6 +322,22 @@ export function NewGame({
           </label>
         ))}
       </div>
+      {seats.P1.kind === "human" && (
+        <div className={styles.row}>
+          <label>
+            <input
+              type="checkbox"
+              data-testid="show-opponent-hand"
+              checked={showOpponentHand}
+              onChange={(e) => setShowOpponentHand(e.target.checked)}
+            />{" "}
+            Show opponent&apos;s hand{" "}
+            <span className={styles.note}>
+              (practice: the game won&apos;t count in statistics)
+            </span>
+          </label>
+        </div>
+      )}
       <button
         type="submit"
         className={styles.start}

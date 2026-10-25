@@ -32,10 +32,17 @@ import { type Combo, getCombos } from "@gojisim/cards";
 
 import { cardByNumber } from "../game/labels";
 import { FirstPick } from "./FirstPick";
+import {
+  lastLine,
+  type OutcomeKey,
+  outcomeHeading,
+  outcomeKey,
+  pickLine,
+  rememberLine,
+} from "./gameOver";
 import { SearchModal } from "./SearchModal";
 import { type SearchResult, searchResults } from "./searches";
-import { isLit, playableCards } from "./destinations";
-import { type Mode, NewGame } from "./NewGame";
+import { NewGame } from "./NewGame";
 import { boardModel, bottomPlayer } from "./model";
 import { visibleCards } from "./Preview";
 import {
@@ -50,10 +57,6 @@ import { useCustomMat } from "./useCustomMat";
 /** A combo hit's data entry (name, cards, steps, result). */
 const comboOf = (hit: ComboHit): Combo | undefined =>
   getCombos().find((c) => c.id === hit.comboId);
-
-/** Who must decide now: the hotseat cover shows when this changes. */
-const deciderOf = (state: GameState) =>
-  state.pendingChoice?.player ?? state.turnPlayer;
 
 /** Where a bot action landed on the board, as `<player>|<destination>` (M5c move highlight). */
 function landing(before: GameState, action: Action): Set<string> {
@@ -83,7 +86,10 @@ function landing(before: GameState, action: Action): Set<string> {
 /** The keyboard shortcuts (M5d), as the ? list shows them. */
 const SHORTCUTS: [string, string][] = [
   ["Space", "Pass (the prompt panel's main button)"],
-  ["1 to 9", "Pick an option in a choice"],
+  [
+    "1 to 9",
+    "Pick an option in a choice, numbered left to right (search cards have no number badges)",
+  ],
   ["H", "Expand / close the hand"],
   [
     "Esc",
@@ -96,6 +102,25 @@ const SHORTCUTS: [string, string][] = [
   ],
   ["?", "Show / hide this list"],
 ];
+
+/**
+ * Whether a record file would load with two human seats (a hotseat game, which `/play` no longer
+ * plays; `/debug` still loads it).
+ */
+async function twoHumanSeats(file: File): Promise<boolean> {
+  try {
+    const seats = (
+      JSON.parse(await file.text()) as {
+        seats?: Record<string, { kind?: string }>;
+      }
+    ).seats;
+    // A seat that isn't a bot loads as human (`seatFromRecord`), records from before M6d too.
+    return seats?.["P1"]?.kind !== "bot" && seats?.["P2"]?.kind !== "bot";
+  } catch {
+    // Not JSON: importRecord reports it.
+    return false;
+  }
+}
 
 /** The last bot move: its toast line and, for the delay time, where it landed. */
 interface BotMove {
@@ -110,21 +135,18 @@ interface PendingGame {
   picked: [DeckOption, DeckOption];
   seats: Record<PlayerId, SeatConfig>;
   matchMode: MatchMode;
+  /** M5h #13: the human sees the bot's hand. */
+  showOpponentHand: boolean;
   picker: PlayerId;
 }
 
 /**
- * `/play` (M5a to M5e): the new-game screen and the First / Second pick, then the board, with the
- * prompt panel (and Casual undo), the choice and search modals, the hotseat privacy cover and the
- * bot's move toast.
+ * `/play` (M5a to M5h): the new-game screen and the First / Second pick, then the board, with the
+ * prompt panel (and Casual undo), the choice and search modals and the bot's move toast. It is
+ * human vs bot (or two bots) only: M5h removed hotseat until M9 adds online play.
  */
 export function PlayScreen() {
-  const mode: Mode =
-    new URLSearchParams(window.location.search).get("mode") === "hotseat"
-      ? "hotseat"
-      : "bot";
   const [settings, updateSettings] = useSettings();
-  const [cleared, setCleared] = useState<string | null>(null);
   const [botMove, setBotMove] = useState<BotMove | null>(null);
   const [confirming, setConfirming] = useState<"pass" | "concede" | null>(null);
   // M5d: the read-only history view (a session position), the log (L), and the overlays (H, ?).
@@ -141,6 +163,12 @@ export function PlayScreen() {
   // M5g: combos waiting for (or showing in) the combo modal, and the steps already checked.
   const [callouts, setCallouts] = useState<ComboHit[]>([]);
   const lastCombo = useRef(0);
+  // M5h #17: the game-over modal's outcome and line, once the game ends; `closed` after Close.
+  const [gameOver, setGameOver] = useState<{
+    key: OutcomeKey;
+    line: string;
+    closed: boolean;
+  } | null>(null);
   // `/play` never shows hidden cards, so bot labels always keep private choices private.
   // Bot seats play at once, two bots included (`/play` has no Play button before a game).
   const game = useGameSession({
@@ -148,12 +176,12 @@ export function PlayScreen() {
     autoPlay: "always",
     onStart: (next: Session) => {
       const start = next.states[next.position] as GameState;
-      setCleared(deciderOf(start));
       setHistoryAt(null);
       setSearches([]);
       seenLog.current = start.log.length;
       // A loaded record's combos are history: no callouts for them.
       setCallouts([]);
+      setGameOver(null);
       lastCombo.current = next.record.actions.length;
     },
     // While the history view or a search result is open, a bot's answer waits.
@@ -166,13 +194,8 @@ export function PlayScreen() {
   const { setDelay } = game;
   useEffect(() => setDelay(settings.botDelay), [setDelay, settings.botDelay]);
 
-  const hotseat = game.humanSeats.length === 2;
   const name = (id: string) =>
-    hotseat
-      ? id
-      : session?.seats[id as PlayerId]?.kind === "human"
-        ? "You"
-        : "Bot";
+    session?.seats[id as PlayerId]?.kind === "human" ? "You" : "Bot";
   const liveBottom =
     state && session ? bottomPlayer(state, session.seats) : null;
   // M5g: every combo in the game so far, from the record's steps (an undo drops its combos).
@@ -227,6 +250,18 @@ export function PlayScreen() {
   const callout = callouts[0] ?? null;
   const closeCallout = () => setCallouts((queue) => queue.slice(1));
 
+  // M5h #17: when the game ends, pick the game-over line for the human (P1 between two bots).
+  const result = state?.result ?? null;
+  useEffect(() => {
+    if (!result || gameOver || !liveBottom) return;
+    const key = outcomeKey(result, liveBottom);
+    const line = pickLine(key, lastLine());
+    rememberLine(line);
+    setGameOver({ key, line, closed: false });
+  }, [result]);
+  const closeGameOver = () =>
+    setGameOver((g) => (g ? { ...g, closed: true } : g));
+
   // A deck search by a human seat, found or not, opens the search modal (M5e). An undo shortens
   // the log, so its searches are never shown again.
   useEffect(() => {
@@ -235,12 +270,7 @@ export function PlayScreen() {
     const seen = seenLog.current;
     seenLog.current = state.log.length;
     if (state.log.length <= seen) return;
-    // In hotseat only the player at the board sees their own search.
-    const found = searchResults(
-      session,
-      seen,
-      hotseat && settings.hotseatCover && cleared ? [cleared] : game.humanSeats,
-    );
+    const found = searchResults(session, seen, game.humanSeats);
     if (found.length) setSearches((queue) => [...queue, ...found]);
   }, [session, state]);
 
@@ -278,7 +308,6 @@ export function PlayScreen() {
   const pass = actions.find((a) => a.type === "pass");
   // EBP03-004 (E21): an invasion paid with the deck's top card has no hand card to drag.
   const deckInvade = actions.find((a) => a.type === "invadeFromDeck");
-  const hasLit = [...playableCards(actions)].some((id) => isLit(id, actions));
   const choice = state?.pendingChoice ?? null;
   // Casual undo (M5e): the deciding human takes back their own last action.
   const undoFor = human && decider ? decider : null;
@@ -290,13 +319,13 @@ export function PlayScreen() {
   };
   const casual = session?.record.mode !== "tournament";
 
+  // Ending the main phase is announced at the table and can't be taken back (Paul, M5h), so
+  // every Pass asks first.
   const takePass = () => {
     if (!pass) return;
-    if (settings.confirmPass && hasLit) {
-      // Off the Pass button, so a second Space reaches the dialog instead of clicking it again.
-      (document.activeElement as HTMLElement | null)?.blur();
-      setConfirming("pass");
-    } else game.takeAction(pass);
+    // Off the Pass button, so a second Space reaches the dialog instead of clicking it again.
+    (document.activeElement as HTMLElement | null)?.blur();
+    setConfirming("pass");
   };
   const confirmYes = () => {
     setConfirming(null);
@@ -313,6 +342,14 @@ export function PlayScreen() {
       // Input waits while cards move (M5f) and while the combo modal is open (its own keys).
       if (animating || callouts.length > 0) return;
       if (e.ctrlKey || e.metaKey || e.altKey || !session) return;
+      // The game-over modal takes Space and Esc (M5h #17).
+      if (gameOver && !gameOver.closed) {
+        if (e.key === " " || e.key === "Escape") {
+          e.preventDefault();
+          closeGameOver();
+        }
+        return;
+      }
       switch (e.key) {
         case "Escape":
           setOverlay(null);
@@ -336,7 +373,7 @@ export function PlayScreen() {
           undo();
           return;
         case " ":
-          // In "Pass with playable cards left?", a second Space passes (M5d).
+          // In "End Main and move to the Counter Phase?", a second Space confirms (M5h).
           if (confirming === "pass") {
             e.preventDefault();
             confirmYes();
@@ -370,6 +407,7 @@ export function PlayScreen() {
     newSession(setup.seed, setup.picked, setup.seats, {
       confirmTargets: true,
       mode: setup.matchMode,
+      showOpponentHand: setup.showOpponentHand,
       ...(picker && card !== undefined
         ? { firstPick: { player: picker, card } }
         : {}),
@@ -381,18 +419,6 @@ export function PlayScreen() {
         {pending ? (
           <FirstPick
             picker={pending.picker}
-            pickerName={
-              pending.seats.P1.kind === "human" &&
-              pending.seats.P2.kind === "human"
-                ? pending.picker
-                : "You"
-            }
-            heading={
-              pending.seats.P1.kind === "human" &&
-              pending.seats.P2.kind === "human"
-                ? `${pending.picker} picks First or Second`
-                : "Pick First or Second"
-            }
             build={(card) => build(pending, pending.picker, card)}
             onStart={(next) => {
               setPending(null);
@@ -401,18 +427,26 @@ export function PlayScreen() {
           />
         ) : (
           <NewGame
-            mode={mode}
-            onStart={(seed, picked, seats, matchMode) => {
-              const setup = { seed, picked, seats, matchMode };
-              // Against a bot the human picks; in hotseat P2 picks; two bots skip the pick.
-              const humans = (["P1", "P2"] as const).filter(
+            onStart={(seed, picked, seats, matchMode, showOpponentHand) => {
+              const setup = {
+                seed,
+                picked,
+                seats,
+                matchMode,
+                showOpponentHand,
+              };
+              // The human picks; two bots skip the pick.
+              const picker = (["P1", "P2"] as const).find(
                 (id) => seats[id].kind === "human",
               );
-              const picker = humans.length === 2 ? "P2" : humans[0];
               if (picker) setPending({ ...setup, picker });
               else game.startSession(build(setup), true);
             }}
-            onLoad={(file) => game.importRecord(file, true)}
+            onLoad={async (file) =>
+              (await twoHumanSeats(file))
+                ? "This record has two human seats (hotseat, removed in M5h). Open it in /debug."
+                : game.importRecord(file, true)
+            }
           />
         )}
       </div>
@@ -426,43 +460,19 @@ export function PlayScreen() {
   const shown = (
     viewing === null ? state : session.states[viewing]
   ) as GameState;
-  const model = boardModel(shown, liveBottom ?? "P1");
+  const model = boardModel(
+    shown,
+    liveBottom ?? "P1",
+    session.record.showOpponentHand === true,
+  );
 
-  // Hotseat privacy cover: when the decider changes (a new turn, or a choice for the other
-  // player, private ones included), the cover replaces the board, so nothing hidden is rendered
-  // until the next player clicks.
-  const now = deciderOf(state);
-  // A search result shows to its searcher first, before the cover passes the board on.
   const search = viewing === null ? (searches[0] ?? null) : null;
-  if (
-    hotseat &&
-    settings.hotseatCover &&
-    !state.result &&
-    cleared !== null &&
-    now !== cleared &&
-    !search
-  )
-    return (
-      <div className="gojisim">
-        <button
-          type="button"
-          className={styles.cover}
-          data-testid="privacy-cover"
-          onClick={() => setCleared(now)}
-        >
-          <span className={styles.coverTitle}>Pass to {now}</span>
-          <span>Click when ready</span>
-        </button>
-      </div>
-    );
 
   // The bottom player plays hand cards on the board (M5b) when it is their decision; otherwise
   // (a bot decides, or the game is over) the hand is locked.
   const locked =
     viewing !== null || decider !== model.bottom || !human || animating;
-  const concedeFor = hotseat
-    ? model.bottom
-    : (game.humanSeats[0] as PlayerId | undefined);
+  const concedeFor = game.humanSeats[0] as PlayerId | undefined;
   // Choice and search modals open once the cards have landed (M5f).
   const showModal =
     viewing === null &&
@@ -503,7 +513,7 @@ export function PlayScreen() {
           Game over: {state.result.winner ? name(state.result.winner) : "draw"}{" "}
           ({state.result.reason})
         </div>
-        <a href={`/play?mode=${mode}`}>New game</a>
+        <a href="/play">New game</a>
       </div>
     ) : (
       <div className={styles.promptBody}>
@@ -628,24 +638,6 @@ export function PlayScreen() {
             onChange={(e) => updateSettings({ showRules: e.target.checked })}
           />{" "}
           Show rule numbers in the log
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            data-testid="setting-confirm-pass"
-            checked={settings.confirmPass}
-            onChange={(e) => updateSettings({ confirmPass: e.target.checked })}
-          />{" "}
-          Confirm before Pass
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            data-testid="setting-hotseat-cover"
-            checked={settings.hotseatCover}
-            onChange={(e) => updateSettings({ hotseatCover: e.target.checked })}
-          />{" "}
-          Hotseat privacy cover
         </label>
         <label>
           <input
@@ -816,10 +808,11 @@ export function PlayScreen() {
       />
       {viewing !== null && (
         <div className={styles.historyBanner} data-testid="history-banner">
-          History: turn {shown.turn}, read-only.{" "}
+          <span>History: turn {shown.turn}, read-only.</span>
           <button
             type="button"
-            className={styles.button}
+            className={`${styles.button} ${styles.backToLive}`}
+            data-testid="history-back-to-live"
             onClick={() => setHistoryAt(null)}
           >
             Back to live
@@ -917,6 +910,35 @@ export function PlayScreen() {
           onClose={closeCallout}
         />
       )}
+      {gameOver &&
+        !gameOver.closed &&
+        viewing === null &&
+        !animating &&
+        !callout && (
+          <div className={styles.modalBackdrop} data-testid="game-over-modal">
+            <div className={styles.modal}>
+              <div
+                className={styles.modalHeading}
+                data-testid="game-over-heading"
+              >
+                {outcomeHeading(gameOver.key)}
+              </div>
+              <p data-testid="game-over-line" data-outcome={gameOver.key}>
+                {gameOver.line}
+              </p>
+              <div className={styles.modalButtons}>
+                <button
+                  type="button"
+                  className={styles.button}
+                  data-testid="game-over-close"
+                  onClick={closeGameOver}
+                >
+                  Close [Space]
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       {botMove && (
         <div className={styles.toast} data-testid="bot-toast">
           {botMove.text}
@@ -927,7 +949,7 @@ export function PlayScreen() {
           <div className={styles.modal}>
             <div className={styles.modalHeading}>
               {confirming === "pass"
-                ? "Pass with playable cards left?"
+                ? "End Main and move to the Counter Phase?"
                 : "Concede the game?"}
             </div>
             <div className={styles.modalButtons}>
@@ -937,7 +959,7 @@ export function PlayScreen() {
                 data-testid="confirm-yes"
                 onClick={confirmYes}
               >
-                {confirming === "pass" ? "Pass [Space]" : "Concede"}
+                {confirming === "pass" ? "Confirm [Space]" : "Concede"}
               </button>
               <button
                 type="button"
