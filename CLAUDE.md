@@ -508,3 +508,16 @@ Accepted by Monarch in the M12c-1 review (PRs #41 and #42).
 365. Q40 (Paul, provisional): Space Beam's (EBP03-069) "a [mechagodzilla] card in zone 8" is your zone 8 only.
 366. "Each player discards down to N" runs for the master first, then the opponent, each picking their own cards.
 367. "Whenever you discard a battle card from your hand" (EBP03-015/016/017, EPR-020) counts every discard from your hand: costs, invasion and effects.
+
+Accepted by Monarch in the M12c-2 review (PR #43).
+
+368. Resonance failures use rule `12.8.2`, one per broken condition, naming the cards. Resonance colors are added to the rank I monster's for 6.1.1.3. Conditions are data: `every` card of a type has one of some traits or a minimum rank, or the deck holds `atLeast` N cards of a type.
+369. `strategyZones` holds 2 or 3 zones. Strategy 3 shows on the mat in the corner past zone 8 only once a player has it; the "Illegal deck" badge moved one cell in. 8.3.2 then needs all 3 filled.
+370. EBP03-004's alternative cost is an `invadeFromDeck` action. The milled card's invasion icon counts (8.6.1.1); it is once per turn together with the normal invade (8.6.2); it isn't a discard from the hand, so EBP03-015-style triggers don't fire.
+371. EBP03-051's play on top is `playBattle` with `onTop: true`. The plain play into that zone (overload, 11.5) stays legal; ISMCTS keys the two apart.
+372. C5 `countsAs` is an ability kind, not a selector flag. A count of monster cards in its owner's discard pile includes it if it passes the count's other filters (Q34); selecting monster cards never picks it.
+373. A printed X (−1 in the card data) reads as 0, so the X comes only from the ability (EBP03-067, EBP04-031/032/047).
+374. Fukuoka Tower (EBP03-076): "each monster or battle card in your zones 1-5 and 8" counts your battle cards there plus your invading monster when it stands in one of those zones.
+375. Villain Tag Team (EBP03-078) destroys the rightmost first, then picks the leftmost among the cards left; ties at one position go to the effect's player (Q33).
+376. A Base card's strategy mark reads "Base", and its tooltip says it stays at the start phase.
+377. A mill is an undo boundary (a reveal), so a Casual undo can't take back cards that were seen.
