@@ -1,6 +1,7 @@
 import { type Card, getCardAbilities } from "@gojisim/cards";
 import type { CardChange, CardInstance } from "@gojisim/engine";
 import type { ReactNode } from "react";
+import { printedWithCurrent } from "../game/printed";
 import styles from "./Board.module.css";
 import { useInteraction } from "./interaction";
 
@@ -133,13 +134,15 @@ export function CardChips({
   extra?: ReactNode;
 }) {
   const printed = data.counterOrThreat;
-  const modifier =
-    counterPower !== undefined && printed !== null ? counterPower - printed : 0;
+  const { text, modifier } =
+    printed === null
+      ? { text: "", modifier: 0 }
+      : printedWithCurrent(printed, counterPower);
   return (
     <>
       {counterPower !== undefined && printed !== null && (
         <span className={styles.chip} data-testid="counter-power-chip">
-          {printed}
+          {text}
           {modifier !== 0 && (
             <span
               className={modifier > 0 ? styles.chipUp : styles.chipDown}

@@ -1,5 +1,6 @@
 import { type Card, getCardText, getCardTraits } from "@gojisim/cards";
 import type { CardInstance, PlayerAreasView } from "@gojisim/engine";
+import { printedWithCurrent } from "../game/printed";
 import styles from "./Board.module.css";
 import type { BoardModel } from "./model";
 
@@ -47,8 +48,10 @@ export function Preview({
   });
   const counterPower = card ? model.counterPower[card.instanceId] : undefined;
   const printed = data.counterOrThreat;
-  const modifier =
-    counterPower !== undefined && printed !== null ? counterPower - printed : 0;
+  const { text: printedLabel, modifier } =
+    printed === null
+      ? { text: "", modifier: 0 }
+      : printedWithCurrent(printed, counterPower);
   return (
     <aside
       className={styles.preview}
@@ -83,7 +86,7 @@ export function Preview({
         ) : printed !== null ? (
           <>
             {data.type === "Monster" ? "Threat " : "Counter power "}
-            <strong>{printed}</strong>
+            <strong>{printedLabel}</strong>
             {modifier !== 0 && (
               <span
                 className={
