@@ -399,11 +399,75 @@
   height: calc(var(--card-h) / 2);
 }
 
-.handBacks {
+/*
+ * The opponent's mat row (bot hand row): the hand in the space left of the mat, the mat centered
+ * like yours, so both mats line up column for column.
+ */
+.oppRow {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  column-gap: var(--space-2);
+  align-items: start;
+}
+
+/*
+ * The opponent's hand: half-size cards overlapping left to right, the first whole and each next
+ * one showing a third of its width. Its top is the mat's top. One card with the count on it when
+ * the row would reach the mat (OpponentHand measures).
+ */
+.opponentHand {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: var(--space-1);
+  min-width: 0;
   height: calc(var(--card-h) / 2);
+}
+
+.handSlot {
+  position: relative;
+  flex: none;
+}
+
+.handSlot + .handSlot {
+  margin-left: calc(var(--card-w) / -3);
+}
+
+/*
+ * "Show opponent's hand" (M5h #13): hovering the row fans the cards out at the board's card size
+ * over the board, from the row's top-left corner; it closes when the pointer leaves the row and
+ * the fan. Above hovered board cards, below flights, the preview and the modals.
+ */
+.handFan {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 6;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  width: max-content;
+  max-width: calc(
+    100vw - var(--left-column-width) - var(--right-column-width) - 2 *
+      var(--space-4)
+  );
+  padding: var(--space-2);
+  border: var(--panel-border-width) solid var(--color-panel-border);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  box-shadow: var(--panel-shadow);
+}
+
+.handFanCard {
+  flex: none;
+}
+
+/* Read by screen readers and tests, not drawn. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* The tucked hand strip (M5b): the full width of the board, never scrolling. */

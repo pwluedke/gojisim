@@ -126,7 +126,10 @@ export function snapshot(
 ): Snapshot {
   const cards = new Map<string, CardSpot>();
   root
-    .querySelectorAll<HTMLElement>('[data-testid="card"][data-instance-id]')
+    .querySelectorAll<HTMLElement>(
+      // The opponent's hand fan (bot hand row) repeats the row's cards larger; the row is the pile.
+      '[data-testid="card"][data-instance-id]:not([data-testid="opponent-hand-fan"] *)',
+    )
     .forEach((el) => {
       const instanceId = el.dataset["instanceId"] as string;
       cards.set(instanceId, {
@@ -162,7 +165,7 @@ export function snapshot(
         ? { area: "hand-strip", card: '[data-testid="hand-card"]', size: 1 }
         : {
             area: "opponent-hand",
-            card: '[data-testid="opponent-card-back"], [data-testid="card"]',
+            card: "[data-hand-slot]",
             size: 0.5,
           },
       deck: {
