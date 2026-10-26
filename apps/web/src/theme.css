@@ -574,3 +574,86 @@ body {
   font-family: var(--font-family);
   font-size: var(--font-size-md);
 }
+
+/*
+ * Showa Poster's form controls (Oct 26, 2026): selects, text fields, buttons, file pickers, radios,
+ * checkboxes and sliders the app doesn't style itself take Zen Kaku Gothic New, a 2 px ink border,
+ * the panel fill and a 4 px radius; buttons and selects are at least 44 px tall; radios,
+ * checkboxes and sliders take the poster red accent. Only buttons with no class (or marked
+ * `data-control`) take these rules, and `:where` keeps them below any class, so controls the app
+ * styles itself (the board's buttons, the log's card links) keep their look, and other themes
+ * keep the browser's controls. Primary actions (`data-primary`) are marigold, like Pass.
+ */
+:where(:root[data-theme="showa"])
+  :where(
+    select,
+    textarea,
+    input:not([type]),
+    input[type="text"],
+    input[type="search"],
+    input[type="number"]
+  ) {
+  border: 2px solid var(--color-ink);
+  border-radius: 4px;
+  background-color: var(--color-panel);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+
+:where(:root[data-theme="showa"])
+  :where(
+    select,
+    input:not([type]),
+    input[type="text"],
+    input[type="search"],
+    input[type="number"]
+  ) {
+  min-height: 44px;
+  padding: 0 var(--space-2, 8px);
+}
+
+:where(:root[data-theme="showa"])
+  :where(button:not([class]), button[data-control]) {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 2px solid var(--color-ink);
+  border-radius: 4px;
+  background-color: var(--color-panel);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+:where(:root[data-theme="showa"])
+  :where(button:not([class]):disabled, button[data-control]:disabled) {
+  opacity: 0.5;
+  cursor: default;
+}
+
+:where(:root[data-theme="showa"]) ::file-selector-button {
+  min-height: 44px;
+  margin-right: var(--space-2, 8px);
+  padding: 0 14px;
+  border: 2px solid var(--color-ink);
+  border-radius: 4px;
+  background-color: var(--color-panel);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+:where(:root[data-theme="showa"])
+  :where(input[type="radio"], input[type="checkbox"], input[type="range"]) {
+  accent-color: var(--color-poster-red);
+}
+
+:root[data-theme="showa"] [data-primary] {
+  border: 3px solid var(--color-ink);
+  background: var(--color-marigold);
+  color: var(--color-ink);
+  font-family: var(--font-heading);
+  font-weight: 400;
+  box-shadow: 3px 3px 0 var(--color-ink);
+}

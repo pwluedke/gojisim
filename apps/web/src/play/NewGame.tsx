@@ -290,6 +290,7 @@ export function NewGame({
                           key={name}
                           type="button"
                           className={styles.preset}
+                          data-control
                           data-testid={`preset-${id}-${name}`}
                           onClick={() =>
                             setSeats((s) => ({
@@ -374,6 +375,7 @@ export function NewGame({
       <button
         type="submit"
         className={styles.start}
+        data-primary
         data-testid="start-game"
         disabled={blocked.length > 0}
       >
@@ -448,7 +450,9 @@ function MyDecks({
         <button
           type="button"
           className={styles.preset}
+          data-control
           data-testid="import-deck"
+          data-primary
           onClick={onImport}
         >
           Import deck
@@ -456,6 +460,7 @@ function MyDecks({
         <button
           type="button"
           className={styles.preset}
+          data-control
           data-testid="export-decks"
           disabled={my.decks.length === 0}
           onClick={() =>

@@ -1300,6 +1300,14 @@
 }
 
 /*
+ * A yes/no prompt's printed text (M5h #16) has no card beside it: it takes the prompt's width,
+ * not the two-card cap that keeps an ability's text over its card.
+ */
+.confirmText {
+  max-width: none;
+}
+
+/*
  * Strategy cards are printed landscape (M5e): in the hand and on top of the discard pile the
  * image turns 90° clockwise to fill the portrait slot whole. The card is a size container, so the
  * image takes the slot's height as its width.

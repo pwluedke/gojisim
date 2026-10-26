@@ -213,3 +213,75 @@ for (const theme of THEMES)
     await expect(page.getByTestId("rules-panel")).toBeVisible();
     expect(await contrastProblems(page)).toEqual([]);
   });
+
+test("Showa Poster themes the form controls: 2 px ink borders, Zen Kaku Gothic New, 44 px buttons and selects, marigold primary actions, a red accent; Grey keeps the browser's", async ({
+  page,
+}) => {
+  await page.goto("/play");
+  const css = (id: string, prop: string) =>
+    page
+      .getByTestId(id)
+      .first()
+      .evaluate((el, p) => getComputedStyle(el).getPropertyValue(p), prop);
+  const height = async (id: string) =>
+    (await page.getByTestId(id).first().boundingBox())?.height ?? 0;
+  await expect(page.getByTestId("deck-P1")).toBeVisible();
+  for (const id of ["deck-P1", "seed-input", "dev-deck-filter"]) {
+    expect(await css(id, "border-top-width"), id).toBe("2px");
+    expect(await css(id, "border-top-color"), id).toBe("rgb(26, 20, 16)");
+    expect(await css(id, "font-family"), id).toMatch(/^"?Zen Kaku Gothic New/);
+    expect(await height(id), id).toBeGreaterThanOrEqual(44);
+  }
+  // The seat presets (Easy / Medium / Hard), Export all, and the primary actions.
+  expect(await height("export-decks")).toBeGreaterThanOrEqual(44);
+  for (const id of ["start-game", "import-deck"])
+    expect(await css(id, "background-color"), id).toBe("rgb(244, 179, 35)");
+  expect(
+    await page
+      .locator('input[type="radio"]')
+      .first()
+      .evaluate((el) => getComputedStyle(el).accentColor),
+  ).toBe("rgb(215, 38, 30)");
+  // The board's own controls keep their look: the log's card links stay one line tall.
+  await page.getByTestId("start-game").click();
+  await page.getByTestId("first-pick-card-0").click();
+  await page.getByTestId("first-pick-continue").click();
+  const line = page.getByTestId("log-line").first();
+  expect((await line.boundingBox())?.height ?? 99).toBeLessThan(30);
+
+  // Grey keeps the browser's controls.
+  await page.evaluate(() =>
+    window.localStorage.setItem(
+      "gojisim.settings",
+      JSON.stringify({ animation: "off", theme: "grey" }),
+    ),
+  );
+  await page.goto("/play");
+  await expect(page.getByTestId("deck-P1")).toBeVisible();
+  expect(await css("seed-input", "font-family")).not.toMatch(/Zen Kaku/);
+  expect(await css("seed-input", "border-top-color")).not.toBe(
+    "rgb(26, 20, 16)",
+  );
+  expect(await css("import-deck", "background-color")).not.toBe(
+    "rgb(244, 179, 35)",
+  );
+});
+
+for (const theme of THEMES)
+  test(`a yes/no prompt's card text uses the prompt's width, not a card's (${theme})`, async ({
+    page,
+  }) => {
+    await page.addInitScript((t) => {
+      window.localStorage.setItem(
+        "gojisim.settings",
+        JSON.stringify({ animation: "off", theme: t }),
+      );
+    }, theme);
+    await loadFixture(page, "confirm");
+    const text = await page.getByTestId("confirm-text").boundingBox();
+    const words = await page.getByTestId("confirm-words").boundingBox();
+    if (!text || !words) throw new Error("no prompt");
+    // It was capped at two card widths (about 120 px) and wrapped in a narrow column.
+    expect(text.width).toBeGreaterThan(300);
+    expect(Math.abs(text.width - words.width)).toBeLessThan(2);
+  });
