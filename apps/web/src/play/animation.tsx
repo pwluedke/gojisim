@@ -470,6 +470,8 @@ export function planMoves(
       });
       continue;
     }
+    // A hand card is never covered: a card drawn into its slot doesn't hide it (it moved).
+    if (card.pile === "hand") continue;
     if (!flights.some((f) => f.target !== null && near(f.to, card.box)))
       continue;
     // Put on the bottom of its deck instead of destroyed (ESD01-011), or destroyed (11.5): it
