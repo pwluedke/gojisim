@@ -683,12 +683,17 @@ export function FlightLayer({
   flights,
   speed,
   cards,
+  onLanded,
 }: {
   flights: readonly Flight[];
   speed: AnimationSpeed;
   cards: BoardModel["view"]["cards"];
+  /** Called once every flight's animation has finished (not when they are cancelled). */
+  onLanded?: (() => void) | undefined;
 }) {
   const refs = useRef(new Map<string, HTMLDivElement>());
+  const landed = useRef(onLanded);
+  landed.current = onLanded;
   useEffect(() => {
     const { move, explode, hang } = durations(speed);
     const running: Animation[] = [];
@@ -743,7 +748,20 @@ export function FlightLayer({
         );
       });
     }
-    return () => running.forEach((a) => a.cancel());
+    // The step ends when these animations finish, however late their first frame came (a slow
+    // machine). A re-run of this effect (StrictMode in development) cancels them, so only the
+    // set it starts again reports.
+    let live = true;
+    void Promise.all(running.map((a) => a.finished)).then(
+      () => {
+        if (live) landed.current?.();
+      },
+      () => {},
+    );
+    return () => {
+      live = false;
+      running.forEach((a) => a.cancel());
+    };
   }, [flights, speed]);
 
   return (
@@ -857,7 +875,11 @@ export function useMoveAnimations({
   onAnimating?: ((animating: boolean) => void) | undefined;
   /** Where the last dragged card was let go (set by the board's drag end). */
   drop: RefObject<{ instanceId: string; box: Box; at: number } | null>;
-}): Flight[] {
+}): {
+  flights: Flight[];
+  /** The flight layer calls it once its animations have finished: the step ends. */
+  landed: () => void;
+} {
   const prev = useRef<Snapshot | null>(null);
   const [flights, setFlights] = useState<Flight[]>([]);
   const hidden = useRef<HTMLElement[]>([]);
@@ -918,30 +940,7 @@ export function useMoveAnimations({
     timer.current = setTimeout(finish, flightsTime(planned, speed) * 3 + 1000);
   });
 
-  // The flights end when their animations have finished (the flight layer starts them first, in
-  // its own effect), so every card is seen landing, however late its first frame came.
-  useEffect(() => {
-    if (flights.length === 0) return;
-    let live = true;
-    const running = document
-      .getAnimations()
-      .filter((a) =>
-        a.effect instanceof KeyframeEffect && a.effect.target instanceof Element
-          ? a.effect.target.closest('[data-testid="flight"]') !== null
-          : false,
-      );
-    void Promise.all(running.map((a) => a.finished)).then(
-      () => {
-        if (live) finish();
-      },
-      () => {},
-    );
-    return () => {
-      live = false;
-    };
-  }, [flights]);
-
   // Leaving the board ends any flight.
   useEffect(() => () => finish(), []);
-  return flights;
+  return { flights, landed: finish };
 }
