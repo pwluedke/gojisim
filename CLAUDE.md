@@ -590,3 +590,16 @@ Accepted by Monarch in the dev-deck auto-load review (PR #49).
 426. Clear imported decks asks once; picks that were imports go back to the starters, and file decks stay.
 427. `.gitignore` ignores the root `/local-decks/` only, so the made-up test fixtures in `apps/web/e2e/fixtures/local-decks/` are tracked.
 428. `GOJISIM_LOCAL_DECKS` points the dev server at another deck folder (Playwright uses it); Vitest reads the fixture folder.
+
+Accepted by Monarch in the M12d-2 review (PR #50).
+
+429. EBP04-010's replacement of the 7.2.4 rage reset is asked only when its 2 discards can be made (10.5.4.1); setting rage to 2 from higher counts as a decrease.
+430. EBP04-012's monster deck card is named in the `playMonster` action (`underInstanceId`), one action per rank III card; it goes under the rank II card, logged with its id.
+431. Kaizer Ghidorah's "a monster card with [monster-x] in your zones" is your invading Monster X monster card at any rank (Q23).
+432. EBP04-045's cost play (`costCardInstanceId`) is offered only when the plain play can't be made, once per different paying card; its discard is logged as a cost.
+433. A play rule's `onlyInZones` limits effect plays too.
+434. A link (EBP04-067) is checked at every event; when it breaks, its card's ability goes into standby even if that card is gone, and destroys the linked cards still on the field as its master's effect. A zone-to-zone move breaks it.
+435. EBP04-073 triggers once per card returned; "up to 1" offers Done with no separate yes/no.
+436. Inherited Life's 15 / 22 / 30 effects run in order in one resolution, so one decrease can pass several; the count is lost if the card leaves its strategy zone (4.1.4).
+437. `retrigger` logs its own event, and the [enter] abilities enter standby with it.
+438. M3 needed no engine piece: `rank` modifiers that target hand cards are read by 8.3.1.
