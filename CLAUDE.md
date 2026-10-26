@@ -560,3 +560,15 @@ Accepted by Monarch in the M5h-2 review (PR #46).
 405. The invade arrow's step from zone 8 hops into the opponent's zone 8 (5.13.1.1.2) and stops there.
 406. A token grows in or shrinks away in place. Hidden moves between piles fly as card backs. A card uncovered by a Burst discard gets no flight.
 407. A deck name's full text shows under the new-game select only when it was cut.
+
+Accepted by Monarch in the M5h-3 review (PR #47).
+
+408. The fight card's deck names are the new-game picker's labels, stored in the record as `deckNames` (information only). Older records and the e2e fixtures read "Mystery Deck".
+409. Fight-card names use the log colors for you and the opponent. "VS" is decorative (`aria-label="versus"`), so the axe check covers the names and the bot label, not the gradient.
+410. The full deck name shows in the tooltip only when it was cut. Between two bots, P1 is "your" side and both sides show their bot level.
+411. Selection modals show board numbers for field cards only: zone stack tops, the invading monster and strategy cards. Covered cards and other areas show the printed card.
+412. Slam timing at Normal: lift 420 ms, slam 240 ms, crater 520 ms; Fast is half. It starts after the invade step's moves land, and input waits for it.
+413. The slammed monster stays at 10° over the opponent's zone 8, its own place empty. The history view hides the slam; back to live, or a record loaded after the win, shows the end at once.
+414. The cracks are seeded by the monster's instance id: 13 cracks, two broken rings and a shaded crater, in a theme crack color.
+415. The loser's mat shakes during the first 60% of the crater time.
+416. Every invasion win slams, the bot's win onto your zone 8 included; other wins don't.
