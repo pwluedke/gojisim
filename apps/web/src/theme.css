@@ -62,6 +62,15 @@
   --color-tag-move: #175cd3;
   --color-tag-combo: #8a6100;
   --color-invade-arrow: #f5c400;
+  /* M5h #18: the fight-card header's deck names and its "VS" (gradient, stroke). */
+  --color-fight-you: #1f5fbf;
+  --color-fight-opp: #b42318;
+  --color-vs-from: #ffd23f;
+  --color-vs-to: #e0352b;
+  --color-vs-stroke: #3a1300;
+  /* M5h #20: the invasion-win crater's cracks. */
+  --color-crack: #2b1a10;
+  --color-crack-glow: #ffffff;
   --color-lit: #1a7f37;
   --color-lit-bg: #e6f4ea;
   --color-selected: #0066cc;
@@ -127,6 +136,15 @@
   --color-tag-move: #175cd3;
   --color-tag-combo: #8a6100;
   --color-invade-arrow: #f5c400;
+  /* M5h #18: the fight-card header's deck names and its "VS" (gradient, stroke). */
+  --color-fight-you: #0e2f66;
+  --color-fight-opp: #6b1010;
+  --color-vs-from: #ffd23f;
+  --color-vs-to: #e0352b;
+  --color-vs-stroke: #2a0a00;
+  /* M5h #20: the invasion-win crater's cracks. */
+  --color-crack: #1d120b;
+  --color-crack-glow: #e8e8e8;
   --color-lit: #0b5223;
   --color-lit-bg: #a3c2aa;
   --color-selected: #00336f;
@@ -191,6 +209,15 @@
   --color-tag-move: #175cd3;
   --color-tag-combo: #8a6100;
   --color-invade-arrow: #f5c400;
+  /* M5h #18: the fight-card header's deck names and its "VS" (gradient, stroke). */
+  --color-fight-you: #58a6ff;
+  --color-fight-opp: #ff7b72;
+  --color-vs-from: #ffe066;
+  --color-vs-to: #ff5a4f;
+  --color-vs-stroke: #000000;
+  /* M5h #20: the invasion-win crater's cracks. */
+  --color-crack: #e9e2d6;
+  --color-crack-glow: #000000;
   --color-lit: #56d364;
   --color-lit-bg: #12321c;
   --color-selected: #6cb6ff;

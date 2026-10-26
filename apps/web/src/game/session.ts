@@ -122,6 +122,7 @@ export function newSession(
     ...(firstPick ? { firstPick } : {}),
     ...(mode ? { mode } : {}),
     ...(showOpponentHand ? { showOpponentHand } : {}),
+    deckNames: { P1: picked[0].label, P2: picked[1].label },
   };
   return {
     record,
@@ -176,6 +177,7 @@ export function sessionFromRecord(text: string): Session {
       ...(record.showOpponentHand ? { showOpponentHand: true } : {}),
       ...(record.undos ? { undos: record.undos } : {}),
       ...(record.undoCount ? { undoCount: record.undoCount } : {}),
+      ...(record.deckNames ? { deckNames: record.deckNames } : {}),
     },
     states,
     position,

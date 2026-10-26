@@ -52,6 +52,11 @@ export interface GameRecord {
   undos?: UndoEntry[];
   /** How many times each player undid in this game (M5h #10; "takesies-backsies" in M11). */
   undoCount?: Partial<Record<PlayerId, number>>;
+  /**
+   * Each deck's name as picked on the new-game screen (M5h #18, the fight-card header).
+   * Information only; a record without it shows "Mystery Deck".
+   */
+  deckNames?: Partial<Record<PlayerId, string>>;
 }
 
 /** One undo (M5h #10): the action taken back, and where it was in the record. */

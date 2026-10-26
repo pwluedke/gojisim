@@ -2,6 +2,8 @@ import type { Action, GameState } from "@gojisim/engine";
 import { useEffect, useState } from "react";
 import { type ManualCard, ManualPanel } from "../debug/ManualPanel";
 import styles from "./Board.module.css";
+import { CardChips } from "./CardFace";
+import type { BoardModel } from "./model";
 import { targetLocation } from "./locations";
 import { confirmWords } from "../game/plainWords";
 import { abilityText } from "../game/labels";
@@ -22,6 +24,9 @@ type Choose = Extract<Action, { type: "choose" }>;
  *   hovering it rings that place on the mat, above the backdrop.
  * - M5e: ability-order choices (standby and replacement order) show each ability's printed text
  *   above its card.
+ * - M5h #19: a card on the field shows the board's numbers (counter power with its modifier, the
+ *   change chips, a monster's threat), live 10.8.1 values from `model`. Cards in other areas show
+ *   only their printed card.
  * It only ever opens for the viewer's own choice, so private options are theirs to see.
  */
 export function ChoiceModal({
@@ -32,6 +37,7 @@ export function ChoiceModal({
   manualCards,
   onAction,
   labelOf,
+  model,
 }: {
   state: GameState;
   heading: string;
@@ -41,6 +47,8 @@ export function ChoiceModal({
   manualCards: ManualCard[];
   onAction: (action: Action) => void;
   labelOf: (action: Action) => string;
+  /** The live board's numbers (M5h #19); without it, cards show no chips. */
+  model?: BoardModel | undefined;
 }) {
   const [hidden, setHidden] = useState(false);
   // The mat cell of the hovered target, ringed over the backdrop.
@@ -74,6 +82,19 @@ export function ChoiceModal({
     return cardId === null || cardId === undefined
       ? undefined
       : state.cards[cardId];
+  };
+  // M5h #19: the board's numbers for a card option. The model has them only for field cards (zone
+  // stack tops, the invading monster, strategy cards), so other areas show the printed card alone.
+  const boardNumbers = (instanceId: string) => {
+    if (!model) return {};
+    const monsterOf = state.players.find(
+      (p) => p.invadingMonsterZone.at(-1)?.instanceId === instanceId,
+    );
+    return {
+      counterPower: model.counterPower[instanceId],
+      threat: monsterOf ? model.threat[monsterOf.id] : undefined,
+      changes: model.changes[instanceId],
+    };
   };
   const doneLabel =
     choice.rule === "5.8.1" || choice.rule === "12.6.2"
@@ -271,6 +292,10 @@ export function ChoiceModal({
                         onError={(e) => {
                           e.currentTarget.style.visibility = "hidden";
                         }}
+                      />
+                      <CardChips
+                        data={card}
+                        {...boardNumbers(action.optionId)}
                       />
                     </>
                   ) : (

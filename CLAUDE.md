@@ -546,3 +546,17 @@ Accepted by Monarch in the M5h-1 review (PR #45).
 394. Phase step hovers use the app's tooltip style, not a browser `title` (Monarch's change to M5h-1 decision 5).
 395. The monster glow is a thinner ring than the mat's (2 px plus a 12 px blur), so it doesn't spill onto the next zone.
 396. Every Pass asks "End Main and move to the Counter Phase?" (it replaced "Pass with playable cards left?" and its setting). "Show opponent's hand" is flagged in the record as `showOpponentHand`, and M11 statistics leave such games out.
+
+Accepted by Monarch in the M5h-2 review (PR #46).
+
+397. Log borders use one theme color for your lines and one for the opponent's, not the monsters' colors (they change during a game).
+398. Log tag words come from `data-label` in CSS, so line text is unchanged. axe skips pseudo-element text, so a unit test checks every tag color against its text (4.5:1) in all three themes.
+399. The app's tooltip is drawn at a fixed position in a top-level layer, so the scrolling log never clips it, and opens above the element near the window's bottom. Phase steps, rule numbers and public stacks share it.
+400. Public stacks' "click to view" tip is one board-level tooltip for the innermost element with `data-view-tip`, set only while a click would open the stack viewer; a monster over a battle stack shows the monster's tip. It hides on a click and while dragging. Zone labels sit under the cards (Paul rolled back M5h-1's hover labels and the pile blanking), and the discard pile's top card previews.
+401. The stack viewer opens on a click when no hand card is selected (a lit area still takes the action). Zone stacks open even with one card; strategy zones don't open.
+402. An undo is recorded once per action taken back, with the log's wording kept at that time.
+403. The rules parser starts a rule only at a number higher than the last one, so wrapped cross-references stay inside their rule. Tooltips cut a rule's text at 280 characters.
+404. Plain words cover optional abilities, optional costs, optional replacements, Evolution, a "may" Revenge and an optional discard-down. A rank read from another card (ESD02-004) falls back to the printed text.
+405. The invade arrow's step from zone 8 hops into the opponent's zone 8 (5.13.1.1.2) and stops there.
+406. A token grows in or shrinks away in place. Hidden moves between piles fly as card backs. A card uncovered by a Burst discard gets no flight.
+407. A deck name's full text shows under the new-game select only when it was cut.
