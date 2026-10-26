@@ -1,0 +1,31 @@
+Card: EPR-017 Godzilla (Godzilla the Ride: Great Clash), entered by hand (godzillatcgdb.com doesn't list it yet).
+Source data: https://en.godzilla-cardgame.com/manage/card-list-user/detail/?id=890 (the official English card list's card data, site id 890)
+Source image: https://en.godzilla-cardgame.com/wordpress/wp-content/images/cardlist/PR/EPR-017-PRol.png
+Decklog image path: PR/EPR-017-PRol.png (Decklog's card_image_path for GCG is https://en.godzilla-cardgame.com/wordpress/wp-content/images/cardlist/)
+Retrieved: 2026-10-25 (the JSON loaded directly from the official site; Monarch posted the same data in #gojisim-dev).
+Transcribed by: Mecha from the official card data, Oct 25, 2026; checked against Monarch's post.
+
+A new card with its own deck card number (Monarch, Oct 25, 2026).
+
+Text icons map to GojiSim tokens: 《ゴジラ・ザ・ライド》 [godzilla-the-ride], 《機械》 [mech], 《兵器》 [weapon], 破壊 [destroy], 出現時 [enter], 《フェス・ゴジラ》 [fest], 《キングギドラ》 [king-ghidorah], 怒り [rage].
+
+Official card data (fields as served):
+{
+  "id": 890,
+  "card_number": "EPR-017",
+  "card_name": "Godzilla(GODZILLA THE RIDE: GREAT CLASH)",
+  "card_kind": "Battle",
+  "rare": "PR",
+  "color": "Green",
+  "grade": "⑤",
+  "treat_1": "4000",
+  "treat_2": "",
+  "quality_1": "《Godzilla》",
+  "quality_2": "《GODZILLA THE RIDE》",
+  "quality_3": "",
+  "text": "⁅出現時＠⁆ Place 1 card with ⁅《ゴジラ・ザ・ライド》＠⁆ from your discard pile under your monster card.",
+  "step_icon": "1",
+  "picture": "PR/EPR-017-PRol.png",
+  "expansion": "PR",
+  "copyright": "GODZILLA THE RIDE: GREAT CLASH"
+}

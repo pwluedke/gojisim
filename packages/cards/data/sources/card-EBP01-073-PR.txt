@@ -1,0 +1,31 @@
+Card: EBP01-073+ (Alt) Godzilla Against Mechagodzilla, entered by hand (godzillatcgdb.com doesn't list it yet).
+Source data: https://en.godzilla-cardgame.com/manage/card-list-user/detail/?id=892 (the official English card list's card data, site id 892)
+Source image: https://en.godzilla-cardgame.com/wordpress/wp-content/images/cardlist/PR/EBP01-073_2.png
+Decklog image path: PR/EBP01-073_2.png (Decklog's card_image_path for GCG is https://en.godzilla-cardgame.com/wordpress/wp-content/images/cardlist/)
+Retrieved: 2026-10-25 (the JSON loaded directly from the official site; Monarch posted the same data in #gojisim-dev).
+Transcribed by: Mecha from the official card data, Oct 25, 2026; checked against Monarch's post.
+
+A PR print of EBP01-073 Godzilla Against Mechagodzilla (card number EBP01-073+, rarity PRSP, image EBP01-073_2). Its deck card number is EBP01-073 (6.1.1.4.1 ignores the "+"). It is listed as "EBP01-073+ (Alt)" like the PR print EBP02-070+ (Alt), since the site's EBP01-073+ is the SP print. Its printed title is "GODZILLA THE RIDE: GREAT CLASH" and its text adds "This card is treated as \"Godzilla Against Mechagodzilla\" by the rules."; otherwise the text matches EBP01-073 word for word.
+
+Text icons map to GojiSim tokens: 《ゴジラ・ザ・ライド》 [godzilla-the-ride], 《機械》 [mech], 《兵器》 [weapon], 破壊 [destroy], 出現時 [enter], 《フェス・ゴジラ》 [fest], 《キングギドラ》 [king-ghidorah], 怒り [rage].
+
+Official card data (fields as served):
+{
+  "id": 892,
+  "card_number": "EBP01-073+",
+  "card_name": "GODZILLA THE RIDE: GREAT CLASH",
+  "card_kind": "Battle",
+  "rare": "PRSP",
+  "color": "White",
+  "grade": "⑦",
+  "treat_1": "10000",
+  "treat_2": "",
+  "quality_1": "《Godzilla》",
+  "quality_2": "《Mechagodzilla》",
+  "quality_3": "《Weapon》",
+  "text": "This card is treated as \"Godzilla Against Mechagodzilla\" by the rules.\nThis card cannot be played if you have 7 or fewer monster cards in your discard pile.\nWhen your monster card invades, if there are no monster cards under this card, you may place 1 monster card from your discard pile under this card to set your opponent’s ⁅怒り＠⁆ to 0.",
+  "step_icon": "2",
+  "picture": "PR/EBP01-073_2.png",
+  "expansion": "PR",
+  "copyright": "GODZILLA THE RIDE: GREAT CLASH"
+}

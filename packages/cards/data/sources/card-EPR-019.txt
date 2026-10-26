@@ -1,0 +1,31 @@
+Card: EPR-019 Gravity Beam, entered by hand (godzillatcgdb.com doesn't list it yet).
+Source data: https://en.godzilla-cardgame.com/manage/card-list-user/detail/?id=893 (the official English card list's card data, site id 893)
+Source image: https://en.godzilla-cardgame.com/wordpress/wp-content/images/cardlist/PR/EPR-019-PRol.png
+Decklog image path: PR/EPR-019-PRol.png (Decklog's card_image_path for GCG is https://en.godzilla-cardgame.com/wordpress/wp-content/images/cardlist/)
+Retrieved: 2026-10-25 (the JSON loaded directly from the official site; Monarch posted the same data in #gojisim-dev).
+Transcribed by: Mecha from the official card data, Oct 25, 2026; checked against Monarch's post.
+
+A new card with its own deck card number (Monarch, Oct 25, 2026). Not a reprint of EBP01-079 Gravity Beam (rank 7 vs 5, trait Fest, and a rank-reduction line), so the EBP01-079 restriction (0 copies) does not apply: restrictions follow the card number (6.1.1.4).
+
+Text icons map to GojiSim tokens: 《ゴジラ・ザ・ライド》 [godzilla-the-ride], 《機械》 [mech], 《兵器》 [weapon], 破壊 [destroy], 出現時 [enter], 《フェス・ゴジラ》 [fest], 《キングギドラ》 [king-ghidorah], 怒り [rage].
+
+Official card data (fields as served):
+{
+  "id": 893,
+  "card_number": "EPR-019",
+  "card_name": "Gravity Beam",
+  "card_kind": "Strategy",
+  "rare": "PR",
+  "color": "White",
+  "grade": "⑦",
+  "treat_1": "",
+  "treat_2": "",
+  "quality_1": "《Fest》",
+  "quality_2": "",
+  "quality_3": "",
+  "text": "If you have a battle card with both ⁅《フェス・ゴジラ》＠⁆ and ⁅《キングギドラ》＠⁆ in your zones, you can play this card from your hand with its rank reduced by 3.\r\nYour opponent discards cards until they have 3 cards remaining in their hand.",
+  "step_icon": "2",
+  "picture": "PR/EPR-019-PRol.png",
+  "expansion": "PR",
+  "copyright": "Fest Godzilla 5 The Great Battle of the Monsters (2024)"
+}
