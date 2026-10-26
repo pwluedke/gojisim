@@ -6,7 +6,9 @@ export default defineConfig({
   testDir: "./e2e",
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? "github" : "list",
+  // CI runs the specs in 3 shards; each keeps a blob report, merged into one HTML report when a
+  // shard fails (ci.yml).
+  reporter: process.env.CI ? [["github"], ["blob"]] : "list",
   use: {
     baseURL: `http://localhost:${PORT}`,
     // Card animations are off in every spec unless it says otherwise (M5f): the m5f spec tests them.

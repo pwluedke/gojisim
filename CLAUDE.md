@@ -23,6 +23,7 @@
 ## Testing
 
 - Every rules behavior gets a test that cites its Comprehensive Rules v1.2 rule number.
+- While working, run only the affected tests: `pnpm vitest related <changed files> --run` for unit tests, and the e2e specs for the screens touched (`pnpm --filter @gojisim/web exec playwright test e2e/<spec>`). Run the full suite (`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm e2e`) once before each push.
 
 ## Communication
 

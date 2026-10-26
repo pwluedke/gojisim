@@ -4,6 +4,8 @@ dist/
 .envrc
 coverage/
 playwright-report/
+blob-report/
+all-blob-reports/
 test-results/
 *.tsbuildinfo
 .cache/
