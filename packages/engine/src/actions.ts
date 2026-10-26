@@ -6,6 +6,8 @@ import {
   burstRankOf,
   hasAbilityData,
   invasionCostReplacement,
+  costPlays,
+  monsterRulePlay,
   onTopPlays,
   playRuleOf,
   resumeResolution,
@@ -65,16 +67,18 @@ function monsterPlay(
   state: GameState,
   player: PlayerState,
   card: CardInstance,
-): "normal" | "burst" | null {
+): "normal" | "burst" | "rule" | null {
   const top = player.invadingMonsterZone[player.invadingMonsterZone.length - 1];
   const active = activeMonster(state, player);
   const data = cardOf(state, card);
   if (!top || !active || data.type !== "Monster") return null;
   const activeTraits = new Set(traitsOf(state, top));
-  if (!traitsOf(state, card).some((trait) => activeTraits.has(trait)))
-    return null;
-  if (data.rank === active.rank) return "normal";
-  return burstRankOf(state, card) === active.rank ? "burst" : null;
+  if (traitsOf(state, card).some((trait) => activeTraits.has(trait))) {
+    if (data.rank === active.rank) return "normal";
+    if (burstRankOf(state, card) === active.rank) return "burst";
+  }
+  // M2 (Q22, Q23): the card's own rule plays it onto a monster 8.5.1 wouldn't allow.
+  return monsterRulePlay(state, player, card) ? "rule" : null;
 }
 
 /**
@@ -161,6 +165,36 @@ function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
             zone,
             onTop: true,
           });
+    // M2: with the rank reduced for an optional cost, paid with a hand card (EBP04-045). Offered
+    // only when the plain play can't be made; copies of one card pay alike, so one each.
+    const costly =
+      data.type === "Battle" && printed !== null && !rule.forbidden
+        ? costPlays(state, card, playerId)
+        : null;
+    if (
+      costly &&
+      printed !== null &&
+      printed - rule.reduction > opponentZone &&
+      printed - rule.reduction - costly.reduction <= opponentZone
+    ) {
+      const payIds = new Set<number>();
+      for (const pay of costly.payWith) {
+        if (payIds.has(pay.cardId)) continue;
+        payIds.add(pay.cardId);
+        for (const zone of ZONE_NUMBERS)
+          if (
+            zone !== player.monsterPosition &&
+            playAllowed(state, player, card, zone)
+          )
+            actions.push({
+              type: "playBattle",
+              player: playerId,
+              cardInstanceId,
+              zone,
+              costCardInstanceId: pay.instanceId,
+            });
+      }
+    }
     // 8.3.1: rank at most the zone number of the player's own monster (10.8.1 layers); 8.3.2: an
     // empty strategy zone.
     if (
@@ -184,13 +218,23 @@ function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
     if (data.type === "Monster") {
       actions.push({ type: "gainRage", player: playerId, cardInstanceId });
     }
-    // 8.5.1, and once per turn (Paul's ruling).
-    if (
-      !state.turnFlags.monsterPlayed &&
-      monsterPlay(state, player, card) !== null
-    ) {
+    // 8.5.1, and once per turn (Paul's ruling). M2: or by the card's own rule (Q22, Q23), once
+    // for each monster deck card that may go under the invading monster (EBP04-012).
+    const how = state.turnFlags.monsterPlayed
+      ? null
+      : monsterPlay(state, player, card);
+    const under =
+      how === "rule" ? monsterRulePlay(state, player, card)?.under : null;
+    if (under)
+      for (const { instanceId } of under)
+        actions.push({
+          type: "playMonster",
+          player: playerId,
+          cardInstanceId,
+          underInstanceId: instanceId,
+        });
+    else if (how !== null)
       actions.push({ type: "playMonster", player: playerId, cardInstanceId });
-    }
     // 8.6.1: any card in hand; 8.6.2: once per turn.
     // M1: cards the opponent's effects forbid as the invasion's cost (EBP04-029).
     if (
@@ -266,6 +310,7 @@ function discardFromHand(
   player: PlayerState,
   instanceId: string,
   rule: string,
+  extra: Record<string, unknown> = {},
 ): CardInstance {
   const card = toDiscard(state, takeFromHand(player, instanceId));
   // The card's id in the discard pile (public), for "when this card is discarded" (T3).
@@ -273,6 +318,7 @@ function discardFromHand(
     rule,
     cardId: card.cardId,
     instanceId: card.instanceId,
+    ...extra,
   });
   return card;
 }
@@ -317,6 +363,11 @@ const PERFORM: {
 } = {
   playBattle: (state, action) => {
     const player = getPlayer(state, action.player);
+    // M2: the play rule's cost, paid first (EBP04-045): a discard from the hand.
+    if (action.costCardInstanceId)
+      discardFromHand(state, player, action.costCardInstanceId, "10.5.4", {
+        cost: true,
+      });
     const card = playFromHand(
       state,
       player,
@@ -395,6 +446,27 @@ const PERFORM: {
       "playMonster",
     );
     const stacked = resolveFromResolutionArea(state, card);
+    // M2 (Q22): the monster deck card goes into the stack under the current top card first.
+    if (action.underInstanceId) {
+      const index = player.monsterDeck.findIndex(
+        (c) => c.instanceId === action.underInstanceId,
+      );
+      const [from] = player.monsterDeck.splice(index, 1);
+      if (!from || index < 0) throw new Error("No such monster deck card");
+      const under = moved(state, from);
+      player.invadingMonsterZone.splice(
+        player.invadingMonsterZone.length - 1,
+        0,
+        under,
+      );
+      appendLog(state, "placeUnder", player.id, {
+        rule: "3.2",
+        cardId: under.cardId,
+        instanceId: under.instanceId,
+        from: "monsterDeck",
+        under: player.invadingMonsterZone.at(-1)?.cardId,
+      });
+    }
     // 10.5.2.3.1: stacked on top; the monster keeps its position (4.7.2).
     player.invadingMonsterZone.push(stacked);
     // A Burst play is from the hand too; `playedVia: "hand"` conditions accept both (C7).

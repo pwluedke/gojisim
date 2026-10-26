@@ -190,6 +190,22 @@ export interface ContinuousEffect {
   }[];
   /** E19 (`grant`): a flag modifier for the rest of the turn on the cards picked at resolution. */
   flags?: { instanceId: string; modifier: Modifier }[];
+  /**
+   * Q11: rage placed under a card, kept as a count on it (EBP04-089). A card that moves to
+   * another area is a new object (4.1.4), so the count stays behind and no longer applies.
+   */
+  counter?: { instanceId: string; count: number };
+  /**
+   * Cards linked by an ability (EBP04-067 and its token): when either is no longer in the zone it
+   * was linked in, the link ends and `abilityId` of the source card goes into standby.
+   */
+  link?: {
+    master: PlayerId;
+    abilityId: string;
+    sourceInstanceId: string;
+    sourceCardId: number;
+    cards: { instanceId: string; player: PlayerId; zone: ZoneNumber }[];
+  };
 }
 
 export type ResultReason =
@@ -366,7 +382,8 @@ export interface GameState {
   replacementAsks?: {
     instanceId: string;
     abilityId: string;
-    answer: "yes" | "no" | null;
+    /** `done`: the replacement has been applied; the step runs on without the replaced part. */
+    answer: "yes" | "no" | "done" | null;
   }[];
   /** Timed triggers waiting for a later point in the game (10.6.5), e.g. Burst's discard. */
   timedTriggers: TimedTrigger[];
@@ -425,6 +442,11 @@ export type Action =
        * reduced rank (EBP03-051).
        */
       onTop?: true;
+      /**
+       * M2: the hand card discarded to play this card with its rank reduced (EBP04-045), the
+       * play rule's optional cost.
+       */
+      costCardInstanceId?: string;
     }
   /** Activate a strategy card from hand into an empty strategy zone (8.3). */
   | {
@@ -436,7 +458,16 @@ export type Action =
   /** Discard a monster card from hand for +1 rage (8.4). */
   | { type: "gainRage"; player: PlayerId; cardInstanceId: string }
   /** Stack a monster card from hand on the invading monster (8.5). */
-  | { type: "playMonster"; player: PlayerId; cardInstanceId: string }
+  | {
+      type: "playMonster";
+      player: PlayerId;
+      cardInstanceId: string;
+      /**
+       * M2 (Q22): the monster deck card that goes under the invading monster first, for a play by
+       * the card's own rule (EBP04-012).
+       */
+      underInstanceId?: string;
+    }
   /** Discard a card from hand and advance once per invasion icon point (8.6). */
   | { type: "invade"; player: PlayerId; cardInstanceId: string }
   /**

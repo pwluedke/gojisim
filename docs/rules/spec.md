@@ -317,6 +317,15 @@ The M3 engine must include the framework below, so that M4 adds card abilities a
 - Picks (M12d-1, X, 10.5.3): "any number whose total ranks add up to 7 or less" picks one card at a time until Done, within the total (EBP04-024); "starting with the lowest-numbered zone, one by one" takes each card from the lowest zone left, the chooser breaking ties (Q33, EBP04-035).
 - Reveal and play (M12d-1, E3, 5.11): "reveal the top 7, play all [final-wars] battle cards" keeps the taken cards revealed on the deck and plays them from there, empty zones first; the rest go to the discard pile (EBP04-079).
 - Discards by the opponent's effect (M12d-1, T3): "whenever your opponent's effect causes you to discard cards" triggers once per effect, however many cards (EBP04-052).
+- Rage reset replaced (M12d-2, E21, 10.9, Q16): EBP04-010's optional replacement of the 7.2.4 reset is asked only when its 2 discards can be made (10.5.4.1); its discards are picked during the step, which then runs on without the reset.
+- Monster plays by a card's own rule (M12d-2, M2, Q22, Q23): a play rule with `monsterOnto` adds an 8.5 monster play onto an invading monster 8.5.1's rank and trait match wouldn't allow; it is the turn's monster play and gives rage +1 (8.5.1.1). EBP04-012's monster deck card goes into the stack under that monster first, one action per possible card.
+- Play costs (M12d-2, M2): a play rule with a `cost` adds battle plays at the reduced rank, one per card that can pay (a discard of 1, logged as a cost); offered only when the plain play can't be made (EBP04-045).
+- Zone-limited plays (M12d-2, M2): "can only be played in zone 8" limits every play of the card, effect plays included (EBP04-067).
+- Hand ranks (M12d-2, M3, 8.3.1): rank modifiers can target hand cards, so a strategy card's activation reads the changed rank; once played it has its printed rank (EBP04-028, -066, -068).
+- Enter abilities again (M12d-2, T9, Q30): EBP04-041 puts the top monster card's [enter] abilities into standby with no event of their own; their gates now and conditions when each resolves are checked as usual.
+- Returned to hand (M12d-2): "whenever your opponent returns a card from their discard pile to their hand" triggers once per card (EBP04-073).
+- Linked cards (M12d-2, CU, Q28): EBP04-067 and its token are linked while each stays in its zone; when either leaves its zone or moves, the link's ability destroys both (whichever is still on the field).
+- Rage under a card (M12d-2, CU, Q11, Q25): EBP04-089 keeps the rage placed under it as a count on the card, grown by every decrease of its master's rage on their turn (7.2.4 included); the 15th, 22nd and 30th do their effects in order. Like Base, it stays at 7.2.3 (`staysInStrategyZone`). The count and links show on the cards.
 
 **Keyword abilities (12)**, all in M4: Enter (12.2), When invading (12.3), Awakening N (12.4), Burst (12.5), Evolution (12.6), Revenge (12.7), Resonance (12.8), Base (12.9).
 

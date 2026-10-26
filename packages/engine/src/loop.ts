@@ -60,7 +60,13 @@ export function canonicalState(state: GameState): unknown {
       t.master,
       ...(t.kind === "delayed" ? [t.abilityId] : []),
     ]),
-    effects: state.continuousEffects.map((e) => [e.effectId, e.duration]),
+    effects: state.continuousEffects.map((e) => [
+      e.effectId,
+      e.duration,
+      // Q11 counts and links (EBP04-089, EBP04-067) are part of the position.
+      e.counter?.count ?? null,
+      e.link?.cards.map((c) => [c.player, c.zone]) ?? null,
+    ]),
     choice: state.pendingChoice && [
       state.pendingChoice.player,
       state.pendingChoice.kind,

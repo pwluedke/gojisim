@@ -7,6 +7,7 @@ import {
   type Context,
   gatesOpen,
   locate,
+  playZoneLimit,
   resolveZoneSet,
   select,
 } from "./interpreter";
@@ -168,6 +169,9 @@ export function playAllowed(
   card: CardInstance,
   zone?: ZoneNumber,
 ): boolean {
+  // M2: a card that can only be played in some zones (EBP04-067).
+  const only = playZoneLimit(state, card);
+  if (only && zone !== undefined && !only.includes(zone)) return false;
   if (!anyModifier(state, isFlag("cannotPlay"))) return true;
   for (const { modifier, context } of activeModifiers(state)) {
     if (!("flag" in modifier) || modifier.flag !== "cannotPlay") continue;
@@ -402,6 +406,8 @@ export interface CardChange {
     | "rank"
     | "threat"
     | "playedVia"
+    | "counter"
+    | "link"
     | CardStatus
     | FlagModifier["flag"];
   /** The chip on the card, e.g. "CP +3000". */
@@ -464,6 +470,12 @@ function FLAG_CHANGES(flag: FlagModifier): Omit<CardChange, "kind"> {
         detail:
           "Cannot be moved by the opponent's effects; a counter still moves it (5.13, 5.15.1.1)",
       };
+    case "staysInStrategyZone":
+      return {
+        label: "Stays",
+        detail:
+          "Not sent to the discard pile during its master's start phase (7.2.3)",
+      };
   }
 }
 
@@ -516,5 +528,24 @@ export function cardChanges(
     changes.push({ kind: flag.flag, ...FLAG_CHANGES(flag) });
   const via = card.playedVia ? PLAYED_VIA[card.playedVia] : null;
   if (via) changes.push({ kind: "playedVia", ...via });
+  for (const effect of state.continuousEffects) {
+    // Q11: rage placed under the card, as a count (EBP04-089).
+    if (effect.counter?.instanceId === instanceId)
+      changes.push({
+        kind: "counter",
+        label: `Rage under ${effect.counter.count}`,
+        detail: `${effect.counter.count} [rage] placed under this card (Q11)`,
+      });
+    // EBP04-067: linked to another card; if either leaves its zone or moves, both are destroyed.
+    const other = effect.link?.cards.find((c) => c.instanceId !== instanceId);
+    if (other && effect.link?.cards.some((c) => c.instanceId === instanceId)) {
+      const at = locate(state, other.instanceId);
+      changes.push({
+        kind: "link",
+        label: "Linked",
+        detail: `Linked to ${at ? cardOf(state, at.card).name : "a card"} in zone ${other.zone}: if either leaves its zone or moves, both are destroyed`,
+      });
+    }
+  }
   return changes;
 }

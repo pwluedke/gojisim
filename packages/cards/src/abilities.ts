@@ -266,6 +266,19 @@ export const TriggerSchema = z.discriminatedUnion("on", [
   }),
   z.strictObject({ on: z.literal("gameStarts") }),
   /**
+   * A player puts a card from their discard pile into their hand (EBP04-073 "returns a card from
+   * their discard pile to their hand"): once per card.
+   */
+  z.strictObject({
+    on: z.literal("returnedToHand"),
+    whose: PlayerRefSchema,
+  }),
+  /**
+   * The cards a custom handler linked (EBP04-067 and its token) are no longer all in the zones
+   * they were linked in. Only the link puts this ability into standby, never an event.
+   */
+  z.strictObject({ on: z.literal("linkBroken") }),
+  /**
    * T2 (12.7.2): this card went from the field to the discard pile, other than by overload
    * (duplicate card processing, Q17). Written as the `revenge` keyword in data.
    */
@@ -597,6 +610,12 @@ export type Effect =
       as?: string | undefined;
     }
   | { effect: "sendToDiscard"; target: Selector; as?: string | undefined }
+  | {
+      effect: "retrigger";
+      keyword: "enter";
+      target: Selector;
+      as?: string | undefined;
+    }
   | { effect: "custom"; handler: string; as?: string | undefined };
 
 /** One option of a `chooseOne` effect (E7, 10.5.2.2.1); it is offered only while it can apply. */
@@ -944,6 +963,16 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
       target: SelectorSchema,
       ...asField,
     }),
+    /**
+     * T9 (F13, Q30): the [enter] abilities of the card the target picks go into standby again,
+     * with no event; gates and conditions are checked as usual (EBP04-041).
+     */
+    z.strictObject({
+      effect: z.literal("retrigger"),
+      keyword: z.literal("enter"),
+      target: SelectorSchema,
+      ...asField,
+    }),
     z.strictObject({
       effect: z.literal("custom"),
       handler: z.string().min(1),
@@ -1018,6 +1047,11 @@ export const ModifierSchema = z.union([
     flag: z.literal("cannotBeMovedByOpponent"),
     target: SelectorSchema,
   }),
+  /** M1: the target strategy card isn't sent to the discard pile at 7.2.3 (EBP04-089, like Base). */
+  z.strictObject({
+    flag: z.literal("staysInStrategyZone"),
+    target: SelectorSchema,
+  }),
 ]);
 export type Modifier = z.infer<typeof ModifierSchema>;
 
@@ -1033,7 +1067,13 @@ export const ReplaceableEventSchema = z.strictObject({
    * to the discard pile at 7.2.3 (E21, EBP02-012); `invasionCost`: the card discarded for an
    * invasion (8.6.1), here by `what`'s monster (EBP03-004: the top card of the deck instead).
    */
-  event: z.enum(["destroyed", "strategyToDiscard", "invasionCost"]),
+  event: z.enum([
+    "destroyed",
+    "strategyToDiscard",
+    "invasionCost",
+    /** The 7.2.4 reset of `what`'s master's rage to 0 (EBP04-010, Q16). */
+    "rageReset",
+  ]),
   what: SelectorSchema,
 });
 export type ReplaceableEvent = z.infer<typeof ReplaceableEventSchema>;
@@ -1124,6 +1164,21 @@ export const AbilitySchema = z.discriminatedUnion("kind", [
      * stacks the card on it (3.2.5, EBP03-051).
      */
     onTopOf: SelectorSchema.optional(),
+    /**
+     * M2: the reduction is paid for with this optional cost, chosen with the play (EBP04-045:
+     * "you may discard 1 non-blue battle card ... to play this card with its rank reduced by 2").
+     * Only a discard of exactly 1 hand card is built.
+     */
+    cost: CostSchema.optional(),
+    /** M2: a battle card that can only be played in these zones, by any means (EBP04-067). */
+    onlyInZones: z.array(ZoneSchema).min(1).optional(),
+    /**
+     * M2 (Q22, Q23): a monster card that may also be played (8.5) on top of the invading monster
+     * this picks, ignoring 8.5.1's rank and trait match; still the turn's monster play, rage +1.
+     */
+    monsterOnto: SelectorSchema.optional(),
+    /** With `monsterOnto`: a card from the monster deck goes under that monster first (EBP04-012). */
+    placeUnderFrom: SelectorSchema.optional(),
   }),
   /**
    * C5, Q34: when its owner's cards in `area` are counted as `type` cards, by either player, this

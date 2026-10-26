@@ -549,3 +549,36 @@ Built differently from the plan:
 - "You may play it in zone 8 instead" (EBP04-077) adds the card to the hand, revealed, then offers a play from the hand into zone 8.
 - EBP04-055's "you may destroy 4 ... If you do not, destroy this card" is a `chooseOne`: the first option needs 4 other green battle cards, so with fewer only "destroy this card" is left (decision 311).
 - Your opponent's "may discard 1 card with [invade-2]. If they do, counter this card" (EBP04-027) is an up-to-1 discard they pick, then an `if` on the bound card.
+
+### M12d-2: T9, M3, two monster plays, a play cost, EBP04-010's replacement, and three custom handlers (EBP04 done)
+
+The last 12 EBP04 cards and the EBP04-T01 token. EBP04 is 89 of 89; 361 of 388 cards are implemented.
+
+```typescript
+type Trigger = ...
+  | { on: "returnedToHand"; whose: PlayerRef }   // a card from that player's discard pile to their hand, once per card (EBP04-073)
+  | { on: "linkBroken" };                        // put into standby only by a link (EBP04-067), never by an event
+
+type Effect = ...
+  | { effect: "retrigger"; keyword: "enter"; target: Selector };   // T9 (F13, Q30, EBP04-041)
+
+type Modifier = ...
+  | { flag: "staysInStrategyZone"; target: Selector };   // M1: not sent away at 7.2.3 (EBP04-089)
+
+replaces { event: ... | "rageReset" }    // E21: the 7.2.4 reset of `what`'s master's rage (EBP04-010)
+
+playRule { ...;
+  cost?: Cost;                // M2: the reduction's optional cost, picked with the play (EBP04-045; a discard of 1)
+  onlyInZones?: Zone[];       // M2: every play of the card, effect plays included (EBP04-067)
+  monsterOnto?: Selector;     // M2 (Q22, Q23): an 8.5 play onto this invading monster, ignoring 8.5.1's rank and trait match
+  placeUnderFrom?: Selector;  // with monsterOnto: a monster deck card goes under that monster first (EBP04-012)
+}
+```
+
+Built differently from the plan:
+
+- M3 needed no new piece: `rank` modifiers whose target is a hand card are read by 8.3.1 already.
+- EBP04-010's replacement runs during the 7.2.4 step and may stop for its discard picks: the step asks, applies the replacement as a resolution, and runs again afterwards (as 7.2.3's E21 does).
+- The two new monster plays and EBP04-045's cost are fields of the existing actions: `playMonster` carries `underInstanceId` and `playBattle` carries `costCardInstanceId`, one action per card, so a bot or a player picks the card with the play.
+- CU: `godzillaEarthLink` and `bindLinked` (EBP04-067), and `inheritedLife` (EBP04-089). Links and Q11 counts are permanent continuous effects, so they are copied, compared for loops and shown like the others.
+

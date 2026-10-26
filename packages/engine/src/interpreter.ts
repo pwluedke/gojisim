@@ -25,7 +25,7 @@ import {
   sameColumn,
   type ZoneRef,
 } from "./geometry";
-import { activeCards } from "./abilities";
+import { activeCards, enterStandby } from "./abilities";
 import { counterMonster, moveBehind } from "./counter";
 import {
   advanceMonster,
@@ -927,6 +927,14 @@ function triggerMatches(
         event.payload["rule"] !== "11.5" &&
         event.payload["discardInstanceId"] === source.instanceId
       );
+    case "returnedToHand":
+      // A card that player owns went from their discard pile to their hand (EBP04-073).
+      return (
+        event.type === "addToHand" &&
+        event.payload["from"] === "discard" &&
+        event.player !== null &&
+        isPlayer(trigger.whose, event.player, master)
+      );
     case "invades": {
       if (event.type !== "invasionDone" || event.player === null) return false;
       if (!isPlayer(trigger.whose, event.player, master)) return false;
@@ -1154,12 +1162,24 @@ function findAbility(
     card &&
     (testAbilities.get(card.deckCardNumber) ??
       getCardAbilities(card.deckCardNumber));
-  const ability =
+  const found =
     data &&
-    ([
+    [
       ...withKeywords(data.abilities),
       ...delayedAbilitiesOf(data.abilities),
-    ].find((a) => "id" in a && a.id === id) as TriggeredAbility | undefined);
+    ].find((a) => "id" in a && a.id === id);
+  // A replacement that needs a choice runs its `instead` effects as a resolution (E21,
+  // EBP04-010): the same stages, with no trigger, cost or "use this ability?" of its own.
+  const ability =
+    found?.kind === "replacement" && standby.standbyId === "replacement"
+      ? ({
+          kind: "triggered",
+          id: found.id,
+          gates: found.gates,
+          trigger: { on: "enter" },
+          effects: found.instead,
+        } satisfies TriggeredAbility)
+      : (found as TriggeredAbility | undefined);
   if (
     !ability ||
     ability.kind !== "triggered" ||
@@ -1246,8 +1266,16 @@ export function playRuleOf(
     bindings: {},
   };
   for (const ability of data.abilities) {
-    // A play on top of a card has its own reduction (`onTopPlays`).
-    if (ability.kind !== "playRule" || ability.onTopOf) continue;
+    // A play on top of a card has its own reduction (`onTopPlays`); a play paid for with a cost
+    // (`costPlays`) and a monster play onto another monster (`monsterRulePlay`) are their own
+    // plays too.
+    if (
+      ability.kind !== "playRule" ||
+      ability.onTopOf ||
+      ability.cost ||
+      ability.monsterOnto
+    )
+      continue;
     if (ability.forbidden && conditionHolds(ctx, ability.forbidden))
       result.forbidden = true;
     if (
@@ -1291,6 +1319,103 @@ export function onTopPlays(
         plays.push({ zone: host.zone, reduction });
   }
   return plays;
+}
+
+/** The zones a card can only be played in, by any means (M2 `onlyInZones`, EBP04-067), or `null`. */
+export function playZoneLimit(
+  state: GameState,
+  card: CardInstance,
+): ZoneNumber[] | null {
+  const data = abilitiesOf(state, card);
+  if (data.status === "manual") return null;
+  for (const ability of data.abilities)
+    if (ability.kind === "playRule" && ability.onlyInZones)
+      return ability.onlyInZones;
+  return null;
+}
+
+/**
+ * A hand card's play with its rank reduced for an optional cost (M2, EBP04-045): the reduction,
+ * and the hand cards that can pay it (a discard of exactly 1, never the card itself). `null` when
+ * the card has no such rule, its gates are closed, or nothing can pay.
+ */
+export function costPlays(
+  state: GameState,
+  card: CardInstance,
+  master: PlayerId,
+): { reduction: number; payWith: CardInstance[] } | null {
+  const data = abilitiesOf(state, card);
+  if (data.status === "manual") return null;
+  const ctx: Context = {
+    state,
+    master,
+    sourceInstanceId: card.instanceId,
+    bindings: {},
+  };
+  for (const ability of data.abilities) {
+    if (ability.kind !== "playRule" || !ability.cost) continue;
+    const [pay] = ability.cost.effects;
+    if (
+      ability.cost.effects.length !== 1 ||
+      pay?.effect !== "discard" ||
+      typeof pay.count !== "object" ||
+      !("exact" in pay.count) ||
+      pay.count.exact !== 1
+    )
+      throw new Error("not implemented: a play cost other than 1 discard");
+    if (!gatesOpen(state, master, ability.gates)) continue;
+    if (ability.condition && !conditionHolds(ctx, ability.condition)) continue;
+    const payWith = select(ctx, {
+      ...discardFilter(pay),
+      other: true,
+    }).map((l) => l.card);
+    if (payWith.length === 0) continue;
+    return {
+      reduction:
+        ability.rankReduction === undefined
+          ? 0
+          : amountOf(ctx, ability.rankReduction),
+      payWith,
+    };
+  }
+  return null;
+}
+
+/**
+ * A monster card's play onto its player's invading monster by its own rule (M2 `monsterOnto`,
+ * Q22, Q23), ignoring 8.5.1's rank and trait match; `under` lists the monster deck cards that may
+ * go under that monster first (EBP04-012), or is `null` when none is needed. `null` when the rule
+ * doesn't apply now.
+ */
+export function monsterRulePlay(
+  state: GameState,
+  player: PlayerState,
+  card: CardInstance,
+): { under: CardInstance[] | null } | null {
+  const data = abilitiesOf(state, card);
+  if (data.status === "manual") return null;
+  const ctx: Context = {
+    state,
+    master: player.id,
+    sourceInstanceId: card.instanceId,
+    bindings: {},
+  };
+  const top = topOf(player.invadingMonsterZone);
+  if (!top) return null;
+  for (const ability of data.abilities) {
+    if (ability.kind !== "playRule" || !ability.monsterOnto) continue;
+    if (!gatesOpen(state, player.id, ability.gates)) continue;
+    if (ability.condition && !conditionHolds(ctx, ability.condition)) continue;
+    const onto = select(ctx, { ...ability.monsterOnto, area: "monster" });
+    if (!onto.some((l) => l.card.instanceId === top.instanceId)) continue;
+    if (!ability.placeUnderFrom) return { under: null };
+    const under = select(ctx, {
+      ...ability.placeUnderFrom,
+      area: "monsterDeck",
+    }).map((l) => l.card);
+    if (under.length > 0) return { under };
+  }
+  return null;
 }
 
 /** The zone a rank I monster starts in, if its data says (K3, 6.3.1.6, Q31). */
@@ -1673,7 +1798,7 @@ function canPay(ctx: Context, effects: Effect[]): boolean {
 
 type Outcome = "done" | "paused";
 
-function bindCards(
+export function bindCards(
   ctx: Context,
   name: string | undefined,
   cards: CardInstance[],
@@ -2187,7 +2312,11 @@ function perform(state: GameState, effect: Effect): Outcome {
           continue;
         }
         const used = zones.filter((z): z is ZoneNumber => z !== null);
-        let legal = playZones(ctx, effect, used);
+        // M2: a card that can only be played in some zones (EBP04-067).
+        const only = cards[i] ? playZoneLimit(state, cards[i].card) : null;
+        let legal = playZones(ctx, effect, used).filter(
+          (z) => !only || only.includes(z),
+        );
         // One card per zone: no unused zone left, no more cards (EBP02-028).
         if (effect.onePerZone) legal = legal.filter((z) => !used.includes(z));
         if (legal.length === 0) {
@@ -3152,6 +3281,37 @@ function perform(state: GameState, effect: Effect): Outcome {
       bindCards(ctx, effect.as, [card]);
       return "done";
     }
+    case "retrigger": {
+      // T9 (F13, Q30): the [enter] abilities of the card the target picks (the top card: cards
+      // under it have no active abilities, 3.2.3.1) go into standby again, with no event of their
+      // own; gates now, conditions when each resolves, as usual.
+      for (const found of select(ctx, effect.target)) {
+        const data = abilitiesOf(state, found.card);
+        if (data.status === "manual") continue;
+        const event = appendLog(state, "retrigger", found.player.id, {
+          rule: "10.6",
+          keyword: effect.keyword,
+          cardId: found.card.cardId,
+          instanceId: found.card.instanceId,
+          abilityId,
+        });
+        const number = cardOf(state, found.card).deckCardNumber;
+        for (const ability of withKeywords(data.abilities))
+          if (
+            ability.kind === "triggered" &&
+            ability.trigger.on === "enter" &&
+            gatesOpen(state, found.player.id, ability.gates)
+          )
+            enterStandby(
+              state,
+              found.card,
+              found.player.id,
+              dataAbilityId(number, ability.id),
+              event,
+            );
+      }
+      return "done";
+    }
     case "custom": {
       const run = customEffects.get(effect.handler);
       if (!run) throw new Error(`not implemented: custom ${effect.handler}`);
@@ -3363,7 +3523,12 @@ export function applyReplacement(
   replaces: string,
   rule: string,
   bindings: Record<string, Binding> = {},
-): void {
+  /**
+   * An engine step's replacement may stop for a choice (EBP04-010's discard): the resolution
+   * stays in `state.resolution`, `choose` continues it, and the step runs again once it ends.
+   */
+  pausable = false,
+): "done" | "paused" {
   appendLog(state, "replace", replacement.master, {
     rule: "10.9.1",
     abilityId: replacement.abilityId,
@@ -3391,6 +3556,11 @@ export function applyReplacement(
     replacementPicks: [],
     subject: null,
   };
+  if (pausable) {
+    if (saved) throw new Error("A step's replacement inside a resolution");
+    runResolution(state);
+    return state.resolution === null ? "done" : "paused";
+  }
   try {
     for (const effect of replacement.ability.instead)
       if (perform(state, effect) === "paused")
@@ -3400,6 +3570,43 @@ export function applyReplacement(
   } finally {
     state.resolution = saved;
   }
+  return "done";
+}
+
+/**
+ * Performs an effect inside the resolution in progress, for a custom handler whose rule runs other
+ * effects (EBP04-089's thresholds). It must not need a choice.
+ */
+export function performNested(state: GameState, effect: Effect): void {
+  if (perform(state, effect) === "paused")
+    throw new Error("not implemented: a nested effect that needs a choice");
+}
+
+/**
+ * The replacement for the 7.2.4 reset of `card`'s master's rage (E21 `rageReset`, EBP04-010),
+ * if `card` is an invading monster with one active.
+ */
+export function rageResetReplacement(
+  state: GameState,
+  card: CardInstance,
+): Replacement | null {
+  return replacementsFor(state, card, "rageReset")[0] ?? null;
+}
+
+/** Whether a replacement's `instead` effects can be done in full (10.5.4.1, as for a cost). */
+export function replacementPayable(
+  state: GameState,
+  replacement: Replacement,
+): boolean {
+  return canPay(
+    {
+      state,
+      master: replacement.master,
+      sourceInstanceId: replacement.source.instanceId,
+      bindings: {},
+    },
+    replacement.ability.instead,
+  );
 }
 
 /**
