@@ -122,6 +122,29 @@ describe("ismcts (M6c)", { timeout: 60_000 }, () => {
     );
   });
 
+  it("M2: plays paid with different cards, or with a different card under the monster, have different keys (EBP04-045, EBP04-012)", () => {
+    const state = start();
+    const [a, b, c] = state.players[0].hand;
+    if (!a || !b || !c) throw new Error("no hand");
+    const battle = {
+      type: "playBattle" as const,
+      player: "P1",
+      cardInstanceId: a.instanceId,
+      zone: 2 as const,
+    };
+    expect(
+      actionKey(state, { ...battle, costCardInstanceId: b.instanceId }),
+    ).not.toBe(actionKey(state, battle));
+    const monster = {
+      type: "playMonster" as const,
+      player: "P1",
+      cardInstanceId: a.instanceId,
+    };
+    expect(
+      actionKey(state, { ...monster, underInstanceId: c.instanceId }),
+    ).not.toBe(actionKey(state, monster));
+  });
+
   it("win now: in zone 8 with the opponent's zone 8 open and an invasion available, it invades", () => {
     const state = start();
     const [p1, p2] = state.players;

@@ -73,7 +73,11 @@ export function determinize(
   for (const entry of view.log)
     if (
       (entry.type === "setInvadingMonster" ||
-        entry.type === "newInvadingMonster") &&
+        entry.type === "newInvadingMonster" ||
+        // M2 (Q22): a monster deck card placed under the invading monster (EBP04-012).
+        (entry.type === "placeUnder" &&
+          entry.payload["from"] === "monsterDeck" &&
+          typeof entry.payload["cardId"] === "number")) &&
       entry.player !== null
     ) {
       const list = leftMonsterDeck.get(entry.player) ?? [];
