@@ -11,7 +11,7 @@ import {
   buildLoopReport,
 } from "@gojisim/engine";
 import { PRESETS } from "@gojisim/bot";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { difficultyName, displayState, type SeatConfig } from "../game/bots";
 import {
   downloadJson,
@@ -29,8 +29,11 @@ import {
   type DeckOption,
   deckOptions,
   loadImportedDecks,
+  pickerGroups,
+  replaceByName,
   saveImportedDecks,
 } from "../game/decks";
+import { localDecks } from "../game/localDecks";
 import { ManualPanel } from "./ManualPanel";
 import { ActionPanel, LogPanel, StatusBar } from "./Panels";
 
@@ -135,7 +138,10 @@ function NewGameForm({
   const [imported, setImported] = useState<NamedDeck[]>(() =>
     loadImportedDecks(),
   );
-  const options = deckOptions(imported);
+  const options = useMemo(() => deckOptions(imported), [imported]);
+  // Type-to-filter for the development groups (Monarch, Oct 25, 2026).
+  const [filter, setFilter] = useState("");
+  const [confirmClear, setConfirmClear] = useState(false);
   const [keys, setKeys] = useState<[string, string]>([
     "official:ESD01",
     "official:ESD02",
@@ -146,17 +152,30 @@ function NewGameForm({
     options.find((o) => o.key === key) ?? (options[0] as DeckOption);
   const picked: [DeckOption, DeckOption] = [byKey(keys[0]), byKey(keys[1])];
   const legalityLabel = (option: DeckOption) => {
-    if (option.kind !== "imported") return option.label;
+    if (option.kind !== "imported" && option.kind !== "file")
+      return option.label;
     const validation = checkDeck(option.build(0));
     return `${option.label} ${validation.legal ? "✓ legal" : `✗ ${failedRules(validation).join(", ")}`}`;
   };
 
   const importDeckList = async (file: File) => {
     const { decks, errors } = parseDeckList(await file.text());
-    const next = [...imported, ...decks];
+    // A deck with a stored deck's name replaces it, so a second import doesn't double the list.
+    const next = replaceByName(imported, decks);
     setImported(next);
     saveImportedDecks(next);
     setImportErrors(errors);
+  };
+
+  const clearImported = () => {
+    setImported([]);
+    saveImportedDecks([]);
+    setConfirmClear(false);
+    // A pick that was an import goes back to the starters.
+    setKeys(([a, b]) => [
+      a.startsWith("imported:") ? "official:ESD01" : a,
+      b.startsWith("imported:") ? "official:ESD02" : b,
+    ]);
   };
 
   const exportDeckList = () => {
@@ -212,11 +231,17 @@ function NewGameForm({
                   )
                 }
               >
-                {options.map((option) => (
-                  <option key={option.key} value={option.key}>
-                    {legalityLabel(option)}
-                  </option>
-                ))}
+                {pickerGroups(options, filter, [keys[i] as string]).map(
+                  (group) => (
+                    <optgroup key={group.label} label={group.label}>
+                      {group.options.map((option) => (
+                        <option key={option.key} value={option.key}>
+                          {legalityLabel(option)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ),
+                )}
               </select>
             </label>
             <LegalityNote
@@ -231,6 +256,23 @@ function NewGameForm({
           </div>
         ))}
       </div>
+      {options.some((o) => o.kind === "file" || o.kind === "imported") && (
+        <label style={{ display: "block", marginTop: 6 }}>
+          Find a development deck{" "}
+          <input
+            type="search"
+            data-testid="dev-deck-filter"
+            placeholder="Name, file or folder"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter filters; it never starts the game from here.
+              if (e.key === "Enter") e.preventDefault();
+            }}
+          />
+        </label>
+      )}
+      <LocalDeckFiles />
       <div style={{ marginTop: 6 }}>
         <label>
           Import deck list (.txt){" "}
@@ -249,7 +291,32 @@ function NewGameForm({
           onClick={exportDeckList}
         >
           Export deck list
-        </button>
+        </button>{" "}
+        {imported.length > 0 &&
+          (confirmClear ? (
+            <span data-testid="clear-imported-confirm">
+              Clear {imported.length} imported deck
+              {imported.length === 1 ? "" : "s"} from this browser?{" "}
+              <button
+                type="button"
+                data-testid="clear-imported-yes"
+                onClick={clearImported}
+              >
+                Clear
+              </button>{" "}
+              <button type="button" onClick={() => setConfirmClear(false)}>
+                Keep
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              data-testid="clear-imported-decks"
+              onClick={() => setConfirmClear(true)}
+            >
+              Clear imported decks
+            </button>
+          ))}
         {importErrors.length > 0 && (
           <ul
             data-testid="deck-list-errors"
@@ -265,6 +332,35 @@ function NewGameForm({
       </div>
       {error && <div style={{ color: "var(--color-illegal)" }}>{error}</div>}
     </form>
+  );
+}
+
+/**
+ * The development deck files (`local-decks/*.txt`, dev server only): how many decks each gave,
+ * and each file's parse errors once, with their lines. Nothing shows without the folder.
+ */
+function LocalDeckFiles() {
+  const { counts, errors, parseMs } = localDecks();
+  if (counts.length === 0) return null;
+  return (
+    <div data-testid="local-deck-files" style={{ fontSize: 12, marginTop: 4 }}>
+      Development deck files (local-decks, read in {Math.round(parseMs)} ms):{" "}
+      {counts.map((c) => `${c.file} (${c.decks})`).join(", ")}
+      {errors.map(({ file, errors: list }) => (
+        <ul
+          key={file}
+          data-testid="local-deck-errors"
+          data-file={file}
+          style={{ color: "var(--color-illegal)", margin: "2px 0" }}
+        >
+          {list.map((e) => (
+            <li key={e.line}>
+              {file} line {e.line}: {e.reason}
+            </li>
+          ))}
+        </ul>
+      ))}
+    </div>
   );
 }
 

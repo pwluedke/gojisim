@@ -572,3 +572,11 @@ Accepted by Monarch in the M5h-3 review (PR #47).
 414. The cracks are seeded by the monster's instance id: 13 cracks, two broken rings and a shaded crater, in a theme crack color.
 415. The loser's mat shakes during the first 60% of the crater time.
 416. Every invasion win slams, the bot's win onto your zone 8 included; other wins don't.
+
+Accepted by Monarch in the English promos review (PR #48).
+
+417. EPR-015 and EPR-016 are hand-entered base prints and the deck card numbers; PR-015 and PR-016 get only a `deckCardNumber` override (no `parentId`), since the scraper links parents before it merges hand-entered cards.
+418. Hand-entered cards use cards.json's existing spellings for names, traits and movies, and the official text icons map to the existing text tokens.
+419. A PR print of a booster card whose `+` number the site already uses for another print is numbered `<number>+ (Alt)` (EBP01-073+ (Alt), like EBP02-070+ (Alt)); its name and text are the base card's, and its printed title goes in `notes`.
+420. The official "+" mark on a battle card's counter power has no schema field; it stays in the source files.
+421. The M12 plan's "Implemented after" column counts the original 384 plus the 3 new M12e cards; with EPR-020, 388 cards are in scope.

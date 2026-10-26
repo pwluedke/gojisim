@@ -33,7 +33,7 @@ Decks use GojiSim's plain-text deck list format (the godzilla-sim export format)
 4 ESD01-005
 ```
 
-`/debug` imports and exports these files in the browser. Keep personal deck files in `local-decks/` (gitignored); never commit them. The official starters are in `packages/cards/data/decks/`. Illegal decks are allowed everywhere, with a warning listing every failed rule (Paul's ruling, Oct 21, 2026).
+`/debug` imports and exports these files in the browser; importing a file again replaces decks with the same name, and Clear imported decks empties the list. Keep personal deck files in `local-decks/` (gitignored); never commit them. The dev server reads every `local-decks/*.txt` at startup and again when a file changes, and lists the decks in the `/play` and `/debug` pickers' development groups, by file and `[deck]` folder (the part of the name before the last `/`), with a filter box; `/debug` lists each file's parse errors with their lines. A browser-stored deck with a file deck's name is hidden behind the file deck. Without the folder there are no development decks, and production builds never include them (`GOJISIM_LOCAL_DECKS` names another folder; the tests use `apps/web/e2e/fixtures/local-decks`). The official starters are in `packages/cards/data/decks/`. Illegal decks are allowed everywhere, with a warning listing every failed rule (Paul's ruling, Oct 21, 2026).
 
 ## Importing decks
 
