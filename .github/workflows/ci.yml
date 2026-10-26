@@ -61,7 +61,7 @@ jobs:
 
       # Spec case 52: random legal games with invariant checks, seeded by the commit, so a failure
       # can be reproduced with `pnpm stress --games <n> --seed <sha>`. 200 games on a pull request,
-      # 1,000 on a push to main; the nightly run plays 20,000.
+      # 1,000 on a push to main; the nightly run plays 10,000 uniform and 4,500 weighted.
       - name: Stress test
         run: pnpm stress --games ${{ github.event_name == 'push' && 1000 || 200 }} --seed ${{ github.sha }}
 
@@ -78,6 +78,12 @@ jobs:
   e2e:
     name: E2E (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
+    # Microsoft's Playwright image already holds Chromium and its system libraries, so nothing is
+    # installed from Ubuntu's apt mirror. The tag must match the lockfile's Playwright version
+    # (checked by apps/web/src/playwrightImage.test.ts).
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --user 1001
     strategy:
       fail-fast: false
       matrix:
@@ -85,25 +91,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
-
-      - name: Playwright version
-        id: playwright
-        run: echo "version=$(pnpm --filter @gojisim/web exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
-
-      # The browser is cached per Playwright version; with a hit, only its system libraries install.
-      - uses: actions/cache@v6
-        id: browsers
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-
-      - name: Install Playwright Chromium
-        if: steps.browsers.outputs.cache-hit != 'true'
-        run: pnpm --filter @gojisim/web exec playwright install --with-deps chromium
-
-      - name: Install Chromium's system libraries
-        if: steps.browsers.outputs.cache-hit == 'true'
-        run: pnpm --filter @gojisim/web exec playwright install-deps chromium
 
       - name: E2E
         run: pnpm --filter @gojisim/web exec playwright test --shard=${{ matrix.shard }}/3
