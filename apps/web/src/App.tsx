@@ -1,10 +1,12 @@
 import "./theme.css";
 import styles from "./Menu.module.css";
+import { ThemeHeader } from "./ThemeHeader";
 
 /** The `/` menu (M5a): Play vs bot and Debug (hotseat was removed in M5h). */
 export function App() {
   return (
     <div className="gojisim">
+      <ThemeHeader />
       <main className={styles.menu}>
         <h1 className={styles.title}>GojiSim</h1>
         <a

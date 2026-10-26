@@ -175,7 +175,10 @@ export function ChoiceModal({
               </div>
             )}
             {words.text && (
-              <div className={styles.abilityText} data-testid="confirm-text">
+              <div
+                className={`${styles.abilityText} ${styles.confirmText}`}
+                data-testid="confirm-text"
+              >
                 {words.text}
               </div>
             )}

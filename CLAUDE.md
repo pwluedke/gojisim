@@ -604,3 +604,12 @@ Accepted by Monarch in the M12d-2 review (PR #50).
 436. Inherited Life's 15 / 22 / 30 effects run in order in one resolution, so one decrease can pass several; the count is lost if the card leaves its strategy zone (4.1.4).
 437. `retrigger` logs its own event, and the [enter] abilities enter standby with it.
 438. M3 needed no engine piece: `rank` modifiers that target hand cards are read by 8.3.1.
+
+Accepted by Monarch in the CI speed review (PR #52).
+
+439. CI runs as parallel jobs: lint + typecheck, unit tests, build + speed guard, stress, and E2E in 3 shards. A final job named `ci` needs them all and is the one check for branch protection.
+440. Each job uses the composite action `.github/actions/setup`: Node from `.nvmrc`, pnpm through corepack, the pnpm store cached with `actions/cache` on the lockfile.
+441. Each E2E shard uploads a blob report; the `E2E report` job merges them into one HTML report only when a shard fails.
+442. The Playwright browser is cached per Playwright version; on a hit only `install-deps` runs.
+443. Stress plays 200 games on a pull request and 1,000 on a push to main, seeded by the commit; the nightly run is unchanged.
+444. A newer push to a pull request cancels its older CI run.

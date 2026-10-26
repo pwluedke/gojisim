@@ -16,9 +16,56 @@ async function noScroll(page: Page) {
   ).toEqual({ y: true, x: true });
 }
 
+test("Showa Poster's fight card: boxed deck names in Dela Gothic One over a starburst, a red VS with an ink shadow", async ({
+  page,
+}) => {
+  await vsBot(page, 2);
+  const style = (id: string) =>
+    page.getByTestId(id).evaluate((el) => {
+      const s = getComputedStyle(el);
+      return {
+        font: s.fontFamily,
+        color: s.color,
+        background: s.backgroundColor,
+        border: s.borderTopWidth,
+        shadow: s.textShadow,
+        image: s.backgroundImage,
+      };
+    });
+  const you = await style("fight-deck-you");
+  const opp = await style("fight-deck-opp");
+  expect(you.font).toMatch(/^"?Dela Gothic One/);
+  expect(you.border).toBe("3px");
+  // Yours on paper, the opponent's marigold on ink.
+  expect(you.background).toBe("rgb(251, 244, 228)");
+  expect(opp.background).toBe("rgb(26, 20, 16)");
+  expect(opp.color).toBe("rgb(244, 179, 35)");
+  const vs = await style("fight-vs");
+  expect(vs.color).toBe("rgb(215, 38, 30)");
+  expect(vs.shadow).toContain("rgb(26, 20, 16)");
+  expect((await style("fight-card")).image).toContain("conic-gradient");
+  // The names still fit their line.
+  for (const id of ["fight-deck-you", "fight-deck-opp"])
+    expect(
+      await page
+        .getByTestId(id)
+        .evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
+    ).toBe(true);
+});
+
+/** The M5h-3 fight card's own design (Anton and Bungee): Showa Poster restyles it (below). */
+const greyTheme = (page: Page) =>
+  page.addInitScript(() =>
+    window.localStorage.setItem(
+      "gojisim.settings",
+      JSON.stringify({ animation: "off", theme: "grey" }),
+    ),
+  );
+
 test("#18 the fight card names your deck, VS, then the bot's deck in the bundled fonts; it collapses with the log", async ({
   page,
 }) => {
+  await greyTheme(page);
   await vsBot(page, 2);
   const card = page.getByTestId("fight-card");
   await expect(page.getByTestId("fight-deck-you")).toHaveText("ESD01 official");
@@ -63,6 +110,7 @@ test("#18 the fight card names your deck, VS, then the bot's deck in the bundled
 test("#18 a long deck name shrinks, then is cut with its full name in the tooltip; a record without names reads Mystery Deck", async ({
   page,
 }) => {
+  await greyTheme(page);
   const name = "A".repeat(59) + " very long deck name that goes on and on.";
   const list = readFileSync(
     new URL(
@@ -113,7 +161,7 @@ test("#18 the fight card fits without scrolling at 1920×1080", async ({
   await noScroll(page);
 });
 
-for (const theme of ["dark", "grey", "light"] as const)
+for (const theme of ["showa", "dark", "grey", "light"] as const)
   test(`#18 the fight card's names pass axe color-contrast in ${theme}`, async ({
     page,
   }) => {

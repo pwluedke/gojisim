@@ -7,7 +7,8 @@
 
 .layout {
   display: flex;
-  height: 100vh;
+  /* Under the theme's header bar, if it has one (Showa Poster). */
+  height: calc(100vh - var(--header-h));
 }
 
 /* The right column: the battle log, which the card preview covers while a card is previewed. */
@@ -16,7 +17,7 @@
   display: flex;
   flex-direction: column;
   width: var(--right-column-width);
-  height: 100vh;
+  height: 100%;
   padding: var(--space-2) var(--space-4);
   border-left: 1px solid var(--color-border);
   background: var(--color-panel-alt);
@@ -26,7 +27,7 @@
 .leftColumn {
   flex: none;
   width: var(--left-column-width);
-  height: 100vh;
+  height: 100%;
   overflow: auto;
   padding: var(--space-2);
   border-right: 1px solid var(--color-border);
@@ -53,12 +54,14 @@
   margin: var(--space-2) 0;
   padding: var(--space-2);
   background: var(--color-panel);
-  border: 1px solid var(--color-border);
+  border: var(--panel-border-width) solid var(--color-panel-border);
   border-radius: var(--radius);
+  box-shadow: var(--panel-shadow);
 }
 
 .panelTitle {
-  font-weight: bold;
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
   margin-bottom: var(--space-1);
 }
 
@@ -89,6 +92,23 @@
   align-self: center;
   border-radius: var(--radius);
   transition: box-shadow 0.6s;
+}
+
+/*
+ * Showa Poster frames each mat (none in the other themes): yours red with a red offset shadow, the
+ * opponent's ink on a sea tint, both over paper halftone. The turn glow, set inline, replaces the
+ * shadow while it shows, and an uploaded mat image covers the background.
+ */
+.mat[data-side="you"] {
+  border: var(--mat-you-border);
+  box-shadow: var(--mat-you-shadow);
+  background: var(--mat-you-bg);
+}
+
+.mat[data-side="opp"] {
+  border: var(--mat-opp-border);
+  box-shadow: var(--mat-opp-shadow);
+  background: var(--mat-opp-bg);
 }
 
 /* A custom mat image (M5f) behind the zone grid; cells get a light backing to stay readable. */
@@ -144,7 +164,7 @@
 }
 
 .cell {
-  border: 1px solid var(--color-cell-outline);
+  border: 1px var(--zone-outline-style) var(--color-cell-outline);
 }
 
 .cellLabel {
@@ -193,6 +213,7 @@
 
 .rageCount {
   margin: var(--space-1) 0;
+  font-family: var(--font-heading);
   font-size: var(--font-size-xl);
 }
 
@@ -546,10 +567,42 @@
 
 .button {
   padding: var(--space-1) var(--space-3);
-  border: none;
+  border: var(--button-border);
   border-radius: var(--radius);
   background: var(--color-button);
   color: var(--color-button-text);
+  box-shadow: var(--button-shadow);
+  cursor: pointer;
+}
+
+/*
+ * Showa Poster's button fonts: buttons keep the browser's own font in the other themes (a
+ * custom property can't hold `revert`, so this is a theme selector, not a token).
+ */
+:global([data-theme="showa"]) .button {
+  font-family: var(--button-font);
+  font-weight: var(--button-weight);
+}
+
+:global([data-theme="showa"]) .concedeButton {
+  font-family: var(--font-body);
+}
+
+/* Pass: marigold in Showa Poster, the plain button elsewhere. */
+.passButton {
+  background: var(--pass-bg);
+  color: var(--pass-text);
+}
+
+/* Concede: a red link, or a paper button with red text in Showa Poster. */
+.concedeButton {
+  padding: var(--concede-padding);
+  border: var(--concede-border);
+  border-radius: var(--radius);
+  background: var(--concede-bg);
+  color: var(--concede-text);
+  font-weight: var(--concede-weight);
+  text-decoration: var(--concede-decoration);
   cursor: pointer;
 }
 
@@ -643,14 +696,15 @@
   overflow: auto;
   padding: var(--space-4);
   background: var(--color-panel);
-  border: 1px solid var(--color-border);
+  border: var(--panel-border-width) solid var(--color-panel-border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
 
 .modalHeading {
+  font-family: var(--font-heading);
   font-size: var(--font-size-lg);
-  font-weight: bold;
+  font-weight: var(--heading-weight);
   margin-bottom: var(--space-1);
 }
 
@@ -822,7 +876,9 @@
   display: inline-block;
   margin-right: var(--space-1);
   padding: 0 4px;
+  border: var(--tag-border);
   border-radius: 3px;
+  transform: var(--tag-transform);
   color: var(--color-tag-text);
   font-size: 10px;
   font-weight: bold;
@@ -1244,6 +1300,14 @@
 }
 
 /*
+ * A yes/no prompt's printed text (M5h #16) has no card beside it: it takes the prompt's width,
+ * not the two-card cap that keeps an ability's text over its card.
+ */
+.confirmText {
+  max-width: none;
+}
+
+/*
  * Strategy cards are printed landscape (M5e): in the hand and on top of the discard pile the
  * image turns 90° clockwise to fill the portrait slot whole. The card is a size container, so the
  * image takes the slot's height as its width.
@@ -1589,4 +1653,88 @@
     opacity: 1;
     scale: 1;
   }
+}
+
+/*
+ * Showa Poster's fight card (Oct 26, 2026): a marigold and paper starburst behind the names, each
+ * deck name in a boxed label (yours paper, the opponent's ink with marigold), and "VS" in poster
+ * red with an ink offset shadow. The names still shrink to fit, then cut (M5h #18).
+ */
+:global([data-theme="showa"]) .fightCard {
+  padding: var(--space-3) var(--space-2);
+  border: 3px solid var(--color-ink);
+  border-radius: var(--radius);
+  box-shadow: 5px 5px 0 var(--color-ink);
+  background: repeating-conic-gradient(
+    var(--color-marigold) 0 10deg,
+    var(--color-panel) 10deg 20deg
+  );
+}
+
+:global([data-theme="showa"]) .fightSide {
+  text-align: center;
+}
+
+:global([data-theme="showa"]) .fightName {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 10px;
+  border: 3px solid var(--color-ink);
+  font-family: var(--font-heading);
+  vertical-align: top;
+}
+
+:global([data-theme="showa"]) .fightName[data-side="you"] {
+  background: var(--color-panel);
+  color: var(--color-ink);
+}
+
+:global([data-theme="showa"]) .fightName[data-side="opp"] {
+  background: var(--color-ink);
+  color: var(--color-marigold);
+}
+
+:global([data-theme="showa"]) .fightBot {
+  display: inline-block;
+  margin-top: 2px;
+  padding: 0 6px;
+  background: var(--color-panel);
+  color: var(--color-ink);
+}
+
+:global([data-theme="showa"]) .fightVs {
+  font-family: var(--font-heading);
+  transform: none;
+  background: none;
+  color: var(--color-poster-red);
+  -webkit-text-stroke: 0;
+  filter: none;
+  text-shadow: 4px 4px 0 var(--color-ink);
+}
+
+/*
+ * The counter power bar in the rage zone (every theme, Oct 26, 2026): it fills by counter power
+ * against the opponent's threat, with the threat line marked; Showa Poster fills it with red and
+ * marigold stripes in an ink frame.
+ */
+.counterBar {
+  position: relative;
+  height: 12px;
+  margin-top: var(--space-1);
+  border: 2px solid var(--color-bar-frame);
+  background: var(--color-bar-track);
+}
+
+.counterFill {
+  height: 100%;
+  background: var(--bar-fill);
+}
+
+.counterMarker {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  width: 3px;
+  margin-left: -1px;
+  background: var(--color-bar-marker);
 }

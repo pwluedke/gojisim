@@ -3,10 +3,18 @@ import { useState } from "react";
 /** Card movement animation speed (M5f). */
 export type AnimationSpeed = "off" | "normal" | "fast";
 
-/** The color theme (M5g): one variable set each in `theme.css`. */
-export type Theme = "dark" | "grey" | "light";
+/** The theme (M5g): one variable set each in `theme.css`. Showa Poster is the default. */
+export type Theme = "showa" | "dark" | "grey" | "light";
 
-export const THEMES: readonly Theme[] = ["dark", "grey", "light"];
+export const THEMES: readonly Theme[] = ["showa", "dark", "grey", "light"];
+
+/** Each theme's name in Settings. */
+export const THEME_NAMES: Record<Theme, string> = {
+  showa: "Showa Poster",
+  dark: "Dark",
+  grey: "Grey",
+  light: "Light",
+};
 
 /**
  * `/play` settings (M5c, M5d, M5f), saved in this browser under `gojisim.settings`. Storage
@@ -27,7 +35,7 @@ export interface Settings {
   logCollapsed: boolean;
   /** The combo modal when a combo succeeds (M5g, default on); the log line always shows. */
   comboCallouts: boolean;
-  /** Color theme (M5g, default grey). `index.html` applies it before the first paint. */
+  /** Theme (M5g; default Showa Poster). `index.html` applies it before the first paint. */
   theme: Theme;
   /** "Undone: ..." lines in the battle log (M5h #10, default off). */
   showUndone: boolean;
@@ -43,7 +51,7 @@ export const DEFAULT_SETTINGS: Settings = {
   turnGlow: true,
   logCollapsed: false,
   comboCallouts: true,
-  theme: "grey",
+  theme: "showa",
   showUndone: false,
   invadeArrow: true,
 };
@@ -52,7 +60,7 @@ export const DEFAULT_SETTINGS: Settings = {
 export function applyTheme(theme: Theme): void {
   document.documentElement.dataset["theme"] = THEMES.includes(theme)
     ? theme
-    : "grey";
+    : "showa";
 }
 
 const STORAGE_KEY = "gojisim.settings";

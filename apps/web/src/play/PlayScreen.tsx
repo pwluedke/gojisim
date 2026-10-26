@@ -25,6 +25,7 @@ import {
 import { useGameSession } from "../game/useGameSession";
 import styles from "./Board.module.css";
 import { BoardView, STEP_NAMES } from "./BoardView";
+import { ThemeHeader } from "../ThemeHeader";
 import { BattleLog } from "./BattleLog";
 import { FightCard, type FightSide } from "./FightCard";
 import { buildLog } from "./logLines";
@@ -50,6 +51,7 @@ import { boardModel, bottomPlayer } from "./model";
 import { visibleCards } from "./Preview";
 import {
   type AnimationSpeed,
+  THEME_NAMES,
   THEMES,
   type Theme,
   useSettings,
@@ -421,6 +423,7 @@ export function PlayScreen() {
   if (!session || !state)
     return (
       <div className="gojisim">
+        <ThemeHeader />
         {pending ? (
           <FirstPick
             picker={pending.picker}
@@ -577,7 +580,7 @@ export function PlayScreen() {
               {pass && (
                 <button
                   type="button"
-                  className={styles.button}
+                  className={`${styles.button} ${styles.passButton}`}
                   data-testid="pass"
                   onClick={takePass}
                 >
@@ -605,7 +608,7 @@ export function PlayScreen() {
           {concedeFor && (
             <button
               type="button"
-              className={styles.linkButton}
+              className={styles.concedeButton}
               data-testid="concede"
               onClick={() => setConfirming("concede")}
             >
@@ -680,8 +683,7 @@ export function PlayScreen() {
           >
             {THEMES.map((theme) => (
               <option key={theme} value={theme}>
-                {theme[0]?.toUpperCase()}
-                {theme.slice(1)}
+                {THEME_NAMES[theme]}
               </option>
             ))}
           </select>
@@ -810,6 +812,7 @@ export function PlayScreen() {
   return (
     // A collapsed log frees its column, so --card-h recomputes on this wrapper (M5f).
     <div className={`gojisim${settings.logCollapsed ? " log-collapsed" : ""}`}>
+      <ThemeHeader />
       <BoardView
         model={model}
         prompt={prompt}

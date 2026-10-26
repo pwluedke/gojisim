@@ -48,6 +48,7 @@ import { PhaseTracker } from "./PhaseTracker";
 import { GLOW_COLORS, glowCycle, useGlow } from "./glow";
 import { InvadeArrow } from "./InvadeArrow";
 import { Preview } from "./Preview";
+import { counterBar } from "./counterBar";
 import { InvasionSlam } from "./slam";
 import { type StackKey, StackViewer } from "./StackViewer";
 import { TipBubble } from "./Tooltip";
@@ -430,7 +431,47 @@ function RageZone({
         </strong>{" "}
         <span className={styles.muted}>vs threat {model.threat[opponent]}</span>
       </div>
+      <CounterBar
+        player={player.id}
+        power={model.totalCounterPower[player.id] ?? 0}
+        threat={model.threat[opponent] ?? 0}
+      />
     </Slot>
+  );
+}
+
+/**
+ * The counter power bar (every theme): counter power against the opponent's threat, filling past
+ * the threat line once it counters (7.4.3). The numbers above it stay; its label repeats them.
+ */
+function CounterBar({
+  player,
+  power,
+  threat,
+}: {
+  player: string;
+  power: number;
+  threat: number;
+}) {
+  const bar = counterBar(power, threat);
+  return (
+    <div
+      className={styles.counterBar}
+      role="img"
+      aria-label={`Counter power ${power} against threat ${threat}`}
+      data-testid={`counter-bar-${player}`}
+      data-fill={bar.fill.toFixed(3)}
+      data-counters={bar.counters ? "true" : "false"}
+    >
+      <div
+        className={styles.counterFill}
+        style={{ width: `${bar.fill * 100}%` }}
+      />
+      <div
+        className={styles.counterMarker}
+        style={{ left: `${bar.marker * 100}%` }}
+      />
+    </div>
   );
 }
 
@@ -639,6 +680,7 @@ function Mat({
     <div
       className={`${styles.mat}${mat ? ` ${styles.matCustom}` : ""}`}
       data-testid={`mat-${side}`}
+      data-side={side}
       data-player={player.id}
       data-glow={glow ?? undefined}
       style={

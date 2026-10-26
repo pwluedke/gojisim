@@ -2,13 +2,146 @@
  * GojiSim theme (M5a): every color, spacing value and card size is a variable here, so no
  * component sets its own colors.
  *
- * M5g (Paul): three color themes, Light (the original look), Grey (the default: mid-grey, no
- * white surfaces) and Dark (near-black with light text), one variable set each on
- * `:root[data-theme=…]`. `index.html` sets `data-theme` from the saved settings before the first
- * paint; without it, Grey applies. Every page restyles, `/debug` included. M15's kaiju theme
- * becomes a fourth set. Text meets WCAG AA (4.5:1) in each theme (checked with axe on `/play`).
- * Sizes and spacing stay on `.gojisim` (the menu and the board).
+ * M5g (Paul): color themes, one variable set each on `:root[data-theme=…]`: Showa Poster (the
+ * default since Oct 26, 2026), Light (the original look), Grey (mid-grey, no white surfaces) and
+ * Dark (near-black with light text). `index.html` sets `data-theme` from the saved settings before
+ * the first paint; without it, Showa Poster applies. Every page restyles, `/debug` included. Text
+ * meets WCAG AA (4.5:1) in each theme (checked with axe). Besides colors, each theme sets its
+ * fonts, radius, panel border and shadow, page texture and zone outline, so a theme can change
+ * shapes as well; card frames and card images are never themed. Sizes and spacing stay on
+ * `.gojisim` (the menu and the board).
  */
+
+/*
+ * Showa Poster (Paul, Oct 26, 2026, direction C of Monarch's theme canvas): paper, ink, poster
+ * red, marigold and sea; Dela Gothic One for headings, buttons and big numbers, Zen Kaku Gothic
+ * New for the rest; ink borders with hard offset shadows; halftone dots. It is the default, so it
+ * is also `:root` with no `data-theme`.
+ */
+:root,
+:root[data-theme="showa"] {
+  color-scheme: light;
+  --color-bg: #f1e6cf;
+  --color-panel: #fbf4e4;
+  --color-panel-alt: #f6edd9;
+  --color-text: #1a1410;
+  --color-muted: #5c4b36;
+  --color-border: #6e5f49;
+  --color-border-strong: #1a1410;
+  --color-zone-rage: #fbede0;
+  --color-zone-monster-outline: #d7261e;
+  --color-zone-monster-bg: #fbdcd5;
+  --color-cell-outline: #8c7a5c;
+  --color-arrow: #6e5f49;
+  --color-arrow-counter: #a08d6c;
+  --color-highlight: #f4b323;
+  --color-highlight-text: #1a1410;
+  --color-backdrop: rgb(26 20 16 / 55%);
+  --color-chip: rgb(26 20 16 / 90%);
+  --color-chip-text: #fbf4e4;
+  --color-modifier-up-on-chip: #f4b323;
+  --color-modifier-down-on-chip: #ff9b8f;
+  --color-center-line: #1a1410;
+  --color-accent: #1f6f7c;
+  --color-modifier-up: #1f6f7c;
+  /* Red text on paper is the darker poster red, for contrast. */
+  --color-modifier-down: #b81d17;
+  --color-button: #1a1410;
+  --color-button-text: #fbf4e4;
+  --color-card-back-1: #7e120e;
+  --color-card-back-2: #9a1a13;
+  --color-card-back-text: #fbf4e4;
+  --color-legal: #1d6b2e;
+  --color-illegal: #b81d17;
+  --color-warning: #7a4c00;
+  --color-status-bg: #e7f0ee;
+  --color-alert-bg: #f7cfc9;
+  --color-notice-bg: #f4b323;
+  --color-combo: #b81d17;
+  --color-log-you: #d7261e;
+  --color-log-opp: #1f6f7c;
+  --color-tag-text: #ffffff;
+  --color-tag-destroy: #b81d17;
+  --color-tag-rage: #1a1410;
+  --color-tag-info: #6b4a1f;
+  --color-tag-play: #1f6f7c;
+  --color-tag-move: #9c3d10;
+  --color-tag-combo: #7a4c00;
+  --color-invade-arrow: #f4b323;
+  --color-fight-you: #1a1410;
+  --color-fight-opp: #f4b323;
+  --color-vs-from: #d7261e;
+  --color-vs-to: #d7261e;
+  --color-vs-stroke: #1a1410;
+  --color-crack: #1a1410;
+  --color-crack-glow: #fbf4e4;
+  --color-lit: #1f6f7c;
+  --color-lit-bg: #d3e6e3;
+  --color-selected: #1f6f7c;
+  --color-cell-backing: rgb(251 244 228 / 70%);
+  --color-label-backing: rgb(251 244 228 / 85%);
+  --color-glow-red: #e0352b;
+  --color-glow-blue: #2f6fdf;
+  --color-glow-green: #2e9e4f;
+  --color-glow-grey: #7d7466;
+  --shadow: 5px 5px 0 #1a1410;
+  --shadow-card: 2px 2px 0 rgb(26 20 16 / 55%);
+  --shadow-piece: rgb(26 20 16 / 45%);
+  /* Theme colors of its own. */
+  --color-ink: #1a1410;
+  --color-poster-red: #d7261e;
+  --color-marigold: #f4b323;
+  --font-body: "Zen Kaku Gothic New", system-ui, sans-serif;
+  --font-heading: "Dela Gothic One", "Zen Kaku Gothic New", sans-serif;
+  /* Dela Gothic One has one weight; a bold one would be synthesized. */
+  --heading-weight: 400;
+  --radius: 4px;
+  --panel-border-width: 3px;
+  --color-panel-border: #1a1410;
+  --panel-shadow: 5px 5px 0 #1a1410;
+  --page-texture: radial-gradient(rgb(26 20 16 / 16%) 1.4px, transparent 1.6px);
+  --page-texture-size: 9px 9px;
+  --zone-outline-style: dashed;
+  --header-h: 56px;
+  --mat-background:
+    radial-gradient(rgb(26 20 16 / 10%) 1.2px, transparent 1.5px) 0 0 / 9px 9px,
+    #fbf4e4;
+  --color-bar-track: #fbf4e4;
+  --color-bar-frame: #1a1410;
+  --bar-fill: repeating-linear-gradient(
+    135deg,
+    #f4b323 0 8px,
+    #d7261e 8px 16px
+  );
+  --color-bar-marker: #1a1410;
+  --button-font: var(--font-heading);
+  --button-weight: 400;
+  --button-border: 3px solid #1a1410;
+  --button-shadow: 3px 3px 0 #1a1410;
+  --pass-bg: #f4b323;
+  --pass-text: #1a1410;
+  --concede-bg: #fbf4e4;
+  --concede-border: 3px solid #1a1410;
+  --concede-text: #b81d17;
+  --concede-decoration: none;
+  --tag-border: 2px solid #1a1410;
+  --tag-transform: skewX(-10deg);
+  --mat-you-border: 3px solid #d7261e;
+  --mat-you-shadow: 5px 5px 0 #d7261e;
+  --mat-you-bg:
+    radial-gradient(rgb(26 20 16 / 10%) 1.2px, transparent 1.5px) 0 0 / 9px 9px,
+    #fbede0;
+  --mat-opp-border: 3px solid #1a1410;
+  --mat-opp-shadow: 5px 5px 0 #1a1410;
+  --mat-opp-bg:
+    radial-gradient(rgb(26 20 16 / 10%) 1.2px, transparent 1.5px) 0 0 / 9px 9px,
+    #e7f0ee;
+  --header-display: flex;
+  /* The mat border's width, counted in the card size (`--board-chrome`). */
+  --mat-frame: 3px;
+  --concede-padding: 4px 8px;
+  --concede-weight: bold;
+}
 
 :root[data-theme="light"] {
   color-scheme: light;
@@ -83,9 +216,50 @@
   --shadow: 0 4px 16px rgb(0 0 0 / 20%);
   --shadow-card: 0 1px 2px rgb(0 0 0 / 25%);
   --shadow-piece: rgb(0 0 0 / 35%);
+  /* Shapes and type (Showa Poster, Oct 26, 2026); these values keep this theme as it was. */
+  --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: var(--font-body);
+  --heading-weight: bold;
+  --radius: 6px;
+  --panel-border-width: 1px;
+  --color-panel-border: var(--color-border);
+  --panel-shadow: none;
+  --page-texture: none;
+  --page-texture-size: auto;
+  --zone-outline-style: solid;
+  --header-h: 0px;
+  --mat-background: none;
+  /* The counter power bar in the rage zone (every theme). */
+  --color-bar-track: var(--color-panel);
+  --color-bar-frame: var(--color-border-strong);
+  --bar-fill: var(--color-lit);
+  --color-bar-marker: var(--color-text);
+  /* Buttons, log tags and mats (Showa Poster's pieces; none in this theme). */
+  --button-font: inherit;
+  --button-weight: normal;
+  --button-border: none;
+  --button-shadow: none;
+  --pass-bg: var(--color-button);
+  --pass-text: var(--color-button-text);
+  --concede-bg: transparent;
+  --concede-border: none;
+  --concede-text: var(--color-illegal);
+  --concede-decoration: underline;
+  --tag-border: none;
+  --tag-transform: none;
+  --mat-you-border: none;
+  --mat-you-shadow: none;
+  --mat-you-bg: none;
+  --mat-opp-border: none;
+  --mat-opp-shadow: none;
+  --mat-opp-bg: none;
+  --header-display: none;
+  /* The mat border's width, counted in the card size (`--board-chrome`). */
+  --mat-frame: 0px;
+  --concede-padding: 0;
+  --concede-weight: normal;
 }
 
-:root,
 :root[data-theme="grey"] {
   color-scheme: light;
   --color-bg: #a4a8b0;
@@ -157,6 +331,48 @@
   --shadow: 0 4px 16px rgb(0 0 0 / 30%);
   --shadow-card: 0 1px 2px rgb(0 0 0 / 35%);
   --shadow-piece: rgb(0 0 0 / 40%);
+  /* Shapes and type (Showa Poster, Oct 26, 2026); these values keep this theme as it was. */
+  --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: var(--font-body);
+  --heading-weight: bold;
+  --radius: 6px;
+  --panel-border-width: 1px;
+  --color-panel-border: var(--color-border);
+  --panel-shadow: none;
+  --page-texture: none;
+  --page-texture-size: auto;
+  --zone-outline-style: solid;
+  --header-h: 0px;
+  --mat-background: none;
+  /* The counter power bar in the rage zone (every theme). */
+  --color-bar-track: var(--color-panel);
+  --color-bar-frame: var(--color-border-strong);
+  --bar-fill: var(--color-lit);
+  --color-bar-marker: var(--color-text);
+  /* Buttons, log tags and mats (Showa Poster's pieces; none in this theme). */
+  --button-font: inherit;
+  --button-weight: normal;
+  --button-border: none;
+  --button-shadow: none;
+  --pass-bg: var(--color-button);
+  --pass-text: var(--color-button-text);
+  --concede-bg: transparent;
+  --concede-border: none;
+  --concede-text: var(--color-illegal);
+  --concede-decoration: underline;
+  --tag-border: none;
+  --tag-transform: none;
+  --mat-you-border: none;
+  --mat-you-shadow: none;
+  --mat-you-bg: none;
+  --mat-opp-border: none;
+  --mat-opp-shadow: none;
+  --mat-opp-bg: none;
+  --header-display: none;
+  /* The mat border's width, counted in the card size (`--board-chrome`). */
+  --mat-frame: 0px;
+  --concede-padding: 0;
+  --concede-weight: normal;
 }
 
 :root[data-theme="dark"] {
@@ -230,11 +446,55 @@
   --shadow: 0 4px 16px rgb(0 0 0 / 50%);
   --shadow-card: 0 1px 2px rgb(0 0 0 / 60%);
   --shadow-piece: rgb(0 0 0 / 60%);
+  /* Shapes and type (Showa Poster, Oct 26, 2026); these values keep this theme as it was. */
+  --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: var(--font-body);
+  --heading-weight: bold;
+  --radius: 6px;
+  --panel-border-width: 1px;
+  --color-panel-border: var(--color-border);
+  --panel-shadow: none;
+  --page-texture: none;
+  --page-texture-size: auto;
+  --zone-outline-style: solid;
+  --header-h: 0px;
+  --mat-background: none;
+  /* The counter power bar in the rage zone (every theme). */
+  --color-bar-track: var(--color-panel);
+  --color-bar-frame: var(--color-border-strong);
+  --bar-fill: var(--color-lit);
+  --color-bar-marker: var(--color-text);
+  /* Buttons, log tags and mats (Showa Poster's pieces; none in this theme). */
+  --button-font: inherit;
+  --button-weight: normal;
+  --button-border: none;
+  --button-shadow: none;
+  --pass-bg: var(--color-button);
+  --pass-text: var(--color-button-text);
+  --concede-bg: transparent;
+  --concede-border: none;
+  --concede-text: var(--color-illegal);
+  --concede-decoration: underline;
+  --tag-border: none;
+  --tag-transform: none;
+  --mat-you-border: none;
+  --mat-you-shadow: none;
+  --mat-you-bg: none;
+  --mat-opp-border: none;
+  --mat-opp-shadow: none;
+  --mat-opp-bg: none;
+  --header-display: none;
+  /* The mat border's width, counted in the card size (`--board-chrome`). */
+  --mat-frame: 0px;
+  --concede-padding: 0;
+  --concede-weight: normal;
 }
 
 /* Every page takes the theme's background and text, `/debug` included. */
 body {
-  background: var(--color-bg);
+  background-color: var(--color-bg);
+  background-image: var(--page-texture);
+  background-size: var(--page-texture-size);
   color: var(--color-text);
 }
 .gojisim {
@@ -244,8 +504,7 @@ body {
   --space-4: 16px;
   --space-6: 24px;
 
-  --radius: 6px;
-  --font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-family: var(--font-body);
   --font-size-sm: 11px;
   --font-size-md: 13px;
   --font-size-lg: 16px;
@@ -265,14 +524,18 @@ body {
   /* The gap above and below hand cards, which fill the hand's height (M5f). */
   --hand-gap: 4px;
   --left-column-width: 260px;
-  --board-chrome: calc(96px + 4 * var(--mat-gap) + 4 * var(--mat-pad));
+  --board-chrome: calc(
+    96px + 4 * var(--mat-gap) + 4 * var(--mat-pad) + 4 * var(--mat-frame) +
+      var(--header-h)
+  );
   /* The mat is 5 portrait columns plus 2 landscape ones (M5f): 5w + 2h wide, w = 63h/88. */
   --card-h: min(
     (100vh - var(--board-chrome)) / 7.5,
     (
       (
           100vw - var(--left-column-width) - var(--right-column-width) - 2 *
-            var(--space-4) - 2px - 6 * var(--mat-gap) - 2 * var(--mat-pad)
+            var(--space-4) - 2px - 6 * var(--mat-gap) - 2 * var(--mat-pad) - 2 *
+            var(--mat-frame)
         ) *
         88 / 491
     )
@@ -304,8 +567,93 @@ body {
 .gojisim {
   display: flow-root;
   min-height: 100vh;
-  background: var(--color-bg);
+  background-color: var(--color-bg);
+  background-image: var(--page-texture);
+  background-size: var(--page-texture-size);
   color: var(--color-text);
   font-family: var(--font-family);
   font-size: var(--font-size-md);
+}
+
+/*
+ * Showa Poster's form controls (Oct 26, 2026): selects, text fields, buttons, file pickers, radios,
+ * checkboxes and sliders the app doesn't style itself take Zen Kaku Gothic New, a 2 px ink border,
+ * the panel fill and a 4 px radius; buttons and selects are at least 44 px tall; radios,
+ * checkboxes and sliders take the poster red accent. Only buttons with no class (or marked
+ * `data-control`) take these rules, and `:where` keeps them below any class, so controls the app
+ * styles itself (the board's buttons, the log's card links) keep their look, and other themes
+ * keep the browser's controls. Primary actions (`data-primary`) are marigold, like Pass.
+ */
+:where(:root[data-theme="showa"])
+  :where(
+    select,
+    textarea,
+    input:not([type]),
+    input[type="text"],
+    input[type="search"],
+    input[type="number"]
+  ) {
+  border: 2px solid var(--color-ink);
+  border-radius: 4px;
+  background-color: var(--color-panel);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+
+:where(:root[data-theme="showa"])
+  :where(
+    select,
+    input:not([type]),
+    input[type="text"],
+    input[type="search"],
+    input[type="number"]
+  ) {
+  min-height: 44px;
+  padding: 0 var(--space-2, 8px);
+}
+
+:where(:root[data-theme="showa"])
+  :where(button:not([class]), button[data-control]) {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 2px solid var(--color-ink);
+  border-radius: 4px;
+  background-color: var(--color-panel);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+:where(:root[data-theme="showa"])
+  :where(button:not([class]):disabled, button[data-control]:disabled) {
+  opacity: 0.5;
+  cursor: default;
+}
+
+:where(:root[data-theme="showa"]) ::file-selector-button {
+  min-height: 44px;
+  margin-right: var(--space-2, 8px);
+  padding: 0 14px;
+  border: 2px solid var(--color-ink);
+  border-radius: 4px;
+  background-color: var(--color-panel);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+:where(:root[data-theme="showa"])
+  :where(input[type="radio"], input[type="checkbox"], input[type="range"]) {
+  accent-color: var(--color-poster-red);
+}
+
+:root[data-theme="showa"] [data-primary] {
+  border: 3px solid var(--color-ink);
+  background: var(--color-marigold);
+  color: var(--color-ink);
+  font-family: var(--font-heading);
+  font-weight: 400;
+  box-shadow: 3px 3px 0 var(--color-ink);
 }
