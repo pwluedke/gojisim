@@ -61,7 +61,7 @@ jobs:
 
       # Spec case 52: random legal games with invariant checks, seeded by the commit, so a failure
       # can be reproduced with `pnpm stress --games <n> --seed <sha>`. 200 games on a pull request,
-      # 1,000 on a push to main; the nightly run plays 20,000.
+      # 1,000 on a push to main; the nightly run plays 10,000 uniform and 4,500 weighted.
       - name: Stress test
         run: pnpm stress --games ${{ github.event_name == 'push' && 1000 || 200 }} --seed ${{ github.sha }}
 

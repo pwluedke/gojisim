@@ -5,36 +5,47 @@ on:
     - cron: "0 8 * * *" # 03:00 US Central (CDT)
   workflow_dispatch:
 
+# A new seed every night, recorded in the run so failures can be reproduced. The two policies run
+# side by side, each with its own timeout: uniform covers every action evenly; weighted builds
+# counter power so counters (5.15) are common. Weighted games are about 6 times slower on the
+# runner (about 78 games a minute against 490), so its count is sized to finish in about 60 min.
 jobs:
-  stress:
+  uniform:
+    name: Stress, uniform policy
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-
-      - name: Enable corepack
-        run: corepack enable
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # A new seed every night, recorded in the run so failures can be reproduced. Both policies:
-      # uniform covers every action evenly; weighted builds counter power so counters (5.15) are common.
       - name: Stress test, uniform policy (10,000 games)
         run: pnpm stress --games 10000 --seed nightly-$(date -u +%Y%m%d) --policy uniform --progress 500
-
-      - name: Stress test, weighted policy (10,000 games)
-        if: success() || failure()
-        run: pnpm stress --games 10000 --seed nightly-w-$(date -u +%Y%m%d) --policy weighted --progress 500
 
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: stress-failures
+          name: stress-failures-uniform
+          path: |
+            stress-failures/
+            loop-reports/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  weighted:
+    name: Stress, weighted policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+
+      - name: Stress test, weighted policy (4,500 games)
+        run: pnpm stress --games 4500 --seed nightly-w-$(date -u +%Y%m%d) --policy weighted --progress 500
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: stress-failures-weighted
           path: |
             stress-failures/
             loop-reports/

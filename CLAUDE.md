@@ -627,3 +627,12 @@ Accepted by Monarch in the Showa Poster review (PR #53).
 453. Showa's form controls (selects, text fields, file pickers, textareas, and buttons with no class or with `data-control`) take Zen Kaku Gothic New, a 2 px ink border, the panel fill and a 4 px radius, at least 44 px tall for buttons and selects; `data-primary` actions (Start, Import deck) are marigold; radios, checkboxes and sliders use the poster red accent. The rules sit in `:where()`, so classed controls keep their look.
 454. A yes/no prompt's card text takes the prompt's width (it was capped at two card widths for order modals, in every theme).
 455. The bot-move toast e2e test accepts any bot action toast with a lit destination, since a timed bot search may invade or gain rage instead of playing a card.
+
+Accepted by Monarch in the bot hand row review (PR #54).
+
+456. The bot's hand row uses half-size cards, as the old row did (decision 212), so the draw animation's pile size is unchanged.
+457. The row starts at the left edge of the space left of the bot's mat, which ends 8 px before the mat; the bot's mat row is a three-column grid, so both mats stay centered and aligned.
+458. In count mode with the hand shown, the one card is the first card face up with the count; hovering still fans all of them.
+459. A card an effect revealed shows face up in the row and previews on hover; without "Show opponent's hand" the row never fans.
+460. The fan is a panel from the row's top-left corner over the board, wrapping within the board's width, below flights, the preview and modals.
+461. Rage zone text keeps its font sizes; its box grows with the cards.
