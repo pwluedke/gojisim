@@ -7,5 +7,13 @@
   "896": {
     "parentId": null,
     "reason": "Base print of Godzilla's Bite (see 443). The site lists it as a child of 443; without this the 443 override makes a parent cycle."
+  },
+  "911": {
+    "deckCardNumber": "EPR-015",
+    "reason": "Monarch, Oct 25, 2026: PR-015 is the same card as EPR-015 (the English promo number), which is its deck card number, as PR-005 resolves to EPR-005. Copies count together (6.1.1.4)."
+  },
+  "912": {
+    "deckCardNumber": "EPR-016",
+    "reason": "Monarch, Oct 25, 2026: PR-016 is the same card as EPR-016 (the English promo number), which is its deck card number, as PR-005 resolves to EPR-005. Copies count together (6.1.1.4)."
   }
 }

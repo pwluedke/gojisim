@@ -4,6 +4,7 @@ Gap report for M12, the milestone that gives every card outside the starter deck
 
 ## Summary
 
+- Oct 25, 2026: 388 cards are in scope. EPR-020 was added on Oct 24 (M12c-1), and EPR-017, EPR-018 and EPR-019 on Oct 25 (M12e), all hand-entered from the official card data. EPR-015 and EPR-016 are PR-015 and PR-016 under their English deck card numbers (Monarch, Oct 25, 2026), so they add no cards.
 - 353 of the 384 cards in scope are manual today; only the 31 starter cards (ESD01, ESD02) have ability data.
 - 116 of the 353 can be written with today's format, as data only (vanilla cards included). The other 237 need new format pieces: 45 pieces, listed in section 3. Most of them are shared: 40 pieces are used by 2 or more sets, so they are built once, in the first set that needs them.
 - Order: EBP01, EBP02, EBP03, EBP04, then PR/EPR, ESC01 and FC01 (Paul's order, Oct 23, 2026; the deck counts alone put EBP04 before EBP03).
@@ -31,7 +32,7 @@ Counts from `cards.json`: prints (all printings, parallels included), distinct c
 
 Notes:
 
-- PR has 96 prints but only 15 base cards of its own (PR-001 to PR-003 and PR-006 to PR-010 are vanilla monsters, PR-011 to PR-013 are Rage cards, PR-014 is a strategy card, PR-015 and PR-016 are battle cards) plus EPR-005 Godzilla's Bite. Every other PR print is a reprint whose deck card number belongs to its original set (decision 20), so its abilities come with that set. The 12 in-scope PR cards are the 12 non-Rage originals.
+- PR has 96 prints but only 15 base cards of its own (PR-001 to PR-003 and PR-006 to PR-010 are vanilla monsters, PR-011 to PR-013 are Rage cards, PR-014 is a strategy card, PR-015 and PR-016 are battle cards, since renumbered EPR-015 and EPR-016) plus EPR-005 Godzilla's Bite. Every other PR print is a reprint whose deck card number belongs to its original set (decision 20), so its abilities come with that set. The 12 in-scope PR cards are the 12 non-Rage originals.
 - FC01's 6 cards have Japanese names and English text. Ten PR prints also have Japanese names; matching a card by name ("a card named ...") against them is in format.md's deferred list. None of the 12 cards here names a Japanese-named card, so it isn't needed in M12.
 - EBP02's tokens are EBP02-T01 Conductorless Train Bombers, T02 Tentacles, T03 Crystals and T04 Chibi Godzilla 2nd Form; EBP04's is EBP04-T01 Godzilla Earth. Three of them have abilities (T01, T03, T04).
 
@@ -120,7 +121,7 @@ type Effect = ... | { effect: "if"; condition: Condition; then: Effect[]; else?:
 
 `didLastStep` is in the schema but throws today. Most "you may A. If you do, B" cards are an optional cost (Q2, built in M4d), including every EBP01 card with that wording. C1 covers the rest: an "if you do" after a step that isn't a cost (a search that may find nothing, a move, the opponent's discard in "if they discard at least 1"), and "if you do not, destroy this card" (EBP04-055) through `else`.
 
-Cards (28): EBP02-007, EBP02-052, EBP02-059, EBP02-070, EBP03-001, EBP03-002, EBP03-003, EBP03-005, EBP03-014, EBP03-016, EBP03-017, EBP03-025, EBP03-026, EBP03-028, EBP03-033, EBP03-034, EBP03-035, EBP03-047, EBP04-009, EBP04-010, EBP04-014, EBP04-027, EBP04-050, EBP04-055, EBP04-064, PR-016, ESC01-003, FC01-003.
+Cards (29): EBP02-007, EBP02-052, EBP02-059, EBP02-070, EBP03-001, EBP03-002, EBP03-003, EBP03-005, EBP03-014, EBP03-016, EBP03-017, EBP03-025, EBP03-026, EBP03-028, EBP03-033, EBP03-034, EBP03-035, EBP03-047, EBP04-009, EBP04-010, EBP04-014, EBP04-027, EBP04-050, EBP04-055, EBP04-064, EPR-016, EPR-018, ESC01-003, FC01-003.
 
 #### C2. This-turn memory
 
@@ -180,7 +181,7 @@ type Selector = { ...;
 
 Today a selector filters by owner, area, type, name, traits (all of), keyword, colors, rank and zones.
 
-Cards (17): EBP01-015, EBP01-072, EBP02-023, EBP02-036, EBP02-040, EBP02-042, EBP02-064, EBP03-047, EBP03-050, EBP03-054, EBP03-071, EBP03-076, EBP04-022, EBP04-027, EBP04-043, EBP04-051, FC01-003.
+Cards (19): EBP01-015, EBP01-072, EBP02-023, EBP02-036, EBP02-040, EBP02-042, EBP02-064, EBP03-047, EBP03-050, EBP03-054, EBP03-071, EBP03-076, EBP04-022, EBP04-027, EBP04-043, EBP04-051, EPR-016, EPR-018, FC01-003.
 
 #### C6. New amounts
 
@@ -310,9 +311,9 @@ Rules: 10.6.5, 10.6.5.1. Built in: EBP01.
 type Effect = ... | { effect: "until"; duration: "endOfTurn"; abilities: Ability[] }   // a timed trigger (10.6.5)
 ```
 
-"When your monster card invades this turn, [destroy] ..." (EBP01-076) and "[destroy] this card at the beginning of the end phase" (PR-016). Burst's discard already uses `state.timedTriggers` (decision 157).
+"When your monster card invades this turn, [destroy] ..." (EBP01-076) and "[destroy] this card at the beginning of the end phase" (EPR-016). Burst's discard already uses `state.timedTriggers` (decision 157).
 
-Cards (2): EBP01-076, PR-016.
+Cards (2): EBP01-076, EPR-016.
 
 #### T9. Trigger an ability again
 
@@ -380,7 +381,7 @@ Rules: 3.2.1 to 3.2.5. Built in: EBP01.
 
 In the schema, not built. Cards under a card have no active abilities (3.2.3.1) and move with the stack (3.2.4). `count` with `area: "under"` already reads them.
 
-Cards (13): EBP01-026, EBP01-073, EBP02-012, EBP02-046, EBP03-025, EBP03-026, EBP03-028, EBP03-042, EBP03-043, EBP03-052, EBP03-064, EBP04-043, PR-016.
+Cards (14): EBP01-026, EBP01-073, EBP02-012, EBP02-046, EBP03-025, EBP03-026, EBP03-028, EBP03-042, EBP03-043, EBP03-052, EBP03-064, EBP04-043, EPR-016, EPR-017.
 
 #### E5. Return from the discard pile
 
@@ -647,7 +648,7 @@ Rules: 8.2.1, 8.3.1, 8.5, 1.3.1. Built in: EBP01.
 
 Read when `getLegalActions` checks 8.2.1, 8.3.1 and 8.5 (finding F10). After the play the card has its printed rank again ("After being played, this card is rank 8"). Lake Ashi Monster (EBP02-039) grants the reduction to other cards in the hand.
 
-Cards (18): EBP01-027, EBP01-033, EBP01-058, EBP01-073, EBP01-075, EBP01-080, EBP02-039, EBP02-068, EBP03-051, EBP03-066, EBP04-012, EBP04-033, EBP04-034, EBP04-044, EBP04-045, EBP04-067, ESC01-001, FC01-004.
+Cards (19): EBP01-027, EBP01-033, EBP01-058, EBP01-073, EBP01-075, EBP01-080, EBP02-039, EBP02-068, EBP03-051, EBP03-066, EBP04-012, EBP04-033, EBP04-034, EBP04-044, EBP04-045, EBP04-067, EPR-019, ESC01-001, FC01-004.
 
 #### M3. Rank modifiers on cards in a hand
 
@@ -785,11 +786,11 @@ One PR per set, in priority order. Each PR:
 | M12b   | EBP02 + 4 tokens | 80    | 26                  | 12: C1, C3, T2, T7, E6, E11, E12, E15, E19, E21, K3, CU            | Q17, Q24, Q26, Q31, Q32             | 191               |
 | M12c   | EBP03            | 80    | 16                  | 7: C4, E14, E16, E20, K1, K2, X                                    | Q16, Q18, Q19, Q21, Q27, Q33, Q34   | 271               |
 | M12d   | EBP04 + 1 token  | 89    | 22                  | 2: T9, M3                                                          | Q15, Q16, Q18 to Q25, Q28, Q30, Q33 | 360               |
-| M12e   | PR, EPR          | 12    | 11                  | none                                                               | none                                | 372               |
-| M12f   | ESC01            | 6     | 1                   | none                                                               | none                                | 378               |
-| M12g   | FC01             | 6     | 1                   | none                                                               | Q29                                 | 384               |
+| M12e   | PR, EPR          | 15    | 11                  | none                                                               | none                                | 375               |
+| M12f   | ESC01            | 6     | 1                   | none                                                               | none                                | 381               |
+| M12g   | FC01             | 6     | 1                   | none                                                               | Q29                                 | 387               |
 
-M12a is split in two (Monarch, Oct 23, 2026): M12a-1 builds C5, C6, C7, T1, T3, T4, T5, T6 and T8 with every EBP01 card that needs only those pieces or today's format; M12a-2 builds the rest with the remaining EBP01 cards. M12a-2 also builds C1's `if` effect (EBP01 needs it after a mill; `didLastStep` stays with EBP02), and only the M1 flags and M2 play rules EBP01 uses; the others come with their first cards (format.md, M12 additions). The order is EBP01, EBP02, EBP03, EBP04 (Paul, Oct 23, 2026), so EBP03 builds the pieces it shares with EBP04. After M12g, all 384 cards are implemented. M12b is split the same way (Oct 24, 2026): M12b-1 builds C3, T7, E11, E19, K3, CU and small extensions with every EBP02 card that needs neither tokens nor Revenge (64 cards); M12b-2 builds E6 (tokens), T2 (Revenge), E12, E15 and E21 with the remaining 16 cards and the 4 tokens. The token data file and tokens counting as battle cards follow Q39. M12c is split too (Oct 24, 2026): M12c-1 is 66 EBP03 cards with built pieces and small extensions, plus EPR-020 (hand-entered, `manual-cards.json`; its data is in a new `PR.json`); M12c-2 builds C4, E14, E16, E20, K1, K2, X and C5's `countsAs` with the other 14 cards, EBP03-004 (invade by milling, an `invasionCost` replacement, and protected rage) and EBP03-051 (a main phase play on top of a battle card) among them. EPR-020 makes the total 385 cards in scope. M12c-2 finished EBP03 (80/80): 272 of 385 implemented. M12d is split too (Oct 25, 2026): M12d-1 is 77 EBP04 cards with built pieces and small extensions; M12d-2 builds T9, M3, the monster plays of Q22 and Q23, EBP04-045's play cost, EBP04-010's rage replacement and the custom handlers with the other 12 cards and EBP04-T01. M12d-1 brings the total to 349 of 385.
+M12a is split in two (Monarch, Oct 23, 2026): M12a-1 builds C5, C6, C7, T1, T3, T4, T5, T6 and T8 with every EBP01 card that needs only those pieces or today's format; M12a-2 builds the rest with the remaining EBP01 cards. M12a-2 also builds C1's `if` effect (EBP01 needs it after a mill; `didLastStep` stays with EBP02), and only the M1 flags and M2 play rules EBP01 uses; the others come with their first cards (format.md, M12 additions). The order is EBP01, EBP02, EBP03, EBP04 (Paul, Oct 23, 2026), so EBP03 builds the pieces it shares with EBP04. After M12g, all 384 cards are implemented. M12b is split the same way (Oct 24, 2026): M12b-1 builds C3, T7, E11, E19, K3, CU and small extensions with every EBP02 card that needs neither tokens nor Revenge (64 cards); M12b-2 builds E6 (tokens), T2 (Revenge), E12, E15 and E21 with the remaining 16 cards and the 4 tokens. The token data file and tokens counting as battle cards follow Q39. M12c is split too (Oct 24, 2026): M12c-1 is 66 EBP03 cards with built pieces and small extensions, plus EPR-020 (hand-entered, `manual-cards.json`; its data is in a new `PR.json`); M12c-2 builds C4, E14, E16, E20, K1, K2, X and C5's `countsAs` with the other 14 cards, EBP03-004 (invade by milling, an `invasionCost` replacement, and protected rage) and EBP03-051 (a main phase play on top of a battle card) among them. EPR-020 makes the total 385 cards in scope. M12e grows to 15 cards (Oct 25, 2026): EPR-017, EPR-018 and EPR-019 are hand-entered from the official card data, using pieces built since (E4, C1, C5, M2), and PR-015 and PR-016 are listed under their deck card numbers EPR-015 and EPR-016. With EPR-020 that makes 388 in scope; the "Implemented after" column counts the plan's 384 plus the 3 new M12e cards. M12c-2 finished EBP03 (80/80): 272 of 385 implemented. M12d is split too (Oct 25, 2026): M12d-1 is 77 EBP04 cards with built pieces and small extensions; M12d-2 builds T9, M3, the monster plays of Q22 and Q23, EBP04-045's play cost, EBP04-010's rage replacement and the custom handlers with the other 12 cards and EBP04-T01. M12d-1 brings the total to 349 of 385.
 
 Per-set card lists, with the pieces each card needs (section 3 has the pieces):
 
@@ -1150,7 +1151,7 @@ Per-set card lists, with the pieces each card needs (section 3 has the pieces):
 
 </details>
 
-<details><summary>PR: 12 cards, 11 with today's format, 1 with new pieces</summary>
+<details><summary>PR: 15 cards, 11 with today's format, 4 with new pieces</summary>
 
 | Card    | Name                                      | Type      | Pieces         |
 | ------- | ----------------------------------------- | --------- | -------------- |
@@ -1164,8 +1165,11 @@ Per-set card lists, with the pieces each card needs (section 3 has the pieces):
 | PR-009  | ちびゴジラ                                | Monster   | today's format |
 | PR-010  | ちびゴジラ                                | Monster   | today's format |
 | PR-014  | 反重力光線                                | Strategy  | today's format |
-| PR-015  | Godzilla (Godzilla the Ride: Great Clash) | Battle    | today's format |
-| PR-016  | KIJU Type 0 -G Breaker-                   | Battle    | E4, C1, T8     |
+| EPR-015 | Godzilla (Godzilla the Ride: Great Clash) | Battle    | today's format |
+| EPR-016 | KIJU Type 0 -G Breaker-                   | Battle    | E4, C1, C5, T8 |
+| EPR-017 | Godzilla (Godzilla the Ride: Great Clash) | Battle    | E4             |
+| EPR-018 | Godzilla the Ride: Great Clash            | Strategy  | C1, C5         |
+| EPR-019 | Gravity Beam                              | Strategy  | M2             |
 
 </details>
 

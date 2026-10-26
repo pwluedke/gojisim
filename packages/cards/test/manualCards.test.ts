@@ -40,11 +40,13 @@ describe("hand-entered cards (manual-cards.json)", () => {
       id: 950,
       imageUrl: "https://image.godzillatcgdb.com/x.png",
     };
+    // What the site lists today: every card but the hand-entered ones.
     const scraped = cards.filter(
-      (c) => c.cardNumber !== entry!.card.cardNumber,
+      (c) => !manual.some((m) => m.card.id === c.id),
     );
     const before = mergeManualCards(scraped, manual);
     expect(before.nowOnSite).toEqual([]);
+    expect(before.cards).toHaveLength(cards.length);
     expect(before.cards.filter((c) => c.cardNumber === "EPR-020")).toEqual([
       entry!.card,
     ]);
@@ -53,7 +55,7 @@ describe("hand-entered cards (manual-cards.json)", () => {
     expect(after.cards.filter((c) => c.cardNumber === "EPR-020")).toEqual([
       site,
     ]);
-    expect(after.cards).toHaveLength(scraped.length + 1);
+    expect(after.cards).toHaveLength(cards.length);
   });
 
   it("6.1.1.4, 2.11.3: EPR-020 is its own deck card number, not EBP03-016 (Paul, Oct 24, 2026)", () => {

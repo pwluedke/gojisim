@@ -1,0 +1,31 @@
+Card: EPR-015 Godzilla (Godzilla the Ride: Great Clash), entered by hand (godzillatcgdb.com doesn't list it yet).
+Source data: https://en.godzilla-cardgame.com/manage/card-list-user/detail/?id=887 (the official English card list's card data, site id 887)
+Source image: https://en.godzilla-cardgame.com/wordpress/wp-content/images/cardlist/PR/EPR-015-PRol.png
+Decklog image path: PR/EPR-015-PRol.png (Decklog's card_image_path for GCG is https://en.godzilla-cardgame.com/wordpress/wp-content/images/cardlist/)
+Retrieved: 2026-10-25 (the JSON loaded directly from the official site; Monarch posted the same data in #gojisim-dev).
+Transcribed by: Mecha from the official card data, Oct 25, 2026; checked against Monarch's post.
+
+Same card as PR-015 (id 911): name, type, rank, color, traits, counter power, invade icons and text all match. EPR-015 is the deck card number and PR-015 resolves to it (Monarch, Oct 25, 2026; as PR-005 resolves to EPR-005, decision 20), so 2 PR-015 plus 2 EPR-015 count as 4 of one card (6.1.1.4).
+
+Text icons map to GojiSim tokens: 《ゴジラ・ザ・ライド》 [godzilla-the-ride], 《機械》 [mech], 《兵器》 [weapon], 破壊 [destroy], 出現時 [enter], 《フェス・ゴジラ》 [fest], 《キングギドラ》 [king-ghidorah], 怒り [rage].
+
+Official card data (fields as served):
+{
+  "id": 887,
+  "card_number": "EPR-015",
+  "card_name": "Godzilla(GODZILLA THE RIDE: GREAT CLASH)",
+  "card_kind": "Battle",
+  "rare": "PR",
+  "color": "Red",
+  "grade": "⑥",
+  "treat_1": "4000",
+  "treat_2": "+",
+  "quality_1": "《Godzilla》",
+  "quality_2": "《GODZILLA THE RIDE》",
+  "quality_3": "",
+  "text": "If you have a card with ⁅《ゴジラ・ザ・ライド》＠⁆ in your discard pile, this card gains +5000 counter power.",
+  "step_icon": "1",
+  "picture": "PR/EPR-015-PRol.png",
+  "expansion": "PR",
+  "copyright": "GODZILLA THE RIDE: GREAT CLASH"
+}

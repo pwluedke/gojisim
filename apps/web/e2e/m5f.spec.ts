@@ -688,7 +688,12 @@ async function sampleFlights(page: Page) {
             from: (el.dataset["from"] ?? "").split(",").map(Number),
             to: (el.dataset["to"] ?? "").split(",").map(Number),
             shards,
-            elapsed: now - Number(el.dataset["started"] ?? now),
+            // The flight's own progress: its move animation's time (delay included), so a slow
+            // runner whose frames lag the wall clock still samples where the animation is.
+            elapsed: Number(
+              el.getAnimations()[0]?.currentTime ??
+                now - Number(el.dataset["started"] ?? now),
+            ),
             moveAt: Number(el.dataset["moveAt"] ?? 0),
             moveMs: Number(el.dataset["moveMs"] ?? 0),
           });
@@ -703,6 +708,20 @@ const samplesOf = (page: Page) =>
   page.evaluate(
     () => (window as unknown as { samples: Sample[] }).samples,
   ) as Promise<Sample[]>;
+
+/** CSS `ease-in-out` (cubic-bezier(0.42, 0, 0.58, 1)): the eased value at time fraction `t`. */
+function easeInOut(t: number): number {
+  const bezier = (u: number, p1: number, p2: number) =>
+    3 * u * (1 - u) ** 2 * p1 + 3 * u ** 2 * (1 - u) * p2 + u ** 3;
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (bezier(mid, 0.42, 0.58) < t) lo = mid;
+    else hi = mid;
+  }
+  return bezier((lo + hi) / 2, 0, 1);
+}
 
 const inside = (
   p: { x: number; y: number },
@@ -811,23 +830,26 @@ test("a destroy explodes, hangs, then reassembles in flight: halfway, the shards
     y: (s.shards?.y ?? 0) + (s.shards?.height ?? 0) / 2,
   });
   // While hanging (after the explosion, before the move), the shards are still at the zone.
+  // Times are the flight's own animation time, so a slow runner's sparse frames still line up.
   const hanging = samples.filter(
-    (s) => s.elapsed > s.moveAt - 150 && s.elapsed < s.moveAt - 20,
+    (s) => s.elapsed > s.moveAt - 290 && s.elapsed < s.moveAt - 5,
   );
   expect(hanging.length).toBeGreaterThan(0);
   for (const s of hanging) expect(inside(centerOf(s), source)).toBe(true);
-  // Halfway through the reassembly they are in between, no longer over the zone.
-  const mid = first.moveAt + first.moveMs / 2;
-  const halfway = samples.reduce((best, s) =>
-    Math.abs(s.elapsed - mid) < Math.abs(best.elapsed - mid) ? s : best,
+  // Through the middle of the reassembly they follow the move's ease-in-out curve toward the
+  // discard pile, and from halfway on they are no longer over the zone.
+  const progress = (s: Sample) => (s.elapsed - s.moveAt) / s.moveMs;
+  const moving = samples.filter(
+    (s) => progress(s) >= 0.15 && progress(s) <= 0.85,
   );
-  expect(Math.abs(halfway.elapsed - mid)).toBeLessThan(60);
-  const c = centerOf(halfway);
-  expect(inside(c, source)).toBe(false);
-  const along =
-    ((c.x - a.x) * (b.x - a.x) + (c.y - a.y) * (b.y - a.y)) / (span * span);
-  expect(along).toBeGreaterThan(0.2);
-  expect(along).toBeLessThan(0.8);
+  expect(moving.length).toBeGreaterThan(0);
+  for (const s of moving) {
+    const c = centerOf(s);
+    const along =
+      ((c.x - a.x) * (b.x - a.x) + (c.y - a.y) * (b.y - a.y)) / (span * span);
+    expect(Math.abs(along - easeInOut(progress(s)))).toBeLessThan(0.15);
+    if (progress(s) >= 0.5) expect(inside(c, source)).toBe(false);
+  }
   // At the end, one card is in the discard pile.
   await expect(page.getByTestId("discard-P2").getByTestId("card")).toHaveCount(
     1,

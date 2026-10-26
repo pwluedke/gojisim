@@ -1,0 +1,31 @@
+Card: EPR-016 KIJU Type 0 -G Breaker-, entered by hand (godzillatcgdb.com doesn't list it yet).
+Source data: https://en.godzilla-cardgame.com/manage/card-list-user/detail/?id=888 (the official English card list's card data, site id 888)
+Source image: https://en.godzilla-cardgame.com/wordpress/wp-content/images/cardlist/PR/EPR-016-PRol.png
+Decklog image path: PR/EPR-016-PRol.png (Decklog's card_image_path for GCG is https://en.godzilla-cardgame.com/wordpress/wp-content/images/cardlist/)
+Retrieved: 2026-10-25 (the JSON loaded directly from the official site; Monarch posted the same data in #gojisim-dev).
+Transcribed by: Mecha from the official card data, Oct 25, 2026; checked against Monarch's post.
+
+Same card as PR-016 (id 912): name, type, rank, color, traits, counter power, invade icons and text all match. EPR-016 is the deck card number and PR-016 resolves to it (Monarch, Oct 25, 2026; as PR-005 resolves to EPR-005, decision 20), so copies count together (6.1.1.4).
+
+Text icons map to GojiSim tokens: 《ゴジラ・ザ・ライド》 [godzilla-the-ride], 《機械》 [mech], 《兵器》 [weapon], 破壊 [destroy], 出現時 [enter], 《フェス・ゴジラ》 [fest], 《キングギドラ》 [king-ghidorah], 怒り [rage].
+
+Official card data (fields as served):
+{
+  "id": 888,
+  "card_number": "EPR-016",
+  "card_name": "KIJU Type 0 -G BREAKER-",
+  "card_kind": "Battle",
+  "rare": "PR",
+  "color": "White",
+  "grade": "⑦",
+  "treat_1": "8000",
+  "treat_2": "+",
+  "quality_1": "《Mechagodzilla》",
+  "quality_2": "《Weapon》",
+  "quality_3": "《GODZILLA THE RIDE》",
+  "text": "At the beginning of your counter phase, you may place 1 ⁅《機械》＠⁆, ⁅《兵器》＠⁆, or  ⁅《ゴジラ・ザ・ライド》＠⁆ battle card from your hand under this card. If you do, ⁅破壊＠⁆ this card at the beginning of the end phase.\nIf there is a card under this card, this card gains +5000 counter power.",
+  "step_icon": "2",
+  "picture": "PR/EPR-016-PRol.png",
+  "expansion": "PR",
+  "copyright": "GODZILLA THE RIDE: GREAT CLASH"
+}
