@@ -913,8 +913,33 @@ export function useMoveAnimations({
     }
     setFlights(planned);
     report.current?.(true);
-    timer.current = setTimeout(finish, flightsTime(planned, speed) + 30);
+    // Only a fallback: the step ends when the flights' animations finish (below). On a slow
+    // machine the animations start late, and a timer alone would end them before they land.
+    timer.current = setTimeout(finish, flightsTime(planned, speed) * 3 + 1000);
   });
+
+  // The flights end when their animations have finished (the flight layer starts them first, in
+  // its own effect), so every card is seen landing, however late its first frame came.
+  useEffect(() => {
+    if (flights.length === 0) return;
+    let live = true;
+    const running = document
+      .getAnimations()
+      .filter((a) =>
+        a.effect instanceof KeyframeEffect && a.effect.target instanceof Element
+          ? a.effect.target.closest('[data-testid="flight"]') !== null
+          : false,
+      );
+    void Promise.all(running.map((a) => a.finished)).then(
+      () => {
+        if (live) finish();
+      },
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+  }, [flights]);
 
   // Leaving the board ends any flight.
   useEffect(() => () => finish(), []);
