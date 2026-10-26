@@ -1,0 +1,29 @@
+name: Setup
+description: Node from .nvmrc, pnpm through corepack, the pnpm store from the cache, and the dependencies.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .nvmrc
+
+    - name: Enable corepack
+      shell: bash
+      run: corepack enable
+
+    - name: Find the pnpm store
+      id: store
+      shell: bash
+      run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+    # The store is keyed on the lockfile; an older store still saves most downloads.
+    - uses: actions/cache@v6
+      with:
+        path: ${{ steps.store.outputs.path }}
+        key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: pnpm-store-${{ runner.os }}-
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
