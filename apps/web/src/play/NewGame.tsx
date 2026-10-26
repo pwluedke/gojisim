@@ -1,11 +1,12 @@
 import { PRESETS } from "@gojisim/bot";
 import type { MatchMode } from "@gojisim/engine";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { difficultyName, type SeatConfig } from "../game/bots";
 import {
   type DeckOption,
   loadImportedDecks,
   optionLegality,
+  pickerGroups,
   playDeckOptions,
   tournamentProblems,
 } from "../game/decks";
@@ -90,11 +91,17 @@ export function NewGame({
 }) {
   // M7a: the starters, My decks (saved in this browser), then the development decks.
   const my = useMyDecks();
-  const mine = my.decks.flatMap((saved) => {
-    const deck = deckOf(saved);
-    return deck ? [{ id: saved.id, name: saved.name, deck }] : [];
-  });
-  const options = playDeckOptions(mine, loadImportedDecks());
+  // Read once: the stored imports can be hundreds of decks.
+  const [imported] = useState(loadImportedDecks);
+  const options = useMemo(() => {
+    const mine = my.decks.flatMap((saved) => {
+      const deck = deckOf(saved);
+      return deck ? [{ id: saved.id, name: saved.name, deck }] : [];
+    });
+    return playDeckOptions(mine, imported);
+  }, [my.decks, imported]);
+  // Type-to-filter for the development groups (Monarch, Oct 25, 2026).
+  const [filter, setFilter] = useState("");
   const [importing, setImporting] = useState(false);
   const [keys, setKeys] = useState<Record<PlayerId, string>>({
     P1: "official:ESD01",
@@ -109,8 +116,12 @@ export function NewGame({
     options.find((o) => o.key === key) ?? (options[0] as DeckOption);
   const tournament = matchMode === "tournament";
   // Random test decks depend on the seed: check the deck the game would get.
-  const legality = new Map(
-    options.map((o) => [o.key, optionLegality(o, Number(seed) || 0)]),
+  const legality = useMemo(
+    () =>
+      new Map(
+        options.map((o) => [o.key, optionLegality(o, Number(seed) || 0)]),
+      ),
+    [options, seed],
   );
   const problemsOf = (key: string) =>
     tournamentProblems(
@@ -135,6 +146,22 @@ export function NewGame({
       }}
     >
       <h1 className={styles.title}>Play vs bot</h1>
+      {options.some((o) => o.kind === "file" || o.kind === "imported") && (
+        <label className={styles.row}>
+          Find a development deck{" "}
+          <input
+            type="search"
+            data-testid="dev-deck-filter"
+            placeholder="Name, file or folder"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter filters; it never starts the game from here.
+              if (e.key === "Enter") e.preventDefault();
+            }}
+          />
+        </label>
+      )}
       <div className={styles.seats}>
         {PLAYER_IDS.map((id) => {
           const seat = seats[id];
@@ -155,17 +182,8 @@ export function NewGame({
                       setKeys((k) => ({ ...k, [id]: e.target.value }))
                     }
                   >
-                    {(
-                      [
-                        ["Starters", ["official"]],
-                        ["My decks", ["mine"]],
-                        ["Development", ["random", "imported"]],
-                      ] as const
-                    ).map(([group, kinds]) => {
-                      const inGroup = options.filter((o) =>
-                        (kinds as readonly string[]).includes(o.kind),
-                      );
-                      return inGroup.length ? (
+                    {pickerGroups(options, filter, [keys[id]]).map(
+                      ({ label: group, options: inGroup }) => (
                         <optgroup key={group} label={group}>
                           {inGroup.map((o) => {
                             const illegal =
@@ -183,8 +201,8 @@ export function NewGame({
                             );
                           })}
                         </optgroup>
-                      ) : null;
-                    })}
+                      ),
+                    )}
                   </select>
                 </label>
                 {byKey(keys[id]).label.length > LABEL_MAX && (

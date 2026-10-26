@@ -16,5 +16,7 @@ export default defineConfig({
   webServer: {
     command: `pnpm dev --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
+    // The development decks come from a fixture folder of made-up decks, never Paul's files.
+    env: { GOJISIM_LOCAL_DECKS: "e2e/fixtures/local-decks" },
   },
 });
