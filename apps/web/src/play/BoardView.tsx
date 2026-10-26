@@ -37,6 +37,7 @@ import {
   playableCards,
 } from "./destinations";
 import { Hand } from "./Hand";
+import { OpponentHand } from "./OpponentHand";
 import {
   type Interaction,
   InteractionContext,
@@ -1072,34 +1073,23 @@ export function BoardView({
             onClick={() => setViewTip(null)}
           >
             {viewTip && <TipBubble box={viewTip.box} tip={viewTip.tip} />}
-            <div className={styles.handBacks} data-testid="opponent-hand">
-              <span className={styles.muted}>
-                {opp.id} hand (
-                <span data-testid="opponent-hand-count">{opp.hand.count}</span>)
-              </span>
-              {Array.from({ length: opp.hand.count }, (_, i) => {
-                const shown = opp.hand.cards?.[i];
-                return shown ? (
-                  <CardFace
-                    key={i}
-                    card={shown}
-                    data={view.cards[shown.cardId]}
-                    small
-                  />
-                ) : (
-                  <CardBack key={i} testId="opponent-card-back" small />
-                );
-              })}
+            {/* The opponent's hand sits left of their mat, top-aligned with it (bot hand row). */}
+            <div className={styles.oppRow}>
+              <OpponentHand
+                player={opp}
+                cards={view.cards}
+                open={model.openHand}
+              />
+              <Mat
+                model={model}
+                player={opp}
+                opponent={you.id}
+                side="opp"
+                glow={glowFor(opp)}
+                mat={mat}
+                warning={deckWarnings[opp.id]}
+              />
             </div>
-            <Mat
-              model={model}
-              player={opp}
-              opponent={you.id}
-              side="opp"
-              glow={glowFor(opp)}
-              mat={mat}
-              warning={deckWarnings[opp.id]}
-            />
             <div className={styles.centerLine} />
             <Mat
               model={model}

@@ -75,6 +75,8 @@ export interface BoardModel {
    * tops, the invading monster and strategy cards. Cards with none are left out.
    */
   changes: Record<string, CardChange[]>;
+  /** "Show opponent's hand" is on (M5h #13): the top player's hand is face up and fans out. */
+  openHand: boolean;
 }
 
 /**
@@ -124,5 +126,6 @@ export function boardModel(
     totalCounterPower,
     monsterRank,
     changes,
+    openHand,
   };
 }

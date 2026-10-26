@@ -613,3 +613,17 @@ Accepted by Monarch in the CI speed review (PR #52).
 442. The Playwright browser is cached per Playwright version; on a hit only `install-deps` runs.
 443. Stress plays 200 games on a pull request and 1,000 on a push to main, seeded by the commit; the nightly run is unchanged.
 444. A newer push to a pull request cancels its older CI run.
+
+Accepted by Monarch in the Showa Poster review (PR #53).
+
+445. Showa Poster is the default theme: the plain `:root` block, `index.html` and `DEFAULT_SETTINGS`; a saved theme still wins. It defines three palette names of its own (`--color-ink`, `--color-poster-red`, `--color-marigold`) for its header and fight card; every other token is shared by all four themes.
+446. The header bar shows on the menu and `/play` (new game and board), not on `/debug`; it is 56 px, and the board's height and card size leave room for it.
+447. The mats' frame counts in the card size (`--mat-frame`), so Showa's cards are a few pixels smaller than Grey's.
+448. The counter power bar shows up to 1.5 times the threat, with the threat line two thirds along; with a threat of 0 the marker is at the start, and any counter power fills it.
+449. Button fonts change only in Showa; the other themes keep the browser's button font (a custom property can't hold `revert`).
+450. The turn glow replaces the mat's offset shadow while it shows.
+451. Showa's log tags are white text on red, ink, brown, sea, burnt orange and dark gold, each at 4.5:1 or more. Its card backs are dark red stripes (backs aren't card frames).
+452. Fonts are bundled with `@fontsource` 5.3.0 (Dela Gothic One, Zen Kaku Gothic New 400/500/700/900) as unicode-range chunks; a page downloads a font only when its theme uses it.
+453. Showa's form controls (selects, text fields, file pickers, textareas, and buttons with no class or with `data-control`) take Zen Kaku Gothic New, a 2 px ink border, the panel fill and a 4 px radius, at least 44 px tall for buttons and selects; `data-primary` actions (Start, Import deck) are marigold; radios, checkboxes and sliders use the poster red accent. The rules sit in `:where()`, so classed controls keep their look.
+454. A yes/no prompt's card text takes the prompt's width (it was capped at two card widths for order modals, in every theme).
+455. The bot-move toast e2e test accepts any bot action toast with a lit destination, since a timed bot search may invade or gain rage instead of playing a card.
