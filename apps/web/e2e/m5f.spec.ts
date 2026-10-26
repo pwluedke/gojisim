@@ -368,11 +368,8 @@ test.describe("turn glow", () => {
   }) => {
     // A long bot delay keeps the bot's turn on screen.
     await settings(page, { botDelay: 3000 });
-    await page.goto("/play?mode=bot");
-    await page.getByTestId("seed-input").fill("4");
-    await startGame(page);
-    // Wait for the human's turn (the bot may go first).
-    await expect(page.getByTestId("pass")).toBeVisible({ timeout: 20_000 });
+    // The human goes first, so the test never waits through a whole bot turn at 3 s per move.
+    await vsBot(page, 4);
     await expect
       .poll(() => glowing(page))
       .toEqual([expect.stringMatching(/^you:(Red|grey)$/)]);

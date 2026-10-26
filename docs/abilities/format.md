@@ -582,3 +582,11 @@ Built differently from the plan:
 - The two new monster plays and EBP04-045's cost are fields of the existing actions: `playMonster` carries `underInstanceId` and `playBattle` carries `costCardInstanceId`, one action per card, so a bot or a player picks the card with the play.
 - CU: `godzillaEarthLink` and `bindLinked` (EBP04-067), and `inheritedLife` (EBP04-089). Links and Q11 counts are permanent continuous effects, so they are copied, compared for loops and shown like the others.
 
+
+### M12e: PR and EPR (no new pieces)
+
+The 15 promo cards with their own deck card numbers: EPR-005 and PR-014 (Heat Ray's column destroy), the vanilla monsters PR-001 to PR-003 and PR-006 to PR-010, and EPR-015 to EPR-019. PR is 16 of 16 with EPR-020; 376 of 388 cards are implemented, and only ESC01 and FC01 are left.
+
+- PR-015 and PR-016 run EPR-015's and EPR-016's abilities, since abilities are keyed by deck card number (decision 417).
+- "Discard 1 card from your hand. If you do, ..." with no "may" (EPR-018) is a required cost: with an empty hand it can't be paid and the rest doesn't happen (10.5.4.1).
+- EPR-016's "If you do, [destroy] this card at the beginning of the end phase" is its optional cost (placing the card under it) and an `until` ability for this turn's end phase (T8).
