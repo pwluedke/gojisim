@@ -4,9 +4,9 @@ import { loadFixture, startGame, vsBot } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
-/** M5g: the theme setting (Dark / Grey / Light), built from theme.css variables. */
+/** M5g: the theme setting (Showa Poster / Dark / Grey / Light), built from theme.css variables. */
 
-const THEMES = ["dark", "grey", "light"] as const;
+const THEMES = ["showa", "dark", "grey", "light"] as const;
 
 const background = (page: Page) =>
   page.evaluate(() => getComputedStyle(document.body).backgroundColor);
@@ -14,11 +14,11 @@ const background = (page: Page) =>
 /** A board on the human's turn 1 against the bot (M5h: no hotseat). */
 const humanBoard = (page: Page) => vsBot(page, 2);
 
-test("each theme changes the page background and survives a reload; Grey is the default", async ({
+test("each theme changes the page background and survives a reload; Showa Poster is the default", async ({
   page,
 }) => {
   await humanBoard(page);
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "grey");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "showa");
   const seen = new Set<string>();
   for (const theme of THEMES) {
     await page.getByTestId("settings").click();
@@ -31,8 +31,8 @@ test("each theme changes the page background and survives a reload; Grey is the 
     expect(await background(page)).toBe(bg);
     await startGame(page);
   }
-  // Three different backgrounds.
-  expect(seen.size).toBe(3);
+  // Four different backgrounds.
+  expect(seen.size).toBe(4);
 });
 
 test("the saved theme is on the page before its scripts run (no flash of another theme)", async ({
@@ -72,7 +72,7 @@ test("the menu and /debug restyle with the theme", async ({ page }) => {
     }
   }
   for (const path of ["/", "/debug"])
-    expect(new Set(backgrounds[path]).size, path).toBe(3);
+    expect(new Set(backgrounds[path]).size, path).toBe(4);
 });
 
 for (const theme of THEMES)
@@ -154,5 +154,62 @@ for (const theme of THEMES)
       );
     await page.getByTestId("import-save").click();
     await expect(page.getByTestId("my-deck")).toHaveCount(1);
+    expect(await contrastProblems(page)).toEqual([]);
+  });
+
+test("with nothing saved, Showa Poster is on the page before its scripts run; a saved theme still wins", async ({
+  page,
+}) => {
+  // The e2e default storage only turns animations off: no theme is saved.
+  await page.addInitScript(() => {
+    document.addEventListener("DOMContentLoaded", () => {
+      (window as unknown as { themeAtLoad: string }).themeAtLoad =
+        document.documentElement.dataset["theme"] ?? "";
+    });
+  });
+  await page.goto("/");
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { themeAtLoad: string }).themeAtLoad,
+    ),
+  ).toBe("showa");
+  await expect(page.getByTestId("theme-header")).toBeVisible();
+  // The header's katakana wordmark, in Dela Gothic One (bundled, never a system font).
+  const ja = page.getByTestId("theme-header").locator('[lang="ja"]');
+  await expect(ja).toHaveText("ゴジシム！");
+  expect(
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      return document.fonts.check('26px "Dela Gothic One"', "ゴジシム！");
+    }),
+  ).toBe(true);
+  // A saved theme wins, and the header is Showa Poster's only.
+  await page.evaluate(() =>
+    window.localStorage.setItem(
+      "gojisim.settings",
+      JSON.stringify({ animation: "off", theme: "grey" }),
+    ),
+  );
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "grey");
+  await expect(page.getByTestId("theme-header")).toBeHidden();
+});
+
+for (const theme of THEMES)
+  test(`/debug and the rules panel meet AA in the ${theme} theme`, async ({
+    page,
+  }) => {
+    await page.addInitScript((t) => {
+      window.localStorage.setItem(
+        "gojisim.settings",
+        JSON.stringify({ animation: "off", theme: t, showRules: true }),
+      );
+    }, theme);
+    await page.goto("/debug");
+    await expect(page.getByTestId("start-game")).toBeVisible();
+    expect(await contrastProblems(page)).toEqual([]);
+    await humanBoard(page);
+    await page.getByTestId("rule-link").first().click();
+    await expect(page.getByTestId("rules-panel")).toBeVisible();
     expect(await contrastProblems(page)).toEqual([]);
   });

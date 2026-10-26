@@ -142,9 +142,13 @@ for (const [width, height] of [
       const mat = await box("mat-you");
       const log = await box("log-panel");
       const right = await box("right-column");
-      // The left column holds the prompt, the phase tracker and settings, left of the board.
+      // The left column holds the prompt, the phase tracker and settings, left of the board, under
+      // the theme's header bar if it has one (Showa Poster).
+      const header = await page.getByTestId("theme-header").boundingBox();
       expect(leftColumn.x).toBeLessThanOrEqual(1);
-      expect(leftColumn.height).toBeGreaterThan(height * 0.95);
+      expect(leftColumn.height).toBeGreaterThan(
+        (height - (header?.height ?? 0)) * 0.95,
+      );
       for (const id of ["prompt", "phase-tracker", "settings"]) {
         const b = await box(id);
         expect(b.x).toBeGreaterThanOrEqual(leftColumn.x);
@@ -157,7 +161,9 @@ for (const [width, height] of [
       // The log fills the right column, right of the mats.
       expect(log.x).toBeGreaterThanOrEqual(mat.x + mat.width);
       expect(log.x).toBeGreaterThanOrEqual(right.x);
-      expect(log.height).toBeGreaterThan(height * 0.8);
+      // Below the fight card (M5h #18), which is taller in Showa Poster.
+      const fight = await box("fight-card");
+      expect(log.height).toBeGreaterThan((right.height - fight.height) * 0.85);
       // The hand's cards are centered under the mat's columns.
       const cards = page.getByTestId("hand-card");
       const first = await cards.first().boundingBox();

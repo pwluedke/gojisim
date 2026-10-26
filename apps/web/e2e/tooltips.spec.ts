@@ -33,7 +33,7 @@ const inside = async (page: Page) => {
   return box;
 };
 
-for (const theme of ["dark", "grey", "light"] as const)
+for (const theme of ["showa", "dark", "grey", "light"] as const)
   test(`tooltips on a phase step, a log rule number and a pile end where their text ends (${theme})`, async ({
     page,
   }) => {

@@ -40,17 +40,26 @@ function DeckName({ name, side }: { name: string; side: "you" | "opp" }) {
       setCut(el.scrollWidth > el.clientWidth);
     };
     fit();
-    // Fit again when the line's width changes (not its height, which the fit itself changes),
-    // and once the bundled fonts have loaded.
-    let width = el.clientWidth;
+    // Fit again when the line's width changes (its parent's: a boxed name, as in Showa Poster, is
+    // as wide as its text, so its own width changes with every fit), and once the bundled fonts
+    // have loaded.
+    const line = el.parentElement ?? el;
+    let width = line.clientWidth;
+    // The refit waits a frame: it changes the line's height, which would otherwise notify this
+    // observer again within the same frame ("ResizeObserver loop").
+    let frame = 0;
     const observer = new ResizeObserver(() => {
-      if (el.clientWidth === width) return;
-      width = el.clientWidth;
-      fit();
+      if (line.clientWidth === width) return;
+      width = line.clientWidth;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(fit);
     });
-    observer.observe(el);
+    observer.observe(line);
     void document.fonts?.ready.then(fit);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
   }, [name]);
   // The app's tooltip with the full name, only when the name was cut (one element throughout,
   // so the fit always measures the name on screen).

@@ -207,6 +207,12 @@ importers:
       '@fontsource/bungee':
         specifier: 5.3.0
         version: 5.3.0
+      '@fontsource/dela-gothic-one':
+        specifier: 5.3.0
+        version: 5.3.0
+      '@fontsource/zen-kaku-gothic-new':
+        specifier: 5.3.0
+        version: 5.3.0
       '@gojisim/bot':
         specifier: workspace:*
         version: link:../../packages/bot
@@ -562,6 +568,12 @@ packages:
 
   '@fontsource/bungee@5.3.0':
     resolution: {integrity: sha512-vKwbDE7yMrqfGxgFan+diPLwgWp9j4FGYaLm+OhUoqYO6Pr02QIi/p0KiTW0E/7uiXqfTd6cMj+/E4h2sc3Ocg==}
+
+  '@fontsource/dela-gothic-one@5.3.0':
+    resolution: {integrity: sha512-4A26Qs7TqYFWegJfYHx7KKWy01YybW/e7uhFDM8A8e1neVPm721laLnh0en60wtKihfNdCbJt0VVcEMHC4pHjw==}
+
+  '@fontsource/zen-kaku-gothic-new@5.3.0':
+    resolution: {integrity: sha512-2t88gAaUkqIAFARfO8GkT1x57QBRx8A0pWeB0CIrIahnzdanWjcV4thPCSv9BJmpeRndq6qbFx1KYglHykiPhw==}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -1720,6 +1732,10 @@ snapshots:
   '@fontsource/anton@5.3.0': {}
 
   '@fontsource/bungee@5.3.0': {}
+
+  '@fontsource/dela-gothic-one@5.3.0': {}
+
+  '@fontsource/zen-kaku-gothic-new@5.3.0': {}
 
   '@humanfs/core@0.19.2':
     dependencies:

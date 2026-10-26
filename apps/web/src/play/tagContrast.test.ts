@@ -23,12 +23,14 @@ const ratio = (a: string, b: string) => {
 };
 
 describe("battle log tag contrast (M5h #4)", () => {
-  const themes = css.split(/:root\[data-theme="(light|grey|dark)"\]/).slice(1);
+  const themes = css
+    .split(/:root\[data-theme="(showa|light|grey|dark)"\]/)
+    .slice(1);
   const blocks = new Map<string, string>();
   for (let i = 0; i < themes.length; i += 2)
     blocks.set(themes[i] as string, themes[i + 1] as string);
 
-  it.each(["light", "grey", "dark"])(
+  it.each(["showa", "light", "grey", "dark"])(
     "%s: every tag reads at 4.5:1 or more",
     (theme) => {
       const block = blocks.get(theme) ?? "";

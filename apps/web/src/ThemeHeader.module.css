@@ -1,0 +1,29 @@
+/* The theme's header bar: Showa Poster's poster red strip with the wordmark (theme.css). */
+.header {
+  display: var(--header-display);
+  align-items: center;
+  gap: 14px;
+  height: var(--header-h);
+  padding: 0 28px;
+  background: var(--color-poster-red);
+  border-bottom: 4px solid var(--color-ink);
+}
+
+.wordmark,
+.wordmarkJa {
+  font-family: var(--font-heading);
+  font-weight: 400;
+  line-height: 1;
+  text-shadow: 3px 3px 0 var(--color-ink);
+}
+
+.wordmark {
+  font-size: 32px;
+  letter-spacing: 0.02em;
+  color: var(--color-panel);
+}
+
+.wordmarkJa {
+  font-size: 26px;
+  color: var(--color-marigold);
+}
