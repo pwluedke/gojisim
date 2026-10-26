@@ -54,16 +54,23 @@ export function actionLabel(state: GameState, action: Action): string {
             ?.zones[action.zone].at(-1)
             ?.at(-1)
         : undefined;
+      // M2: the play rule's cost, a discard that lowers the rank (EBP04-045).
+      const cost = action.costCardInstanceId
+        ? `, discarding ${nameOf(state, action.costCardInstanceId)}`
+        : "";
       return host
         ? `Play ${nameOf(state, action.cardInstanceId)} on top of ${nameOf(state, host.instanceId)} → zone ${action.zone}`
-        : `Play ${nameOf(state, action.cardInstanceId)} → zone ${action.zone}`;
+        : `Play ${nameOf(state, action.cardInstanceId)} → zone ${action.zone}${cost}`;
     }
     case "activateStrategy":
       return `Activate ${nameOf(state, action.cardInstanceId)} → strategy zone ${action.strategyZone}`;
     case "gainRage":
       return `Discard ${nameOf(state, action.cardInstanceId)} for +1 rage`;
     case "playMonster":
-      return `Play monster ${nameOf(state, action.cardInstanceId)}`;
+      // M2 (Q22): a monster deck card goes under the invading monster first (EBP04-012).
+      return action.underInstanceId
+        ? `Play monster ${nameOf(state, action.cardInstanceId)}, placing ${nameOf(state, action.underInstanceId)} from your monster deck under your monster`
+        : `Play monster ${nameOf(state, action.cardInstanceId)}`;
     case "invade": {
       const instance = findInstance(state, action.cardInstanceId);
       const icon = (instance && cardData(state, instance)?.invadeZones) ?? 0;

@@ -837,7 +837,7 @@ export function BoardView({
     null,
   );
   const [animating, setAnimating] = useState(false);
-  const flights = useMoveAnimations({
+  const { flights, landed } = useMoveAnimations({
     root: mainRef,
     model,
     step,
@@ -1200,6 +1200,7 @@ export function BoardView({
                     flights={flights}
                     speed={animation}
                     cards={view.cards}
+                    onLanded={landed}
                   />
                 )}
               </>,

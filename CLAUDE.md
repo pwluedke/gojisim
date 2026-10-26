@@ -580,3 +580,13 @@ Accepted by Monarch in the English promos review (PR #48).
 419. A PR print of a booster card whose `+` number the site already uses for another print is numbered `<number>+ (Alt)` (EBP01-073+ (Alt), like EBP02-070+ (Alt)); its name and text are the base card's, and its printed title goes in `notes`.
 420. The official "+" mark on a battle card's counter power has no schema field; it stays in the source files.
 421. The M12 plan's "Implemented after" column counts the original 384 plus the 3 new M12e cards; with EPR-020, 388 cards are in scope.
+
+Accepted by Monarch in the dev-deck auto-load review (PR #49).
+
+422. A development deck's folder is its `[deck]` name up to the last "/". Picker keys are `file:<file>:<full name>`, so a pick survives a file change and reload; a repeated name in one file gets `#2`.
+423. A change to a `local-decks/*.txt` file reloads the page rather than updating the pickers in place.
+424. Each picker screen has one development-deck filter box, shared by both seats and shown only when there are file or imported decks; starters, My decks and each seat's pick always stay listed.
+425. A browser-stored deck is hidden behind a file deck with the same full name, folder included.
+426. Clear imported decks asks once; picks that were imports go back to the starters, and file decks stay.
+427. `.gitignore` ignores the root `/local-decks/` only, so the made-up test fixtures in `apps/web/e2e/fixtures/local-decks/` are tracked.
+428. `GOJISIM_LOCAL_DECKS` points the dev server at another deck folder (Playwright uses it); Vitest reads the fixture folder.

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { parseDeckList } from "@gojisim/cards/deck-lists";
-import { buildTestDeck } from "@gojisim/cards/test-decks";
+import { buildTestDeck, getAllCards } from "@gojisim/cards/test-decks";
 import {
   advanceToDecision,
   applyAction,
@@ -175,5 +175,67 @@ describe("no peeking (M6a rule for every bot)", () => {
       );
     }
     expect(compared).toBeGreaterThan(20);
+  });
+});
+
+describe("determinize: monster deck cards placed under the monster (M2, Q22)", () => {
+  it("after EBP04-012's play from rank II, the opponent's view determinizes with every card accounted for", () => {
+    const cards = (numbers: string[]) =>
+      numbers.map((n) => {
+        const found = getAllCards().find(
+          (c) => c.cardNumber === n && !c.isParallel,
+        );
+        if (!found) throw new Error(n);
+        return found;
+      });
+    const biollante: PlayerSetup = {
+      id: "P1",
+      monsterDeck: cards(["EBP02-024", "EBP02-025", "EBP02-026", "EBP02-028"]),
+      mainDeck: [
+        ...cards(Array(4).fill("EBP04-012")),
+        ...official("esd02-starter.txt").mainDeck.slice(0, 46),
+      ],
+    };
+    const decks: [PlayerSetup, PlayerSetup] = [
+      biollante,
+      { id: "P2", ...official("esd01-starter.txt") },
+    ];
+    const lists = decklistsOf(decks);
+    for (let game = 0; game < 40; game++) {
+      const rng = seededRng(`q22-${game}`);
+      let state = advanceToDecision(startGame({ seed: `q22-${game}`, decks }));
+      let played = false;
+      for (let n = 0; state.result === null && n < 3000; n++) {
+        const who = decider(state);
+        const legal = botInput(state, who, lists, rng).legalActions;
+        const under = legal.find(
+          (a) => a.type === "playMonster" && a.underInstanceId !== undefined,
+        );
+        const action =
+          under ?? weightedBot.chooseAction(botInput(state, who, lists, rng));
+        state = advanceToDecision(applyAction(state, action));
+        if (under) played = true;
+        if (played && decider(state) === "P2") {
+          const view = getPlayerView(state, "P2");
+          const det = determinize(
+            view,
+            { decks: lists, log: view.log },
+            seededRng(game),
+          );
+          // Tokens aren't deck cards (9.1.4.2, decision 338): EBP04-012's Tentacles are left out.
+          const deckCards = allCards(det, "P1").filter(
+            (id) => !det.cards[id]?.traits.includes("Token"),
+          );
+          expect(deckCards).toEqual(
+            [...biollante.monsterDeck, ...biollante.mainDeck]
+              .map((c) => c.id)
+              .sort((a, b) => a - b),
+          );
+          expect(checkInvariants(det)).toEqual([]);
+          return;
+        }
+      }
+    }
+    throw new Error("no game reached EBP04-012's play from rank II");
   });
 });

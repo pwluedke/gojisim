@@ -84,12 +84,15 @@ function cardIdOf(state: GameState, instanceId: string): number | null {
 export function actionKey(state: GameState, action: Action): string {
   switch (action.type) {
     case "playBattle":
-      // A play on top of the card there (M2, EBP03-051) is a different move.
-      return `playBattle:${cardIdOf(state, action.cardInstanceId)}:${action.zone}${action.onTop ? ":onTop" : ""}`;
+      // A play on top of the card there (M2, EBP03-051) is a different move, and so is each
+      // card that pays a play cost (M2, EBP04-045).
+      return `playBattle:${cardIdOf(state, action.cardInstanceId)}:${action.zone}${action.onTop ? ":onTop" : ""}${action.costCardInstanceId ? `:cost${cardIdOf(state, action.costCardInstanceId)}` : ""}`;
     case "activateStrategy":
       return `activateStrategy:${cardIdOf(state, action.cardInstanceId)}:${action.strategyZone}`;
-    case "gainRage":
     case "playMonster":
+      // M2 (Q22): each monster deck card that may go under the monster is its own move.
+      return `playMonster:${cardIdOf(state, action.cardInstanceId)}${action.underInstanceId ? `:under${cardIdOf(state, action.underInstanceId)}` : ""}`;
+    case "gainRage":
     case "invade":
       return `${action.type}:${cardIdOf(state, action.cardInstanceId)}`;
     case "choose": {

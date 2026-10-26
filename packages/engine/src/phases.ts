@@ -8,14 +8,16 @@ import {
 import { resolveLosses } from "./losses";
 import { guardLoop, resetLoopGuard } from "./loop";
 import { advanceMonster } from "./movement";
-import { checkTiming, hasPendingRuleActions } from "./rules";
+import { checkTiming, hasPendingRuleActions, topOf } from "./rules";
 import { requireChoice } from "./choices";
 import {
   applyReplacement,
   hasKeyword,
+  rageResetReplacement,
+  replacementPayable,
   strategyReplacementFor,
 } from "./interpreter";
-import { cannotDraw, counterProofAgainst } from "./stats";
+import { cannotDraw, counterProofAgainst, hasFlag } from "./stats";
 import {
   appendLog,
   drawCards,
@@ -124,8 +126,11 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
   "7.2.3": (state) => {
     // Base (K1, 12.9.2) keeps a strategy card in play: it isn't sent here.
     const player = turnPlayer(state);
+    // M1 `staysInStrategyZone` does the same without the keyword (EBP04-089).
     const stays = (p: StrategyPlacement) =>
-      p.placedOnTurn >= state.turn || hasKeyword(state, p.card, "base");
+      p.placedOnTurn >= state.turn ||
+      hasKeyword(state, p.card, "base") ||
+      hasFlag(state, p.card, "staysInStrategyZone");
     const leaving = player.strategyZones.flat().filter((p) => !stays(p));
     // E21: a replacement can send a card elsewhere instead (EBP02-012). An optional one asks
     // its master first; the step waits for the answer and runs again (10.9).
@@ -193,6 +198,56 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
   },
   "7.2.4": (state) => {
     const player = turnPlayer(state);
+    // E21 `rageReset` (EBP04-010): an optional replacement asks its master first; the step waits
+    // for the answer, applies it (its discard may need a choice), and runs again (10.9).
+    const top = topOf(player.invadingMonsterZone);
+    const replacement =
+      top && player.rage > 0 ? rageResetReplacement(state, top) : null;
+    if (top && replacement && replacementPayable(state, replacement)) {
+      const ask = state.replacementAsks?.find(
+        (a) => a.instanceId === top.instanceId,
+      );
+      if (!ask && replacement.ability.optional) {
+        state.replacementAsks = [
+          {
+            instanceId: top.instanceId,
+            abilityId: replacement.abilityId,
+            answer: null,
+          },
+        ];
+        requireChoice(state, player.id, "confirm", "10.9", [
+          { id: "yes", cardId: top.cardId, abilityId: replacement.abilityId },
+          { id: "no", cardId: top.cardId, abilityId: replacement.abilityId },
+        ]);
+        return;
+      }
+      const answer = ask?.answer ?? "yes";
+      if (answer === "yes") {
+        state.replacementAsks = [
+          {
+            instanceId: top.instanceId,
+            abilityId: replacement.abilityId,
+            answer: "done",
+          },
+        ];
+        const outcome = applyReplacement(
+          state,
+          replacement,
+          top,
+          "rageReset",
+          "7.2.4",
+          {},
+          true,
+        );
+        if (outcome === "paused") return;
+      }
+    }
+    const done = state.replacementAsks?.some((a) => a.answer === "done");
+    delete state.replacementAsks;
+    if (done) {
+      goTo(state, "start", "7.2.5");
+      return;
+    }
     appendLog(state, "setRage", player.id, {
       rule: "7.2.4",
       from: player.rage,

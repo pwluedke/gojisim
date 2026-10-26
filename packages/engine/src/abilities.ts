@@ -13,6 +13,7 @@ import {
   delayedTriggers,
 } from "./interpreter";
 import { manualReason, queueManual } from "./manual";
+import { appendLog } from "./state";
 
 /** What an ability's trigger check sees. */
 export interface TriggerContext {
@@ -81,6 +82,71 @@ export function activeCards(
   return active;
 }
 
+/** Puts an ability into standby (10.6.2) for `event`, with the next timestamp. */
+export function enterStandby(
+  state: GameState,
+  card: CardInstance,
+  master: PlayerId,
+  abilityId: string,
+  event: LogEntry,
+): StandbyAbility {
+  const timestamp = state.nextTimestamp++;
+  const ability: StandbyAbility = {
+    standbyId: `s${timestamp}`,
+    abilityId,
+    sourceInstanceId: card.instanceId,
+    sourceCardId: card.cardId,
+    master,
+    timestamp,
+    event,
+  };
+  state.standby.push(ability);
+  return ability;
+}
+
+/**
+ * Linked cards (EBP04-067 and its Godzilla Earth token): once either is no longer in the zone it
+ * was linked in (it left the field, or moved), the link ends and its card's ability goes into
+ * standby, whether or not that card is still active, naming the linked cards.
+ */
+function breakLinks(state: GameState): StandbyAbility[] {
+  const entered: StandbyAbility[] = [];
+  for (const effect of state.continuousEffects) {
+    const link = effect.link;
+    if (!link) continue;
+    const intact = link.cards.every(({ instanceId, player, zone }) =>
+      state.players
+        .find((p) => p.id === player)
+        ?.zones[zone].some((stack) =>
+          stack.some((c) => c.instanceId === instanceId),
+        ),
+    );
+    if (intact) continue;
+    state.continuousEffects = state.continuousEffects.filter(
+      (e) => e !== effect,
+    );
+    const broken = appendLog(state, "linkBroken", link.master, {
+      rule: "10.6.2",
+      cardId: link.sourceCardId,
+      instanceIds: link.cards.map((c) => c.instanceId),
+    });
+    entered.push(
+      enterStandby(
+        state,
+        {
+          instanceId: link.sourceInstanceId,
+          cardId: link.sourceCardId,
+          owner: link.master,
+        },
+        link.master,
+        link.abilityId,
+        broken,
+      ),
+    );
+  }
+  return entered;
+}
+
 /**
  * The trigger check every event passes through: each active ability whose trigger condition the
  * event fulfils enters standby, once per match (10.6.2, 10.6.2.1). Returns the new entries.
@@ -91,20 +157,10 @@ export function fireTriggers(
 ): StandbyAbility[] {
   if (state.result !== null) return [];
   const entered: StandbyAbility[] = [];
-  const enter = (card: CardInstance, master: PlayerId, abilityId: string) => {
-    const timestamp = state.nextTimestamp++;
-    const ability: StandbyAbility = {
-      standbyId: `s${timestamp}`,
-      abilityId,
-      sourceInstanceId: card.instanceId,
-      sourceCardId: card.cardId,
-      master,
-      timestamp,
-      event,
-    };
-    state.standby.push(ability);
-    entered.push(ability);
-  };
+  const enter = (card: CardInstance, master: PlayerId, abilityId: string) =>
+    entered.push(enterStandby(state, card, master, abilityId, event));
+  if (state.continuousEffects.some((e) => e.link))
+    entered.push(...breakLinks(state));
   // Abilities created by an `until` effect (T8, 10.6.5): checked whether or not their card is
   // still active, until their period ends.
   for (const timed of state.timedTriggers)
