@@ -1101,6 +1101,13 @@
 .tooltip {
   position: fixed;
   z-index: 60;
+  /*
+   * The tooltip carries the gojisim class for its theme variables; it must not take that
+   * wrapper's page sizing (min-height: 100vh), or the box runs to the window's bottom edge.
+   */
+  display: block;
+  min-height: 0;
+  height: auto;
   width: max-content;
   max-width: 280px;
   padding: var(--space-1) var(--space-2);
