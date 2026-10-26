@@ -194,7 +194,9 @@ test("Concede is shown for human seats only, with a confirm step", async ({
 test("bot moves: a toast names the action and the destination lights up", async ({
   page,
 }) => {
-  // Seed 2: the bot (P2) starts and plays cards on its turn.
+  // Seed 2: the bot (P2) starts. Its search is timed (decision 183), so on a slow runner it may
+  // invade and gain rage without playing a card: those toasts have no "→", but they light the
+  // discard pile and rage zone. A Pass lights nothing.
   await page.goto("/play?mode=bot");
   await page.getByTestId("seed-input").fill("2");
   await startGame(page);
@@ -204,9 +206,7 @@ test("bot moves: a toast names the action and the destination lights up", async 
         page.evaluate(() => {
           const toast = document.querySelector('[data-testid="bot-toast"]');
           const lit = document.querySelectorAll("[data-highlight]").length;
-          return (
-            /^Bot \(Medium\): .*→/.test(toast?.textContent ?? "") && lit > 0
-          );
+          return /^Bot \(Medium\): /.test(toast?.textContent ?? "") && lit > 0;
         }),
       { timeout: 60_000, intervals: [50] },
     )
