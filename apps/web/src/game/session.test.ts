@@ -173,3 +173,20 @@ describe("First / Second pick and Casual undo (M5e)", () => {
     ).toBe(false);
   });
 });
+
+describe("deck names in the record (M5h #18)", () => {
+  it("a new game records each seat's deck name, and a loaded record keeps them", () => {
+    const human = { kind: "human" } as const;
+    const bot = { kind: "bot", difficulty: 55 } as const;
+    const [a, b] = decks();
+    const session = newSession(3, [a, b], { P1: human, P2: bot });
+    expect(session.record.deckNames).toEqual({ P1: a.label, P2: b.label });
+    const loaded = sessionFromRecord(JSON.stringify(session.record));
+    expect(loaded.record.deckNames).toEqual({ P1: a.label, P2: b.label });
+    // An older record has none; the fight card reads "Mystery Deck".
+    const { deckNames: _, ...old } = session.record;
+    expect(
+      sessionFromRecord(JSON.stringify(old)).record.deckNames,
+    ).toBeUndefined();
+  });
+});

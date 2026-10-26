@@ -67,9 +67,6 @@ export function CardFace({
 }) {
   const { preview } = useInteraction();
   if (!data) return <CardBack small={small} />;
-  const printed = data.counterOrThreat;
-  const modifier =
-    counterPower !== undefined && printed !== null ? counterPower - printed : 0;
   const manual = getCardAbilities(data.deckCardNumber).status === "manual";
   const rotated = rotate && data.type === "Strategy";
   return (
@@ -107,6 +104,39 @@ export function CardFace({
           ×{stack}
         </span>
       )}
+      <CardChips
+        data={data}
+        counterPower={counterPower}
+        threat={threat}
+        changes={changes}
+        extra={extra}
+      />
+    </div>
+  );
+}
+
+/**
+ * A card's overlay chips (shared by the board and the choice modal, M5h #19): counter power
+ * (printed plus the colored modifier), the change badge, extra marks and threat.
+ */
+export function CardChips({
+  data,
+  counterPower,
+  threat,
+  changes = [],
+  extra = null,
+}: {
+  data: Card;
+  counterPower?: number | undefined;
+  threat?: number | undefined;
+  changes?: readonly CardChange[] | undefined;
+  extra?: ReactNode;
+}) {
+  const printed = data.counterOrThreat;
+  const modifier =
+    counterPower !== undefined && printed !== null ? counterPower - printed : 0;
+  return (
+    <>
       {counterPower !== undefined && printed !== null && (
         <span className={styles.chip} data-testid="counter-power-chip">
           {printed}
@@ -147,6 +177,6 @@ export function CardFace({
           Threat {threat}
         </span>
       )}
-    </div>
+    </>
   );
 }

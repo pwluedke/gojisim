@@ -17,7 +17,14 @@ import type {
   PlayerAreasView,
   ZoneNumber,
 } from "@gojisim/engine";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { type Box, FlightLayer, useMoveAnimations } from "./animation";
 import styles from "./Board.module.css";
@@ -41,6 +48,7 @@ import { PhaseTracker } from "./PhaseTracker";
 import { GLOW_COLORS, glowCycle, useGlow } from "./glow";
 import { InvadeArrow } from "./InvadeArrow";
 import { Preview } from "./Preview";
+import { InvasionSlam } from "./slam";
 import { type StackKey, StackViewer } from "./StackViewer";
 import { TipBubble } from "./Tooltip";
 import type { AnimationSpeed } from "./settings";
@@ -765,6 +773,7 @@ export function BoardView({
   invadeArrow = false,
   mat = null,
   logCollapsed = false,
+  fightCard,
   onToggleLog,
   deckWarnings = {},
 }: {
@@ -805,6 +814,8 @@ export function BoardView({
   mat?: MatView | null;
   /** The battle log column is folded to a strip (M5f); `onToggleLog` folds or opens it. */
   logCollapsed?: boolean;
+  /** The fight-card header (M5h #18), above the log; it collapses with the log. */
+  fightCard?: ReactNode;
   onToggleLog?: () => void;
   /** Illegal decks in play (Casual), by player id: one line per failure, shown on that mat. */
   deckWarnings?: Readonly<Record<string, readonly string[]>>;
@@ -832,11 +843,15 @@ export function BoardView({
     step,
     speed: animation,
     drop: dropRef,
-    onAnimating: (on) => {
-      setAnimating(on);
-      onAnimating?.(on);
-    },
+    onAnimating: setAnimating,
   });
+  // M5h #20: the invasion-win slam follows the moves; input and the game-over modal wait for both.
+  const [slamming, setSlamming] = useState(false);
+  const report = useRef(onAnimating);
+  report.current = onAnimating;
+  useLayoutEffect(() => {
+    report.current?.(animating || slamming);
+  }, [animating, slamming]);
   const turnPlayer = view.players.find((p) => p.id === view.turnPlayer);
   const turnMonster = turnPlayer?.invadingMonsterZone.cards?.at(-1);
   const glow = useGlow(
@@ -1131,33 +1146,45 @@ export function BoardView({
               </button>
             ) : (
               log && (
-                <section
-                  className={`${styles.panel} ${styles.logPanel}`}
-                  data-testid="log-panel"
-                >
-                  <div className={`${styles.panelTitle} ${styles.logTitle}`}>
-                    Battle log
-                    {onToggleLog && (
-                      <button
-                        type="button"
-                        className={styles.logToggle}
-                        data-testid="log-collapse"
-                        title="Collapse the battle log [L]"
-                        aria-label="Collapse the battle log"
-                        onClick={onToggleLog}
-                      >
-                        »
-                      </button>
-                    )}
-                  </div>
-                  {log}
-                </section>
+                <>
+                  {fightCard}
+                  <section
+                    className={`${styles.panel} ${styles.logPanel}`}
+                    data-testid="log-panel"
+                  >
+                    <div className={`${styles.panelTitle} ${styles.logTitle}`}>
+                      Battle log
+                      {onToggleLog && (
+                        <button
+                          type="button"
+                          className={styles.logToggle}
+                          data-testid="log-collapse"
+                          title="Collapse the battle log [L]"
+                          aria-label="Collapse the battle log"
+                          onClick={onToggleLog}
+                        >
+                          »
+                        </button>
+                      )}
+                    </div>
+                    {log}
+                  </section>
+                </>
               )
             )}
           </aside>
           {/* Flying cards and the input lock sit in one top-level layer (a portal into the app
               wrapper): above every board card, hovered layer and chip, below the preview and
               the modals (M5g fix). */}
+          {step !== null && (
+            <InvasionSlam
+              model={model}
+              root={mainRef.current}
+              speed={animation}
+              waiting={animating}
+              onPlaying={setSlamming}
+            />
+          )}
           {(flights.length > 0 || animating) &&
             createPortal(
               <>

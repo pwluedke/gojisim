@@ -18,6 +18,7 @@ import {
   detectCombos,
   newComboTracker,
   applyAction,
+  getCounterPower,
   getLegalActions,
   type GameRecord,
   type GameState,
@@ -327,6 +328,55 @@ const FIXTURES: Fixture[] = [
       c.kind === "confirm" &&
       state.resolution?.standby.event.type === "advance" &&
       state.resolution.standby.event.payload["invasion"] === true,
+  },
+  {
+    name: "destroy-boosted",
+    note: "P1 picks a destroy target, one of which has counter power changed by an effect (M5h #19)",
+    decks: (g) => {
+      const sets = ["EBP01", "EBP02", "EBP03", "ESD01"] as const;
+      return [
+        buildTestDeck(sets[g % 4] as never, `boost-${g}-a`),
+        buildTestDeck(sets[(g + 1) % 4] as never, `boost-${g}-b`),
+      ];
+    },
+    confirmSingleOption: true,
+    match: (c, state) => {
+      if (c.kind !== "target" || c.rule !== "10.5.3") return false;
+      const boosted = c.options.find((o) => {
+        const top = state.players
+          .flatMap((p) => Object.values(p.zones).flat())
+          .map((stack) => stack.at(-1))
+          .find((t) => t?.instanceId === o.id);
+        const printed = top && state.cards[top.cardId]?.counterOrThreat;
+        return (
+          top !== undefined &&
+          typeof printed === "number" &&
+          getCounterPower(state, top) !== printed
+        );
+      });
+      if (!boosted) return false;
+      // The pick destroys it: a destroy effect, not another kind of target.
+      const after = applyAction(state, {
+        type: "choose",
+        player: "P1",
+        choiceId: c.id,
+        optionId: boosted.id,
+      });
+      return after.log
+        .slice(state.log.length)
+        .some((e) => e.type === "destroy" || e.type === "destroyPrevented");
+    },
+  },
+  {
+    name: "invasion-win",
+    note: "P1's next action (`next`) wins the game by invasion (M5h #20 slam)",
+    decks: randomDecks,
+    confirmSingleOption: true,
+    match: () => false,
+    matchNext: (_before, action, after) =>
+      action.player === "P1" &&
+      after.result?.winner === "P1" &&
+      after.result.reason === "invasion",
   },
   {
     name: "manual",

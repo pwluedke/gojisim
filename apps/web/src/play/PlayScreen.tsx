@@ -17,6 +17,7 @@ import type { DeckOption } from "../game/decks";
 import {
   canUndoSession,
   newSession,
+  PLAYER_IDS,
   type PlayerId,
   type Session,
   undoSession,
@@ -25,6 +26,7 @@ import { useGameSession } from "../game/useGameSession";
 import styles from "./Board.module.css";
 import { BoardView, STEP_NAMES } from "./BoardView";
 import { BattleLog } from "./BattleLog";
+import { FightCard, type FightSide } from "./FightCard";
 import { buildLog } from "./logLines";
 import { ChoiceModal } from "./ChoiceModal";
 import { ComboModal } from "./ComboModal";
@@ -788,6 +790,23 @@ export function PlayScreen() {
     card,
     label: `${card.owner}: ${state.cards[card.cardId]?.name ?? card.cardId}`,
   }));
+  // M5h #18: the bottom player's deck first, then the other; a bot's side adds its level.
+  const fightSide = (id: PlayerId | undefined): FightSide => {
+    const seat = id ? session.seats[id] : undefined;
+    return {
+      deck: id ? session.record.deckNames?.[id] : undefined,
+      bot:
+        seat?.kind === "bot"
+          ? `Bot (${difficultyName(seat.difficulty)})`
+          : undefined,
+    };
+  };
+  const fightCard = (
+    <FightCard
+      you={fightSide(model.bottom as PlayerId)}
+      opp={fightSide(PLAYER_IDS.find((id) => id !== model.bottom))}
+    />
+  );
   return (
     // A collapsed log frees its column, so --card-h recomputes on this wrapper (M5f).
     <div className={`gojisim${settings.logCollapsed ? " log-collapsed" : ""}`}>
@@ -829,6 +848,7 @@ export function PlayScreen() {
             }
           />
         }
+        fightCard={fightCard}
         logCollapsed={settings.logCollapsed}
         onToggleLog={() =>
           updateSettings({ logCollapsed: !settings.logCollapsed })
@@ -925,6 +945,7 @@ export function PlayScreen() {
           manualCards={manualCards}
           onAction={game.takeAction}
           labelOf={(action) => actionLabel(state, action)}
+          model={model}
         />
       )}
       {callout && comboOf(callout) && !animating && !(search && !animating) && (
