@@ -3,6 +3,7 @@ import type { CardInstance, PlayerAreasView } from "@gojisim/engine";
 import type { CSSProperties } from "react";
 import styles from "./Board.module.css";
 import { CardFace } from "./CardFace";
+import { useInteraction } from "./interaction";
 import type { BoardModel } from "./model";
 
 /** Each hand card shows this share of its width before the next card covers it. */
@@ -30,6 +31,7 @@ function HandCard({
     disabled: !playable || locked,
   });
   const usable = playable && !locked;
+  const { preview } = useInteraction();
   const state = selected
     ? styles.selected
     : usable && lit
@@ -62,6 +64,12 @@ function HandCard({
       <div className={styles.handLift} data-testid="hand-lift">
         <CardFace card={card} data={model.view.cards[card.cardId]} rotate />
       </div>
+      {/* The card's visible strip in the row: always this card's, even under a raised neighbor. */}
+      <div
+        className={styles.handStrip}
+        onMouseEnter={() => preview(card.instanceId)}
+        onMouseLeave={() => preview(null)}
+      />
     </div>
   );
 }
@@ -71,10 +79,11 @@ function HandCard({
  * their top 40 % above the edge. Cards overlap like a held hand: each column is three quarters of a
  * card wide, so each card covers a quarter of the one to its left; the columns shrink when the
  * row is full, so a large hand overlaps more and the row never scrolls. Hovering, focusing or
- * selecting a card raises it whole (CSS). Each card is two boxes: the outer one never moves, so
- * its place in the row stays its hit area and nothing shifts; the inner one lifts. A hovered
- * card's lifted image keeps it hovered, while a selected card's lets clicks through to the zones
- * under it, and clicking its place in the row still cancels the selection. A card is lit when it can be played to a zone (`isLit`); a card that
+ * selecting a card raises it whole (CSS). Each card has an outer box that never moves (its place
+ * in the row, so nothing shifts), the card that lifts, and a strip over its visible part of the row
+ * that stays on top, so a raised card never takes a neighbor's strip. Above the row, a hovered
+ * card's lifted image keeps it hovered; a selected card's lets clicks through to the zones under
+ * it, and clicking its strip still cancels the selection. A card is lit when it can be played to a zone (`isLit`); a card that
  * can only invade or gain rage is unlit but still selectable; a card with no action is dimmed. While a bot decides (or the game is over)
  * the hand is locked.
  */

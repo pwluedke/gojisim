@@ -178,6 +178,30 @@ test.describe("raising a card", () => {
       .toBeCloseTo((before[4] as Box).height, 0);
   });
 
+  test("a raised card never takes a neighbor's strip: pointing at the next card raises that card", async ({
+    page,
+  }) => {
+    await settings(page);
+    await loadFixture(page, "hand-ten");
+    const all = await cards(page).all();
+    const rest = await boxes(all);
+    for (const i of [2, 5]) {
+      const box = rest[i] as Box;
+      const next = rest[i + 1] as Box;
+      await page.mouse.move(box.x + box.width * 0.2, 890);
+      await expectRaised(page, all[i] as Locator);
+      // The left part of the next card's strip, which the raised card covers, then its center.
+      for (const x of [next.x + 2, next.x + next.width / 2]) {
+        await page.mouse.move(x, 885);
+        await expectRaised(page, all[i + 1] as Locator);
+      }
+    }
+    // A click on the next card's visible center lands on it (CI found this).
+    await page.mouse.move(rest[3]!.x + 5, 890);
+    await all[4]!.click();
+    await expect(all[4]!).toHaveAttribute("data-selected", "true");
+  });
+
   test("keyboard focus raises a card the same way", async ({ page }) => {
     await settings(page);
     await loadFixture(page, "hand-ten");

@@ -536,6 +536,7 @@
 }
 
 .handCard {
+  /* No z-index: the lifted card and the strip stack against the other hand cards. */
   position: relative;
   width: var(--card-w);
   height: var(--card-h);
@@ -544,6 +545,7 @@
 
 /* The card itself, which lifts; a raised card grows from its bottom edge, at the window's. */
 .handLift {
+  position: relative;
   width: 100%;
   height: 100%;
   border-radius: var(--radius);
@@ -555,23 +557,31 @@
 /*
  * Hovering, keyboard focus or a selection raises a card straight up, whole and 1.5 times the board
  * card size, over the board and the other hand cards. A transform, so nothing else moves. Its
- * bottom edge lands on the row's bottom (the window's), so the pointer stays over it.
+ * bottom edge lands on the row's bottom (the window's).
  */
-.handCard:hover,
-.handCard:focus-visible,
-.handCard.selected {
-  z-index: 10;
-}
-
 .handCard:hover .handLift,
 .handCard:focus-visible .handLift,
 .handCard.selected .handLift {
+  z-index: 10;
   transform: translateY(calc(var(--card-h) * (var(--hand-peek) - 1))) scale(1.5);
 }
 
 /* A selected card stays up until the action or Esc, and lets clicks through to the zones. */
 .handCard.selected .handLift {
   pointer-events: none;
+}
+
+/*
+ * The card's visible part of the row, over any raised card: pointing at a card's strip always
+ * finds that card, and later cards' strips sit over earlier ones, as the cards do.
+ */
+.handStrip {
+  position: absolute;
+  z-index: 11;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: calc(var(--card-h) * var(--hand-peek));
 }
 
 .playable {
