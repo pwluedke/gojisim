@@ -231,6 +231,9 @@ export function ImportDeck({
               type="button"
               className={styles.choiceButton}
               data-testid="import-all"
+              // Once it has saved, a second click would save the same decks again as " (2)";
+              // a change to the text clears the report and the button.
+              disabled={!!allReport?.saved.length}
               onClick={() => {
                 const report = importAll(text, existingNames);
                 if (report.saved.length > 0) onSaveAll(report.saved);

@@ -690,3 +690,12 @@ Accepted by Monarch in the deploy for testers review (PR #59).
 494. The volume holds only the card WebPs (`CARDS_DIR=/data/cards`), copied up from Paul's Mac (docs/deploy.md step 4); a deploy never touches them.
 495. The production-build test (`e2e:prod`, a CI job `ci` needs) runs the built server with the gate on, on port 5199.
 496. Railway runs one service from the repo root (`railway.json`), deploying only from the `release` branch, which only Paul moves (`git push origin main:release`); merges into `main` never deploy.
+
+Accepted by Monarch in the deploy docs and Import all review (PR #60).
+
+497. Import all keeps the modal open with its report ("Saved N of M decks", then each deck not saved with its reasons); Cancel becomes Close. Import all is disabled once it has saved, until the text changes.
+498. The last deck Import all saves becomes P1's pick (decision 292).
+499. A deck with no cards isn't saved by Import all ("No cards").
+500. Lines outside any deck are reported but don't block Import all; the single Save deck still needs a list with no errors anywhere.
+501. A deck name with nothing after its last "/" ("Community/") is kept whole.
+502. On Railway with no `GOJISIM_PASSWORD`, the open-site warning prints before and after the listening line, so it sits next to the line the deploy check reads.

@@ -283,6 +283,8 @@ test("Import all saves every deck that parses, without folders, and reports the 
   await expect(page.getByTestId("import-all-result")).toContainText(
     "Not saved, Club/Broken: Line",
   );
+  // A second click can't save the same decks again.
+  await expect(page.getByTestId("import-all")).toBeDisabled();
   await expect(page.getByTestId("import-cancel")).toHaveText("Close [Esc]");
   await page.getByTestId("import-cancel").click();
   await expect(myDecks(page)).toHaveText([
