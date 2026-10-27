@@ -18,6 +18,7 @@ import { Fragment, useEffect } from "react";
 /** Width of the card detail drawer; the page reserves this much space while it is open. */
 export const CARD_DETAIL_WIDTH = 400;
 import { cardData } from "../game/labels";
+import { printedBase, printedText } from "../game/printed";
 
 type Select = (card: CardInstance) => void;
 
@@ -40,7 +41,7 @@ export function CardView({
   const data = cardData(state, card);
   // Counter power the engine adds to (or takes from) a battle card's printed value.
   const bonus = isBattle(data)
-    ? getCounterPower(state, card) - (data?.counterOrThreat ?? 0)
+    ? getCounterPower(state, card) - printedBase(data?.counterOrThreat ?? 0)
     : 0;
   // A hidden card (cardId -1): the viewer sees only its back (M6d).
   if (card.cardId === -1)
@@ -93,12 +94,12 @@ export function CardView({
         {data?.rank !== null && data?.rank !== undefined ? `R${data.rank}` : ""}
       </div>
       <div>
-        {data?.counterOrThreat ?? ""}
+        {data?.counterOrThreat != null ? printedText(data.counterOrThreat) : ""}
         {bonus !== 0 && (
           // Continuous effects on this card (10.8.1), e.g. City of Tokyo's +5000.
           <span
             data-testid="counter-power-bonus"
-            title={`Counter power with effects: ${(data?.counterOrThreat ?? 0) + bonus}`}
+            title={`Counter power with effects: ${printedBase(data?.counterOrThreat ?? 0) + bonus}`}
             style={{ color: "var(--color-accent)", fontWeight: "bold" }}
           >
             {" "}
@@ -379,8 +380,11 @@ export function CardDetail({
       <p>
         {card.type} · rank {card.rank ?? "-"} ·{" "}
         {card.type === "Monster" ? "threat" : "counter power"}{" "}
-        {card.counterOrThreat ?? "-"} · invasion {card.invadeZones ?? "-"} ·
-        colors {card.colors.join("/") || "none"}
+        {card.counterOrThreat !== null
+          ? printedText(card.counterOrThreat)
+          : "-"}{" "}
+        · invasion {card.invadeZones ?? "-"} · colors{" "}
+        {card.colors.join("/") || "none"}
       </p>
       <p>
         <strong>Traits:</strong> {getCardTraits(card).join(", ") || "none"}

@@ -636,3 +636,10 @@ Accepted by Monarch in the bot hand row review (PR #54).
 459. A card an effect revealed shows face up in the row and previews on hover; without "Show opponent's hand" the row never fans.
 460. The fan is a panel from the row's top-left corner over the board, wrapping within the board's width, below flights, the preview and modals.
 461. Rage zone text keeps its font sizes; its box grows with the cards.
+
+Accepted by Monarch in the CI fixes review (PR #55).
+
+462. The e2e shards run in Microsoft's Playwright image (`mcr.microsoft.com/playwright:v<version>-noble`, `--user 1001`), so nothing installs from Ubuntu's apt mirror; the browser cache and install steps (decision 442) are gone. It costs about 25 s on a good run and removes the 6 to 10 minute tail.
+463. The image tag must match the lockfile's Playwright version; `apps/web/src/playwrightImage.test.ts` checks it, so it also runs locally with `pnpm test`.
+464. The nightly stress test runs two jobs side by side: uniform 10,000 games (60 min timeout) and weighted 4,500 games (90 min timeout). The weighted count is sized from the runner's rate (about 78 games a minute) to finish in about 60 min; past 75 min, it is lowered.
+465. Decision 123's single 120-minute nightly timeout is replaced by each job's own timeout.

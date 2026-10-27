@@ -276,3 +276,25 @@ export function pickerGroups(
   if (imported) groups.set(DEV_GROUPS.imported, imported);
   return [...groups].map(([label, list]) => ({ label, options: list }));
 }
+
+/** The starter picks: P1 ESD01 official, P2 ESD02 official. A match type switch resets to them. */
+export const STARTER_PICKS = {
+  P1: "official:ESD01",
+  P2: "official:ESD02",
+} as const;
+
+/**
+ * Randomize: a deck key from `candidates` (the seat's filtered list, legal decks only in a
+ * Tournament game), other than `current` when there is another to pick. `random` is a fresh
+ * random source, never the game seed, so the pick doesn't hint at the game's shuffles.
+ */
+export function randomDeckKey(
+  candidates: readonly string[],
+  current: string,
+  random: () => number = Math.random,
+): string | null {
+  const others = candidates.filter((key) => key !== current);
+  const pool = others.length > 0 ? others : candidates;
+  if (pool.length === 0) return null;
+  return pool[Math.floor(random() * pool.length)] ?? null;
+}

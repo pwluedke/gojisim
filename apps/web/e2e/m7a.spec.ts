@@ -25,6 +25,24 @@ async function importDeck(page: Page, text: string, name?: string) {
 
 const myDecks = (page: Page) => page.getByTestId("my-deck-name");
 
+/** A saved deck's action, from its "⋯" menu. */
+async function deckAction(
+  row: ReturnType<Page["getByTestId"]>,
+  action: "rename-deck" | "copy-deck" | "delete-deck",
+) {
+  await row.getByTestId("deck-menu").click();
+  await row.page().getByTestId(action).click();
+}
+
+/** My decks starts collapsed on a fresh page. */
+async function openMyDecks(page: Page) {
+  await page.getByTestId("my-decks-toggle").click();
+  await expect(page.getByTestId("my-decks")).toHaveAttribute(
+    "data-open",
+    "true",
+  );
+}
+
 const cardsFixture = (name: string) =>
   readFileSync(
     new URL(`../../../packages/cards/test/fixtures/${name}`, import.meta.url),
@@ -96,14 +114,15 @@ test("rename and delete a saved deck; saved decks survive a reload", async ({
     "true",
   );
   await page.reload();
+  await openMyDecks(page);
   await expect(myDecks(page)).toHaveText(["Gigan", "Second"]);
   const first = page.getByTestId("my-deck").filter({ hasText: "Gigan" });
-  await first.getByTestId("rename-deck").click();
+  await deckAction(first, "rename-deck");
   await page.getByTestId("rename-input").fill("Renamed Gigan");
   await page.getByTestId("rename-save").click();
   await expect(myDecks(page)).toHaveText(["Renamed Gigan", "Second"]);
   const second = page.getByTestId("my-deck").filter({ hasText: "Second" });
-  await second.getByTestId("delete-deck").click();
+  await deckAction(second, "delete-deck");
   await second.getByTestId("delete-confirm").click();
   await expect(myDecks(page)).toHaveText(["Renamed Gigan"]);
   // Storage has caught up before the reload.
@@ -112,6 +131,7 @@ test("rename and delete a saved deck; saved decks survive a reload", async ({
     "true",
   );
   await page.reload();
+  await openMyDecks(page);
   await expect(myDecks(page)).toHaveText(["Renamed Gigan"]);
   await expect(page.getByTestId("deck-P2").locator("option")).toContainText([
     "Renamed Gigan",
@@ -125,7 +145,7 @@ test("Copy puts the deck on the clipboard as plain text", async ({
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/play?mode=bot");
   await importDeck(page, tcgdbList, "Gigan");
-  await page.getByTestId("copy-deck").click();
+  await deckAction(page.getByTestId("my-deck").first(), "copy-deck");
   await expect(page.getByTestId("decks-note")).toContainText("Copied Gigan");
   const text = await page.evaluate(() => navigator.clipboard.readText());
   expect(text).toMatch(/^\[deck\] Gigan\n\[monster deck\]\n1 EBP04-027\n/);
@@ -146,7 +166,7 @@ test("Export all writes one JSON backup; importing it brings the decks back", as
     decks: [{ name: "Gigan" }],
   });
   const row = page.getByTestId("my-deck").filter({ hasText: "Gigan" });
-  await row.getByTestId("delete-deck").click();
+  await deckAction(row, "delete-deck");
   await row.getByTestId("delete-confirm").click();
   await expect(myDecks(page)).toHaveCount(0);
   await page.getByTestId("import-backup").setInputFiles({

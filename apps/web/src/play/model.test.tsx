@@ -11,6 +11,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { BoardView } from "./BoardView";
 import { boardModel, bottomPlayer } from "./model";
+import { Preview } from "./Preview";
 
 function official(file: string): Omit<PlayerSetup, "id"> {
   const url = new URL(
@@ -95,6 +96,70 @@ describe("/play board model (M5a)", () => {
       .replace(/<[^>]+>/g, "|");
     // The zone 8 City of Tokyo: printed 0, then +5000 from the one in zone 1 (Awakening 6).
     expect(html).toContain("|0| +5000|");
+  });
+
+  it("decision 373: Monster X's printed X shows as X, with its current value as X = 12000, never -1 or +1", () => {
+    const state = game();
+    const p1 = state.players[0];
+    const base = (number: string) => {
+      const card = getAllCards().find(
+        (c) => c.cardNumber === number && c.parentId === null,
+      );
+      if (!card) throw new Error(number);
+      return card;
+    };
+    // EBP03-067: X = 3000 × the colors among your other battle cards. One battle card of each
+    // color makes 4 colors in play: X = 12000. EBP04-031 (a Monster X monster card) waits in the
+    // discard pile, where it has no current value.
+    const monsterX = base("EBP03-067");
+    const colors = ["EBP01-016", "EBP01-053", "EBP02-063", "EBP01-070"].map(
+      base,
+    );
+    const monsterCard = base("EBP04-031");
+    state.cards = {
+      ...state.cards,
+      ...Object.fromEntries(
+        [monsterX, ...colors, monsterCard].map((c) => [c.id, c]),
+      ),
+    };
+    expect(colors.flatMap((c) => c.colors)).toEqual([
+      "Red",
+      "Blue",
+      "Green",
+      "White",
+    ]);
+    p1.monsterPosition = 7;
+    p1.zones[8] = [
+      [{ instanceId: "c990010", cardId: monsterX.id, owner: "P1" }],
+    ];
+    colors.forEach((card, i) => {
+      p1.zones[([1, 2, 3, 5] as const)[i] as 1 | 2 | 3 | 5] = [
+        [{ instanceId: `c99001${i + 1}`, cardId: card.id, owner: "P1" }],
+      ];
+    });
+    p1.discard = [
+      ...p1.discard,
+      { instanceId: "c990019", cardId: monsterCard.id, owner: "P1" },
+    ];
+    const model = boardModel(state, "P1");
+    expect(model.counterPower["c990010"]).toBe(12000);
+    const text = (html: string) =>
+      html.replace(/<!-- -->/g, "").replace(/<[^>]+>/g, "|");
+    const board = text(
+      renderToStaticMarkup(<BoardView model={model} prompt={null} />),
+    );
+    expect(board).toContain("|X = 12000|");
+    const preview = text(
+      renderToStaticMarkup(<Preview model={model} instanceId="c990010" />),
+    );
+    expect(preview).toContain("Counter power |X = 12000|");
+    const discarded = text(
+      renderToStaticMarkup(<Preview model={model} instanceId="c990019" />),
+    );
+    expect(discarded).toContain("Threat |X|");
+    for (const html of [board, preview, discarded]) {
+      expect(html).not.toMatch(/\|-1\||\+1\b|\+12001/);
+    }
   });
 
   it("12.5 a Burst monster shows its rank change and the end-phase discard reminder as a change chip", () => {
