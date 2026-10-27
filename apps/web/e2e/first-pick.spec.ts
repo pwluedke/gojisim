@@ -216,6 +216,8 @@ test.describe("the bot hand's count badge", () => {
   test("the badge equals the bot's hand size through a few turns", async ({
     page,
   }) => {
+    // Three bot turns: slower than the 30 s default on a CI runner.
+    test.setTimeout(120_000);
     // hand-count-five: early in the game, so passing a few turns doesn't lose it.
     await loadFixture(page, "hand-count-five");
     const hand = page.getByTestId("opponent-hand");
