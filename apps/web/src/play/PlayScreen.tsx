@@ -16,6 +16,7 @@ import type { SeatConfig } from "../game/bots";
 import type { DeckOption } from "../game/decks";
 import {
   canUndoSession,
+  downloadRecord,
   newSession,
   PLAYER_IDS,
   type PlayerId,
@@ -162,6 +163,8 @@ export function PlayScreen() {
   const [overlay, setOverlay] = useState<"hand" | "shortcuts" | null>(null);
   // M5e: the game waiting for its First / Second pick, and human searches waiting for Confirm.
   const [pending, setPending] = useState<PendingGame | null>(null);
+  // Report bug was used in this game: show where the file goes.
+  const [reported, setReported] = useState(false);
   const [searches, setSearches] = useState<SearchResult[]>([]);
   // Log entries already checked for searches (a loaded record's searches are history).
   const seenLog = useRef(0);
@@ -188,6 +191,7 @@ export function PlayScreen() {
       const start = next.states[next.position] as GameState;
       setHistoryAt(null);
       setSearches([]);
+      setReported(false);
       seenLog.current = start.log.length;
       // A loaded record's combos are history: no callouts for them.
       setCallouts([]);
@@ -638,170 +642,202 @@ export function PlayScreen() {
     );
 
   const settingsPanel = (
-    <details className={styles.settings}>
-      <summary data-testid="settings">Settings</summary>
-      <div className={styles.settingsPanel}>
-        <label>
-          Bot delay{" "}
-          <input
-            type="range"
-            min={0}
-            max={3000}
-            step={100}
-            data-testid="setting-bot-delay"
-            value={settings.botDelay}
-            onChange={(e) =>
-              updateSettings({ botDelay: Number(e.target.value) })
-            }
-          />{" "}
-          {settings.botDelay} ms
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            data-testid="setting-rules"
-            checked={settings.showRules}
-            onChange={(e) => updateSettings({ showRules: e.target.checked })}
-          />{" "}
-          Show rule numbers in the log
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            data-testid="setting-show-undone"
-            checked={settings.showUndone}
-            onChange={(e) => updateSettings({ showUndone: e.target.checked })}
-          />{" "}
-          Show undone actions
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            data-testid="setting-invade-arrow"
-            checked={settings.invadeArrow}
-            onChange={(e) => updateSettings({ invadeArrow: e.target.checked })}
-          />{" "}
-          Invade arrow
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            data-testid="setting-expanded-hand"
-            checked={settings.expandedHand}
-            onChange={(e) => updateSettings({ expandedHand: e.target.checked })}
-          />{" "}
-          Expanded hand on H
-        </label>
-        <label>
-          Theme{" "}
-          <select
-            data-testid="setting-theme"
-            value={settings.theme}
-            onChange={(e) => updateSettings({ theme: e.target.value as Theme })}
+    <>
+      <details className={styles.settings}>
+        <summary data-testid="settings">Settings</summary>
+        <div className={styles.settingsPanel}>
+          <label>
+            Bot delay{" "}
+            <input
+              type="range"
+              min={0}
+              max={3000}
+              step={100}
+              data-testid="setting-bot-delay"
+              value={settings.botDelay}
+              onChange={(e) =>
+                updateSettings({ botDelay: Number(e.target.value) })
+              }
+            />{" "}
+            {settings.botDelay} ms
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              data-testid="setting-rules"
+              checked={settings.showRules}
+              onChange={(e) => updateSettings({ showRules: e.target.checked })}
+            />{" "}
+            Show rule numbers in the log
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              data-testid="setting-show-undone"
+              checked={settings.showUndone}
+              onChange={(e) => updateSettings({ showUndone: e.target.checked })}
+            />{" "}
+            Show undone actions
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              data-testid="setting-invade-arrow"
+              checked={settings.invadeArrow}
+              onChange={(e) =>
+                updateSettings({ invadeArrow: e.target.checked })
+              }
+            />{" "}
+            Invade arrow
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              data-testid="setting-expanded-hand"
+              checked={settings.expandedHand}
+              onChange={(e) =>
+                updateSettings({ expandedHand: e.target.checked })
+              }
+            />{" "}
+            Expanded hand on H
+          </label>
+          <label>
+            Theme{" "}
+            <select
+              data-testid="setting-theme"
+              value={settings.theme}
+              onChange={(e) =>
+                updateSettings({ theme: e.target.value as Theme })
+              }
+            >
+              {THEMES.map((theme) => (
+                <option key={theme} value={theme}>
+                  {THEME_NAMES[theme]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Animation speed{" "}
+            <select
+              data-testid="setting-animation"
+              value={settings.animation}
+              onChange={(e) =>
+                updateSettings({ animation: e.target.value as AnimationSpeed })
+              }
+            >
+              <option value="off">Off</option>
+              <option value="normal">Normal</option>
+              <option value="fast">Fast</option>
+            </select>
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              data-testid="setting-turn-glow"
+              checked={settings.turnGlow}
+              onChange={(e) => updateSettings({ turnGlow: e.target.checked })}
+            />{" "}
+            Turn glow
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              data-testid="setting-combo-callouts"
+              checked={settings.comboCallouts}
+              onChange={(e) =>
+                updateSettings({ comboCallouts: e.target.checked })
+              }
+            />{" "}
+            Combo callouts
+          </label>
+          <fieldset
+            className={styles.matSettings}
+            data-testid="mat-settings"
+            data-mat-stored={customMat.stored ? "true" : "false"}
           >
-            {THEMES.map((theme) => (
-              <option key={theme} value={theme}>
-                {THEME_NAMES[theme]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Animation speed{" "}
-          <select
-            data-testid="setting-animation"
-            value={settings.animation}
-            onChange={(e) =>
-              updateSettings({ animation: e.target.value as AnimationSpeed })
-            }
-          >
-            <option value="off">Off</option>
-            <option value="normal">Normal</option>
-            <option value="fast">Fast</option>
-          </select>
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            data-testid="setting-turn-glow"
-            checked={settings.turnGlow}
-            onChange={(e) => updateSettings({ turnGlow: e.target.checked })}
-          />{" "}
-          Turn glow
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            data-testid="setting-combo-callouts"
-            checked={settings.comboCallouts}
-            onChange={(e) =>
-              updateSettings({ comboCallouts: e.target.checked })
-            }
-          />{" "}
-          Combo callouts
-        </label>
-        <fieldset
-          className={styles.matSettings}
-          data-testid="mat-settings"
-          data-mat-stored={customMat.stored ? "true" : "false"}
-        >
-          <legend>Mat image</legend>
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            data-testid="mat-upload"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) customMat.upload(file);
-              e.target.value = "";
+            <legend>Mat image</legend>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              data-testid="mat-upload"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) customMat.upload(file);
+                e.target.value = "";
+              }}
+            />
+            <div className={styles.muted}>
+              PNG, JPG or WebP, up to {MAT_MAX_BYTES / 1024 / 1024} MB.
+            </div>
+            {customMat.error && (
+              <div className={styles.error} data-testid="mat-error">
+                {customMat.error}
+              </div>
+            )}
+            {customMat.mat && (
+              <>
+                {(
+                  [
+                    ["scale", "Scale", 25, 300],
+                    ["x", "X position", 0, 100],
+                    ["y", "Y position", 0, 100],
+                  ] as const
+                ).map(([key, label, min, max]) => (
+                  <label key={key}>
+                    {label}{" "}
+                    <input
+                      type="range"
+                      min={min}
+                      max={max}
+                      data-testid={`mat-${key}`}
+                      value={customMat.mat?.[key] ?? 0}
+                      onChange={(e) =>
+                        customMat.adjust({ [key]: Number(e.target.value) })
+                      }
+                    />{" "}
+                    {customMat.mat?.[key]}%
+                  </label>
+                ))}
+                <button
+                  type="button"
+                  className={styles.button}
+                  data-testid="mat-reset"
+                  onClick={customMat.reset}
+                >
+                  Reset to default
+                </button>
+              </>
+            )}
+          </fieldset>
+          <div className={styles.muted}>Press ? for the shortcut list.</div>
+        </div>
+      </details>
+      {/* Report bug (deploy for testers): the game record as JSON, the format /debug exports and
+        "Load a game record" reads, at any moment of the game. */}
+      {/* Not during the First / Second pick: no game record exists yet. */}
+      {!pending && (
+        <div className={styles.reportBug}>
+          <button
+            type="button"
+            className={styles.button}
+            data-testid="report-bug"
+            onClick={() => {
+              downloadRecord(session);
+              setReported(true);
             }}
-          />
-          <div className={styles.muted}>
-            PNG, JPG or WebP, up to {MAT_MAX_BYTES / 1024 / 1024} MB.
-          </div>
-          {customMat.error && (
-            <div className={styles.error} data-testid="mat-error">
-              {customMat.error}
+          >
+            Report bug
+          </button>
+          {reported && (
+            <div className={styles.muted} data-testid="report-bug-note">
+              Saved this game&apos;s record. Send the file to Paul with a few
+              words about what went wrong.
             </div>
           )}
-          {customMat.mat && (
-            <>
-              {(
-                [
-                  ["scale", "Scale", 25, 300],
-                  ["x", "X position", 0, 100],
-                  ["y", "Y position", 0, 100],
-                ] as const
-              ).map(([key, label, min, max]) => (
-                <label key={key}>
-                  {label}{" "}
-                  <input
-                    type="range"
-                    min={min}
-                    max={max}
-                    data-testid={`mat-${key}`}
-                    value={customMat.mat?.[key] ?? 0}
-                    onChange={(e) =>
-                      customMat.adjust({ [key]: Number(e.target.value) })
-                    }
-                  />{" "}
-                  {customMat.mat?.[key]}%
-                </label>
-              ))}
-              <button
-                type="button"
-                className={styles.button}
-                data-testid="mat-reset"
-                onClick={customMat.reset}
-              >
-                Reset to default
-              </button>
-            </>
-          )}
-        </fieldset>
-        <div className={styles.muted}>Press ? for the shortcut list.</div>
-      </div>
-    </details>
+        </div>
+      )}
+    </>
   );
   const handCards =
     model.view.players.find((p) => p.id === model.bottom)?.hand.cards ?? [];

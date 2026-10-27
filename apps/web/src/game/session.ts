@@ -269,8 +269,8 @@ export function downloadRecord(session: Session): void {
 /**
  * The board as it stands at the First / Second pick (6.3.1.4): both decks shuffled in place
  * (6.3.1.3), no hands and no invading monsters yet (6.3.1.5, 6.3.1.6), an empty log and no
- * pending choice, so nothing on the board tells who goes first. Display only, under the pick modal: the game starts
- * from the picked card's own session. The decks are the same whichever card is picked (they are
+ * pending choice, so nothing on the board tells who goes first. Display only, under the pick
+ * modal: the game starts from the picked card's own session. The decks are the same whichever card is picked (they are
  * shuffled before the pick's RNG draw, decision 48).
  */
 export function prePickSession(session: Session): Session {
