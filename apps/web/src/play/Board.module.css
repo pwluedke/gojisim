@@ -453,6 +453,14 @@
   flex: none;
 }
 
+/* An empty hand: a half-size slot outlined like an empty pile, holding the 0 badge. */
+.handSlotEmpty {
+  width: calc(var(--card-w) / 2);
+  height: calc(var(--card-h) / 2);
+  border: 1px var(--zone-outline-style) var(--color-cell-outline);
+  border-radius: var(--radius);
+}
+
 .handSlot + .handSlot {
   /* Half-size cards (--card-w / 2) showing a sixth: the rest, 5/6 of a half card, is covered. */
   margin-left: calc(var(--card-w) * -5 / 12);

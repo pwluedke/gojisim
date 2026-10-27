@@ -813,6 +813,7 @@ export function BoardView({
   animation = "off",
   onAnimating,
   turnGlow = false,
+  picking = false,
   invadeArrow = false,
   mat = null,
   logCollapsed = false,
@@ -851,6 +852,8 @@ export function BoardView({
   onAnimating?: (animating: boolean) => void;
   /** Glow the turn player's mat border in their monster's colors (M5f setting). */
   turnGlow?: boolean;
+  /** The First / Second pick is open over the board (setup): no phase, no turn player yet. */
+  picking?: boolean;
   /** Draw the invade arrow while a card is dragged over your discard pile (M5h #7). */
   invadeArrow?: boolean;
   /** A custom mat image behind both mats (M5f), or `null` for the default mat. */
@@ -880,7 +883,7 @@ export function BoardView({
     null,
   );
   const [animating, setAnimating] = useState(false);
-  const { flights, landed } = useMoveAnimations({
+  const { flights, landed, heldCounts } = useMoveAnimations({
     root: mainRef,
     model,
     step,
@@ -1061,7 +1064,14 @@ export function BoardView({
             </section>
             <section className={styles.panel} data-testid="phase-tracker">
               <div className={styles.panelTitle}>Phase</div>
-              <PhaseTracker view={view} name={name} />
+              {picking ? (
+                // Before the First / Second pick nothing says whose turn it is (6.3.1.4).
+                <div className={styles.muted} data-testid="phase-setup">
+                  Setup (6.3): deciding who goes first.
+                </div>
+              ) : (
+                <PhaseTracker view={view} name={name} />
+              )}
             </section>
             {settings}
           </aside>
@@ -1079,6 +1089,7 @@ export function BoardView({
                 player={opp}
                 cards={view.cards}
                 open={model.openHand}
+                badgeCount={heldCounts?.[`${opp.id}|hand`]}
               />
               <Mat
                 model={model}

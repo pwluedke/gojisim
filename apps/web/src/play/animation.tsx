@@ -882,9 +882,17 @@ export function useMoveAnimations({
   flights: Flight[];
   /** The flight layer calls it once its animations have finished: the step ends. */
   landed: () => void;
+  /**
+   * Pile counts from before the step while its cards fly (`<player>|<pile>`), so a count badge can
+   * change once the cards land; `null` with nothing in flight.
+   */
+  heldCounts: Record<string, number> | null;
 } {
   const prev = useRef<Snapshot | null>(null);
   const [flights, setFlights] = useState<Flight[]>([]);
+  const [heldCounts, setHeldCounts] = useState<Record<string, number> | null>(
+    null,
+  );
   const hidden = useRef<HTMLElement[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const report = useRef(onAnimating);
@@ -897,6 +905,7 @@ export function useMoveAnimations({
     for (const el of hidden.current) el.style.visibility = "";
     hidden.current = [];
     setFlights([]);
+    setHeldCounts(null);
     report.current?.(false);
   };
 
@@ -937,6 +946,7 @@ export function useMoveAnimations({
       }
     }
     setFlights(planned);
+    setHeldCounts(before.counts);
     report.current?.(true);
     // Only a fallback: the step ends when the flights' animations finish (below). On a slow
     // machine the animations start late, and a timer alone would end them before they land.
@@ -945,5 +955,5 @@ export function useMoveAnimations({
 
   // Leaving the board ends any flight.
   useEffect(() => () => finish(), []);
-  return { flights, landed: finish };
+  return { flights, landed: finish, heldCounts };
 }
