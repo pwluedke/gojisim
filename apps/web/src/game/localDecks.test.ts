@@ -47,6 +47,7 @@ describe("development deck files", () => {
             line: 89,
             reason: "Unknown card number XYZ-999",
             text: "4 XYZ-999",
+            deck: 3,
           },
         ],
       },

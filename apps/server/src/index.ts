@@ -112,11 +112,25 @@ export function createAppServer({
   );
 }
 
+/**
+ * The warning to log at startup, if any: on Railway (`RAILWAY_ENVIRONMENT` is set) with no
+ * password, the site is open to anyone, which must be obvious in the deploy log.
+ */
+export function openSiteWarning(
+  env: Record<string, string | undefined>,
+): string | null {
+  return env.RAILWAY_ENVIRONMENT && !env.GOJISIM_PASSWORD
+    ? "WARNING: no password gate, the site is open to anyone. Set GOJISIM_PASSWORD and SESSION_SECRET (docs/deploy.md)."
+    : null;
+}
+
 if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
   const port = Number(process.env.PORT ?? 3000);
+  const warning = openSiteWarning(process.env);
+  if (warning) console.warn(warning);
   createAppServer({
     password: process.env.GOJISIM_PASSWORD || undefined,
     secret: process.env.SESSION_SECRET || undefined,
@@ -127,5 +141,7 @@ if (
     console.log(
       `GojiSim server listening on http://localhost:${port}${process.env.GOJISIM_PASSWORD ? " (password gate on)" : ""}`,
     );
+    // Again after the listening line, so it is next to the last line the deploy check reads.
+    if (warning) console.warn(warning);
   });
 }

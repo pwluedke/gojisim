@@ -48,7 +48,7 @@ On the `/play` new-game screen, **Import deck** takes a pasted deck list in any 
 
 **Decklog** (decklog-en.bushiroad.com): paste the deck's URL (`https://decklog-en.bushiroad.com/view/1STAP`) or its code (`1STAP`) into the Decklog box of Import deck and click Fetch (or Enter). GojiSim fetches it through its own route, `GET /api/decklog/<code>`, because Decklog sends no CORS header: the Vite dev server serves the route now, and `apps/server` serves the same route (`apps/server/src/decklog.ts`) at M9. The deck becomes GojiSim deck list text in the box (named after its Decklog title), so the same preview, errors and warnings apply. Parallel (`+`) and PR reprint (`++`) numbers name the same prints as the card data; a `+` print the data lacks reads as its base card. Errors: deck not found, Decklog unreachable, and card numbers GojiSim doesn't know yet (a card data refresh, `pnpm scrape`, picks up new cards). A page served without GojiSim's server (a static build) says the import needs it.
 
-Unknown card numbers and unreadable lines block saving; legality problems (deck size, copies, the restriction list) are warnings, and the deck still plays in Casual games (Tournament games take legal decks only). Saved decks are **My decks**, kept in this browser's IndexedDB (only for the current visit when storage is blocked), collapsed by default as "My decks (N)" and scrolling inside a box 4 rows tall when open; each deck's "⋯" menu has Rename, Copy (plain text) and Delete, and Export all / Import backup save and restore all of them as one JSON file. Saving or restoring a deck opens the list. The gitignored `local-decks` import in `/debug` stays for development.
+Unknown card numbers and unreadable lines block saving; legality problems (deck size, copies, the restriction list) are warnings, and the deck still plays in Casual games (Tournament games take legal decks only). A deck saves under its `[deck]` name without the folder ("Community/Red Rage" becomes "Red Rage"; editable before saving). A pasted list with several decks offers **Import all** next to the deck picker: it saves every deck that parses, reports how many were saved and which weren't, and gives a name already in My decks " (2)", " (3)" and so on. Saved decks are **My decks**, kept in this browser's IndexedDB (only for the current visit when storage is blocked), collapsed by default as "My decks (N)" and scrolling inside a box 4 rows tall when open; each deck's "⋯" menu has Rename, Copy (plain text) and Delete, and Export all / Import backup save and restore all of them as one JSON file. Saving or restoring a deck opens the list. The gitignored `local-decks` import in `/debug` stays for development.
 
 Not supported:
 
@@ -66,7 +66,15 @@ It downloads every card's original PNG from godzillatcgdb.com (1 request per sec
 
 ## Deploy for testers
 
-The testers' build runs on Railway at `https://gojisim.somanygames.app`, behind one shared password. It deploys only by hand: Railway watches the `release` branch, which Paul moves with `git push origin main:release`, so merges into `main` never deploy. See [docs/deploy.md](docs/deploy.md) for the setup steps, deploying and rolling back, the card image volume and how the gate works. `pnpm build`, then `node apps/server/dist/index.js` (with `GOJISIM_PASSWORD` and `SESSION_SECRET` set to try the gate) serves the built app locally; `pnpm --filter @gojisim/web e2e:prod` tests it with the gate on. In `/play`, **Report bug** (left column, under Settings) downloads the current game record for a bug report; "Load a game record" or `/debug` opens it.
+The testers' build runs on Railway at `https://gojisim.somanygames.app`, behind one shared password. It deploys only by hand: Railway watches the `release` branch, which Paul moves with this command:
+
+```
+git checkout main && git pull && git push origin main:release
+```
+
+Deploy only when you want testers to get what's on main; merging a PR doesn't deploy.
+
+See [docs/deploy.md](docs/deploy.md) for the setup steps, deploying and rolling back, the card image volume and how the gate works. `pnpm build`, then `node apps/server/dist/index.js` (with `GOJISIM_PASSWORD` and `SESSION_SECRET` set to try the gate) serves the built app locally; `pnpm --filter @gojisim/web e2e:prod` tests it with the gate on. In `/play`, **Report bug** (left column, under Settings) downloads the current game record for a bug report; "Load a game record" or `/debug` opens it.
 
 ## Layout
 

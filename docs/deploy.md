@@ -15,6 +15,7 @@ The repo's `railway.json` holds the build command, the start command and the hea
 - The Railway account that hosts Session Zero.
 - The Porkbun account for `somanygames.app`.
 - The Railway CLI on your Mac, for the one-time image step: `brew install railway`, then `railway login`.
+- The card images on your Mac (`pnpm images`, which fills `apps/web/public/cards/`).
 
 ## 1. Create the service
 
@@ -42,6 +43,16 @@ The repo's `railway.json` holds the build command, the start command and the hea
 
 Make the secret on your Mac with `openssl rand -hex 32` and paste the output. Railway sets `PORT` itself; don't add it.
 
+Railway stages variable edits: nothing changes until you click **Apply changes** (or **Deploy**) at the top of the canvas. Click it after adding the variables.
+
+**Check the gate is on.** In **Deployments**, open the new deploy's **Deploy Logs**. The last line must end with `(password gate on)`:
+
+```
+GojiSim server listening on http://localhost:<port> (password gate on)
+```
+
+If it doesn't, the site is open to anyone: the variables weren't applied. On Railway, a server without `GOJISIM_PASSWORD` also logs `WARNING: no password gate, the site is open to anyone`. Apply the variables and check again.
+
 ## 3. Attach a volume for the card images
 
 1. In the project canvas, right-click the `gojisim` service → **Attach Volume**.
@@ -50,17 +61,28 @@ Make the secret on your Mac with `openssl rand -hex 32` and paste the output. Ra
 
 ## 4. Load the card images once
 
-The images aren't in git, and a deploy never downloads them. They live on the volume and survive every deploy. Fill it once:
+The images aren't in git, and a deploy never downloads them. They live on the volume and survive every deploy. The running service has Node only (no `pnpm`, `npx` or `corepack`), so `pnpm images` can't run there: make the images on your Mac and copy them up through `railway ssh`.
 
-1. On your Mac, in the `gojisim` folder: `railway link`, and pick the project and the `gojisim` service.
-2. `railway ssh`. That opens a shell inside the running service.
-3. In that shell: `pnpm images --out /data/cards`.
+1. **An SSH key for Railway** (once). `railway ssh` needs a key registered with Railway:
 
-It downloads each card image from godzillatcgdb.com at the scraper's polite pace (one request a second, decision 25) and converts it to the two WebPs the app uses. That's about 950 cards (1,900 files), so roughly 16 minutes; leave the shell open until it prints its summary. If the connection drops, run the same command again: it skips every card that already has its images (decision 22).
+   ```
+   ssh-keygen -t ed25519 -f ~/.ssh/railway_ed25519
+   railway ssh keys add --key ~/.ssh/railway_ed25519.pub --name <a name for this Mac>
+   ```
 
-After a card data update adds new cards, run step 4 again to fetch just the new ones.
+   Pass `-i ~/.ssh/railway_ed25519` to every `railway ssh`.
 
-If `pnpm images` stops with a missing `tsx` or `sharp`, the deploy left out development packages. Run `pnpm install --frozen-lockfile --prod=false` in the same shell first, then `pnpm images --out /data/cards` again.
+2. **Link the folder** (once): on your Mac, in the `gojisim` folder, `railway link`, and pick the project and the `gojisim` service.
+3. **Make the images locally:** `pnpm images`. It downloads each card image from godzillatcgdb.com at the scraper's polite pace (one request a second, decision 25) and writes the two WebPs the app uses into `apps/web/public/cards/`: about 950 cards (1,900 files, roughly 16 minutes the first time). It skips every card that already has its images (decision 22), so a second run only fetches new cards.
+4. **Copy them to the volume:**
+
+   ```
+   COPYFILE_DISABLE=1 tar czf - -C apps/web/public/cards . | railway ssh -i ~/.ssh/railway_ed25519 -- "mkdir -p /data/cards && tar xzf - -C /data/cards && ls /data/cards | wc -l"
+   ```
+
+   It prints the number of files on the volume (1900 for 950 cards). `COPYFILE_DISABLE=1` keeps macOS metadata out of the archive; without it, the copy still works but prints harmless `tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'` lines.
+
+No redeploy is needed: the server reads `/data/cards` on each request. After a card data update adds new cards, run steps 3 and 4 again.
 
 ## 5. Add the address
 

@@ -8,7 +8,7 @@ import {
   readBackup,
   savedDeck,
 } from "./deckStore";
-import { importStatus } from "./importDeck";
+import { deckName, freeName, importAll, importStatus } from "./importDeck";
 
 const cardsFixture = (name: string) =>
   readFileSync(
@@ -55,9 +55,8 @@ describe("deck import (M7a)", () => {
     expect(one.canSave("Red")).toBe(true);
     const all = importStatus(cardsFixture("godzilla-sim-export-all.txt"));
     expect(all.decks).toHaveLength(2);
-    expect(all.suggestedName).toBe(
-      "Starters/Starter Deck - Godzilla Minus One",
-    );
+    // The folder groups development decks only; My decks gets the name after it.
+    expect(all.suggestedName).toBe("Starter Deck - Godzilla Minus One");
     const page = importStatus(cardsFixture("godzillatcgdb-deck-page.txt"));
     expect(page.format).toBe("godzillatcgdb-page");
     expect(page.suggestedName).toBe("Sample Gigan Deck");
@@ -120,5 +119,44 @@ describe("deck import (M7a)", () => {
     const none = deckStore(undefined);
     expect(await none.put(deck)).toBe(false);
     await expect(none.list()).rejects.toThrow();
+  });
+
+  it("a deck's name for My decks is the [deck] name after its last slash", () => {
+    expect(deckName("Community/Red Rage")).toBe("Red Rage");
+    expect(deckName("Paul/Tests/Blue Hoard ")).toBe("Blue Hoard");
+    // No slash: unchanged.
+    expect(deckName("Red Rage")).toBe("Red Rage");
+    // Nothing after the slash: the whole name stays.
+    expect(deckName("Community/")).toBe("Community/");
+  });
+
+  it("a taken name gets (2), (3) and so on", () => {
+    expect(freeName("Red", new Set())).toBe("Red");
+    expect(freeName("Red", new Set(["Red"]))).toBe("Red (2)");
+    expect(freeName("Red", new Set(["Red", "Red (2)"]))).toBe("Red (3)");
+  });
+
+  it("Import all saves every deck that parses and reports the one that doesn't", () => {
+    const body = starter.replace(/^\[deck\].*\n/, "");
+    const text = [
+      `[deck] Community/Red Rage\n${body}`,
+      `[deck] Community/Broken\n${body}4 ZZZ99-999\n`,
+      `[deck] Paul/Red Rage\n${body}`,
+    ].join("\n");
+    expect(importStatus(text).decks).toHaveLength(3);
+    const result = importAll(text, ["Red Rage"]);
+    // Both good decks are named after the folder; one name in My decks already, and the
+    // second "Red Rage" of the import takes the next free number.
+    expect(result.saved.map((d) => d.name)).toEqual([
+      "Red Rage (2)",
+      "Red Rage (3)",
+    ]);
+    expect(result.saved[0]?.deck.mainDeck).toHaveLength(50);
+    expect(result.failed).toHaveLength(1);
+    expect(result.failed[0]?.name).toBe("Community/Broken");
+    expect(result.failed[0]?.reasons).toEqual([
+      expect.stringMatching(/^Line \d+: Unknown card number ZZZ99-999$/),
+    ]);
+    expect(result.stray).toEqual([]);
   });
 });

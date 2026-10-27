@@ -12,7 +12,7 @@ import {
 } from "./gate.js";
 import { createServer, type IncomingMessage } from "node:http";
 import { clientIp, safeNext } from "./gate.js";
-import { createAppServer, safeHandler } from "./index.js";
+import { createAppServer, openSiteWarning, safeHandler } from "./index.js";
 import { fileUnder } from "./static.js";
 
 /** A built app and a card image in a temp folder. */
@@ -115,6 +115,20 @@ describe("the server without a password (local runs, e2e)", () => {
     expect(() =>
       createAppServer({ password: PASSWORD, secret: "short" }),
     ).toThrow(/SESSION_SECRET/);
+  });
+
+  it("warns loudly on Railway with no password, and only there", () => {
+    expect(openSiteWarning({ RAILWAY_ENVIRONMENT: "production" })).toMatch(
+      /^WARNING: no password gate, the site is open to anyone/,
+    );
+    expect(
+      openSiteWarning({
+        RAILWAY_ENVIRONMENT: "production",
+        GOJISIM_PASSWORD: PASSWORD,
+      }),
+    ).toBeNull();
+    // Locally (and in the e2e tests) no gate is normal.
+    expect(openSiteWarning({})).toBeNull();
   });
 });
 

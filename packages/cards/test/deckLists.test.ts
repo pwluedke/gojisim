@@ -70,9 +70,21 @@ describe("parseDeckList", () => {
         line: 2,
         reason: "Card listed before a [monster deck] or [main deck] header",
         text: "2 ESD01-005",
+        deck: 0,
       },
     ]);
     expect(decks[0]?.mainDeck).toEqual([]);
+  });
+
+  it("each error names the deck its line belongs to; a line before any deck names none", () => {
+    const { errors } = parseDeckList(
+      "2 ESD01-005\n[deck] A\n[main deck]\n1 ZZZ99-999\n\n[deck] B\n[main deck]\n1 ZZZ99-998\n",
+    );
+    expect(errors.map((e) => [e.line, e.deck])).toEqual([
+      [1, undefined],
+      [4, 0],
+      [8, 1],
+    ]);
   });
 
   it("Engine: card numbers prefer the base print when several prints share one", () => {

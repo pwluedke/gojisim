@@ -3,7 +3,7 @@ import type { NamedDeck } from "@gojisim/cards/deck-lists";
 import { decklogCode, decklogDeckList } from "@gojisim/cards/decklog";
 import { useEffect, useMemo, useState } from "react";
 import { fetchDecklogDeck } from "../game/decklog";
-import { importStatus } from "../game/importDeck";
+import { type ImportAll, importAll, importStatus } from "../game/importDeck";
 import styles from "./Board.module.css";
 import newGame from "./NewGame.module.css";
 
@@ -56,13 +56,20 @@ function cardLines(cards: readonly Card[]): string[] {
  * preview, errors and warnings apply.
  */
 export function ImportDeck({
+  existingNames,
   onSave,
+  onSaveAll,
   onClose,
 }: {
+  /** My decks' names, so Import all doesn't repeat one. */
+  existingNames: readonly string[];
   onSave: (deck: NamedDeck, name: string) => void;
+  /** Import all: the decks to save, already named; the modal stays open with its report. */
+  onSaveAll: (decks: ImportAll["saved"]) => void;
   onClose: () => void;
 }) {
   const [text, setText] = useState("");
+  const [allReport, setAllReport] = useState<ImportAll | null>(null);
   const [choice, setChoice] = useState(0);
   const [name, setName] = useState<string | null>(null);
   const [decklogInput, setDecklogInput] = useState("");
@@ -183,6 +190,7 @@ export function ImportDeck({
           onChange={(e) => {
             setText(e.target.value);
             setChoice(0);
+            setAllReport(null);
           }}
         />
         {parsed.format && (
@@ -218,8 +226,47 @@ export function ImportDeck({
             </select>{" "}
             <span className={styles.muted}>
               ({parsed.decks.length} decks in the text)
-            </span>
+            </span>{" "}
+            <button
+              type="button"
+              className={styles.choiceButton}
+              data-testid="import-all"
+              // Once it has saved, a second click would save the same decks again as " (2)";
+              // a change to the text clears the report and the button.
+              disabled={!!allReport?.saved.length}
+              onClick={() => {
+                const report = importAll(text, existingNames);
+                if (report.saved.length > 0) onSaveAll(report.saved);
+                setAllReport(report);
+              }}
+            >
+              Import all
+            </button>
           </label>
+        )}
+        {allReport && (
+          <div data-testid="import-all-result">
+            <div>
+              Saved {allReport.saved.length} of {parsed.decks.length} decks
+              {allReport.saved.length > 0 &&
+                `: ${allReport.saved.map((d) => d.name).join(", ")}`}
+              .
+            </div>
+            {(allReport.failed.length > 0 || allReport.stray.length > 0) && (
+              <ul className={newGame.importErrors}>
+                {allReport.failed.map((f, i) => (
+                  <li key={i}>
+                    Not saved, {f.name}: {f.reasons.join("; ")}
+                  </li>
+                ))}
+                {allReport.stray.map((e) => (
+                  <li key={`stray-${e.line}`}>
+                    Line {e.line}, outside any deck: {e.reason}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
         {deck && (
           <>
@@ -286,7 +333,7 @@ export function ImportDeck({
             data-testid="import-cancel"
             onClick={onClose}
           >
-            Cancel [Esc]
+            {allReport?.saved.length ? "Close" : "Cancel"} [Esc]
           </button>
         </div>
       </div>
