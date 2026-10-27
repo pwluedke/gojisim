@@ -662,3 +662,13 @@ Accepted by Monarch in the card back border and bottom-edge hand review (PR #57)
 476. Your hand row has no panel: the cards are the row.
 477. A raised hand card's bottom sits exactly on the window's bottom edge, with no gap.
 478. Each hand card has a strip over its visible part of the row, stacked above any raised card, so a raised card never takes a neighbor's strip; above the row, the raised image keeps its card hovered.
+
+Accepted by Monarch in the First / Second pick modal review (PR #58).
+
+479. The board under the pick modal is the 6.3.1.4 board (`prePickSession`): decks shuffled in place, no hands, no invading monsters, an empty log, no pending choice, and "Setup" in the prompt and phase panels, so nothing tells who goes first. Card 0's game tells which card reads First; the pick then builds the game with the picked card, as before.
+480. The modal keeps the pick's face-down cards and First / Second faces, with the 1 / 2 and Space keys.
+481. Casual games show a one-line hint about the peek key (Cmd on a Mac, Ctrl elsewhere); Tournament games show none.
+482. The peek ends on key release or when the window loses focus; a card picked while peeking counts as peeked.
+483. `firstPickPeeked` is an optional, information-only record field (like `showOpponentHand`, M11 leaves such games out); the board's root shows both flags as `data-first-pick-peeked` and `data-show-opponent-hand`.
+484. An empty bot hand is a half-size slot outlined like an empty pile, with the 0 count badge.
+485. The bot hand's count badge holds the hand size from before the step while any card of the step flies (`heldCounts` from the animation hook), since one step's moves animate together (decision 257).

@@ -96,12 +96,12 @@ describe("fetchDecklog", () => {
 });
 
 describe("GET /api/decklog/<code> on the app server", () => {
-  const server = createAppServer(answering(recorded));
+  const server = createAppServer({ fetchImpl: answering(recorded) });
   afterEach(() => {
     server.close();
   });
 
-  it("answers the deck as JSON; other paths keep the ok status", async () => {
+  it("answers the deck as JSON; the health route answers ok", async () => {
     await new Promise<void>((resolve) => server.listen(0, resolve));
     const { port } = server.address() as AddressInfo;
     const res = await fetch(`http://localhost:${port}/api/decklog/1STAP`);
@@ -112,7 +112,7 @@ describe("GET /api/decklog/<code> on the app server", () => {
     );
     const bad = await fetch(`http://localhost:${port}/api/decklog/%E0%A4%A`);
     expect(bad.status).toBe(400);
-    const ok = await fetch(`http://localhost:${port}/`);
+    const ok = await fetch(`http://localhost:${port}/healthz`);
     expect(await ok.json()).toEqual({ status: "ok" });
   });
 });

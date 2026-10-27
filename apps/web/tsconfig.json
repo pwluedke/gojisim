@@ -10,8 +10,10 @@
   "include": [
     "src",
     "e2e",
+    "e2e-prod",
     "vite.config.ts",
     "localDecksPlugin.ts",
-    "playwright.config.ts"
+    "playwright.config.ts",
+    "playwright.prod.config.ts"
   ]
 }

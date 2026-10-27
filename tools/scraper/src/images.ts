@@ -1,5 +1,5 @@
 import { access, mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CardListSchema } from "@gojisim/cards";
 import sharp from "sharp";
@@ -7,9 +7,13 @@ import { PoliteFetcher } from "./fetcher";
 
 const cacheDir = fileURLToPath(new URL("../.cache/", import.meta.url));
 const dataDir = new URL("../../../packages/cards/data/", import.meta.url);
-const publicDir = fileURLToPath(
-  new URL("../../../apps/web/public/cards/", import.meta.url),
-);
+// `--out <dir>` writes somewhere else: the deployed server's card volume (docs/deploy.md).
+const outFlag = process.argv.indexOf("--out");
+const outDir = outFlag >= 0 ? process.argv[outFlag + 1] : undefined;
+if (outFlag >= 0 && !outDir) throw new Error("--out needs a directory");
+const publicDir = outDir
+  ? `${resolve(process.env["INIT_CWD"] ?? ".", outDir)}/`
+  : fileURLToPath(new URL("../../../apps/web/public/cards/", import.meta.url));
 
 export const THUMB_WIDTH = 300;
 

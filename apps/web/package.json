@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "e2e": "playwright test",
-    "e2e:fixtures": "tsx e2e/fixtures/generate.ts"
+    "e2e:fixtures": "tsx e2e/fixtures/generate.ts",
+    "e2e:prod": "playwright test -c playwright.prod.config.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
