@@ -218,8 +218,15 @@ test.describe("the bot hand's count badge", () => {
   }) => {
     // Three bot turns: slower than the 30 s default on a CI runner.
     test.setTimeout(120_000);
-    // hand-count-five: early in the game, so passing a few turns doesn't lose it.
-    await loadFixture(page, "hand-count-five");
+    // hand-count-five: early in the game, so passing a few turns doesn't lose it. The bot plays at
+    // difficulty 0, the lightest search: the badge doesn't depend on how well it plays, and
+    // Medium's timed searches made three turns too slow on a loaded runner.
+    await loadFixture(page, "hand-count-five", {
+      seats: {
+        P1: { kind: "human" },
+        P2: { kind: "bot", bot: "ismcts", settings: { difficulty: 0 } },
+      },
+    });
     const hand = page.getByTestId("opponent-hand");
     const badge = page.getByTestId("opponent-hand-count");
     const size = async () =>
