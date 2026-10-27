@@ -150,10 +150,22 @@ export function describeEffect(effect: Effect): string | null {
         ? `your opponent discards down to ${effect.size} cards`
         : `discard down to ${effect.size} cards`;
     case "rage": {
-      if (typeof effect.delta !== "number") return null;
-      const by = Math.abs(effect.delta);
       const whose = effect.player === "opponent" ? "your opponent's" : "your";
-      return `${effect.delta > 0 ? "increase" : "reduce"} ${whose} rage by ${by}`;
+      // "for each strategy card discarded this way": a count of the cards an earlier effect bound.
+      const delta = effect.delta;
+      if (
+        typeof delta === "object" &&
+        "per" in delta &&
+        delta.per.area === "bound" &&
+        delta.times !== 0 &&
+        !delta.every &&
+        Object.keys(delta.per).every((k) =>
+          ["owner", "area", "bind", "type"].includes(k),
+        )
+      )
+        return `${delta.times > 0 ? "increase" : "reduce"} ${whose} rage by ${Math.abs(delta.times)} for each ${NOUNS[delta.per.type ?? ""] ?? "card"} among them`;
+      if (typeof delta !== "number") return null;
+      return `${delta > 0 ? "increase" : "reduce"} ${whose} rage by ${Math.abs(delta)}`;
     }
     case "setRage":
       return `set ${effect.player === "opponent" ? "your opponent's" : "your"} rage to ${effect.value}`;

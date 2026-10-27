@@ -34,6 +34,10 @@ describe("plain-words decision prompts (M5h #16)", () => {
       "Evolve this card: search your deck for a rank 5 or lower [Mothra] battle card and play it on top of this card.",
     ],
     ["EBP04-053#enter-swap", null],
+    [
+      "ESC01-006#enter-discard-hand",
+      "Discard your entire hand, then increase your rage by 1 for each strategy card among them.",
+    ],
   ])("%s reads %s", (id, start) => {
     const ability = abilityById(id);
     expect(ability).toBeDefined();

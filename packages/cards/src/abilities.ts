@@ -3,6 +3,7 @@ import ebp01 from "../data/abilities/EBP01.json";
 import ebp02 from "../data/abilities/EBP02.json";
 import ebp03 from "../data/abilities/EBP03.json";
 import ebp04 from "../data/abilities/EBP04.json";
+import esc01 from "../data/abilities/ESC01.json";
 import esd01 from "../data/abilities/ESD01.json";
 import esd02 from "../data/abilities/ESD02.json";
 import pr from "../data/abilities/PR.json";
@@ -1265,6 +1266,7 @@ export const ABILITY_FILES: Record<string, unknown> = {
   EBP02: ebp02,
   EBP03: ebp03,
   EBP04: ebp04,
+  ESC01: esc01,
   ESD01: esd01,
   ESD02: esd02,
   PR: pr,
