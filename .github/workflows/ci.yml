@@ -103,6 +103,24 @@ jobs:
           path: apps/web/blob-report
           retention-days: 1
 
+  # The production build behind the testers' password (deploy for testers): `apps/server` serving
+  # `apps/web/dist` with the gate on, as Railway runs it (e2e-prod/, playwright.prod.config.ts).
+  e2e-prod:
+    name: Production build
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --user 1001
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+
+      - name: Build
+        run: pnpm build
+
+      - name: Gate on the built app
+        run: pnpm --filter @gojisim/web e2e:prod
+
   e2e-report:
     name: E2E report
     needs: e2e
@@ -130,7 +148,7 @@ jobs:
 
   ci:
     name: ci
-    needs: [lint-typecheck, unit, speed-guard, stress, e2e]
+    needs: [lint-typecheck, unit, speed-guard, stress, e2e, e2e-prod]
     if: always()
     runs-on: ubuntu-latest
     steps:

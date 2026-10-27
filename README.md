@@ -64,6 +64,10 @@ pnpm images
 
 It downloads every card's original PNG from godzillatcgdb.com (1 request per second, so the first run takes about 16 minutes) into `tools/scraper/.cache/images/`, then converts each one to `apps/web/public/cards/<id>-full.webp` (original size) and `<id>-thumb.webp` (300 px wide). Reruns skip files that already exist; `pnpm images --force` re-converts. The byte sizes are recorded in `packages/cards/data/images.json`.
 
+## Deploy for testers
+
+The testers' build runs on Railway at `https://gojisim.somanygames.app`, behind one shared password. It deploys only by hand: Railway watches the `release` branch, which Paul moves with `git push origin main:release`, so merges into `main` never deploy. See [docs/deploy.md](docs/deploy.md) for the setup steps, deploying and rolling back, the card image volume and how the gate works. `pnpm build`, then `node apps/server/dist/index.js` (with `GOJISIM_PASSWORD` and `SESSION_SECRET` set to try the gate) serves the built app locally; `pnpm --filter @gojisim/web e2e:prod` tests it with the gate on. In `/play`, **Report bug** (left column, under Settings) downloads the current game record for a bug report; "Load a game record" or `/debug` opens it.
+
 ## Layout
 
 | Path                   | Package                   | Purpose                                                            |
