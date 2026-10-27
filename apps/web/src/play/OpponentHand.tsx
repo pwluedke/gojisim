@@ -27,7 +27,8 @@ export function handRowFits(
 /**
  * The opponent's hand (bot hand row): half-size card backs overlapping in a row, in the space left
  * of their mat (and the board's left padding), top-aligned with it. When the row would reach the mat, it shows one card with the
- * count on it. With "Show opponent's hand" on (`open`), the cards are face up, and hovering the row
+ * count on it. Either way the rightmost card carries the hand size as a count badge, like the deck's
+ * (Paul), and an empty hand shows an empty slot with 0. With "Show opponent's hand" on (`open`), the cards are face up, and hovering the row
  * fans them out at the board's card size, each one opening the preview. A card an effect revealed
  * shows face up in the row whether or not the hand is open (decision 212).
  */
@@ -35,12 +36,20 @@ export function OpponentHand({
   player,
   cards,
   open,
+  badgeCount,
 }: {
   player: PlayerAreasView;
   cards: Record<number, Card>;
   open: boolean;
+  /** The hand size from before the step while its cards fly, so the badge changes once they land. */
+  badgeCount?: number | undefined;
 }) {
   const count = player.hand.count;
+  const badge = (
+    <span className={styles.countBadge} data-testid="opponent-hand-count">
+      {badgeCount ?? count}
+    </span>
+  );
   const row = useRef<HTMLDivElement>(null);
   const [fits, setFits] = useState(true);
   const [fanned, setFanned] = useState(false);
@@ -77,23 +86,26 @@ export function OpponentHand({
       onMouseEnter={() => fannable && setFanned(true)}
       onMouseLeave={() => setFanned(false)}
     >
-      {fits ? (
-        <>
-          {Array.from({ length: count }, (_, i) => (
-            <div key={i} className={styles.handSlot} data-hand-slot>
-              {face(i, true)}
-            </div>
-          ))}
-          <span className={styles.srOnly} data-testid="opponent-hand-count">
-            {count}
-          </span>
-        </>
+      {count === 0 ? (
+        // No cards: an empty slot with the count, like an empty pile.
+        <div
+          className={`${styles.handSlot} ${styles.handSlotEmpty}`}
+          data-testid="opponent-hand-empty"
+        >
+          {badge}
+        </div>
+      ) : fits ? (
+        // The count badge rides on the rightmost card, like a pile's count.
+        Array.from({ length: count }, (_, i) => (
+          <div key={i} className={styles.handSlot} data-hand-slot>
+            {face(i, true)}
+            {i === count - 1 && badge}
+          </div>
+        ))
       ) : (
         <div className={styles.handSlot} data-hand-slot>
           {face(0, true)}
-          <span className={styles.countBadge} data-testid="opponent-hand-count">
-            {count}
-          </span>
+          {badge}
         </div>
       )}
       {fannable && fanned && (

@@ -9,6 +9,7 @@ import {
   type GameRecord,
   type GameState,
   type MatchMode,
+  type PlayerState,
   replayAll,
   startGame,
   type UndoEntry,
@@ -87,6 +88,8 @@ export interface NewGameOptions {
   mode?: MatchMode;
   /** The human sees the bot's hand (M5h #13); the record flags the game. */
   showOpponentHand?: boolean;
+  /** The human peeked at the First / Second cards (Casual); the record flags the game. */
+  firstPickPeeked?: boolean;
 }
 
 /** A new game. */
@@ -99,6 +102,7 @@ export function newSession(
     firstPick,
     mode,
     showOpponentHand = false,
+    firstPickPeeked = false,
   }: NewGameOptions = {},
 ): Session {
   const humans = PLAYER_IDS.filter((id) => seats[id].kind === "human");
@@ -122,6 +126,7 @@ export function newSession(
     ...(firstPick ? { firstPick } : {}),
     ...(mode ? { mode } : {}),
     ...(showOpponentHand ? { showOpponentHand } : {}),
+    ...(firstPickPeeked ? { firstPickPeeked } : {}),
     deckNames: { P1: picked[0].label, P2: picked[1].label },
   };
   return {
@@ -175,6 +180,7 @@ export function sessionFromRecord(text: string): Session {
       ...(record.firstPick ? { firstPick: record.firstPick } : {}),
       ...(record.mode ? { mode: record.mode } : {}),
       ...(record.showOpponentHand ? { showOpponentHand: true } : {}),
+      ...(record.firstPickPeeked ? { firstPickPeeked: true } : {}),
       ...(record.undos ? { undos: record.undos } : {}),
       ...(record.undoCount ? { undoCount: record.undoCount } : {}),
       ...(record.deckNames ? { deckNames: record.deckNames } : {}),
@@ -258,4 +264,37 @@ export function downloadRecord(session: Session): void {
     position: session.position,
   };
   downloadJson(record, `gojisim-${record.seed}-${record.actions.length}.json`);
+}
+
+/**
+ * The board as it stands at the First / Second pick (6.3.1.4): both decks shuffled in place
+ * (6.3.1.3), no hands and no invading monsters yet (6.3.1.5, 6.3.1.6), an empty log and no
+ * pending choice, so nothing on the board tells who goes first. Display only, under the pick modal: the game starts
+ * from the picked card's own session. The decks are the same whichever card is picked (they are
+ * shuffled before the pick's RNG draw, decision 48).
+ */
+export function prePickSession(session: Session): Session {
+  const start = session.states[0] as GameState;
+  const state: GameState = {
+    ...start,
+    log: [],
+    // The first game's opening decision (a start-of-turn ability) would say who goes first.
+    pendingChoice: null,
+    resolution: null,
+    revealed: [],
+    players: start.players.map((player): PlayerState => ({
+      ...player,
+      deck: [...player.hand, ...player.deck],
+      hand: [],
+      monsterDeck: [...player.invadingMonsterZone, ...player.monsterDeck],
+      invadingMonsterZone: [],
+      monsterPosition: null,
+    })) as GameState["players"],
+  };
+  return {
+    ...session,
+    record: { ...session.record, actions: [] },
+    states: [state],
+    position: 0,
+  };
 }

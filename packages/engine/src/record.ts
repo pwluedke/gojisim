@@ -46,6 +46,12 @@ export interface GameRecord {
    */
   showOpponentHand?: boolean;
   /**
+   * The human held Cmd / Ctrl during the First / Second pick and saw which card was First (a
+   * Casual peek). Information only, like `showOpponentHand`: such games never count toward
+   * win/loss statistics (M11).
+   */
+  firstPickPeeked?: boolean;
+  /**
    * Casual undos (M5h #10), oldest first: what was taken back, by whom and when. Information
    * only: replay never reads it (the taken-back actions are gone from `actions`).
    */

@@ -89,14 +89,15 @@ export const fixture = (name: string): Record<string, unknown> =>
 export async function startGame(page: Page, card?: 0 | 1): Promise<void> {
   await page.getByTestId("start-game").click();
   const pick = page.getByTestId("first-pick");
-  await expect(pick.or(page.getByTestId("board"))).toBeVisible();
+  // The board and the pick modal over it appear together (two bots: the board alone).
+  await expect(page.getByTestId("board")).toBeVisible();
   if (!(await pick.isVisible())) return;
   const picker = await pick.getAttribute("data-picker");
   await page
     .getByTestId(`first-pick-card-${card ?? (picker === "P2" ? 1 : 0)}`)
     .click();
   await page.getByTestId("first-pick-continue").click();
-  await expect(page.getByTestId("board")).toBeVisible();
+  await expect(pick).toHaveCount(0);
 }
 
 /**

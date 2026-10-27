@@ -4,11 +4,13 @@ import { type Action, getLegalActions, stateHash } from "@gojisim/engine";
 import {
   canUndoSession,
   newSession,
+  prePickSession,
   sessionFromRecord,
   undoSession,
   withAction,
 } from "./session";
 import type { DeckOption } from "./decks";
+import type { Session } from "./session";
 import { buildLog } from "../play/logLines";
 
 const decks = () => {
@@ -104,6 +106,67 @@ describe("First / Second pick and Casual undo (M5e)", () => {
     ).toBe(true);
     const plain = newSession(4, decks(), { P1: human, P2: bot });
     expect(plain.record.showOpponentHand).toBeUndefined();
+  });
+
+  it("6.3.1.4: a peek at the First / Second cards flags the record (no statistics, M11), and a loaded record keeps it", () => {
+    const peeked = newSession(
+      4,
+      decks(),
+      { P1: human, P2: bot },
+      { firstPick: { player: "P1", card: 0 }, firstPickPeeked: true },
+    );
+    expect(peeked.record.firstPickPeeked).toBe(true);
+    expect(
+      sessionFromRecord(JSON.stringify(peeked.record)).record.firstPickPeeked,
+    ).toBe(true);
+    const plain = newSession(4, decks(), { P1: human, P2: bot });
+    expect(plain.record.firstPickPeeked).toBeUndefined();
+    // The flag is information only: the game is the same.
+    const unpeeked = newSession(
+      4,
+      decks(),
+      { P1: human, P2: bot },
+      { firstPick: { player: "P1", card: 0 } },
+    );
+    expect(peeked.states[0]?.firstPlayer).toBe(unpeeked.states[0]?.firstPlayer);
+  });
+
+  it("6.3.1.3 and 6.3.1.4: the board before the pick has both decks in place, no hands, no monsters and an empty log; the decks are the same whichever card is picked", () => {
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const [zero, one] = ([0, 1] as const).map((card) =>
+        newSession(
+          seed,
+          decks(),
+          { P1: human, P2: bot },
+          { firstPick: { player: "P1", card } },
+        ),
+      ) as [Session, Session];
+      // The two cards read differently: one gives P1 first, the other second.
+      expect(zero.states[0]?.firstPlayer).not.toBe(one.states[0]?.firstPlayer);
+      const before = prePickSession(zero).states[0];
+      if (!before) throw new Error("no state");
+      expect(before.log).toEqual([]);
+      expect(before.pendingChoice).toBeNull();
+      for (const [i, player] of before.players.entries()) {
+        const started = zero.states[0]?.players[i];
+        const other = one.states[0]?.players[i];
+        if (!started || !other) throw new Error("no player");
+        expect(player.hand).toEqual([]);
+        expect(player.invadingMonsterZone).toEqual([]);
+        expect(player.monsterPosition).toBeNull();
+        // Every card is back in its deck: 50 main deck cards, the whole monster deck.
+        expect(player.deck).toHaveLength(
+          started.deck.length + started.hand.length,
+        );
+        expect(player.monsterDeck).toHaveLength(
+          started.monsterDeck.length + started.invadingMonsterZone.length,
+        );
+        // The same cards in the same order whichever card is picked (shuffled before 6.3.1.4).
+        const ids = (p: typeof started) =>
+          [...p.hand, ...p.deck].map((c) => c.cardId);
+        expect(ids(other)).toEqual(ids(started));
+      }
+    }
   });
 
   /** A game with two human seats (as in `/debug`) advanced to the first battle card play. */

@@ -19,6 +19,7 @@ import {
   newSession,
   PLAYER_IDS,
   type PlayerId,
+  prePickSession,
   type Session,
   undoSession,
 } from "../game/session";
@@ -143,6 +144,8 @@ interface PendingGame {
   /** M5h #13: the human sees the bot's hand. */
   showOpponentHand: boolean;
   picker: PlayerId;
+  /** The card (0 or 1) that reads First for the picker: the seed decides (6.3.1.4). */
+  firstCard: 0 | 1;
 }
 
 /**
@@ -193,9 +196,14 @@ export function PlayScreen() {
     },
     // While the history view or a search result is open, a bot's answer waits.
     // A combo modal holds the bot too (M5g), until it is closed.
-    hold: historyAt !== null || searches.length > 0 || callouts.length > 0,
+    // The First / Second pick holds the bot on the board under it.
+    hold:
+      historyAt !== null ||
+      searches.length > 0 ||
+      callouts.length > 0 ||
+      pending !== null,
     // While cards move or a combo modal is open, no bot decision starts.
-    pause: animating || callouts.length > 0,
+    pause: animating || callouts.length > 0 || pending !== null,
   });
   const { session, state } = game;
   const { setDelay } = game;
@@ -346,6 +354,8 @@ export function PlayScreen() {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target?.closest("input, select, textarea, [contenteditable]")) return;
+      // The First / Second pick takes its own keys (1, 2, Space, the peek key).
+      if (pending) return;
       // Input waits while cards move (M5f) and while the combo modal is open (its own keys).
       if (animating || callouts.length > 0) return;
       if (e.ctrlKey || e.metaKey || e.altKey || !session) return;
@@ -407,14 +417,16 @@ export function PlayScreen() {
 
   // Human seats confirm every choice, even one with a single option (M5d, M5e).
   const build = (
-    setup: Omit<PendingGame, "picker">,
+    setup: Omit<PendingGame, "picker" | "firstCard">,
     picker?: PlayerId,
     card?: 0 | 1,
+    firstPickPeeked = false,
   ) =>
     newSession(setup.seed, setup.picked, setup.seats, {
       confirmTargets: true,
       mode: setup.matchMode,
       showOpponentHand: setup.showOpponentHand,
+      firstPickPeeked,
       ...(picker && card !== undefined
         ? { firstPick: { player: picker, card } }
         : {}),
@@ -424,39 +436,35 @@ export function PlayScreen() {
     return (
       <div className="gojisim">
         <ThemeHeader />
-        {pending ? (
-          <FirstPick
-            picker={pending.picker}
-            build={(card) => build(pending, pending.picker, card)}
-            onStart={(next) => {
-              setPending(null);
-              game.startSession(next, true);
-            }}
-          />
-        ) : (
-          <NewGame
-            onStart={(seed, picked, seats, matchMode, showOpponentHand) => {
-              const setup = {
-                seed,
-                picked,
-                seats,
-                matchMode,
-                showOpponentHand,
-              };
-              // The human picks; two bots skip the pick.
-              const picker = (["P1", "P2"] as const).find(
-                (id) => seats[id].kind === "human",
-              );
-              if (picker) setPending({ ...setup, picker });
-              else game.startSession(build(setup), true);
-            }}
-            onLoad={async (file) =>
-              (await twoHumanSeats(file))
-                ? "This record has two human seats (hotseat, removed in M5h). Open it in /debug."
-                : game.importRecord(file, true)
-            }
-          />
-        )}
+        <NewGame
+          onStart={(seed, picked, seats, matchMode, showOpponentHand) => {
+            const setup = {
+              seed,
+              picked,
+              seats,
+              matchMode,
+              showOpponentHand,
+            };
+            // The human picks; two bots skip the pick.
+            const picker = (["P1", "P2"] as const).find(
+              (id) => seats[id].kind === "human",
+            );
+            if (picker) {
+              // The pick is a modal over the board (Monarch, Oct 26, 2026): the mats with the
+              // decks in place, before the pick (6.3.1.4). Card 0's game tells which card is
+              // First; the decks are the same either way.
+              const probe = build(setup, picker, 0);
+              const firstCard = probe.states[0]?.firstPlayer === picker ? 0 : 1;
+              setPending({ ...setup, picker, firstCard });
+              game.startSession(prePickSession(probe), true);
+            } else game.startSession(build(setup), true);
+          }}
+          onLoad={async (file) =>
+            (await twoHumanSeats(file))
+              ? "This record has two human seats (hotseat, removed in M5h). Open it in /debug."
+              : game.importRecord(file, true)
+          }
+        />
       </div>
     );
 
@@ -479,10 +487,15 @@ export function PlayScreen() {
   // The bottom player plays hand cards on the board (M5b) when it is their decision; otherwise
   // (a bot decides, or the game is over) the hand is locked.
   const locked =
-    viewing !== null || decider !== model.bottom || !human || animating;
+    viewing !== null ||
+    decider !== model.bottom ||
+    !human ||
+    animating ||
+    pending !== null;
   const concedeFor = game.humanSeats[0] as PlayerId | undefined;
   // Choice and search modals open once the cards have landed (M5f).
   const showModal =
+    pending === null &&
     viewing === null &&
     human &&
     choice !== null &&
@@ -500,7 +513,12 @@ export function PlayScreen() {
   const flags = state.turnFlags;
 
   const prompt =
-    viewing !== null ? (
+    pending !== null ? (
+      // Setup, before the First / Second pick (6.3.1.4): nothing yet says whose turn it is.
+      <div className={styles.promptBody} data-testid="setup-prompt">
+        Setup: pick First or Second (6.3.1.4).
+      </div>
+    ) : viewing !== null ? (
       <div className={styles.promptBody} data-testid="history-prompt">
         <div>
           Viewing the board on turn {shown.turn} (
@@ -811,7 +829,16 @@ export function PlayScreen() {
   );
   return (
     // A collapsed log frees its column, so --card-h recomputes on this wrapper (M5f).
-    <div className={`gojisim${settings.logCollapsed ? " log-collapsed" : ""}`}>
+    <div
+      className={`gojisim${settings.logCollapsed ? " log-collapsed" : ""}`}
+      // The record's flags that keep a game out of statistics (M11), for tests and bug reports.
+      data-first-pick-peeked={
+        session.record.firstPickPeeked ? "true" : undefined
+      }
+      data-show-opponent-hand={
+        session.record.showOpponentHand ? "true" : undefined
+      }
+    >
       <ThemeHeader />
       <BoardView
         model={model}
@@ -830,6 +857,7 @@ export function PlayScreen() {
         animation={settings.animation}
         onAnimating={setAnimating}
         turnGlow={settings.turnGlow}
+        picking={pending !== null}
         invadeArrow={settings.invadeArrow}
         mat={customMat.view}
         deckWarnings={deckWarnings}
@@ -929,6 +957,18 @@ export function PlayScreen() {
             </table>
           </div>
         </div>
+      )}
+      {pending && (
+        <FirstPick
+          picker={pending.picker}
+          firstCard={pending.firstCard}
+          canPeek={pending.matchMode === "casual"}
+          build={(card, peeked) => build(pending, pending.picker, card, peeked)}
+          onStart={(next) => {
+            setPending(null);
+            game.startSession(next, true);
+          }}
+        />
       )}
       {search && !animating && (
         <SearchModal

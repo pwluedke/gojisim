@@ -652,3 +652,13 @@ Accepted by Monarch in the new-game screen review (PR #56).
 469. Import backup is a button that opens a hidden file picker, so it looks like its neighbors in every theme.
 470. The development-deck filter sits beside the new-game title.
 471. "Show opponent's hand"'s note reads "(practice: no statistics)".
+
+Accepted by Monarch in the card back border and bottom-edge hand review (PR #57).
+
+472. Card backs are drawn in CSS in every theme (there is no back image), so the white border (3 % of the back's width, inside its box) is CSS, with a 1 px outline outside it in every theme (`--color-card-back-outline`), since Showa's paper and Light hide white.
+473. A selected, raised hand card lets clicks through to the zones under it; clicking its place in the row still cancels the selection.
+474. A pointer click doesn't leave focus on a hand card, so Esc lowers it (a focused card stays raised by `:focus-visible`).
+475. The bot's half-size row shows a sixth of each next card and may use the board's 16 px left padding, never the mat: 3 / 5 / 17 cards fit at 1280 / 1440 / 1920 before the count card.
+476. Your hand row has no panel: the cards are the row.
+477. A raised hand card's bottom sits exactly on the window's bottom edge, with no gap.
+478. Each hand card has a strip over its visible part of the row, stacked above any raised card, so a raised card never takes a neighbor's strip; above the row, the raised image keeps its card hovered.
