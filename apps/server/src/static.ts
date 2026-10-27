@@ -56,7 +56,13 @@ function send(
     res.end();
     return;
   }
-  createReadStream(file).pipe(res);
+  // A file that goes away mid-read cuts the response off instead of stopping the server.
+  createReadStream(file)
+    .on("error", (error) => {
+      console.error("File read failed:", error);
+      res.destroy();
+    })
+    .pipe(res);
 }
 
 /**

@@ -10,7 +10,9 @@ import {
   TRIES_PER_MINUTE,
   validSession,
 } from "./gate.js";
-import { createAppServer } from "./index.js";
+import { createServer, type IncomingMessage } from "node:http";
+import { clientIp, safeNext } from "./gate.js";
+import { createAppServer, safeHandler } from "./index.js";
 import { fileUnder } from "./static.js";
 
 /** A built app and a card image in a temp folder. */
@@ -48,11 +50,17 @@ async function serve(options: Parameters<typeof createAppServer>[0] = {}) {
     fetch(`http://localhost:${port}${path}`, { redirect: "manual", ...init });
 }
 
+/**
+ * A login POST as Railway's edge forwards it: `X-Real-IP` is the client, and the client's own
+ * `X-Forwarded-For` first entry is whatever it likes (a fresh fake one each time here).
+ */
+let fake = 0;
 const login = (password: string, next = "/play", ip = "203.0.113.7") => ({
   method: "POST",
   headers: {
     "content-type": "application/x-www-form-urlencoded",
-    "x-forwarded-for": `${ip}, 10.0.0.1`,
+    "x-real-ip": ip,
+    "x-forwarded-for": `198.18.0.${++fake % 250}, ${ip}`,
   },
   body: new URLSearchParams({ password, next }).toString(),
 });
@@ -221,10 +229,103 @@ describe("the password gate", () => {
 
   it("the login never redirects to another site", async () => {
     const get = await serve({ password: PASSWORD, secret: SECRET });
-    for (const next of ["https://evil.example", "//evil.example", "evil"])
+    const offsite = [
+      "https://evil.example",
+      "//evil.example",
+      "evil",
+      "/\\evil.com", // browsers read /\ like //
+      "/%5Cevil.com",
+      "/%5cevil.com",
+      "/\t/evil.com",
+      "/%09/evil.com",
+      "/play\r\nSet-Cookie: x=1",
+      "/play%0d%0aSet-Cookie: x=1",
+    ];
+    for (const next of offsite) {
+      expect(safeNext(next), JSON.stringify(next)).toBe("/");
       expect(
         (await get("/login", login(PASSWORD, next))).headers.get("location"),
-        next,
+        JSON.stringify(next),
       ).toBe("/");
+    }
+    for (const next of ["/play", "/debug?seed=4", "/play#top"])
+      expect(safeNext(next)).toBe(next);
+  });
+
+  it("the rate limit counts the client Railway saw, not the first X-Forwarded-For entry the client sends", async () => {
+    const get = await serve({ password: PASSWORD, secret: SECRET });
+    // Ten wrong tries, each with a different spoofed first entry, from one client.
+    for (let i = 0; i < TRIES_PER_MINUTE; i++) {
+      const res = await get("/login", {
+        ...login("wrong"),
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          "x-real-ip": "203.0.113.9",
+          "x-forwarded-for": `10.${i}.0.1, 203.0.113.9`,
+        },
+      });
+      expect(res.status).toBe(401);
+    }
+    expect(
+      (await get("/login", login(PASSWORD, "/", "203.0.113.9"))).status,
+    ).toBe(429);
+    // Without X-Real-IP, the last X-Forwarded-For entry (the nearest proxy's), never the first.
+    const req = (headers: Record<string, string>) =>
+      ({
+        headers,
+        socket: { remoteAddress: "10.1.1.1" },
+      }) as unknown as IncomingMessage;
+    expect(clientIp(req({ "x-real-ip": "203.0.113.9" }))).toBe("203.0.113.9");
+    expect(clientIp(req({ "x-forwarded-for": "1.2.3.4, 203.0.113.9" }))).toBe(
+      "203.0.113.9",
+    );
+    expect(clientIp(req({}))).toBe("10.1.1.1");
+  });
+});
+
+describe("errors never stop the server", () => {
+  it("a handler that throws or rejects gets a 500, and the next request still works", async () => {
+    const logged: unknown[] = [];
+    let calls = 0;
+    const server = createServer(
+      safeHandler(
+        async (req, res) => {
+          calls++;
+          if (req.url === "/throw") throw new Error("boom");
+          if (req.url === "/bad-header")
+            // An invalid header value: writeHead throws.
+            res.writeHead(200, { "x-bad": "a\nb" });
+          res.writeHead(200);
+          res.end("fine");
+        },
+        (error) => logged.push(error),
+      ),
+    );
+    servers.push(server as ReturnType<typeof createAppServer>);
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const { port } = server.address() as AddressInfo;
+    const get = (path: string) => fetch(`http://localhost:${port}${path}`);
+    for (const path of ["/throw", "/bad-header"]) {
+      const res = await get(path);
+      expect(res.status, path).toBe(500);
+      expect(await res.text()).toBe("Something went wrong.");
+    }
+    expect(logged).toHaveLength(2);
+    const next = await get("/ok");
+    expect(next.status).toBe(200);
+    expect(await next.text()).toBe("fine");
+    expect(calls).toBe(3);
+  });
+
+  it("the app server answers a failing step with a 500 and keeps serving", async () => {
+    // A fetch that throws before Decklog's own error handling sees it.
+    const get = await serve({
+      fetchImpl: (() => {
+        throw new Error("network down");
+      }) as unknown as typeof fetch,
+    });
+    const failed = await get("/api/decklog/1STAP");
+    expect([500, 502]).toContain(failed.status);
+    expect((await get("/healthz")).status).toBe(200);
   });
 });

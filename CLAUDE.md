@@ -33,6 +33,10 @@
 
 - Never push to main without Paul's approval. Work on a branch, open a PR.
 
+## Deploys
+
+- Only Paul deploys. Mecha never pushes to the `release` branch and never runs Railway deploy commands (`railway up`, `railway redeploy` and the like). Railway deploys from `release`, which Paul updates with `git push origin main:release` (docs/deploy.md).
+
 ## Decisions
 
 Accepted by Monarch in the M0 review (PR #1).

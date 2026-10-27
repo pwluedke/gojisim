@@ -62,18 +62,35 @@ function cookieOf(req: IncomingMessage, name: string): string | undefined {
   return undefined;
 }
 
-/** The client's IP: Railway's proxy puts it first in `X-Forwarded-For`. */
+const header = (req: IncomingMessage, name: string) => {
+  const value = req.headers[name];
+  return Array.isArray(value) ? value[value.length - 1] : value;
+};
+
+/**
+ * The client's IP, for the rate limit. Railway's edge sets `X-Real-IP` to the client's address
+ * (its public networking docs: "X-Real-IP for identifying client's remote IP") and overwrites any
+ * copy the client sent. Without it, the last `X-Forwarded-For` entry, the one the nearest proxy
+ * added; never the first, which the client controls. Then the socket's own address.
+ */
 export function clientIp(req: IncomingMessage): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  const first = (Array.isArray(forwarded) ? forwarded[0] : forwarded)
-    ?.split(",")[0]
-    ?.trim();
-  return first || req.socket.remoteAddress || "unknown";
+  const real = header(req, "x-real-ip")?.trim();
+  if (real) return real;
+  const last = header(req, "x-forwarded-for")?.split(",").at(-1)?.trim();
+  return last || req.socket.remoteAddress || "unknown";
 }
 
-/** Only a local path: never another site, so the login can't redirect elsewhere. */
-function safeNext(next: string | null | undefined): string {
-  return next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+/**
+ * Only a local path, so the login can never redirect to another site: it starts with one `/`,
+ * and has no backslash (browsers read `/\evil.com` like `//evil.com`), no control character
+ * (CR, LF, tab, ...) and no percent-encoded form of either. Anything else becomes `/`.
+ */
+export function safeNext(next: string | null | undefined): string {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return "/";
+  // eslint-disable-next-line no-control-regex
+  if (/[\\\u0000-\u001f\u007f]/.test(next)) return "/";
+  if (/%(5c|[01][0-9a-f]|7f)/i.test(next)) return "/";
+  return next;
 }
 
 const escapeHtml = (text: string) =>
@@ -161,6 +178,12 @@ function sendHtml(res: ServerResponse, status: number, html: string): void {
  */
 export function createGate({ password, secret, now = Date.now }: GateOptions) {
   const wrong = new Map<string, number[]>();
+  /** Forgets every IP whose wrong tries are all over a minute old, so the map stays small. */
+  const prune = () => {
+    const t = now();
+    for (const [ip, times] of wrong)
+      if (times.every((at) => t - at >= MINUTE)) wrong.delete(ip);
+  };
   /** The wrong tries from `ip` in the last minute (older ones are forgotten). */
   const recent = (ip: string) => {
     const t = now();
@@ -179,6 +202,7 @@ export function createGate({ password, secret, now = Date.now }: GateOptions) {
     if (url.pathname === "/login") {
       if (req.method === "POST") {
         const ip = clientIp(req);
+        if (wrong.size > 1000) prune();
         if (recent(ip).length >= TRIES_PER_MINUTE) {
           sendHtml(
             res,

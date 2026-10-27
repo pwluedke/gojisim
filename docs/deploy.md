@@ -6,7 +6,7 @@ GojiSim runs on Railway as one Node service at `https://gojisim.somanygames.app`
 - runs `apps/server`, which serves the built app, the card images and `/api/decklog`;
 - puts every route behind one shared password.
 
-It deploys from `main`, and only after the `ci` check on that commit has passed.
+It deploys only when Paul says so: Railway watches a branch named `release`, not `main`, so merging a PR never deploys or spends Railway credits. Paul deploys by pushing main's current commit to `release` (see [Deploy](#deploy)). Only Paul deploys; Mecha never pushes to `release` and never runs Railway deploy commands.
 
 The repo's `railway.json` holds the build command, the start command and the health check, so Railway needs no build settings typed in.
 
@@ -18,12 +18,17 @@ The repo's `railway.json` holds the build command, the start command and the hea
 
 ## 1. Create the service
 
-1. In Railway, open the project that holds Session Zero (or create a new project: **New Project → Empty Project**).
-2. **Create → GitHub Repo → `pwluedke/gojisim`**. Railway reads `railway.json` and starts a first deploy. That deploy fails until step 2's variables are set; that's expected.
-3. Open the new service and name it `gojisim` (**Settings → Service Name**).
-4. **Settings → Source:**
-   - Branch: `main`.
-   - Turn on **Wait for CI**. Railway then deploys a commit only after its GitHub checks pass; the one that matters is `ci`, which needs every other check.
+1. On your Mac, in the `gojisim` folder, create the `release` branch once: `git push origin main:release`.
+2. In Railway, open the project that holds Session Zero (or create a new project: **New Project → Empty Project**).
+3. **Create → GitHub Repo → `pwluedke/gojisim`**.
+4. **Keep one service.** Railway sees the repo's workspace packages and may make one service for each (web, server, stress, ability-survey, bots, scraper). Delete all but one: open each extra service, then **Settings → Danger → Delete Service**.
+5. Open the one you kept and name it `gojisim` (**Settings → Service Name**).
+6. **Settings → Source:**
+   - **Root Directory:** empty (the repo root), so Railway reads the repo's `railway.json` and builds the whole workspace.
+   - **Branch:** `release`.
+   - Turn on **Wait for CI**. Railway then deploys a commit only after its GitHub checks pass; the one that matters is `ci`, which needs every other check. A commit pushed from `main` has already passed it, so it deploys right away.
+
+   The first deploy fails until step 2's variables are set; that's expected.
 
 ## 2. Set the variables
 
@@ -71,9 +76,19 @@ If `pnpm images` stops with a missing `tsx` or `sharp`, the deploy left out deve
 3. Wait for Railway to show the domain as active, with its certificate issued. That usually takes a few minutes.
 4. Open `https://gojisim.somanygames.app`. You get the login page; type the password, and the app opens.
 
+## Deploy
+
+Merging into `main` doesn't deploy. To put main's current state in front of testers:
+
+1. On your Mac, in the `gojisim` folder: `git fetch origin`, then `git push origin origin/main:release` (with `main` checked out and up to date, `git push origin main:release` is the same). If Git refuses because `release` has commits `main` doesn't, something other than this command pushed there; ask before forcing.
+2. In Railway, open the `gojisim` service → **Deployments**. The new deploy appears for that commit, builds, passes the `/healthz` check and becomes **Active**. That takes a few minutes.
+3. Open `https://gojisim.somanygames.app` and check the change.
+
+**Roll back:** Railway → `gojisim` → **Deployments** → pick an older, working deploy → **⋯ → Redeploy**. The site goes back to that build at once. The `release` branch still points at the newer commit, so the next `git push origin main:release` deploys main again as usual.
+
 ## Day to day
 
-- **Deploys:** merging a PR into `main` deploys it once that commit's `ci` check passes. Nothing else to do.
+- **Deploys:** only by hand, with [Deploy](#deploy) above. Merges into `main` never deploy.
 - **Change the password:** edit `GOJISIM_PASSWORD` in **Variables**; Railway redeploys. People already signed in stay signed in.
 - **Sign everyone out:** change `SESSION_SECRET` (a new `openssl rand -hex 32`). Every old login cookie stops working, and everyone types the password again.
 - **Health:** `https://gojisim.somanygames.app/healthz` answers `{"status":"ok"}` without a password; Railway checks it on each deploy.

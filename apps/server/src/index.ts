@@ -1,4 +1,9 @@
-import { createServer, type Server } from "node:http";
+import {
+  createServer,
+  type IncomingMessage,
+  type Server,
+  type ServerResponse,
+} from "node:http";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { decklogMiddleware } from "./decklog.js";
@@ -19,6 +24,35 @@ export interface AppServerOptions {
 }
 
 const ROBOTS = "User-agent: *\nDisallow: /\n";
+
+/** A request handler that may throw or reject. */
+export type Handler = (req: IncomingMessage, res: ServerResponse) => unknown;
+
+/**
+ * Runs `handler` so that no error can stop the server: a throw or a rejection is logged and
+ * answered with 500 if nothing was sent yet (otherwise the response is cut off), and the server
+ * keeps serving. Node exits on an unhandled rejection, so every request goes through this.
+ */
+export function safeHandler(
+  handler: Handler,
+  log: (error: unknown) => void = (error) =>
+    console.error("Request failed:", error),
+) {
+  return (req: IncomingMessage, res: ServerResponse): void => {
+    const fail = (error: unknown) => {
+      log(error);
+      if (!res.headersSent) {
+        res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+        res.end("Something went wrong.");
+      } else res.destroy();
+    };
+    try {
+      Promise.resolve(handler(req, res)).catch(fail);
+    } catch (error) {
+      fail(error);
+    }
+  };
+}
 
 /**
  * The app server (deploy for testers): the built web app, its card images and
@@ -44,27 +78,38 @@ export function createAppServer({
   const decklog = decklogMiddleware(fetchImpl);
   const cards = cardImages(cardsDir);
   const app = webApp(distDir);
-  return createServer((req, res) => {
-    // Testers only: nothing here is for search engines.
-    res.setHeader("x-robots-tag", "noindex, nofollow");
-    const path = new URL(req.url ?? "/", "http://localhost").pathname;
-    if (path === "/robots.txt") {
-      res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
-      res.end(ROBOTS);
-      return;
-    }
-    if (path === "/healthz") {
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ status: "ok" }));
-      return;
-    }
-    const serve = () =>
-      decklog(req, res, () => {
-        void cards(req, res, () => void app(req, res));
-      });
-    if (gate) void gate(req, res, serve);
-    else serve();
-  });
+  return createServer(
+    safeHandler(async (req, res) => {
+      // Testers only: nothing here is for search engines.
+      res.setHeader("x-robots-tag", "noindex, nofollow");
+      const path = new URL(req.url ?? "/", "http://localhost").pathname;
+      if (path === "/robots.txt") {
+        res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+        res.end(ROBOTS);
+        return;
+      }
+      if (path === "/healthz") {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ status: "ok" }));
+        return;
+      }
+      // Each step says whether it passed the request on (its `next`), and is awaited, so its
+      // errors reach `safeHandler`.
+      const passes = async (
+        step: (next: () => void) => unknown,
+      ): Promise<boolean> => {
+        let passed = false;
+        await step(() => {
+          passed = true;
+        });
+        return passed;
+      };
+      if (gate && !(await passes((next) => gate(req, res, next)))) return;
+      if (!(await passes((next) => decklog(req, res, next)))) return;
+      if (!(await passes((next) => cards(req, res, next)))) return;
+      await app(req, res);
+    }),
+  );
 }
 
 if (
