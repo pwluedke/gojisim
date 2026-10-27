@@ -375,7 +375,19 @@ export function NewGame({
       />
       {importing && (
         <ImportDeck
+          existingNames={my.decks.map((d) => d.name)}
           onClose={() => setImporting(false)}
+          onSaveAll={(decks) => {
+            const now = Date.now();
+            const saved = decks.map(({ deck, name }, i) =>
+              savedDeck(deck, name, new Date(now + i)),
+            );
+            my.add(...saved);
+            // The last saved deck is ready to play in P1's seat (decision 292).
+            const last = saved[saved.length - 1];
+            if (last) setKeys((k) => ({ ...k, P1: `mine:${last.id}` }));
+            setDecksOpen(true);
+          }}
           onSave={(deck, name) => {
             const saved = savedDeck(deck, name);
             my.add(saved);

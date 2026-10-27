@@ -12,6 +12,11 @@ export interface DeckListError {
   line: number;
   reason: string;
   text: string;
+  /**
+   * The index in `decks` of the deck the line belongs to, for lists that hold several (GojiSim
+   * text); unset for a line before any deck and in the single-deck formats.
+   */
+  deck?: number;
 }
 
 export interface ParsedDeckList {
@@ -66,7 +71,13 @@ export function parseDeckList(text: string): ParsedDeckList {
   text.split(/\r?\n/).forEach((raw, index) => {
     const line = index + 1;
     const text = raw.trim();
-    const error = (reason: string) => errors.push({ line, reason, text: raw });
+    const error = (reason: string) =>
+      errors.push({
+        line,
+        reason,
+        text: raw,
+        ...(deck ? { deck: decks.length - 1 } : {}),
+      });
     if (text === "" || text.startsWith("#")) return;
 
     const header = /^\[([^\]]+)\]\s*(.*)$/.exec(text);

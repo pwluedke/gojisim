@@ -259,3 +259,36 @@ test("a godzilla-sim Export to Clipboard (no name line) saves once it's named", 
   await page.getByTestId("import-save").click();
   await expect(myDecks(page)).toHaveText(["From godzilla-sim"]);
 });
+
+test("Import all saves every deck that parses, without folders, and reports the bad one", async ({
+  page,
+}) => {
+  await page.goto("/play?mode=bot");
+  await importDeck(
+    page,
+    cardsFixture("godzilla-sim-export-all.txt"),
+    "Starter Deck - Godzilla Minus One",
+  );
+  const text = `${cardsFixture("godzilla-sim-export-all.txt")}\n[deck] Club/Broken\n[main deck]\n4 ZZZ99-999\n`;
+  await page.getByTestId("import-deck").click();
+  await page.getByTestId("import-text").fill(text);
+  // The single deck's suggested name drops its folder.
+  await expect(page.getByTestId("import-name")).toHaveValue(
+    "Starter Deck - Godzilla Minus One",
+  );
+  await page.getByTestId("import-all").click();
+  await expect(page.getByTestId("import-all-result")).toContainText(
+    "Saved 2 of 3 decks",
+  );
+  await expect(page.getByTestId("import-all-result")).toContainText(
+    "Not saved, Club/Broken: Line",
+  );
+  await expect(page.getByTestId("import-cancel")).toHaveText("Close [Esc]");
+  await page.getByTestId("import-cancel").click();
+  await expect(myDecks(page)).toHaveText([
+    "Starter Deck - Godzilla Minus One",
+    "Starter Deck - Godzilla Minus One (2)",
+    "Starter Deck - Heisei Series Godzilla",
+  ]);
+  await expect(page.getByTestId("deck-P1")).toHaveValue(/^mine:/);
+});

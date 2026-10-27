@@ -676,3 +676,17 @@ Accepted by Monarch in the First / Second pick modal review (PR #58).
 483. `firstPickPeeked` is an optional, information-only record field (like `showOpponentHand`, M11 leaves such games out); the board's root shows both flags as `data-first-pick-peeked` and `data-show-opponent-hand`.
 484. An empty bot hand is a half-size slot outlined like an empty pile, with the 0 count badge.
 485. The bot hand's count badge holds the hand size from before the step while any card of the step flies (`heldCounts` from the animation hook), since one step's moves animate together (decision 257).
+
+Accepted by Monarch in the deploy for testers review (PR #59).
+
+486. The login page, `robots.txt` (it disallows everything) and `/healthz` answer without the login cookie; every other route, card images and `/api/*` included, needs it. Every response carries `X-Robots-Tag: noindex, nofollow`.
+487. Without the cookie, a page (a GET with no file extension, outside `/api/`) gets a 303 to the login page and back after; everything else gets 401.
+488. Only wrong passwords count toward the limit: 10 a minute per IP, keyed by `clientIp` (`X-Real-IP`, which Railway's edge sets and overwrites, then the last `X-Forwarded-For` entry, never the first, then the socket address). IPs with no try in the last minute are forgotten once the map holds over 1,000.
+489. The login cookie is self-contained (`<expiry>.<HMAC-SHA256 of v1.expiry with SESSION_SECRET>`, HttpOnly, Secure, SameSite=Lax, 30 days), so a redeploy keeps everyone signed in and a new secret signs everyone out. The server refuses to start with a password and no secret of 32 or more characters.
+490. After login, the return path (`safeNext`) must start with one `/` and hold no backslash, no control character and no percent-encoded form of either; anything else becomes `/`.
+491. Every request runs through `safeHandler`: an error is logged and answered with 500 if nothing was sent (otherwise the response is cut off), and the server keeps serving. A file read that fails mid-stream cuts off that response only.
+492. Static files are served only from under their folder (`fileUnder`, after decoding; a NUL or a path that leaves the folder is refused). Card images are cached 30 days, `/assets/` a year (immutable), everything else is checked on each visit; a path with no extension gets `index.html`.
+493. Report bug sits under Settings, above modal backdrops, and is hidden during the First / Second pick.
+494. The volume holds only the card WebPs (`CARDS_DIR=/data/cards`), copied up from Paul's Mac (docs/deploy.md step 4); a deploy never touches them.
+495. The production-build test (`e2e:prod`, a CI job `ci` needs) runs the built server with the gate on, on port 5199.
+496. Railway runs one service from the repo root (`railway.json`), deploying only from the `release` branch, which only Paul moves (`git push origin main:release`); merges into `main` never deploy.
