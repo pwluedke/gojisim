@@ -30,7 +30,7 @@ for (const [width, height] of [
   test.describe(`${width}x${height}`, () => {
     test.use({ viewport: { width, height } });
 
-    test("a hand of 10: all 10 cards' left edges show, nothing clipped, no scrolling", async ({
+    test("a hand of 10: all 10 cards' left edges show, nothing clipped sideways, no scrolling", async ({
       page,
     }) => {
       await handOfTen(page);
@@ -47,11 +47,12 @@ for (const [width, height] of [
       if (!strip) throw new Error("no strip");
       boxes.forEach((box, i) => {
         if (!box) throw new Error(`no box for card ${i}`);
-        // Whole card inside the strip.
+        // Inside the strip sideways; its top is the strip's, and the rest runs below the window's
+        // edge (bottom-edge hand).
         expect(box.x).toBeGreaterThanOrEqual(strip.x);
         expect(box.x + box.width).toBeLessThanOrEqual(strip.x + strip.width);
-        expect(box.y).toBeGreaterThanOrEqual(strip.y);
-        expect(box.y + box.height).toBeLessThanOrEqual(strip.y + strip.height);
+        expect(Math.abs(box.y - strip.y)).toBeLessThanOrEqual(1);
+        expect(box.y + box.height).toBeGreaterThan(height);
         // Its left edge shows: the next card starts to its right.
         const next = boxes[i + 1];
         if (next) expect(next.x).toBeGreaterThan(box.x + 8);
@@ -59,7 +60,7 @@ for (const [width, height] of [
       await noScroll(page);
     });
 
-    test("every card is the full image of its card: one size on the board, a larger one in the hand (M5f)", async ({
+    test("every card is the full image of its card, one size on the board and in the hand (bottom-edge hand)", async ({
       page,
     }) => {
       await handOfTen(page);
@@ -119,7 +120,7 @@ for (const [width, height] of [
         '[data-testid="your-hand"] [data-testid="card"]',
         9,
       );
-      expect(hand.height).toBeGreaterThan(board.height);
+      expect(Math.abs(hand.height - board.height)).toBeLessThanOrEqual(1);
       // Mat cells are card-sized too.
       const z1 = await page.getByTestId("zone-P1-1").boundingBox();
       expect(Math.abs((z1?.width ?? 0) - board.width)).toBeLessThanOrEqual(1);

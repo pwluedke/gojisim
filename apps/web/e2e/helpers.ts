@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 /** The turn number. */
 export async function turnNumber(page: Page): Promise<number> {
@@ -97,4 +97,20 @@ export async function startGame(page: Page, card?: 0 | 1): Promise<void> {
     .click();
   await page.getByTestId("first-pick-continue").click();
   await expect(page.getByTestId("board")).toBeVisible();
+}
+
+/**
+ * The center of the part of `locator` inside the window. Your hand cards run below the window's
+ * bottom edge (only their top 40 % shows), so pointer moves aim at what is on screen.
+ */
+export async function visibleCenter(
+  page: Page,
+  locator: Locator,
+): Promise<{ x: number; y: number }> {
+  const box = await locator.boundingBox();
+  const view = page.viewportSize();
+  if (!box || !view) throw new Error("no box");
+  const top = Math.max(box.y, 0);
+  const bottom = Math.min(box.y + box.height, view.height);
+  return { x: box.x + box.width / 2, y: (top + bottom) / 2 };
 }

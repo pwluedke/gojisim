@@ -51,6 +51,10 @@
   --color-card-back-1: #7e120e;
   --color-card-back-2: #9a1a13;
   --color-card-back-text: #fbf4e4;
+  /* Card backs (Paul): a white border so overlapping backs are easy to count, and a thin
+     outline outside it where the page is light enough to hide the white. */
+  --color-card-back-border: #ffffff;
+  --color-card-back-outline: #1a1410;
   --color-legal: #1d6b2e;
   --color-illegal: #b81d17;
   --color-warning: #7a4c00;
@@ -176,6 +180,10 @@
   --color-card-back-1: #33445a;
   --color-card-back-2: #44566e;
   --color-card-back-text: #ffffff;
+  /* Card backs (Paul): a white border so overlapping backs are easy to count, and a thin
+     outline outside it where the page is light enough to hide the white. */
+  --color-card-back-border: #ffffff;
+  --color-card-back-outline: #1f2328;
   /* Was #1a7f37 (4.48:1 on panel-alt); darkened to meet WCAG AA (M7a). */
   --color-legal: #187634;
   --color-illegal: #b42318;
@@ -292,6 +300,10 @@
   --color-card-back-1: #33445a;
   --color-card-back-2: #44566e;
   --color-card-back-text: #ffffff;
+  /* Card backs (Paul): a white border so overlapping backs are easy to count, and a thin
+     outline outside it where the page is light enough to hide the white. */
+  --color-card-back-border: #ffffff;
+  --color-card-back-outline: #2a2e35;
   --color-legal: #073d1a;
   --color-illegal: #6e1207;
   --color-warning: #5a3300;
@@ -407,6 +419,10 @@
   --color-card-back-1: #33445a;
   --color-card-back-2: #44566e;
   --color-card-back-text: #ffffff;
+  /* Card backs (Paul): a white border so overlapping backs are easy to count, and a thin
+     outline outside it where the page is light enough to hide the white. */
+  --color-card-back-border: #ffffff;
+  --color-card-back-outline: #000000;
   --color-legal: #56d364;
   --color-illegal: #ff7b72;
   --color-warning: #e3b341;
@@ -512,7 +528,7 @@ body {
 
   /*
    * One card size for the whole board (M5b fix, godzilla-sim formatting): both mats (6 rows) and
-   * the hand row fit the window height (the opponent's hand sits beside their mat, bot hand row), and the 7 mat columns
+   * the hand row (0.4 of a card: your hand peeks up from the window's bottom edge) fit the window height (the opponent's hand sits beside their mat, bot hand row), and the 7 mat columns
    * fit between the left column and the right column (M5d). Cards keep the printed 63:88 aspect.
    * `--board-chrome` is everything else in the height: paddings, gaps, the center line, the hand
    * panel's label and padding.
@@ -523,14 +539,16 @@ body {
   --mat-pad: 12px;
   /* The gap above and below hand cards, which fill the hand's height (M5f). */
   --hand-gap: 4px;
+  /* Your hand shows the top 40 % of each card at the window's bottom edge (Paul). */
+  --hand-peek: 0.4;
   --left-column-width: 260px;
   --board-chrome: calc(
-    88px + 4 * var(--mat-gap) + 4 * var(--mat-pad) + 4 * var(--mat-frame) +
+    40px + 4 * var(--mat-gap) + 4 * var(--mat-pad) + 4 * var(--mat-frame) +
       var(--header-h)
   );
   /* The mat is 5 portrait columns plus 2 landscape ones (M5f): 5w + 2h wide, w = 63h/88. */
   --card-h: min(
-    (100vh - var(--board-chrome)) / 7,
+    (100vh - var(--board-chrome)) / (6 + var(--hand-peek)),
     (
       (
           100vw - var(--left-column-width) - var(--right-column-width) - 2 *

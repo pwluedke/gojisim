@@ -3,7 +3,11 @@ import type { CardInstance, PlayerAreasView } from "@gojisim/engine";
 import type { CSSProperties } from "react";
 import styles from "./Board.module.css";
 import { CardFace } from "./CardFace";
+import { useInteraction } from "./interaction";
 import type { BoardModel } from "./model";
+
+/** Each hand card shows this share of its width before the next card covers it. */
+export const HAND_STEP = 0.75;
 
 function HandCard({
   card,
@@ -27,6 +31,7 @@ function HandCard({
     disabled: !playable || locked,
   });
   const usable = playable && !locked;
+  const { preview } = useInteraction();
   const state = selected
     ? styles.selected
     : usable && lit
@@ -42,20 +47,43 @@ function HandCard({
       data-playable={usable ? "true" : "false"}
       data-hand-lit={usable && lit ? "true" : "false"}
       data-selected={selected ? "true" : undefined}
-      onClick={usable ? onSelect : undefined}
+      onClick={
+        usable
+          ? (e) => {
+              // A pointer click doesn't leave keyboard focus behind: a focused card would stay
+              // raised (:focus-visible) after Esc ends the selection.
+              if (e.detail > 0) e.currentTarget.blur();
+              onSelect();
+            }
+          : undefined
+      }
       {...attributes}
       {...listeners}
     >
-      <CardFace card={card} data={model.view.cards[card.cardId]} rotate />
+      {/* The lifted card: the outer box stays in the row as the card's hit area (Hand). */}
+      <div className={styles.handLift} data-testid="hand-lift">
+        <CardFace card={card} data={model.view.cards[card.cardId]} rotate />
+      </div>
+      {/* The card's visible strip in the row: always this card's, even under a raised neighbor. */}
+      <div
+        className={styles.handStrip}
+        onMouseEnter={() => preview(card.instanceId)}
+        onMouseLeave={() => preview(null)}
+      />
     </div>
   );
 }
 
 /**
- * The tucked hand strip (M5b): the full width of the board, full cards at the board's one card
- * size. A large hand overlaps: columns may shrink below the card width, so each card runs under
- * the next one with its left edge showing (the last card is right-aligned over its neighbor), and
- * the strip never scrolls. A card is lit when it can be played to a zone (`isLit`); a card that
+ * Your hand at the window's bottom edge (Paul): full cards at the board's card size, with only
+ * their top 40 % above the edge. Cards overlap like a held hand: each column is three quarters of a
+ * card wide, so each card covers a quarter of the one to its left; the columns shrink when the
+ * row is full, so a large hand overlaps more and the row never scrolls. Hovering, focusing or
+ * selecting a card raises it whole (CSS). Each card has an outer box that never moves (its place
+ * in the row, so nothing shifts), the card that lifts, and a strip over its visible part of the row
+ * that stays on top, so a raised card never takes a neighbor's strip. Above the row, a hovered
+ * card's lifted image keeps it hovered; a selected card's lets clicks through to the zones under
+ * it, and clicking its strip still cancels the selection. A card is lit when it can be played to a zone (`isLit`); a card that
  * can only invade or gain rage is unlit but still selectable; a card with no action is dimmed. While a bot decides (or the game is over)
  * the hand is locked.
  */
@@ -77,7 +105,10 @@ export function Hand({
   onSelect: (instanceId: string) => void;
 }) {
   const cards = player.hand.cards ?? [];
-  const columns = `repeat(${Math.max(1, cards.length)}, minmax(0, var(--card-w)))`;
+  const columns =
+    cards.length <= 1
+      ? "var(--card-w)"
+      : `repeat(${cards.length - 1}, minmax(0, calc(var(--card-w) * ${HAND_STEP}))) var(--card-w)`;
   return (
     <div
       className={styles.hand}

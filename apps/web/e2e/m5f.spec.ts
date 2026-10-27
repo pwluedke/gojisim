@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { loadFixture, startGame, vsBot } from "./helpers";
+import { loadFixture, startGame, vsBot, visibleCenter } from "./helpers";
 
 /**
  * M5f: card animations at Normal speed (every other spec runs with them Off), the destroy
@@ -68,15 +68,12 @@ async function handFive(page: Page) {
 }
 
 async function drag(page: Page, from: Locator, to: Locator) {
-  const a = await from.boundingBox();
-  const b = await to.boundingBox();
-  if (!a || !b) throw new Error("no box");
-  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  const a = await visibleCenter(page, from);
+  const b = await visibleCenter(page, to);
+  await page.mouse.move(a.x, a.y);
   await page.mouse.down();
-  await page.mouse.move(a.x + a.width / 2 + 20, a.y + a.height / 2 - 20, {
-    steps: 4,
-  });
-  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 8 });
+  await page.mouse.move(a.x + 20, a.y - 20, { steps: 4 });
+  await page.mouse.move(b.x, b.y, { steps: 8 });
   await page.mouse.up();
 }
 
@@ -500,50 +497,7 @@ for (const [width, height] of [
     ).toEqual({ y: true, x: true });
   });
 
-for (const [width, height] of [
-  [1440, 900],
-  [1920, 1080],
-] as const)
-  test(`at ${width}x${height} hand cards fill the hand's height, within --hand-gap of its edges`, async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width, height });
-    await settings(page, { animation: "off" });
-    await handFive(page);
-    const gap = await page.evaluate(() =>
-      parseFloat(
-        getComputedStyle(
-          document.querySelector(".gojisim") as Element,
-        ).getPropertyValue("--hand-gap"),
-      ),
-    );
-    expect(gap).toBeGreaterThan(0);
-    const hand = await page.getByTestId("your-hand").boundingBox();
-    if (!hand) throw new Error("no hand");
-    const cards = page.getByTestId("your-hand").getByTestId("card");
-    expect(await cards.count()).toBeGreaterThan(0);
-    // The hand holds a strategy card (rotated): it follows the same rule.
-    await expect(
-      page.getByTestId("your-hand").locator('[data-rotated="true"]'),
-    ).not.toHaveCount(0);
-    for (const card of await cards.all()) {
-      const box = await card.boundingBox();
-      if (!box) throw new Error("no card box");
-      const top = box.y - hand.y;
-      const bottom = hand.y + hand.height - (box.y + box.height);
-      // Within the gap (plus the hand's 1 px border), never past the edge.
-      for (const margin of [top, bottom]) {
-        expect(margin).toBeGreaterThanOrEqual(0);
-        expect(margin).toBeLessThanOrEqual(gap + 1.5);
-      }
-    }
-    expect(
-      await page.evaluate(() => ({
-        y: document.documentElement.scrollHeight <= window.innerHeight,
-        x: document.documentElement.scrollWidth <= window.innerWidth,
-      })),
-    ).toEqual({ y: true, x: true });
-  });
+// M5f's "hand cards fill the hand's height" gave way to the bottom-edge hand (bottom-hand.spec.ts).
 
 test.describe("collapsible battle log", () => {
   test.beforeEach(async ({ page }) => {
@@ -740,7 +694,10 @@ test("moving cards keep the card's shape and size: draws on both sides, a bot pl
   await startGame(page);
   const box = async (id: string) => page.getByTestId(id).boundingBox();
   const places = async () => ({
-    yourHand: await box("your-hand"),
+    // Your hand cards run below the window's edge (bottom-edge hand): the row down to the edge.
+    yourHand: await box("your-hand").then(
+      (b) => b && { ...b, height: b.height * 3 },
+    ),
     yourDiscard: await box("discard-P1"),
     oppHand: await box("opponent-hand"),
     oppMat: await box("mat-opp"),

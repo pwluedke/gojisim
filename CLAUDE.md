@@ -643,3 +643,12 @@ Accepted by Monarch in the CI fixes review (PR #55).
 463. The image tag must match the lockfile's Playwright version; `apps/web/src/playwrightImage.test.ts` checks it, so it also runs locally with `pnpm test`.
 464. The nightly stress test runs two jobs side by side: uniform 10,000 games (60 min timeout) and weighted 4,500 games (90 min timeout). The weighted count is sized from the runner's rate (about 78 games a minute) to finish in about 60 min; past 75 min, it is lowered.
 465. Decision 123's single 120-minute nightly timeout is replaced by each job's own timeout.
+
+Accepted by Monarch in the new-game screen review (PR #56).
+
+466. Seat (P1's Human / Bot select, or P2's "Seat: Bot") sits in each seat's header, so every seat takes two lines: the deck with Randomize, then the bot level.
+467. Randomize picks from what the development-deck filter shows (legal decks only in a Tournament game), avoids the current deck when there is another, and uses `Math.random`, never the game seed. Every Casual ↔ Tournament switch resets P1 to ESD01 and P2 to ESD02 (replacing decision 347's "doesn't change by itself").
+468. Import deck, Export all and Import backup stay visible while My decks is collapsed; saving or restoring a deck opens the list.
+469. Import backup is a button that opens a hidden file picker, so it looks like its neighbors in every theme.
+470. The development-deck filter sits beside the new-game title.
+471. "Show opponent's hand"'s note reads "(practice: no statistics)".

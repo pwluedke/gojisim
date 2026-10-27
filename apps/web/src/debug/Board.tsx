@@ -59,6 +59,10 @@ export function CardView({
             "repeating-linear-gradient(45deg, var(--color-card-back-1), var(--color-card-back-1) 6px, var(--color-card-back-2) 6px, var(--color-card-back-2) 12px)",
           color: "var(--color-card-back-text)",
           fontSize: 11,
+          // The white card back border (3 % of the width), as on the board.
+          boxSizing: "border-box",
+          border: "3px solid var(--color-card-back-border)",
+          outline: "1px solid var(--color-card-back-outline)",
         }}
       >
         Card back

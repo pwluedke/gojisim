@@ -44,7 +44,11 @@
 .main {
   flex: 1;
   min-width: 0;
-  padding: var(--space-2) var(--space-4);
+  /* No bottom padding: your hand sits on the window's bottom edge. */
+  padding: var(--space-2) var(--space-4) 0;
+  /* Hand cards run below the window's edge; clipping only up and down keeps the page from
+     scrolling and lets a raised card at either end reach past the board's sides. */
+  overflow-y: clip;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -400,6 +404,26 @@
 }
 
 /*
+ * Every card back has a white border, 3 % of its width on all four sides and following the
+ * rounded corners (Paul), with a thin outline outside it where the page is light. Inside the box,
+ * so a back keeps the card's size.
+ */
+.cardBack,
+.flightBack {
+  box-sizing: border-box;
+  border: max(1px, calc(var(--card-w) * 0.03)) solid
+    var(--color-card-back-border);
+  outline: 1px solid var(--color-card-back-outline);
+}
+
+.cardBackSmall {
+  box-sizing: border-box;
+  border: max(1px, calc(var(--card-w) * 0.015)) solid
+    var(--color-card-back-border);
+  outline: 1px solid var(--color-card-back-outline);
+}
+
+/*
  * The opponent's mat row (bot hand row): the hand in the space left of the mat, the mat centered
  * like yours, so both mats line up column for column.
  */
@@ -412,14 +436,16 @@
 
 /*
  * The opponent's hand: half-size cards overlapping left to right, the first whole and each next
- * one showing a third of its width. Its top is the mat's top. One card with the count on it when
- * the row would reach the mat (OpponentHand measures).
+ * one showing a sixth of its width (a third until the bottom-edge hand made the mats wider). Its
+ * top is the mat's top, and it may use the board's left padding, never the mat. One card with the
+ * count on it when the row would reach the mat (OpponentHand measures).
  */
 .opponentHand {
   position: relative;
   display: flex;
   min-width: 0;
   height: calc(var(--card-h) / 2);
+  margin-left: calc(-1 * var(--space-4));
 }
 
 .handSlot {
@@ -428,7 +454,8 @@
 }
 
 .handSlot + .handSlot {
-  margin-left: calc(var(--card-w) / -3);
+  /* Half-size cards (--card-w / 2) showing a sixth: the rest, 5/6 of a half card, is covered. */
+  margin-left: calc(var(--card-w) * -5 / 12);
 }
 
 /*
@@ -470,27 +497,26 @@
   white-space: nowrap;
 }
 
-/* The tucked hand strip (M5b): the full width of the board, never scrolling. */
 /*
- * M5f: the hand takes the height left under the mats, and its cards fill it, with --hand-gap above
- * and below. The hand is a size container, so its cards size from its height (rotated strategy
- * cards too); width follows the 63:88 card ratio.
+ * Your hand at the window's bottom edge (Paul): the row is 0.4 of a card tall and its cards keep
+ * the board's card size, so only the top 40 % of each shows (rank, name and the top of the art).
+ * Cards overlap like a held hand: each covers about a quarter of the one to its left, and the
+ * columns shrink when the row is full, so it never scrolls. No panel: the cards are the row.
  */
 .hand {
   position: relative;
-  flex: 1;
-  min-height: 0;
-  container-type: size;
-  padding: var(--hand-gap) var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-panel);
+  /* Raised cards go over the mats. */
+  z-index: 5;
+  /* Pushed to the window's bottom edge, whatever height the mats leave. */
+  flex: none;
+  margin-top: auto;
+  height: calc(var(--card-h) * var(--hand-peek));
 }
 
-/* The hand's count, over its top-left corner, so the cards keep the full height. */
+/* The hand's count, over its top-left corner. */
 .handLabel {
   position: absolute;
-  top: 0;
+  top: calc(-1 * var(--space-1));
   left: var(--space-2);
   z-index: 3;
   padding: 0 var(--space-1);
@@ -501,40 +527,69 @@
   pointer-events: none;
 }
 
-/* Centered under the mat (M5d); a large hand overlaps instead of scrolling. */
+/* Centered under the mat (M5d). The column template is set inline from the card count. */
 .handCards {
-  --card-h: 100cqh;
-  --card-w: calc(100cqh * 63 / 88);
   display: grid;
   justify-content: center;
-  column-gap: var(--space-1);
+  align-items: start;
   height: 100%;
-  /* Room for the lit and selected outlines at the sides of the clipped strip. */
-  padding: 0 var(--space-1);
-  overflow: hidden;
 }
 
 .handCard {
+  /* No z-index: the lifted card and the strip stack against the other hand cards. */
   position: relative;
   width: var(--card-w);
   height: var(--card-h);
-  border-radius: var(--radius);
-  background: var(--color-panel);
-  transition: transform 0.1s;
   touch-action: none;
 }
 
-.handCard:last-child {
-  justify-self: unsafe end;
+/* The card itself, which lifts; a raised card grows from its bottom edge, at the window's. */
+.handLift {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  transform-origin: 50% 100%;
+  transition: transform 0.12s ease-out;
 }
 
-.handCard:hover {
-  z-index: 2;
+/*
+ * Hovering, keyboard focus or a selection raises a card straight up, whole and 1.5 times the board
+ * card size, over the board and the other hand cards. A transform, so nothing else moves. Its
+ * bottom edge lands on the row's bottom (the window's).
+ */
+.handCard:hover .handLift,
+.handCard:focus-visible .handLift,
+.handCard.selected .handLift {
+  z-index: 10;
+  transform: translateY(calc(var(--card-h) * (var(--hand-peek) - 1))) scale(1.5);
+}
+
+/* A selected card stays up until the action or Esc, and lets clicks through to the zones. */
+.handCard.selected .handLift {
+  pointer-events: none;
+}
+
+/*
+ * The card's visible part of the row, over any raised card: pointing at a card's strip always
+ * finds that card, and later cards' strips sit over earlier ones, as the cards do.
+ */
+.handStrip {
+  position: absolute;
+  z-index: 11;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: calc(var(--card-h) * var(--hand-peek));
 }
 
 .playable {
-  outline: 2px solid var(--color-lit);
   cursor: pointer;
+}
+
+.playable .handLift {
+  outline: 2px solid var(--color-lit);
 }
 
 /* Can only invade or gain rage: not lit, but it can still be selected and dragged. */
@@ -542,15 +597,16 @@
   cursor: pointer;
 }
 
-.dimmed {
+.dimmed .handLift {
   opacity: 0.45;
 }
 
 .selected {
-  outline: 3px solid var(--color-selected);
-  transform: translateY(-2px);
-  z-index: 1;
   cursor: pointer;
+}
+
+.selected .handLift {
+  outline: 3px solid var(--color-selected);
 }
 
 .dragging {

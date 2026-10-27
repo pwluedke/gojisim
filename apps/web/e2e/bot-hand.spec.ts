@@ -57,16 +57,18 @@ for (const [width, height] of [
         const backs = page.getByTestId("opponent-card-back");
         const first = await backs.first().boundingBox();
         if (!first) throw new Error("no back");
-        const needed = first.width * (1 + (cards - 1) / 3);
+        const needed = first.width * (1 + (cards - 1) / 6);
         if ((await hand.getAttribute("data-mode")) === "row") {
           await expect(backs).toHaveCount(cards);
-          // Each next card shows about a third of the one before.
+          // Each next card shows about a sixth of the one before.
           const second = await backs.nth(1).boundingBox();
-          expect(second?.x ?? 0).toBeCloseTo(first.x + first.width / 3, 0);
+          expect(second?.x ?? 0).toBeCloseTo(first.x + first.width / 6, 0);
           const last = await backs.last().boundingBox();
           expect((last?.x ?? 0) + (last?.width ?? 0)).toBeLessThan(mat.x);
           expect(needed).toBeLessThanOrEqual(row.width + 0.5);
         } else {
+          // 5 cards always show as a row at 1440×900 and wider (Monarch, Oct 26, 2026).
+          expect(cards === 5 && width >= 1440).toBe(false);
           // The row would have reached the mat: one card with the count on it.
           expect(needed).toBeGreaterThan(row.width);
           await expect(backs).toHaveCount(1);

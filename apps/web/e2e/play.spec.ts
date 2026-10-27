@@ -125,15 +125,22 @@ test("Play vs bot: both mats copy the official playmat, the opponent's rotated 1
   ).toBe(true);
 });
 
-test("the opponent's hand shows as card backs, as many as its count", async ({
+test("the opponent's hand shows as card backs: as many as its count, or one back with the count when the row would reach the mat", async ({
   page,
 }) => {
   await startFromMenu(page, "menu-play-bot");
-  const count = Number(
-    await page.getByTestId("opponent-hand-count").textContent(),
-  );
-  expect(count).toBeGreaterThan(0);
-  await expect(page.getByTestId("opponent-card-back")).toHaveCount(count);
+  const hand = page.getByTestId("opponent-hand");
+  // The bot may still be drawing: read the count and the backs together until they agree.
+  await expect
+    .poll(async () => {
+      const count = Number(
+        await page.getByTestId("opponent-hand-count").textContent(),
+      );
+      const backs = await page.getByTestId("opponent-card-back").count();
+      const row = (await hand.getAttribute("data-mode")) === "row";
+      return count > 0 && backs === (row ? count : 1);
+    })
+    .toBe(true);
   await expect(
     page.getByTestId("opponent-hand").getByTestId("card"),
   ).toHaveCount(0);

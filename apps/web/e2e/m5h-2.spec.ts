@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-import { loadFixture } from "./helpers";
+import { loadFixture, visibleCenter } from "./helpers";
 
 /** M5h-2: the battle log, rules, undo history, stack viewer, invade arrow, prompts and fixes. */
 
@@ -126,14 +126,12 @@ test("#7 dragging a card over your discard pile draws the invade arrow, one arc 
   const drag = async () => {
     const card = page.getByTestId("hand-card").first();
     const discard = page.getByTestId("discard-P1");
-    const [a, b] = [await card.boundingBox(), await discard.boundingBox()];
-    if (!a || !b) throw new Error("no box");
-    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+    const a = await visibleCenter(page, card);
+    const b = await visibleCenter(page, discard);
+    await page.mouse.move(a.x, a.y);
     await page.mouse.down();
-    await page.mouse.move(a.x + a.width / 2 + 20, a.y + 10, { steps: 4 });
-    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, {
-      steps: 10,
-    });
+    await page.mouse.move(a.x + 20, a.y - 10, { steps: 4 });
+    await page.mouse.move(b.x, b.y, { steps: 10 });
   };
   await drag();
   const arcs = page.getByTestId("invade-arc");
