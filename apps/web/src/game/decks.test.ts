@@ -4,6 +4,7 @@ import {
   type DeckOption,
   deckOptions,
   optionLegality,
+  randomDeckKey,
   tournamentProblems,
 } from "./decks";
 import { newSession } from "./session";
@@ -83,5 +84,28 @@ describe("deck legality by match mode", () => {
       ["P1", false, ["6.1.1.2"]],
       ["P2", true, []],
     ]);
+  });
+});
+
+describe("Randomize", () => {
+  it("picks another deck from the candidates, by the random source given", () => {
+    const keys = ["a", "b", "c", "d"];
+    // With "b" current, the pool is a, c, d.
+    expect(randomDeckKey(keys, "b", () => 0)).toBe("a");
+    expect(randomDeckKey(keys, "b", () => 0.5)).toBe("c");
+    expect(randomDeckKey(keys, "b", () => 0.999)).toBe("d");
+  });
+
+  it("keeps the only candidate, and has nothing to pick from an empty list", () => {
+    expect(randomDeckKey(["a"], "a", () => 0.7)).toBe("a");
+    expect(randomDeckKey([], "a")).toBeNull();
+  });
+
+  it("uses a fresh random source by default, not a seed: many picks reach every other deck", () => {
+    const keys = ["a", "b", "c", "d"];
+    const seen = new Set(
+      Array.from({ length: 200 }, () => randomDeckKey(keys, "a")),
+    );
+    expect(seen).toEqual(new Set(["b", "c", "d"]));
   });
 });

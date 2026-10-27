@@ -214,7 +214,7 @@ for (const theme of THEMES)
     expect(await contrastProblems(page)).toEqual([]);
   });
 
-test("Showa Poster themes the form controls: 2 px ink borders, Zen Kaku Gothic New, 44 px buttons and selects, marigold primary actions, a red accent; Grey keeps the browser's", async ({
+test("Showa Poster themes the form controls: 2 px ink borders, Zen Kaku Gothic New, compact 36 px controls on the new-game screen (44 px elsewhere, new-game.spec.ts), marigold primary actions, a red accent; Grey keeps the browser's", async ({
   page,
 }) => {
   await page.goto("/play");
@@ -230,10 +230,10 @@ test("Showa Poster themes the form controls: 2 px ink borders, Zen Kaku Gothic N
     expect(await css(id, "border-top-width"), id).toBe("2px");
     expect(await css(id, "border-top-color"), id).toBe("rgb(26, 20, 16)");
     expect(await css(id, "font-family"), id).toMatch(/^"?Zen Kaku Gothic New/);
-    expect(await height(id), id).toBeGreaterThanOrEqual(44);
+    expect(await height(id), id).toBeCloseTo(36, 0);
   }
   // The seat presets (Easy / Medium / Hard), Export all, and the primary actions.
-  expect(await height("export-decks")).toBeGreaterThanOrEqual(44);
+  expect(await height("export-decks")).toBeCloseTo(36, 0);
   for (const id of ["start-game", "import-deck"])
     expect(await css(id, "background-color"), id).toBe("rgb(244, 179, 35)");
   expect(

@@ -19,7 +19,6 @@ const shortList = readFileSync(
 );
 
 async function importShortDeck(page: Page) {
-  await page.goto("/play?mode=bot");
   await page.getByTestId("import-deck").click();
   await page.getByTestId("import-text").fill(shortList);
   await page.getByTestId("import-name").fill("Short Gigan");
@@ -31,14 +30,20 @@ async function importShortDeck(page: Page) {
 test("Tournament: an illegal deck can't be picked, the seat says why, and Start is blocked", async ({
   page,
 }) => {
+  await page.goto("/play?mode=bot");
   await importShortDeck(page);
+  // A match type switch resets both seats to the starters, which are legal.
   await page.getByTestId("match-mode-tournament").check();
+  await expect(page.getByTestId("deck-P1")).toHaveValue("official:ESD01");
+  await expect(page.getByTestId("start-game")).toBeEnabled();
   await expect(
     page.getByTestId("deck-P1").locator("option", { hasText: "Short Gigan" }),
   ).toHaveText("Short Gigan (illegal)");
   await expect(
     page.getByTestId("deck-P1").locator("option", { hasText: "Short Gigan" }),
   ).toHaveAttribute("disabled", "");
+  // Importing a deck makes it P1's pick, even an illegal one: then the seat says why.
+  await importShortDeck(page);
   await expect(page.getByTestId("tournament-blocked-P1")).toContainText(
     "6.1.1.2: Main deck needs exactly 50 cards (has 47)",
   );
@@ -52,13 +57,17 @@ test("Tournament: an illegal deck can't be picked, the seat says why, and Start 
   // Casual offers the illegal deck again, with its warning badge.
   await page.getByTestId("match-mode-casual").check();
   await expect(
-    page.getByTestId("deck-P1").locator("option", { hasText: "Short Gigan" }),
+    page
+      .getByTestId("deck-P1")
+      .locator("option", { hasText: "Short Gigan" })
+      .first(),
   ).not.toHaveAttribute("disabled");
 });
 
 test("Casual: an illegal deck plays, with a warning on its mat for the whole game", async ({
   page,
 }) => {
+  await page.goto("/play?mode=bot");
   await importShortDeck(page);
   await expect(page.getByTestId("match-mode-casual")).toBeChecked();
   await expect(page.getByTestId("start-game")).toBeEnabled();
