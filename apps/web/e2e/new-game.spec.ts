@@ -140,6 +140,45 @@ function hexToRgb(hex: string): string {
   return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
 }
 
+test.describe("bottom block", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test("Load a game record is a button; the file's name shows only after a pick", async ({
+    page,
+  }) => {
+    await open(page, "showa");
+    await expect(page.getByTestId("load-record-button")).toHaveText(
+      "Load a game record",
+    );
+    await expect(page.getByTestId("load-record")).toBeHidden();
+    await expect(page.getByTestId("load-record-name")).toHaveCount(0);
+    await expect(page.getByText("No file chosen")).toHaveCount(0);
+    const chooser = page.waitForEvent("filechooser");
+    await page.getByTestId("load-record-button").click();
+    await (
+      await chooser
+    ).setFiles({
+      name: "not-a-record.json",
+      mimeType: "application/json",
+      buffer: Buffer.from("{}"),
+    });
+    await expect(page.getByTestId("load-record-name")).toHaveText(
+      "not-a-record.json",
+    );
+    await expect(page.getByTestId("load-error")).toBeVisible();
+  });
+
+  test("Show opponent's hand is in the bottom block with a human P1, and hidden with a bot P1", async ({
+    page,
+  }) => {
+    await open(page, "showa");
+    const options = page.getByTestId("game-options");
+    await expect(options.getByTestId("show-opponent-hand")).toBeVisible();
+    await page.getByTestId("seat-P1").selectOption("bot");
+    await expect(page.getByTestId("show-opponent-hand")).toHaveCount(0);
+  });
+});
+
 test.describe("Randomize", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 

@@ -305,6 +305,25 @@ const FIXTURES: Fixture[] = [
       state.players.find((p) => p.id === "P1")?.hand.length === 10,
   },
   {
+    name: "hand-count-five",
+    note: "P1 holds exactly 5 cards at its play timing against the Medium bot (bottom-edge hand)",
+    decks: official,
+    confirmSingleOption: true,
+    match: () => false,
+    matchPlay: (state) =>
+      state.players.find((p) => p.id === "P1")?.hand.length === 5,
+  },
+  {
+    name: "hand-fifteen",
+    note: "P1, only passing, holds 15 cards at its play timing against the Medium bot (bottom-edge hand)",
+    decks: official,
+    confirmSingleOption: true,
+    p1Passes: true,
+    match: () => false,
+    matchPlay: (state) =>
+      state.players.find((p) => p.id === "P1")?.hand.length === 15,
+  },
+  {
     name: "deck-bottom",
     note: "P1's next action (`next`) destroys an ESD01-011/012 that goes to the deck bottom instead (M5g layer fix)",
     decks: (g) => (g % 2 ? [esd02, esd01] : [esd01, esd01]),

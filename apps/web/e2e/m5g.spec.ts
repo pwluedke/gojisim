@@ -220,6 +220,9 @@ async function sampleLayers(page: Page) {
         )
         .forEach((el) => {
           const r = el.getBoundingClientRect();
+          // A flight from your hand starts below the window's edge, where nothing can be hit.
+          const cy = r.y + r.height / 2;
+          if (cy < 0 || cy > window.innerHeight) return;
           const hit = document.elementFromPoint(
             r.x + r.width / 2,
             r.y + r.height / 2,

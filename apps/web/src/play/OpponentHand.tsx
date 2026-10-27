@@ -4,12 +4,15 @@ import { useLayoutEffect, useRef, useState } from "react";
 import styles from "./Board.module.css";
 import { CardBack, CardFace } from "./CardFace";
 
-/** Each card after the first shows this share of its width (Monarch: "about a third"). */
-export const VISIBLE_SHARE = 1 / 3;
+/**
+ * Each card after the first shows this share of its width: "about a third" in #54, a sixth since
+ * the bottom-edge hand made the mats wider (Monarch, Oct 26, 2026), so 5 still fit at 1440×900.
+ */
+export const VISIBLE_SHARE = 1 / 6;
 
 /**
  * Whether `count` overlapping cards of width `cardWidth` fit in `rowWidth`: the first card whole,
- * each next one a third of its width further right. Otherwise the row shows one card with the
+ * each next one a sixth of its width further right. Otherwise the row shows one card with the
  * count on it.
  */
 export function handRowFits(
@@ -23,7 +26,7 @@ export function handRowFits(
 
 /**
  * The opponent's hand (bot hand row): half-size card backs overlapping in a row, in the space left
- * of their mat, top-aligned with it. When the row would reach the mat, it shows one card with the
+ * of their mat (and the board's left padding), top-aligned with it. When the row would reach the mat, it shows one card with the
  * count on it. With "Show opponent's hand" on (`open`), the cards are face up, and hovering the row
  * fans them out at the board's card size, each one opening the preview. A card an effect revealed
  * shows face up in the row whether or not the hand is open (decision 212).

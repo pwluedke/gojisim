@@ -118,6 +118,8 @@ export function NewGame({
   });
   const [seats, setSeats] = useState(presetSeats);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const recordInput = useRef<HTMLInputElement>(null);
+  const [recordName, setRecordName] = useState<string | null>(null);
   const [seed, setSeed] = useState(() => String(randomSeed()));
   const [matchMode, setMatchMode] = useState<MatchMode>("casual");
   const [showOpponentHand, setShowOpponentHand] = useState(false);
@@ -446,18 +448,33 @@ export function NewGame({
           >
             Start
           </button>
-          <label>
-            Or load a game record{" "}
-            <input
-              type="file"
-              accept="application/json,.json"
-              data-testid="load-record"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (file) setLoadError(await onLoad(file));
-              }}
-            />
-          </label>
+          {/* A button like Import backup's; the file's name shows only once one is picked. */}
+          <button
+            type="button"
+            data-control
+            data-testid="load-record-button"
+            onClick={() => recordInput.current?.click()}
+          >
+            Load a game record
+          </button>
+          <input
+            ref={recordInput}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            data-testid="load-record"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setRecordName(file.name);
+              setLoadError(await onLoad(file));
+            }}
+          />
+          {recordName && (
+            <span className={styles.note} data-testid="load-record-name">
+              {recordName}
+            </span>
+          )}
         </div>
         {blocked.length > 0 && (
           <div className={styles.illegal} data-testid="start-blocked">

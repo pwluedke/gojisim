@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { loadFixture, startGame } from "./helpers";
+import { loadFixture, startGame, visibleCenter } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -42,15 +42,12 @@ async function cardFor(
 }
 
 async function drag(page: Page, from: Locator, to: Locator) {
-  const a = await from.boundingBox();
-  const b = await to.boundingBox();
-  if (!a || !b) throw new Error("no box");
-  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  const a = await visibleCenter(page, from);
+  const b = await visibleCenter(page, to);
+  await page.mouse.move(a.x, a.y);
   await page.mouse.down();
-  await page.mouse.move(a.x + a.width / 2 + 12, a.y + a.height / 2 - 12, {
-    steps: 4,
-  });
-  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 });
+  await page.mouse.move(a.x + 12, a.y - 12, { steps: 4 });
+  await page.mouse.move(b.x, b.y, { steps: 12 });
   await page.mouse.up();
 }
 
