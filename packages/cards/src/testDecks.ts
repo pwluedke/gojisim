@@ -138,3 +138,33 @@ export function buildTestDeck(set: string, seed: number | string): TestDeck {
   );
   return { set, monsterDeck, mainDeck };
 }
+
+/**
+ * A made-up battle card with no ability data, so it is manual (format.md change 10): playing it
+ * opens a manual window. Since M12g every real card with text has data, so tests that need a
+ * manual window (the ManualPanel test, the e2e `manual` fixture) use this card. It is never in
+ * `cards.json`; a game gets it through its deck (decision 41).
+ */
+export const MANUAL_TEST_CARD: Card = {
+  id: 990001,
+  cardNumber: "TEST-M01",
+  baseCardNumber: "TEST-M01",
+  isParallel: false,
+  parentId: null,
+  deckCardNumber: "TEST-M01",
+  name: "Manual Test Kaiju",
+  set: "TEST",
+  colors: ["Red"],
+  type: "Battle",
+  traits: ["Godzilla"],
+  rank: 4,
+  counterOrThreat: 4000,
+  invadeZones: 1,
+  rarity: "C",
+  movie: null,
+  text: "[enter] Look at the top 3 cards of your deck and put them back in any order. (A test card with no ability data: resolve it by hand.)",
+  notes: null,
+  // No such image: the board shows the card's name instead (decision 211).
+  imageUrl: "https://example.invalid/manual-test-card.png",
+  unknownFields: {},
+};

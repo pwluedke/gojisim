@@ -129,14 +129,18 @@ test("debug viewer: import deck lists, legality shown, illegal deck warning, rem
     buffer: Buffer.from(SAMPLE_DECKS),
   });
   const p1 = page.getByTestId("deck-P1");
+  // Labelled without the [deck] folder, in a group per folder (the export keeps the full name).
   await expect(
-    p1.locator("option", { hasText: "Sample/Legal Red ✓ legal" }),
+    p1.locator(
+      'optgroup[label="Development: imported in /debug › Sample"] option',
+      { hasText: "Legal Red ✓ legal" },
+    ),
   ).toHaveCount(1);
   await expect(
-    p1.locator("option", { hasText: "Sample/Too Small ✗ 6.1.1.2" }),
+    p1.locator("option", { hasText: "Too Small ✗ 6.1.1.2" }),
   ).toHaveCount(1);
 
-  await p1.selectOption({ label: "Sample/Too Small ✗ 6.1.1.2" });
+  await p1.selectOption({ label: "Too Small ✗ 6.1.1.2" });
   await expect(page.getByTestId("deck-legality").first()).toContainText(
     "Illegal: 6.1.1.2",
   );
@@ -149,14 +153,12 @@ test("debug viewer: import deck lists, legality shown, illegal deck warning, rem
   // Remembered in this browser.
   await page.reload();
   await expect(
-    page
-      .getByTestId("deck-P2")
-      .locator("option", { hasText: "Sample/Legal Red" }),
+    page.getByTestId("deck-P2").locator("option", { hasText: "Legal Red" }),
   ).toHaveCount(1);
 
   await page
     .getByTestId("deck-P1")
-    .selectOption({ label: "Sample/Legal Red ✓ legal" });
+    .selectOption({ label: "Legal Red ✓ legal" });
   const [download] = await Promise.all([
     page.waitForEvent("download"),
     page.getByTestId("export-deck-list").click(),

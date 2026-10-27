@@ -7,6 +7,7 @@ import {
   parseDeckList,
 } from "@gojisim/cards/deck-lists";
 import { buildTestDeck, TEST_DECK_SETS } from "@gojisim/cards/test-decks";
+import { deckName } from "./importDeck";
 import { type FileDeck, fileGroup, localDecks } from "./localDecks";
 
 /** One entry in a deck picker. */
@@ -16,7 +17,10 @@ export interface DeckOption {
   kind: "official" | "random" | "imported" | "mine" | "file";
   /** The deck to play; random decks depend on the game seed. */
   build: (seed: number) => NamedDeck;
-  /** A development deck file's picker group: its file, and its `[deck]` folder. */
+  /**
+   * A development deck file's picker group: its file, and its `[deck]` folder. For a deck
+   * imported in `/debug`, its `[deck]` folder, if any.
+   */
   group?: string;
 }
 
@@ -51,25 +55,31 @@ const RANDOM: DeckOption[] = TEST_DECK_SETS.map((set) => ({
 
 /**
  * Decks imported in `/debug` and kept in this browser. One whose name a development deck file
- * also has is left out: the file's deck is shown instead (Monarch, Oct 25, 2026).
+ * also has is left out: the file's deck is shown instead (Monarch, Oct 25, 2026). Like the file
+ * decks, each is labelled without its `[deck]` folder (`deckName`) and grouped by it; keys stay
+ * `imported:<index>`, so earlier picks still work.
  */
 export function importedOptions(
   decks: NamedDeck[],
   fileDecks: readonly FileDeck[] = [],
 ): DeckOption[] {
   const inFiles = new Set(fileDecks.map((d) => d.deck.name));
-  return decks.flatMap((deck, i) =>
-    inFiles.has(deck.name)
-      ? []
-      : [
-          {
-            key: `imported:${i}`,
-            label: deck.name,
-            kind: "imported" as const,
-            build: () => deck,
-          },
-        ],
-  );
+  return decks.flatMap((deck, i) => {
+    if (inFiles.has(deck.name)) return [];
+    const label = deckName(deck.name);
+    const cut = deck.name.lastIndexOf("/");
+    const folder =
+      label !== deck.name.trim() && cut > 0 ? deck.name.slice(0, cut) : null;
+    return [
+      {
+        key: `imported:${i}`,
+        label,
+        kind: "imported" as const,
+        build: () => deck,
+        ...(folder ? { group: folder } : {}),
+      },
+    ];
+  });
 }
 
 /**
@@ -266,14 +276,28 @@ export function pickerGroups(
       add(
         option.kind === "file"
           ? `Development: ${option.group ?? ""}`
-          : DEV_GROUPS[option.kind],
+          : option.kind === "imported" && option.group
+            ? `${DEV_GROUPS.imported} › ${option.group}`
+            : DEV_GROUPS[option.kind],
         option,
       );
   }
-  // Map keeps insertion order, which follows the options' order; the imports come last.
-  const imported = groups.get(DEV_GROUPS.imported);
-  groups.delete(DEV_GROUPS.imported);
-  if (imported) groups.set(DEV_GROUPS.imported, imported);
+  // Map keeps insertion order, which follows the options' order; the imports come last, the
+  // ones with no folder first, then each folder's in name order.
+  const importGroups = [...groups.keys()]
+    .filter((label) => label.startsWith(DEV_GROUPS.imported))
+    .sort((a, b) =>
+      a === DEV_GROUPS.imported
+        ? -1
+        : b === DEV_GROUPS.imported
+          ? 1
+          : a.localeCompare(b),
+    );
+  for (const label of importGroups) {
+    const list = groups.get(label) as DeckOption[];
+    groups.delete(label);
+    groups.set(label, list);
+  }
   return [...groups].map(([label, list]) => ({ label, options: list }));
 }
 

@@ -699,3 +699,14 @@ Accepted by Monarch in the deploy docs and Import all review (PR #60).
 500. Lines outside any deck are reported but don't block Import all; the single Save deck still needs a list with no errors anywhere.
 501. A deck name with nothing after its last "/" ("Community/") is kept whole.
 502. On Railway with no `GOJISIM_PASSWORD`, the open-site warning prints before and after the listening line, so it sits next to the line the deploy check reads.
+
+Accepted by Monarch in the M12f review (PR #61).
+
+503. ESC01-001's discard of a [godzilla] card is a play cost like EBP04-045's (`costCardInstanceId`): offered only when the plain play is too high, one action per paying card, and any card type with the Godzilla trait can pay.
+504. ESC01-001's "place this card on the bottom of your deck" after a counter takes its whole stack; the cards under it go to the discard pile (decision 152).
+505. ESC01-002: the card played from the discard pile stays when its Evolution search finds nothing (5.8.1.2); with no such card in the discard pile nothing happens.
+506. ESC01-003's conditions (zone 8, an invasion this turn) are checked when it resolves (decision 126); "invaded this turn" is the invade action, EBP03-004's invasion from the deck included.
+507. ESC01-005 reads the milled card's printed rank (a monster card's I–IV counts as 1–4); an empty deck mills nothing, so nothing is destroyed.
+508. ESC01-006's "you may discard your entire hand" is an optional ability whose first effect is the discard (not a cost), since the rage counts the cards "discarded by this effect"; with an empty hand Yes does nothing.
+509. The manual-card web tests (the ManualPanel test and the e2e `manual` fixture) moved from ESC01-003 to FC01-003, manual until M12g (amends decision 389); M12g needs a test-only manual card for them.
+510. Plain words word a rage change "for each" card an earlier effect bound ("…increase your rage by 1 for each strategy card among them").

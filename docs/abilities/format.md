@@ -600,3 +600,16 @@ ESC01's 6 cards, all with pieces built in earlier sets. ESC01 is 6 of 6; 382 of 
 - ESC01-005's "reveal the top card ... and send it to your discard pile" is a mill (decision 312); the destroy reads the milled card's printed rank through a value reference, and an empty deck destroys nothing.
 - ESC01-006's "you may discard your entire hand" is an optional ability whose first effect is the discard, since the rage counts the cards "discarded by this effect"; it adds 1 rage per strategy card, one change per card (decision 334).
 - The manual-card examples in the web tests (the ManualPanel test and the e2e `manual` fixture) move from ESC01-003 to FC01-003, which stays manual until M12g (amends decision 389).
+
+### M12g: FC01 (no new pieces)
+
+FC01's 6 cards, all with pieces built in earlier sets. FC01 is 6 of 6, and **all 388 cards in scope are implemented** (with the 5 tokens: every card with text has data; only the Rage cards, which have no text, have no entry).
+
+- FC01-001's "+10,000 to your total counter power" is a `totalCounterPower` modifier while a [fest] battle card is in a zone adjacent to your monster; its Burst is the keyword.
+- FC01-002's "discard the top card of your deck" is a mill (E2); a milled battle card lets you return up to 1 monster card from your discard pile (Done is offered, decision 435).
+- FC01-003's discard of a card with both [gigan] and [fest] is an optional cost; the search for a [mech] battle card with [invade-2] may find nothing (5.8.1.2).
+- FC01-004's rank reduction counts the battle cards in your opponent's zones.
+- FC01-005 (Q29): "draw 5 cards from the top of your deck" is `revealTop` 5 with the [fest] cards to the hand and the rest to the discard pile, no reshuffle. "During your counter phase, discard all cards in your hand" fires at the beginning of your counter phase.
+- FC01-006 is `cannotBeDestroyedByOpponent` on your battle cards during your opponent's turn while they have 2 or fewer battle cards in their zones.
+- Engine fix: when one destroy takes several cards, every card's "cannot be destroyed by your opponent's effects" is read before any of them leaves, so a condition that counts cards (FC01-006) sees the board the destroy started from, not one with some of the cards already gone.
+- Tests that need a manual window use `MANUAL_TEST_CARD` (`@gojisim/cards/test-decks`), a made-up card no data file knows, since every real card with text now has data.

@@ -9,7 +9,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import type { Card } from "@gojisim/cards";
 import { parseDeckList } from "@gojisim/cards/deck-lists";
-import { buildTestDeck } from "@gojisim/cards/test-decks";
+import { buildTestDeck, MANUAL_TEST_CARD } from "@gojisim/cards/test-decks";
 import { stateBoard, weightedPick } from "@gojisim/bot";
 import {
   type Action,
@@ -54,11 +54,11 @@ const noBurstIII: Deck = {
     c.deckCardNumber === "ESD01-006" ? byId(7) : c,
   ),
 };
-/** P1 plays FC01-003, which has no ability data until M12g: it opens a manual window. */
+/** P1 plays the made-up MANUAL_TEST_CARD, which has no ability data: it opens a manual window. */
 const withManual: Deck = {
   monsterDeck: esd01.monsterDeck,
   mainDeck: esd01.mainDeck.map((c) =>
-    c.deckCardNumber === "ESD01-013" ? byId(446) : c,
+    c.deckCardNumber === "ESD01-013" ? MANUAL_TEST_CARD : c,
   ),
 };
 
@@ -399,7 +399,7 @@ const FIXTURES: Fixture[] = [
   },
   {
     name: "manual",
-    note: "P1 resolves FC01-003 by hand: a manual override window",
+    note: "P1 resolves a made-up card with no ability data by hand: a manual override window",
     decks: () => [withManual, esd02],
     match: (c) => c.kind === "manual",
   },

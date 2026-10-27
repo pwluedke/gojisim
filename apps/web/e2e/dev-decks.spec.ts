@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
+import { startGame } from "./helpers";
 
 /**
  * Development decks from `local-decks/*.txt` (Monarch, Oct 25, 2026). The dev server reads the
@@ -171,4 +172,33 @@ test("a deck stored in this browser with a file deck's name shows once, as the f
       1,
     );
   }
+});
+
+test("a deck imported in /debug shows without its folder, grouped by it, in the picker and on the fight card", async ({
+  page,
+}) => {
+  await page.addInitScript(
+    (text) => {
+      window.localStorage.setItem("gojisim.debug.importedDecks", text);
+    },
+    deckList("Community/Pier Patrol", "Loose Ends"),
+  );
+  await page.goto("/play?mode=bot");
+  // /play loads lazily: wait for the picker before reading its groups.
+  await expect(
+    page.getByTestId("deck-P1").locator("option", { hasText: "Pier Patrol" }),
+  ).toHaveCount(1);
+  expect(
+    await optionsIn(
+      page,
+      "deck-P1",
+      "Development: imported in /debug › Community",
+    ),
+  ).toEqual(["Pier Patrol"]);
+  expect(
+    await optionsIn(page, "deck-P1", "Development: imported in /debug"),
+  ).toEqual(["Loose Ends"]);
+  await page.getByTestId("deck-P1").selectOption({ label: "Pier Patrol" });
+  await startGame(page);
+  await expect(page.getByTestId("fight-deck-you")).toHaveText("Pier Patrol");
 });

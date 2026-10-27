@@ -6,12 +6,12 @@ import {
 } from "@gojisim/engine";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { buildTestDeck, getAllCards } from "@gojisim/cards/test-decks";
+import { buildTestDeck, MANUAL_TEST_CARD } from "@gojisim/cards/test-decks";
 import { ManualPanel } from "./ManualPanel";
 
 /**
- * A game where P1 has just played FC01-003 Jet Jaguar (Fest), a manual card until M12g: a
- * manual window is open.
+ * A game where P1 has just played MANUAL_TEST_CARD, a made-up card with no ability data: a manual
+ * window is open.
  */
 function withWindow(): GameState {
   const decks = (["ESD01", "ESD02"] as const).map((set, i) => ({
@@ -19,7 +19,7 @@ function withWindow(): GameState {
     ...buildTestDeck(set, `manual-${i}`),
   }));
   const state = startGame({ seed: 7, decks: [decks[0]!, decks[1]!] });
-  const manual = getAllCards().find((c) => c.cardNumber === "FC01-003")!;
+  const manual = MANUAL_TEST_CARD;
   const me = state.players.find((p) => p.id === state.turnPlayer)!;
   const opp = state.players.find((p) => p.id !== state.turnPlayer)!;
   state.cards = { ...state.cards, [manual.id]: manual };
@@ -48,8 +48,8 @@ describe("manual override panel (format.md change 10)", () => {
       <ManualPanel state={state} onAction={() => {}} />,
     );
     expect(html).toContain("Manual override");
-    expect(html).toContain("ジェットジャガー（ゴジカ・フェス）");
-    expect(html).toContain("search your deck for one battle card with [mech]");
+    expect(html).toContain("Manual Test Kaiju");
+    expect(html).toContain("put them back in any order");
     expect(html).toContain("rage +1");
     expect(html).toContain("move");
   });
