@@ -19,7 +19,7 @@ What each merged PR changed, in plain words, for Paul and the testers. Newest fi
 
 ### Testing notes
 
-- 6 new rules tests for Kaizer Ghidorah and 9 new bot tests. In test positions taken from the tester games, the bot now avoids the bad play in 20 of 20 tries at Hard and at 100 (before: as few as 3 of 20). HARD_NOTE Details in the PR's Tests and Results sections.
+- 6 new rules tests for Kaizer Ghidorah and 9 new bot tests. In test positions taken from the tester games, the bot now avoids the bad play in 20 of 20 tries at Hard and at 100 (before: as few as 3 of 20). Over 1,000 bot-vs-bot games, the new Hard is as strong as the old one overall. Details in the PR's Tests and Results sections.
 - Try it:
   1. Play a deck with Scale Attack or Godzilla vs. Destoroyah against a Hard bot holding them (or watch two Hard bots), and check the bot only plays them when they do something.
   2. Play a Monster X deck with a Kaizer Ghidorah rank III in the monster deck, and let your rank II Monster X get countered: Kaizer Ghidorah comes in instead of you losing.
