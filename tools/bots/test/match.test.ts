@@ -48,7 +48,7 @@ describe("bot tournament harness (M6a)", () => {
         ),
       );
     const strip = (results: ReturnType<typeof run>) =>
-      results.map(({ ms: _ms, ...rest }) => rest);
+      results.map(({ ms: _ms, times: _times, ...rest }) => rest);
     expect(strip(run())).toEqual(strip(run()));
   }, 120_000);
 

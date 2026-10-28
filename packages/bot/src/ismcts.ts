@@ -9,7 +9,8 @@ import {
 } from "@gojisim/engine";
 import { pickWith, stateBoard, weightedPick } from "./baseline";
 import { determinize } from "./determinize";
-import { evaluate } from "./evaluate";
+import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
+import { deadKeys } from "./prune";
 import type { Bot, BotInput, BotSettings } from "./types";
 
 /**
@@ -36,6 +37,8 @@ export interface IsmctsSettings {
   temperature: number;
   /** Chance to play a uniformly random legal action instead of searching. */
   blunder: number;
+  /** M13a: 1 leaves dead strategy activations (`prune.ts`) out of the root's actions. */
+  prune: number;
 }
 
 export const ISMCTS_DEFAULTS: IsmctsSettings = {
@@ -47,6 +50,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   rolloutDecisions: 60,
   temperature: 0,
   blunder: 0,
+  prune: 0,
 };
 
 /** Reads ISMCTS settings from a bot's settings, with defaults. */
@@ -57,7 +61,15 @@ export function ismctsSettings(settings: BotSettings): IsmctsSettings {
     if (value === undefined) continue;
     out[key] = key === "rollout" ? String(value) : Number(value);
   }
-  return out as unknown as IsmctsSettings;
+  const overrides = Object.fromEntries(
+    Object.entries(settings)
+      .filter(([key]) => key.startsWith("w."))
+      .map(([key, value]) => [key.slice(2), Number(value)]),
+  );
+  return {
+    ...(out as unknown as IsmctsSettings),
+    ...(Object.keys(overrides).length > 0 ? { overrides } : {}),
+  };
 }
 
 /** The card behind an instance id, wherever it is in the state. */
@@ -133,6 +145,17 @@ const decider = (state: GameState): PlayerId =>
 const playable = (state: GameState): Action[] =>
   getLegalActions(state, decider(state)).filter((a) => a.type !== "concede");
 
+/**
+ * The evaluation weights, with any single weights overridden by `w.<feature>` settings (M13a
+ * tuning, e.g. `w.position=0.8`).
+ */
+function weightsOf(settings: IsmctsSettings): Weights {
+  const weights = DEFAULT_WEIGHTS;
+  const overrides = (settings as unknown as { overrides?: Partial<Weights> })
+    .overrides;
+  return overrides ? { ...weights, ...overrides } : weights;
+}
+
 /** Plays a rollout from `start` and returns its value for `me`. */
 function rollout(
   start: GameState,
@@ -140,8 +163,9 @@ function rollout(
   settings: IsmctsSettings,
   input: BotInput,
 ): number {
+  const weights = weightsOf(settings);
   if (settings.rollout === "none" || start.result !== null)
-    return evaluate(start, me);
+    return evaluate(start, me, weights);
   const pick = pickWith(input.rng);
   let state = start;
   let opponentTurnsEnded = 0;
@@ -152,7 +176,11 @@ function rollout(
     if (settings.rollout === "greedy") {
       // Greedy reads the full simulated state directly (it is already a determinization).
       const scores = options.map((a) =>
-        evaluate(advanceToDecision(applyAction(state, a)), decider(state)),
+        evaluate(
+          advanceToDecision(applyAction(state, a)),
+          decider(state),
+          weights,
+        ),
       );
       const best = Math.max(...scores);
       action = options[scores.indexOf(best)] as Action;
@@ -165,7 +193,7 @@ function rollout(
       if (opponentTurnsEnded >= settings.rolloutTurns) break;
     }
   }
-  return evaluate(state, me);
+  return evaluate(state, me, weights);
 }
 
 /** UCB1 with availability counts, from the deciding player's side. */
@@ -185,6 +213,9 @@ export function search(input: BotInput, settings: IsmctsSettings) {
   const root = newNode(null);
   const started = Date.now();
   let rootKeys: string[] = [];
+  // M13a: root actions whose only effect is moving a card out of the hand (`prune.ts`), judged
+  // once on the first determinization from public information (the bot's own hand, both boards).
+  let dead = new Set<string>();
   let iterations = 0;
   while (
     iterations < settings.iterations &&
@@ -192,13 +223,23 @@ export function search(input: BotInput, settings: IsmctsSettings) {
   ) {
     iterations++;
     let state = determinize(view, knowledge, rng);
-    if (iterations === 1)
+    if (iterations === 1) {
       rootKeys = input.legalActions.map((a) => actionKey(state, a));
+      const first = state;
+      if (settings.prune > 0)
+        dead = deadKeys(first, input.legalActions, me, (a) =>
+          actionKey(first, a),
+        );
+    }
     let node = root;
     const path: Node[] = [];
     // Selection and expansion.
     while (state.result === null) {
-      const options = playable(state);
+      const all = playable(state);
+      const options =
+        node === root && dead.size > 0
+          ? all.filter((a) => !dead.has(actionKey(state, a)))
+          : all;
       if (options.length === 0) break;
       const who = decider(state);
       const keyed = options.map((a) => ({
@@ -247,30 +288,61 @@ export function search(input: BotInput, settings: IsmctsSettings) {
       n.value += n.player === me ? value : -value;
     }
   }
-  return { root, rootKeys, iterations, ms: Date.now() - started };
+  return { root, rootKeys, dead, iterations, ms: Date.now() - started };
+}
+
+/** One decision with its search, for the explain tool (M13a): what was picked and why. */
+export interface Decision {
+  action: Action;
+  /** The pick was a blunder roll (a uniformly random legal action, no search). */
+  blundered: boolean;
+  /** The root's children by action key, and the legal actions' keys in `legalActions` order. */
+  search: ReturnType<typeof search> | null;
+}
+
+/** Searches and picks, exactly as `ismctsBot.chooseAction` does. */
+export function decide(input: BotInput): Decision {
+  const { legalActions, rng } = input;
+  if (legalActions.length === 1)
+    return {
+      action: legalActions[0] as Action,
+      blundered: false,
+      search: null,
+    };
+  const settings = ismctsSettings(input.settings);
+  if (settings.blunder > 0 && rng() < settings.blunder)
+    return {
+      action: legalActions[Math.floor(rng() * legalActions.length)] as Action,
+      blundered: true,
+      search: null,
+    };
+  const result = search(input, settings);
+  const { root, rootKeys } = result;
+  const visits = rootKeys.map((key) => root.children.get(key)?.visits ?? 0);
+  if (settings.temperature > 0) {
+    const weights = visits.map((v) => Math.pow(v, 1 / settings.temperature));
+    const total = weights.reduce((a, b) => a + b, 0);
+    if (total > 0) {
+      let roll = rng() * total;
+      for (const [i, w] of weights.entries())
+        if ((roll -= w) < 0)
+          return {
+            action: legalActions[i] as Action,
+            blundered: false,
+            search: result,
+          };
+    }
+  }
+  const most = Math.max(...visits);
+  const ties = legalActions.filter((_, i) => visits[i] === most);
+  return {
+    action: ties[Math.floor(rng() * ties.length)] as Action,
+    blundered: false,
+    search: result,
+  };
 }
 
 export const ismctsBot: Bot = {
   name: "ismcts",
-  chooseAction: (input) => {
-    const { legalActions, rng } = input;
-    if (legalActions.length === 1) return legalActions[0] as Action;
-    const settings = ismctsSettings(input.settings);
-    if (settings.blunder > 0 && rng() < settings.blunder)
-      return legalActions[Math.floor(rng() * legalActions.length)] as Action;
-    const { root, rootKeys } = search(input, settings);
-    const visits = rootKeys.map((key) => root.children.get(key)?.visits ?? 0);
-    if (settings.temperature > 0) {
-      const weights = visits.map((v) => Math.pow(v, 1 / settings.temperature));
-      const total = weights.reduce((a, b) => a + b, 0);
-      if (total > 0) {
-        let roll = rng() * total;
-        for (const [i, w] of weights.entries())
-          if ((roll -= w) < 0) return legalActions[i] as Action;
-      }
-    }
-    const most = Math.max(...visits);
-    const ties = legalActions.filter((_, i) => visits[i] === most);
-    return ties[Math.floor(rng() * ties.length)] as Action;
-  },
+  chooseAction: (input) => decide(input).action,
 };

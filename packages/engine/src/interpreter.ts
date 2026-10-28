@@ -1418,6 +1418,37 @@ export function monsterRulePlay(
   return null;
 }
 
+/**
+ * Whether a monster deck card's play rule (`monsterOnto`) names its player's invading monster, so
+ * it meets 5.15.1.2's trait requirement after a counter (Q23 as amended, Oct 28, 2026). Only the
+ * selector is read: the rank requirement stays with 5.15.1.2, and gates, conditions and
+ * `placeUnderFrom` belong to the main phase play.
+ */
+export function monsterOntoMatches(
+  state: GameState,
+  player: PlayerState,
+  card: CardInstance,
+): boolean {
+  const top = topOf(player.invadingMonsterZone);
+  if (!top) return false;
+  const data = abilitiesOf(state, card);
+  if (data.status === "manual") return false;
+  const ctx: Context = {
+    state,
+    master: player.id,
+    sourceInstanceId: card.instanceId,
+    bindings: {},
+  };
+  return data.abilities.some(
+    (ability) =>
+      ability.kind === "playRule" &&
+      ability.monsterOnto !== undefined &&
+      select(ctx, { ...ability.monsterOnto, area: "monster" }).some(
+        (l) => l.card.instanceId === top.instanceId,
+      ),
+  );
+}
+
 /** The zone a rank I monster starts in, if its data says (K3, 6.3.1.6, Q31). */
 export function startZoneOf(
   state: GameState,

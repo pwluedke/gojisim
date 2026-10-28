@@ -1,0 +1,23 @@
+# A made-up deck for the M13a bot positions: the key cards of the tester games (Scale Attack,
+# Godzilla vs. Destoroyah, the Destoroyah forms) around ESD02 starter cards. Not a real deck.
+[deck] Made-up Destoroyah
+[monster deck]
+1 EBP01-041
+1 EBP01-034
+1 EBP01-035
+1 EBP01-036
+[main deck]
+4 EBP01-061
+4 EBP01-062
+4 EBP01-049
+4 EBP01-054
+2 EBP01-060
+4 EBP01-048
+2 EBP01-058
+4 ESD02-005
+4 ESD02-006
+4 ESD02-007
+4 ESD02-008
+4 ESD02-009
+4 ESD02-010
+2 ESD02-011

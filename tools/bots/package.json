@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "bots": "GOJISIM_FREEZE=1 tsx src/main.ts",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "bot-explain": "GOJISIM_FREEZE=1 tsx src/explain.ts",
+    "bot-positions": "GOJISIM_FREEZE=1 tsx src/positions.ts"
   },
   "dependencies": {
     "@gojisim/bot": "workspace:*",

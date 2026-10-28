@@ -1,6 +1,7 @@
 import { getCardTraits } from "@gojisim/cards";
 import { confirmsSingleOption, requireChoice } from "./choices";
 import { behind } from "./geometry";
+import { monsterOntoMatches } from "./interpreter";
 import { markLoss } from "./losses";
 import { cardOf, crushAndDestroy, topOf } from "./rules";
 import { appendLog, moved } from "./state";
@@ -8,7 +9,10 @@ import type { CardInstance, GameState, PlayerState } from "./types";
 
 export { activeMonster, counterPowerOf, getThreat, RAGE_THREAT } from "./stats";
 
-/** Monster cards that can follow the current monster after a counter (5.15.1.2). */
+/**
+ * Monster cards that can follow the current monster after a counter (5.15.1.2): one rank higher,
+ * sharing a trait, or named by the card's own `monsterOnto` play rule (Q23, Kaizer Ghidorah).
+ */
 export function nextMonsterCandidates(
   state: GameState,
   player: PlayerState,
@@ -23,7 +27,8 @@ export function nextMonsterCandidates(
     return (
       data.type === "Monster" &&
       data.rank === rank + 1 &&
-      getCardTraits(data).some((trait) => traits.has(trait))
+      (getCardTraits(data).some((trait) => traits.has(trait)) ||
+        monsterOntoMatches(state, player, card))
     );
   });
 }

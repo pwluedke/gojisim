@@ -10,9 +10,9 @@ import {
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
 import { determinize } from "./determinize";
-import { difficultySettings, PRESETS } from "./difficulty";
+import { difficultySettings, M12_SETTINGS, PRESETS } from "./difficulty";
 import { botInput, decklistsOf, seededRng } from "./input";
-import { actionKey, ismctsBot } from "./ismcts";
+import { actionKey, ismctsBot, ismctsSettings } from "./ismcts";
 
 function official(file: string): Omit<PlayerSetup, "id"> {
   const url = new URL(`../../cards/data/decks/${file}`, import.meta.url);
@@ -210,5 +210,14 @@ describe("ismcts (M6c)", { timeout: 60_000 }, () => {
       );
       expect(levels[i]?.blunder).toBeLessThan(levels[i - 1]?.blunder ?? 1);
     }
+  });
+
+  it("M13a: Easy searches exactly as before M13a; Medium and Hard differ from the old bot only by pruning", () => {
+    const now = (level: number) => ismctsSettings(difficultySettings(level));
+    const before = (level: number) =>
+      ismctsSettings({ ...difficultySettings(level), ...M12_SETTINGS });
+    expect(now(PRESETS.easy)).toEqual(before(PRESETS.easy));
+    for (const level of [PRESETS.medium, PRESETS.hard, 100])
+      expect(now(level)).toEqual({ ...before(level), prune: 1 });
   });
 });
