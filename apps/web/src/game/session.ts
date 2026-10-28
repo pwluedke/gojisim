@@ -43,6 +43,11 @@ export interface Session {
   botSeed: string;
   /** Bot action labels for the log (M6d). */
   labels: { afterSeq: number; text: string }[];
+  /**
+   * Confirmed multi-card picks (Tester fixes 1): actions `start` to `end - 1` were one Confirm,
+   * so an undo takes them back together. Not in the record (replay never needs it).
+   */
+  batches?: { start: number; end: number }[];
 }
 
 /** Applies an action at the end of the session (or at its position, dropping later actions). */
@@ -68,6 +73,69 @@ export function withAction(
     labels: label
       ? [...keptLabels, { afterSeq: state.log.length, text: label }]
       : keptLabels,
+    // Batches past the position belong to the dropped actions.
+    batches: (session.batches ?? []).filter((b) => b.end <= session.position),
+  };
+}
+
+/**
+ * Confirms a multi-card pick (Tester fixes 1): one `choose` per selected card, in selection order,
+ * then Done when `done` is set (fewer cards than the pick's maximum, where it may stop). The
+ * engine is unchanged: it still takes one card per choice. A pick it no longer offers stops the
+ * batch. The actions are one batch for undo.
+ */
+export function withChoices(
+  session: Session,
+  player: PlayerId,
+  optionIds: readonly string[],
+  done: boolean,
+): Session {
+  const start = session.position;
+  let current = session;
+  const pick = (optionId: string): boolean => {
+    const choice = (current.states[current.position] as GameState)
+      .pendingChoice;
+    if (
+      !choice ||
+      choice.player !== player ||
+      !choice.options.some((o) => o.id === optionId)
+    )
+      return false;
+    current = withAction(current, {
+      type: "choose",
+      player,
+      choiceId: choice.id,
+      optionId,
+    });
+    return true;
+  };
+  for (const id of optionIds) if (!pick(id)) break;
+  if (done) pick("done");
+  const end = current.position;
+  const kept = (current.batches ?? []).filter((b) => b.end <= start);
+  return end - start > 1
+    ? { ...current, batches: [...kept, { start, end }] }
+    : { ...current, batches: kept };
+}
+
+/**
+ * Casual undo from the UI (M5e, Tester fixes 1): the last action, or the whole confirmed
+ * multi-card pick it ended, as far as undo may go.
+ */
+export function undoConfirmed(session: Session, player: PlayerId): Session {
+  const n = session.record.actions.length;
+  const batch = session.batches?.find((b) => b.end === n);
+  let current = undoSession(session);
+  while (
+    batch &&
+    current.record.actions.length > batch.start &&
+    canUndoSession(current, player)
+  )
+    current = undoSession(current);
+  const left = current.record.actions.length;
+  return {
+    ...current,
+    batches: (current.batches ?? []).filter((b) => b.end <= left),
   };
 }
 

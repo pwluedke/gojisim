@@ -15,6 +15,7 @@
     "e2e": "pnpm --filter @gojisim/web e2e",
     "scrape": "pnpm --filter @gojisim/scraper scrape",
     "images": "pnpm --filter @gojisim/scraper images",
+    "official-images": "pnpm --filter @gojisim/scraper official-images",
     "stress": "pnpm --filter @gojisim/stress stress",
     "bench": "pnpm --filter @gojisim/stress bench",
     "bots": "pnpm --filter @gojisim/bots bots",

@@ -229,6 +229,24 @@ form.screen input[type="file"] {
   color: var(--color-button-text);
 }
 
+/* The official card back once its image has loaded (Board.module.css, Tester fixes 1). */
+:global(:root[data-card-back="image"]) .pickBack {
+  border: 0;
+  outline: 0;
+  background: url("/cards/back-thumb.webp") center / 100% 100% no-repeat;
+  /* The key number sits low, clear of the logo. */
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: var(--space-3);
+  color: var(--color-card-back-text);
+  text-shadow: 0 0 4px var(--color-card-back-outline);
+}
+
+:global(:root[data-card-back="image"]) .pickBack:hover {
+  outline: 3px solid var(--color-selected);
+}
+
 .pickBack:hover {
   outline: 3px solid var(--color-selected);
 }
@@ -237,6 +255,26 @@ form.screen input[type="file"] {
   background: var(--color-panel-alt);
   color: inherit;
   cursor: default;
+}
+
+/* An official First / Second front (Tester fixes 1): the card image fills the card. */
+.pickArt {
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+}
+
+.pickArt img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Casual's peek hint, on its own line under the cards (Tester fixes 1). */
+.peekHint {
+  margin: 0 0 var(--space-3);
+  font-weight: 700;
 }
 
 .pickFace[data-picked="true"] {

@@ -1,4 +1,5 @@
-import type { Action, GameState } from "@gojisim/engine";
+import type { Card } from "@gojisim/cards";
+import type { Action, CardInstance, GameState } from "@gojisim/engine";
 import { useEffect, useState } from "react";
 import { type ManualCard, ManualPanel } from "../debug/ManualPanel";
 import styles from "./Board.module.css";
@@ -7,6 +8,9 @@ import type { BoardModel } from "./model";
 import { targetLocation } from "./locations";
 import { confirmWords } from "../game/plainWords";
 import { abilityText } from "../game/labels";
+import { canConfirm, multiPick, toggle } from "../game/multiPick";
+import { Preview, visibleCards } from "./Preview";
+import { useViewBoard, ViewBoardBanner, ViewBoardButton } from "./ViewBoard";
 
 type Choose = Extract<Action, { type: "choose" }>;
 
@@ -28,6 +32,15 @@ type Choose = Extract<Action, { type: "choose" }>;
  *   change chips, a monster's threat), live 10.8.1 values from `model`. Cards in other areas show
  *   only their printed card.
  * It only ever opens for the viewer's own choice, so private options are theirs to see.
+ *
+ * Tester fixes 1:
+ * - A pick of 2 or more cards (`multiPick`) selects cards with clicks or number keys, numbered in
+ *   pick order, and sends them on Confirm (Enter); Esc clears the selection. Done stays for 0.
+ * - "View board" (or B) hides the modal until pressed again, B or Esc; a banner stays meanwhile.
+ * - Hovering a card opens the large preview above the modal.
+ * - A search pick can show the whole searched deck, sorted, with the cards that don't match
+ *   dimmed (5.8, 12.6.2).
+ * - Undo [U] when a Casual undo is allowed.
  */
 export function ChoiceModal({
   state,
@@ -38,6 +51,8 @@ export function ChoiceModal({
   onAction,
   labelOf,
   model,
+  onConfirmPicks,
+  onUndo,
 }: {
   state: GameState;
   heading: string;
@@ -49,8 +64,21 @@ export function ChoiceModal({
   labelOf: (action: Action) => string;
   /** The live board's numbers (M5h #19); without it, cards show no chips. */
   model?: BoardModel | undefined;
+  /** A confirmed multi-card pick: the cards in order, then Done when `done`. */
+  onConfirmPicks?: (optionIds: string[], done: boolean) => void;
+  /** Casual undo, when it's allowed now. */
+  onUndo?: (() => void) | undefined;
 }) {
   const [hidden, setHidden] = useState(false);
+  const view = useViewBoard();
+  // Tester fixes 1: a multi-card pick's selection, in pick order.
+  const [selected, setSelected] = useState<string[]>([]);
+  const [showDeck, setShowDeck] = useState(false);
+  // The card hovered in the modal, shown in the preview above it.
+  const [hoverCard, setHoverCard] = useState<{
+    instanceId: string;
+    card: Card;
+  } | null>(null);
   // The mat cell of the hovered target, ringed over the backdrop.
   const [ring, setRing] = useState<{ testId: string; rect: DOMRect } | null>(
     null,
@@ -59,17 +87,39 @@ export function ChoiceModal({
   const choose = actions.filter((a): a is Choose => a.type === "choose");
   const done = choose.find((a) => a.optionId === "done");
   const numbered = choose.filter((a) => a !== done);
+  const multi = multiPick(state);
+  const confirmable = !!multi && canConfirm(multi, selected.length);
+  const confirmPicks = () => {
+    if (!multi || !confirmable) return;
+    onConfirmPicks?.(selected, !!done && selected.length < multi.max);
+  };
+  const pickOption = (action: Choose) => {
+    if (multi) setSelected((now) => toggle(now, action.optionId, multi.max));
+    else onAction(action);
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target?.closest("input, select, textarea")) return;
+      if (view.viewing) return;
+      if (multi && e.key === "Enter") {
+        e.preventDefault();
+        confirmPicks();
+        return;
+      }
+      // Esc clears a selection before anything else closes.
+      if (multi && e.key === "Escape" && selected.length > 0) {
+        e.preventDefault();
+        setSelected([]);
+        return;
+      }
       const n = Number(e.key);
       if (!Number.isInteger(n) || n < 1 || n > 9) return;
       const action = numbered[n - 1];
       if (!action) return;
       e.preventDefault();
-      onAction(action);
+      pickOption(action);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -105,19 +155,51 @@ export function ChoiceModal({
       type="button"
       className={styles.button}
       data-testid="choice-done"
+      // With cards selected, Confirm picks them; Done is for picking none.
+      disabled={selected.length > 0}
       onClick={() => onAction(done)}
     >
       {doneLabel}
     </button>
   );
+  const confirmButton = multi && (
+    <button
+      type="button"
+      className={styles.button}
+      data-testid="choice-confirm"
+      disabled={!confirmable}
+      onClick={confirmPicks}
+    >
+      Confirm ({selected.length}) [Enter]
+    </button>
+  );
+  const undoButton = onUndo && (
+    <button
+      type="button"
+      className={styles.choiceButton}
+      data-testid="choice-undo"
+      onClick={onUndo}
+    >
+      Undo [U]
+    </button>
+  );
   const top = (
     <>
+      {kind !== "zone" && <ViewBoardButton onClick={view.toggle} />}
       <div className={styles.modalHeading} data-testid="choice-heading">
         {heading}
       </div>
       {source && (
         <div className={styles.muted} data-testid="choice-source">
           From {source}
+        </div>
+      )}
+      {multi && (
+        <div className={styles.muted} data-testid="choice-multi-hint">
+          {multi.min === multi.max
+            ? `Select ${multi.max} cards, then Confirm.`
+            : `Select up to ${multi.max} cards, then Confirm (or ${doneLabel} for none).`}{" "}
+          Click a selected card to deselect it.
         </div>
       )}
     </>
@@ -205,6 +287,7 @@ export function ChoiceModal({
               <span className={styles.keyBadge}>2</span> No
             </button>
           )}
+          {undoButton}
         </div>
       </>
     );
@@ -217,7 +300,10 @@ export function ChoiceModal({
           cards={manualCards}
           compact
         />
-        <div className={styles.modalButtons}>{doneButton}</div>
+        <div className={styles.modalButtons}>
+          {doneButton}
+          {undoButton}
+        </div>
       </>
     );
   } else {
@@ -232,10 +318,59 @@ export function ChoiceModal({
       labels.length > 1 && labels.every((l) => l !== null && l === labels[0]);
     // M5h #14: search picks show the cards without number badges (the keys still work, see ?).
     const search = choice.rule === "5.8.1" || choice.rule === "12.6.2";
+    // Tester fixes 1: the searched deck, whole, sorted so it never shows the deck's order
+    // (decision 165). Only the searcher sees this modal (decision 252).
+    const optionIds = new Set(numbered.map((a) => a.optionId));
+    const searched = search
+      ? state.players
+          .map((p) =>
+            [p.deck, p.monsterDeck].find((pile) =>
+              pile.some((c) => optionIds.has(c.instanceId)),
+            ),
+          )
+          .find((pile) => pile !== undefined)
+      : undefined;
+    const byCard = (a: CardInstance, b: CardInstance) => {
+      const x = state.cards[a.cardId];
+      const y = state.cards[b.cardId];
+      return (
+        (x?.cardNumber ?? "").localeCompare(y?.cardNumber ?? "") ||
+        a.cardId - b.cardId
+      );
+    };
+    const unmatched =
+      showDeck && searched
+        ? [...searched].filter((c) => !optionIds.has(c.instanceId)).sort(byCard)
+        : [];
+    const shownOptions =
+      showDeck && searched
+        ? [...numbered].sort((a, b) => {
+            const x = searched.find((c) => c.instanceId === a.optionId);
+            const y = searched.find((c) => c.instanceId === b.optionId);
+            return x && y ? byCard(x, y) : 0;
+          })
+        : numbered;
+    const hoverProps = (instanceId: string, card: Card | undefined) => ({
+      onMouseEnter: () => card && setHoverCard({ instanceId, card }),
+      onMouseLeave: () => setHoverCard(null),
+    });
     body = (
       <>
+        {searched && (
+          <label className={styles.muted}>
+            <input
+              type="checkbox"
+              data-testid="search-show-deck"
+              checked={showDeck}
+              onChange={(e) => setShowDeck(e.target.checked)}
+            />{" "}
+            Show whole deck ({searched.length} cards, sorted; cards that don't
+            match are dimmed)
+          </label>
+        )}
         <div className={styles.choiceCards}>
-          {numbered.map((action, i) => {
+          {shownOptions.map((action) => {
+            const i = numbered.indexOf(action);
             const card = optionCard(action);
             const option = choice.options.find((o) => o.id === action.optionId);
             const location = locationOf(action);
@@ -254,6 +389,7 @@ export function ChoiceModal({
             };
             const ordering =
               kind === "standbyOrder" || kind === "replacementOrder";
+            const order = selected.indexOf(action.optionId) + 1;
             return (
               <div key={action.optionId} className={styles.choiceOption}>
                 {ordering && option?.abilityId && (
@@ -274,16 +410,37 @@ export function ChoiceModal({
                 )}
                 <button
                   type="button"
-                  className={styles.choiceCard}
+                  className={
+                    order > 0
+                      ? `${styles.choiceCard} ${styles.choiceCardSelected}`
+                      : styles.choiceCard
+                  }
                   data-testid="choice-option"
                   data-option={action.optionId}
                   data-card-id={card?.id}
+                  data-selected-order={order > 0 ? order : undefined}
+                  aria-pressed={multi ? order > 0 : undefined}
                   title={labelOf(action)}
-                  onClick={() => onAction(action)}
-                  onMouseEnter={showRing}
-                  onMouseLeave={() => setRing(null)}
+                  onClick={() => pickOption(action)}
+                  onMouseEnter={() => {
+                    showRing();
+                    if (card)
+                      setHoverCard({ instanceId: action.optionId, card });
+                  }}
+                  onMouseLeave={() => {
+                    setRing(null);
+                    setHoverCard(null);
+                  }}
                 >
                   {!search && <span className={styles.keyBadge}>{i + 1}</span>}
+                  {order > 0 && (
+                    <span
+                      className={styles.selectOrder}
+                      data-testid="choice-select-order"
+                    >
+                      {order}
+                    </span>
+                  )}
                   {card ? (
                     <>
                       <div className={styles.cardFallback}>{card.name}</div>
@@ -313,20 +470,71 @@ export function ChoiceModal({
               </div>
             );
           })}
+          {unmatched.map((c) => {
+            const card = state.cards[c.cardId];
+            return (
+              <div key={c.instanceId} className={styles.choiceOption}>
+                <button
+                  type="button"
+                  className={`${styles.choiceCard} ${styles.choiceCardDimmed}`}
+                  data-testid="search-deck-card"
+                  data-card-id={card?.id}
+                  data-card-number={card?.cardNumber}
+                  aria-disabled="true"
+                  title={`${card?.name ?? "Card"}: doesn't match the search`}
+                  {...hoverProps(c.instanceId, card)}
+                >
+                  {card && (
+                    <>
+                      <div className={styles.cardFallback}>{card.name}</div>
+                      <img
+                        className={styles.cardImage}
+                        src={`/cards/${card.id}-thumb.webp`}
+                        alt={card.name}
+                        draggable={false}
+                        onError={(e) => {
+                          e.currentTarget.style.visibility = "hidden";
+                        }}
+                      />
+                    </>
+                  )}
+                </button>
+              </div>
+            );
+          })}
         </div>
-        <div className={styles.modalButtons}>{doneButton}</div>
+        <div className={styles.modalButtons}>
+          {confirmButton}
+          {doneButton}
+          {undoButton}
+        </div>
       </>
     );
   }
 
+  const away = hidden || view.viewing;
+  // The hovered card: with its current values when the board shows it, else as printed.
+  const hoverShown =
+    hoverCard && model && !away
+      ? visibleCards(model).has(hoverCard.instanceId)
+        ? { instanceId: hoverCard.instanceId }
+        : { card: hoverCard.card }
+      : null;
   return (
     <div
-      className={hidden ? styles.modalBackdropHidden : styles.modalBackdrop}
+      className={away ? styles.modalBackdropHidden : styles.modalBackdrop}
       data-testid="choice-modal"
       data-kind={kind}
-      data-hidden={hidden ? "true" : undefined}
+      data-hidden={away ? "true" : undefined}
+      data-viewing-board={view.viewing ? "true" : undefined}
     >
-      {ring && !hidden && (
+      {view.viewing && <ViewBoardBanner onReturn={view.toggle} />}
+      {hoverShown && model && (
+        <div className={styles.previewOverModal} data-testid="modal-preview">
+          <Preview model={model} {...hoverShown} />
+        </div>
+      )}
+      {ring && !away && (
         <div
           className={styles.targetRing}
           data-testid="target-ring"
@@ -341,7 +549,7 @@ export function ChoiceModal({
       )}
       <div
         className={styles.modal}
-        style={hidden ? { visibility: "hidden" } : undefined}
+        style={away ? { visibility: "hidden" } : undefined}
       >
         {top}
         {body}

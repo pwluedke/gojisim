@@ -115,3 +115,23 @@ export async function visibleCenter(
   const bottom = Math.min(box.y + box.height, view.height);
   return { x: box.x + box.width / 2, y: (top + bottom) / 2 };
 }
+
+/** A plain-color WebP (not the art), served for the official images, which aren't in git. */
+const plainCard = readFileSync(
+  new URL("./fixtures/plain-card.webp", import.meta.url),
+);
+
+/**
+ * Serves (`present`) or blocks the official card back and First / Second images (Tester fixes
+ * 1), whatever `public/cards` holds on this machine: Paul's has them, CI doesn't. Call it before
+ * `page.goto`.
+ */
+export async function officialImages(page: Page, present: boolean) {
+  await page.route(
+    /\/cards\/(first|second)-\d-thumb\.webp$|\/cards\/back-thumb\.webp$/,
+    (route) =>
+      present
+        ? route.fulfill({ contentType: "image/webp", body: plainCard })
+        : route.abort(),
+  );
+}

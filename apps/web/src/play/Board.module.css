@@ -424,6 +424,19 @@
 }
 
 /*
+ * The official card back (Tester fixes 1), once `officialArt.ts` has seen its image load. The
+ * image has its own rough white edge and a dark middle that stands out on every theme's page, so
+ * the drawn border and outline go. Without the image the drawn back above stays (CI).
+ */
+:global(:root[data-card-back="image"]) .cardBack,
+:global(:root[data-card-back="image"]) .cardBackSmall,
+:global(:root[data-card-back="image"]) .flightBack {
+  border: 0;
+  outline: 0;
+  background: url("/cards/back-thumb.webp") center / 100% 100% no-repeat;
+}
+
+/*
  * The opponent's mat row (bot hand row): the hand in the space left of the mat, the mat centered
  * like yours, so both mats line up column for column.
  */
@@ -1878,4 +1891,59 @@
   flex-direction: column;
   gap: var(--space-1);
   margin-top: var(--space-2);
+}
+
+/* "View board" in a modal's heading (Tester fixes 1). */
+.viewBoardButton {
+  float: right;
+  margin-left: var(--space-3);
+}
+
+/* While a modal is hidden to view the board: a choice is still open (Tester fixes 1). */
+.viewBoardBanner {
+  position: fixed;
+  top: var(--space-2);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 31;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+}
+
+/*
+ * A card hovered in a modal opens the preview above the modal (Tester fixes 1). It renders inside
+ * the modal's backdrop, so its own fixed position and z-index place it over the modal.
+ */
+.previewOverModal {
+  display: contents;
+}
+
+/* A selected card in a multi-card pick, numbered in pick order (Tester fixes 1). */
+.choiceCardSelected {
+  outline: 3px solid var(--color-selected);
+  outline-offset: 2px;
+}
+
+.selectOrder {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  z-index: 2;
+  min-width: 1.6em;
+  padding: 0 var(--space-1);
+  border-radius: 999px;
+  background: var(--color-chip);
+  color: var(--color-chip-text);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* "Show whole deck" in a search pick: cards that don't match are dimmed (Tester fixes 1). */
+.choiceCardDimmed {
+  opacity: 0.35;
+  cursor: not-allowed;
 }

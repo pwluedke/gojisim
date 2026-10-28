@@ -94,7 +94,7 @@ test("choice: zone options light the zones on the mat, with a banner instead of 
   await expect(page.locator(`[data-zone-choice="${key}"]`)).toHaveCount(0);
 });
 
-test("number keys pick an option: the human discards during the bot's turn (ESD01-005)", async ({
+test("Tester fixes 1: discarding down selects cards (number keys or clicks), deselects, then Confirm sends them in order", async ({
   page,
 }) => {
   await loadFixture(page, "discard-bot-turn");
@@ -102,22 +102,56 @@ test("number keys pick an option: the human discards during the bot's turn (ESD0
   // The phase tracker still shows the bot (P2) as the turn player.
   await expect(page.getByTestId("phase-tracker")).toContainText("P2");
   await expect(page.getByTestId("phase-tracker")).not.toContainText("(you)");
-  // Each pick is one choice: the picked card is no longer offered.
-  const first = page.getByTestId("choice-option").first();
-  const picked = await first.getAttribute("data-option");
-  const count = await page.getByTestId("choice-option").count();
+  // The heading names the whole discard, not "N more".
+  const heading = page.getByTestId("choice-heading");
+  await expect(heading).toContainText(/discard \d+ cards?, down to \d+/);
+  const n = Number(
+    /discard (\d+) card/.exec((await heading.textContent()) ?? "")?.[1],
+  );
+  expect(n).toBeGreaterThanOrEqual(2);
+  await expect(page.getByTestId("choice-multi-hint")).toContainText(
+    `Select ${n} cards, then Confirm.`,
+  );
+  const options = page.getByTestId("choice-option");
+  const count = await options.count();
+  const confirm = page.getByTestId("choice-confirm");
+  await expect(confirm).toBeDisabled();
+  // Key 1 selects the first card, a second press deselects it.
   await page.keyboard.press("1");
+  await expect(options.nth(0)).toHaveAttribute("data-selected-order", "1");
+  await page.keyboard.press("1");
+  await expect(options.nth(0)).not.toHaveAttribute("data-selected-order");
+  // Clicks select in order; the order shows on the cards.
+  const picked: string[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    await options.nth(i).click();
+    picked.push((await options.nth(i).getAttribute("data-option")) as string);
+    await expect(options.nth(i)).toHaveAttribute(
+      "data-selected-order",
+      String(picked.length),
+    );
+  }
+  // Exactly n: Confirm is on, and another card isn't added.
+  await expect(confirm).toBeEnabled();
+  await expect(confirm).toHaveText(`Confirm (${n}) [Enter]`);
+  if (count > n) {
+    await options.nth(n).click();
+    await expect(options.nth(n)).not.toHaveAttribute("data-selected-order");
+  }
+  // Esc clears the selection; select again and confirm with Enter.
+  await page.keyboard.press("Escape");
+  await expect(page.locator("[data-selected-order]")).toHaveCount(0);
+  await expect(page.getByTestId("choice-modal")).toBeVisible();
+  for (let i = n - 1; i >= 0; i--) await options.nth(i).click();
+  await page.keyboard.press("Enter");
+  // The n picks went in together: no discard choice is left open.
   await expect
     .poll(async () =>
       (await page.getByTestId("choice-modal").count())
-        ? page
-            .locator(`[data-testid="choice-option"][data-option="${picked}"]`)
-            .count()
-        : 0,
+        ? ((await page.getByTestId("choice-heading").textContent()) ?? "")
+        : "",
     )
-    .toBe(0);
-  if (await page.getByTestId("choice-modal").count())
-    await expect(page.getByTestId("choice-option")).toHaveCount(count - 1);
+    .not.toMatch(/discard \d+ cards?, down to/);
 });
 
 test("searches show a Done button (find nothing), and it ends the search", async ({

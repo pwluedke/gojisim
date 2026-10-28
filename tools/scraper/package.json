@@ -6,7 +6,8 @@
   "scripts": {
     "scrape": "tsx src/main.ts",
     "typecheck": "tsc -b",
-    "images": "tsx src/images.ts"
+    "images": "tsx src/images.ts",
+    "official-images": "tsx src/officialImages.ts"
   },
   "dependencies": {
     "@gojisim/cards": "workspace:*",

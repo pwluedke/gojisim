@@ -74,13 +74,15 @@ The images aren't in git, and a deploy never downloads them. They live on the vo
 
 2. **Link the folder** (once): on your Mac, in the `gojisim` folder, `railway link`, and pick the project and the `gojisim` service.
 3. **Make the images locally:** `pnpm images`. It downloads each card image from godzillatcgdb.com at the scraper's polite pace (one request a second, decision 25) and writes the two WebPs the app uses into `apps/web/public/cards/`: about 950 cards (1,900 files, roughly 16 minutes the first time). It skips every card that already has its images (decision 22), so a second run only fetches new cards.
+   **3b. The official First / Second cards and card back** (TOHO art, not in git either). Put the 5 source files in `apps/web/public/cards/official-src/` (`first-godzilla-vs-godzilla.png`, `first-resonance-of-rivals.png`, `second-monsters-raid-again.png`, `second-endless-wars.png`, `card-back.webp`). `pnpm images` converts them at its end, or `pnpm official-images` alone: `first-1`, `first-2`, `second-1`, `second-2` and `back`, each as `<name>.webp` and `<name>-thumb.webp`. Without them the app draws its own card backs and First / Second faces.
+
 4. **Copy them to the volume:**
 
    ```
-   COPYFILE_DISABLE=1 tar czf - -C apps/web/public/cards . | railway ssh -i ~/.ssh/railway_ed25519 -- "mkdir -p /data/cards && tar xzf - -C /data/cards && ls /data/cards | wc -l"
+   COPYFILE_DISABLE=1 tar czf - --exclude ./official-src -C apps/web/public/cards . | railway ssh -i ~/.ssh/railway_ed25519 -- "mkdir -p /data/cards && tar xzf - -C /data/cards && ls /data/cards | wc -l"
    ```
 
-   It prints the number of files on the volume (1900 for 950 cards). `COPYFILE_DISABLE=1` keeps macOS metadata out of the archive; without it, the copy still works but prints harmless `tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'` lines.
+   It prints the number of files on the volume: 1910, the 1,900 card images (950 cards) plus the 10 official images (step 3b). `--exclude ./official-src` leaves the source files on your Mac. `COPYFILE_DISABLE=1` keeps macOS metadata out of the archive; without it, the copy still works but prints harmless `tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'` lines.
 
 No redeploy is needed: the server reads `/data/cards` on each request. After a card data update adds new cards, run steps 3 and 4 again.
 
