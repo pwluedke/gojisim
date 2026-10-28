@@ -137,15 +137,24 @@ export function destroyCards(
   const known = new Map(
     targets.map((t) => [t.card.instanceId, lastKnown(state, [t.card])]),
   );
+  // "Cannot be destroyed by your opponent's effects" (M1): the card may have been chosen, but
+  // the destroy does nothing to it (1.3.3; Q35, Paul's provisional ruling). The cards are
+  // destroyed together, so every card's protection is read before any of them leaves: a
+  // condition that counts cards (FC01-006) sees the board the destroy started from.
+  const prevented = new Set(
+    targets
+      .filter(
+        ({ card, player }) =>
+          !replaced.has(card.instanceId) &&
+          by !== null &&
+          by !== player.id &&
+          hasFlag(state, card, "cannotBeDestroyedByOpponent"),
+      )
+      .map(({ card }) => card.instanceId),
+  );
   for (const { card, player, zone } of targets) {
     if (replaced.has(card.instanceId)) continue;
-    // "Cannot be destroyed by your opponent's effects" (M1): the card may have been chosen, but
-    // the destroy does nothing to it (1.3.3; Q35, Paul's provisional ruling).
-    if (
-      by !== null &&
-      by !== player.id &&
-      hasFlag(state, card, "cannotBeDestroyedByOpponent")
-    ) {
+    if (prevented.has(card.instanceId)) {
       appendLog(state, "destroyPrevented", player.id, {
         rule: "1.3.3",
         cardId: card.cardId,

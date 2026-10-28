@@ -10,6 +10,8 @@ import {
   TOKENS,
 } from "../src";
 import { getAllCards } from "../src/allCards";
+import { CardSchema } from "../src/schema";
+import { MANUAL_TEST_CARD } from "../src/testDecks";
 
 const DIR = new URL("../data/abilities/", import.meta.url);
 const files = readdirSync(DIR).filter((f) => f.endsWith(".json"));
@@ -42,13 +44,37 @@ describe("ability data (format.md)", () => {
   });
 
   it("a card with no entry counts as manual, with no abilities", () => {
-    // FC01-001 has no data until M12g, the last set.
-    expect(getCardAbilities("FC01-001")).toEqual({
-      deckCardNumber: "FC01-001",
+    // Since M12g only Rage cards have no entry; they have no text, so nothing is manual.
+    expect(getCardAbilities("RAGE-E01")).toEqual({
+      deckCardNumber: "RAGE-E01",
       status: "manual",
       abilities: [],
     });
     expect(getCardAbilities("ESD01-003").status).toBe("implemented");
+  });
+
+  it("MANUAL_TEST_CARD is a valid card that no data file or cards.json knows: manual", () => {
+    expect(CardSchema.parse(MANUAL_TEST_CARD)).toEqual(MANUAL_TEST_CARD);
+    expect(getCardAbilities(MANUAL_TEST_CARD.deckCardNumber).status).toBe(
+      "manual",
+    );
+    expect(getAllCards().some((c) => c.id === MANUAL_TEST_CARD.id)).toBe(false);
+  });
+
+  it("M12g: every card with text is implemented (the 388 in scope plus the 5 tokens)", () => {
+    const withText = new Set(
+      getAllCards()
+        .filter((c) => c.type !== "Rage")
+        .map((c) => c.deckCardNumber),
+    );
+    const notDone = [...withText].filter(
+      (n) => getCardAbilities(n).status !== "implemented",
+    );
+    expect(notDone).toEqual([]);
+    expect(withText.size).toBe(393);
+    expect(
+      getAllCards().every((c) => c.type !== "Rage" || c.text.trim() === ""),
+    ).toBe(true);
   });
 
   it("the schema rejects unknown fields, unknown effects and duplicate ability ids", () => {

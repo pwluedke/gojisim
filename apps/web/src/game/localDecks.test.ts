@@ -96,6 +96,26 @@ describe("development deck files", () => {
     expect(
       importedOptions(stored, fixture.decks).map((o) => [o.key, o.label]),
     ).toEqual([["imported:2", "Kept"]]);
+    // Labelled without the [deck] folder and grouped by it, like the file decks; keys unchanged.
+    const foldered = importedOptions([
+      named("Community/Pier Patrol"),
+      named("Loose Ends"),
+      named("Community/"),
+    ]);
+    expect(foldered.map((o) => [o.key, o.label, o.group])).toEqual([
+      ["imported:0", "Pier Patrol", "Community"],
+      ["imported:1", "Loose Ends", undefined],
+      ["imported:2", "Community/", undefined],
+    ]);
+    expect(
+      pickerGroups(foldered).map((g) => [
+        g.label,
+        g.options.map((o) => o.label),
+      ]),
+    ).toEqual([
+      ["Development: imported in /debug", ["Loose Ends", "Community/"]],
+      ["Development: imported in /debug › Community", ["Pier Patrol"]],
+    ]);
     const all = deckOptions(stored, fixture.decks);
     expect(all.filter((o) => o.label === "Harbor Watch")).toHaveLength(1);
     expect(all.find((o) => o.label === "Harbor Watch")?.kind).toBe("file");
