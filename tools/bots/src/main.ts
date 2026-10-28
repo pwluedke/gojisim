@@ -70,8 +70,10 @@ const label = (name: string, settings: BotSettings) =>
         .join(",")})`
     : name;
 const decks = values.decks as DeckSource;
-if (decks !== "official" && decks !== "random")
-  throw new Error(`--decks must be official or random, got ${values.decks}`);
+if (decks !== "official" && decks !== "random" && decks !== "mixed")
+  throw new Error(
+    `--decks must be official, random or mixed, got ${values.decks}`,
+  );
 const games = Number(values.games);
 const progress = Number(values.progress);
 
@@ -161,6 +163,7 @@ const file =
   );
 await writeFile(
   file,
-  `${JSON.stringify({ summary, games: results }, null, 2)}\n`,
+  // Per-decision times are summed up in the summary; the report leaves them out.
+  `${JSON.stringify({ summary, games: results.map(({ times: _times, ...r }) => r) }, null, 2)}\n`,
 );
 console.log(`report: ${file}`);

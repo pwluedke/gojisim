@@ -6,7 +6,9 @@ import {
   seededRng,
 } from "@gojisim/bot";
 import { buildTestDeck } from "@gojisim/cards/test-decks";
+import { writeFileSync } from "node:fs";
 import {
+  type Action,
   advanceToDecision,
   applyAction,
   detectCombos,
@@ -18,7 +20,28 @@ import {
 } from "@gojisim/engine";
 import { officialDeck } from "@gojisim/stress";
 
-export type DeckSource = "official" | "random";
+export type DeckSource = "official" | "random" | "mixed";
+
+/**
+ * `mixed` (M13a): the two starters and random test decks of the four boosters. Each pair of games
+ * plays one pairing with the seats swapped; the pairings cycle through every ordered pair.
+ */
+const MIXED = ["ESD01", "ESD02", "EBP01", "EBP02", "EBP03", "EBP04"];
+const MIXED_PAIRS = MIXED.flatMap((x) =>
+  MIXED.filter((y) => y !== x).map((y) => [x, y] as [string, string]),
+);
+
+/** The sets P1 and P2 play in a game. */
+export function setsFor(game: number, source: DeckSource): [string, string] {
+  if (source === "mixed")
+    return MIXED_PAIRS[Math.floor(game / 2) % MIXED_PAIRS.length] as [
+      string,
+      string,
+    ];
+  return Math.floor(game / 2) % 2 === 0
+    ? ["ESD01", "ESD02"]
+    : ["ESD02", "ESD01"];
+}
 
 /** A game still running at this turn ends unfinished (counted as a draw). */
 export const MATCH_TURN_CAP = 500;
@@ -41,6 +64,8 @@ export interface GameResult {
   decisions: { a: number; b: number };
   /** Milliseconds spent in `chooseAction`. */
   ms: { a: number; b: number };
+  /** M13a: each decision's milliseconds, for the median and p95 (rounded to 0.1 ms). */
+  times?: { a: number[]; b: number[] };
   /** Combos each bot completed (M5g), by combo id. */
   combos: { a: Record<string, number>; b: Record<string, number> };
 }
@@ -54,13 +79,19 @@ function decksFor(
   game: number,
   source: DeckSource,
 ): [PlayerSetup, PlayerSetup] {
-  const sets =
-    Math.floor(game / 2) % 2 === 0 ? ["ESD01", "ESD02"] : ["ESD02", "ESD01"];
+  const sets = setsFor(game, source);
+  // Both games of a pair play the same decks, so swapping seats is the only difference.
+  const pair = Math.floor(game / 2);
   return sets.map((set, i) => {
     const deck =
-      source === "official"
+      source === "official" || (source === "mixed" && set.startsWith("ESD"))
         ? officialDeck(set)
-        : buildTestDeck(set, `${seed}-${game}-P${i + 1}`);
+        : buildTestDeck(
+            set,
+            source === "mixed"
+              ? `${seed}-${pair}-${set}`
+              : `${seed}-${game}-P${i + 1}`,
+          );
     return {
       id: `P${i + 1}`,
       monsterDeck: deck.monsterDeck,
@@ -94,17 +125,17 @@ export function playMatchGame(
     game,
     seed,
     aSeat,
-    decks: (Math.floor(game / 2) % 2 === 0
-      ? ["ESD01", "ESD02"]
-      : ["ESD02", "ESD01"]) as [string, string],
+    decks: setsFor(game, source),
     winner: null,
     reason: "unfinished",
     turns: 0,
     decisions: { a: 0, b: 0 },
     ms: { a: 0, b: 0 },
+    times: { a: [], b: [] },
     combos: { a: {}, b: {} },
   };
   let state: GameState = advanceToDecision(startGame({ seed, decks }));
+  const played: Action[] = [];
   const tracker = newComboTracker();
   let step = 0;
   while (state.result === null && state.turn <= turnCap) {
@@ -119,8 +150,29 @@ export function playMatchGame(
       seat.settings ?? {},
     );
     const start = performance.now();
-    const action = seat.bot.chooseAction(input);
-    result.ms[seat.side] += performance.now() - start;
+    let action;
+    try {
+      action = seat.bot.chooseAction(input);
+    } catch (err) {
+      // A bot error: write the game so far, to replay the decision (`pnpm bot-explain`).
+      const dump = process.env["GOJISIM_BOT_DUMP"];
+      if (dump)
+        writeFileSync(
+          `${dump}/failed-${seed}.json`,
+          JSON.stringify({
+            version: 1,
+            seed,
+            decks,
+            actions: played,
+            decider,
+            error: String(err),
+          }),
+        );
+      throw err;
+    }
+    const took = performance.now() - start;
+    result.ms[seat.side] += took;
+    result.times?.[seat.side].push(Math.round(took * 10) / 10);
     result.decisions[seat.side]++;
     const legal = getLegalActions(state, decider).some(
       (l) => JSON.stringify(l) === JSON.stringify(action),
@@ -136,6 +188,7 @@ export function playMatchGame(
       const counts = result.combos[side];
       counts[hit.comboId] = (counts[hit.comboId] ?? 0) + 1;
     }
+    played.push(action);
     state = next;
   }
   result.turns = state.turn;
@@ -182,6 +235,11 @@ export interface MatchSummary {
   winReasons: Record<string, number>;
   averageTurns: number;
   msPerDecision: { a: number; b: number };
+  /** M13a: median and 95th percentile milliseconds per decision. */
+  msPercentiles?: {
+    a: { median: number; p95: number; max: number };
+    b: { median: number; p95: number; max: number };
+  };
   /**
    * Combos each bot completed over the run (M5g), by combo id, plus the games with at least one
    * combo. M13 uses these for bot training and matchup analysis.
@@ -232,6 +290,10 @@ export function summarize(
       2,
     ),
     msPerDecision: { a: per("a"), b: per("b") },
+    msPercentiles: {
+      a: percentiles(results, "a"),
+      b: percentiles(results, "b"),
+    },
     combos: {
       a: totalCombos(results, "a"),
       b: totalCombos(results, "b"),
@@ -243,6 +305,21 @@ export function summarize(
       },
     },
   };
+}
+
+/** One side's median and p95 milliseconds per decision over every game. */
+function percentiles(
+  results: GameResult[],
+  side: "a" | "b",
+): { median: number; p95: number; max: number } {
+  const all = results
+    .flatMap((r) => r.times?.[side] ?? [])
+    .sort((x, y) => x - y);
+  const at = (q: number) =>
+    all.length
+      ? (all[Math.min(all.length - 1, Math.floor(q * all.length))] as number)
+      : 0;
+  return { median: at(0.5), p95: at(0.95), max: all.at(-1) ?? 0 };
 }
 
 /** One side's combo counts summed over games, by combo id (sorted). */

@@ -19,6 +19,8 @@
     "stress": "pnpm --filter @gojisim/stress stress",
     "bench": "pnpm --filter @gojisim/stress bench",
     "bots": "pnpm --filter @gojisim/bots bots",
+    "bot-explain": "pnpm --filter @gojisim/bots bot-explain",
+    "bot-positions": "pnpm --filter @gojisim/bots bot-positions",
     "survey": "pnpm --filter @gojisim/ability-survey survey",
     "abilities:coverage": "pnpm --filter @gojisim/ability-survey coverage"
   },

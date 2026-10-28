@@ -29,6 +29,8 @@ The repo's `railway.json` holds the build command, the start command and the hea
    - **Branch:** `release`.
    - Turn on **Wait for CI**. Railway then deploys a commit only after its GitHub checks pass; the one that matters is `ci`, which needs every other check. A commit pushed from `main` has already passed it, so it deploys right away.
 
+   - **Watch Paths:** leave them empty in the dashboard. `railway.json` sets `watchPatterns` to `**`, so every push to `release` deploys; a web-only change limited by dashboard Watch Paths never would.
+
    The first deploy fails until step 2's variables are set; that's expected.
 
 ## 2. Set the variables
@@ -105,7 +107,7 @@ No redeploy is needed: the server reads `/data/cards` on each request. After a c
 Merging into `main` doesn't deploy. To put main's current state in front of testers:
 
 1. On your Mac, in the `gojisim` folder: `git fetch origin`, then `git push origin origin/main:release` (with `main` checked out and up to date, `git push origin main:release` is the same). If Git refuses because `release` has commits `main` doesn't, something other than this command pushed there; ask before forcing.
-2. In Railway, open the `gojisim` service → **Deployments**. The new deploy appears for that commit, builds, passes the `/healthz` check and becomes **Active**. That takes a few minutes.
+2. In Railway, open the `gojisim` service → **Deployments**. The new deploy appears for that commit, builds, passes the `/healthz` check and becomes **Active**. That takes a few minutes. A deploy marked **Skipped: No changes to watched files** means Watch Paths are limiting it: clear them under **Settings → Source → Watch Paths** (the repo's `watchPatterns` covers everything), then push again or redeploy.
 3. Open `https://gojisim.somanygames.app` and check the change.
 
 **Roll back:** Railway → `gojisim` → **Deployments** → pick an older, working deploy → **⋯ → Redeploy**. The site goes back to that build at once. The `release` branch still points at the newer commit, so the next `git push origin main:release` deploys main again as usual.

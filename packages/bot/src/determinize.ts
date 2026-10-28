@@ -74,8 +74,9 @@ export function determinize(
     if (
       (entry.type === "setInvadingMonster" ||
         entry.type === "newInvadingMonster" ||
-        // M2 (Q22): a monster deck card placed under the invading monster (EBP04-012).
-        (entry.type === "placeUnder" &&
+        // M2 (Q22): a monster deck card placed under the invading monster (EBP04-012), and
+        // M13a: one an effect plays from the monster deck (EBP03-074, a `place` entry).
+        ((entry.type === "placeUnder" || entry.type === "place") &&
           entry.payload["from"] === "monsterDeck" &&
           typeof entry.payload["cardId"] === "number")) &&
       entry.player !== null
@@ -140,15 +141,28 @@ export function determinize(
   for (const o of view.pendingChoice?.options ?? [])
     if (o.cardId !== null && /^c\d+$/.test(o.id))
       ownCardIds.set(o.id, o.cardId);
+  // M13a: a bound card may have moved since it was bound (a new instance id, 4.1.4), so a card
+  // named only by a binding is a deck card only while a copy of it is still unaccounted for.
+  const boundOnly = new Set<string>();
   for (const binding of Object.values(view.resolution?.bindings ?? {}))
     if (binding.kind === "cards")
-      for (const c of binding.cards) ownCardIds.set(c.instanceId, c.cardId);
+      for (const c of binding.cards) {
+        if (!ownCardIds.has(c.instanceId)) boundOnly.add(c.instanceId);
+        ownCardIds.set(c.instanceId, c.cardId);
+      }
+  // M13a: a card the viewer picked earlier in a multi-card search (5.8.1, "up to 2") is still in
+  // its deck, but the view names only its instance id. It becomes one of the viewer's hidden deck
+  // cards below, preferably one like the cards the search still offers.
+  const unnamedPicks: string[] = [];
   for (const id of [
     ...(view.resolution?.chosen ?? []),
     view.resolution?.subject ?? "",
   ])
     if (id && !ownCardIds.has(id) && /^c\d+$/.test(id) && !visibleIds.has(id))
-      throw new Error(`determinize: card ${id} the viewer chose is unknown`);
+      unnamedPicks.push(id);
+  const offered = (view.pendingChoice?.options ?? [])
+    .map((o) => o.cardId)
+    .filter((id): id is number => id !== null);
   for (const [id, cardId] of ownCardIds)
     if (!visibleIds.has(id) && !known.has(id))
       known.set(id, {
@@ -164,7 +178,7 @@ export function determinize(
     const list = knowledge.decks[player.id];
     if (!list) throw new Error(`determinize: no decklist for ${player.id}`);
     const isViewer = player.id === viewer;
-    const mine = [...known.values()].filter((k) => k.player === player.id);
+    let mine = [...known.values()].filter((k) => k.player === player.id);
     for (const k of mine) visibleIds.add(k.card.instanceId);
 
     // Monster deck: exact for the viewer; otherwise the presented monster deck minus what left.
@@ -189,13 +203,36 @@ export function determinize(
     }
 
     // Main-deck cards still hidden: the presented main deck minus every visible main-deck card.
-    const visibleCards = [
+    const shownCards = [
       ...ZONE_NUMBERS.flatMap((z) => player.zones[z].flat()),
       ...player.strategyZones.flat().map((p) => p.card),
       ...player.invadingMonsterZone,
       ...player.discard,
       ...(view.resolutionArea.cards ?? []).filter((c) => c.owner === player.id),
       ...(isViewer ? player.hand : []),
+    ];
+    // Bound-only cards whose copies are all accounted for elsewhere have moved: drop them.
+    if (boundOnly.size > 0) {
+      const pool = [...list.monsterDeck, ...list.mainDeck].map((c) => c.id);
+      for (const c of [
+        ...shownCards,
+        ...mine
+          .filter((k) => !boundOnly.has(k.card.instanceId))
+          .map((k) => k.card),
+      ]) {
+        const at = pool.indexOf(c.cardId);
+        if (at >= 0) pool.splice(at, 1);
+      }
+      mine = mine.filter((k) => {
+        if (!boundOnly.has(k.card.instanceId)) return true;
+        const at = pool.indexOf(k.card.cardId);
+        if (at < 0) return false;
+        pool.splice(at, 1);
+        return true;
+      });
+    }
+    const visibleCards = [
+      ...shownCards,
       ...mine
         .filter((k) => !(isViewer && k.area === "hand"))
         .filter((k) => k.area !== "monsterDeck")
@@ -221,6 +258,16 @@ export function determinize(
         `determinize: ${player.id} has ${handNeeded} hidden hand and ${deckNeeded} hidden deck cards, ${hidden.length} accounted for`,
       );
     shuffle(hidden);
+    if (isViewer)
+      for (const id of unnamedPicks) {
+        const like = hidden.findIndex((cardId) => offered.includes(cardId));
+        const [cardId] = hidden.splice(like >= 0 ? like : 0, 1);
+        if (cardId === undefined)
+          throw new Error(
+            `determinize: card ${id} the viewer chose is unknown`,
+          );
+        knownDeck.push({ instanceId: id, cardId, owner: player.id });
+      }
     if (!isViewer)
       player.hand = [
         ...knownHand,
@@ -251,6 +298,7 @@ export function determinize(
       })()
     : null;
   const seed = Math.floor(rng() * 4294967296);
+  const replacementAsks = askedReplacements(view, players);
   return {
     version: 1,
     seed,
@@ -275,6 +323,7 @@ export function determinize(
     revealed: view.revealed.map((r) => r.card.instanceId),
     timedTriggers: clone(view.timedTriggers),
     manualQueue: clone(view.manualQueue),
+    ...(replacementAsks ? { replacementAsks } : {}),
     pendingLosses: [],
     nextChoiceId: Math.max(0, ...choiceIds) + 1,
     loopGuard: [],
@@ -283,4 +332,54 @@ export function determinize(
     cards,
     log: clone(view.log),
   };
+}
+
+/**
+ * M13a: an optional replacement asked during a start phase step (E21: EBP02-012 at 7.2.3,
+ * EBP04-010 at 7.2.4) keeps its question in `state.replacementAsks`, which no view carries. It
+ * is rebuilt from what the viewer sees, so answering in a simulation resumes the step instead of
+ * failing: the open question from the pending yes / no (10.9), and at 7.2.4 a replacement already
+ * applying (its discards paused in a resolution) as done.
+ */
+function askedReplacements(
+  view: PlayerView,
+  players: PlayerState[],
+): GameState["replacementAsks"] {
+  if (view.step !== "7.2.3" && view.step !== "7.2.4") return undefined;
+  const turnPlayer = players.find((p) => p.id === view.turnPlayer);
+  if (!turnPlayer) return undefined;
+  const choice = view.pendingChoice;
+  const open =
+    choice?.kind === "confirm" && choice.rule === "10.9" && !view.resolution
+      ? choice.options?.[0]
+      : undefined;
+  if (view.step === "7.2.4") {
+    const top = turnPlayer.invadingMonsterZone.at(-1);
+    if (!top) return undefined;
+    if (open?.abilityId)
+      return [
+        { instanceId: top.instanceId, abilityId: open.abilityId, answer: null },
+      ];
+    if (view.resolution)
+      return [
+        {
+          instanceId: top.instanceId,
+          abilityId: view.resolution.standby.abilityId,
+          answer: "done",
+        },
+      ];
+    return undefined;
+  }
+  if (!open?.abilityId) return undefined;
+  // 7.2.3: the open question is for the first strategy card with the option's card id. Earlier
+  // questions of the step aren't rebuilt (the log doesn't say how they were answered): in a
+  // simulation the step asks them again.
+  const current = turnPlayer.strategyZones
+    .flat()
+    .map((p) => p.card)
+    .find((c) => c.cardId === open.cardId);
+  if (!current) return undefined;
+  return [
+    { instanceId: current.instanceId, abilityId: open.abilityId, answer: null },
+  ];
 }

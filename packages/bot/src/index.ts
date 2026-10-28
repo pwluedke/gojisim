@@ -1,6 +1,6 @@
 import { ENGINE_DEPENDENCIES, ENGINE_PACKAGE } from "@gojisim/engine";
 import { randomBot, weightedBot } from "./baseline";
-import { easyBot, hardBot, mediumBot } from "./difficulty";
+import { easyBot, hardBot, m12Bot, mediumBot, PRESETS } from "./difficulty";
 import { greedyBot } from "./greedy";
 import { ismctsBot } from "./ismcts";
 import type { Bot } from "./types";
@@ -19,6 +19,7 @@ export * from "./evaluate";
 export * from "./greedy";
 export * from "./input";
 export * from "./ismcts";
+export * from "./prune";
 export * from "./types";
 
 /** Bots by name, for the tournament harness. */
@@ -30,4 +31,8 @@ export const BOTS: Record<string, Bot> = {
   easy: easyBot,
   medium: mediumBot,
   hard: hardBot,
+  // M13a: the search bot before M13a, at each preset, to compare against.
+  "easy-m12": m12Bot("easy-m12", PRESETS.easy),
+  "medium-m12": m12Bot("medium-m12", PRESETS.medium),
+  "hard-m12": m12Bot("hard-m12", PRESETS.hard),
 };

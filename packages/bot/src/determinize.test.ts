@@ -6,6 +6,7 @@ import {
   applyAction,
   checkInvariants,
   type GameState,
+  getLegalActions,
   getPlayerView,
   type PlayerId,
   type PlayerSetup,
@@ -14,6 +15,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { randomBot, weightedBot } from "./baseline";
 import { determinize } from "./determinize";
+import { ismctsBot } from "./ismcts";
 import { botInput, decklistsOf, seededRng } from "./input";
 
 function official(file: string): Omit<PlayerSetup, "id"> {
@@ -237,5 +239,295 @@ describe("determinize: monster deck cards placed under the monster (M2, Q22)", (
       }
     }
     throw new Error("no game reached EBP04-012's play from rank II");
+  });
+});
+
+describe("determinize: a monster played from the monster deck by an effect (M13a)", () => {
+  it("after EBP03-074 plays the next monster, the opponent's view determinizes with every card accounted for", () => {
+    const cards = (numbers: string[]) =>
+      numbers.map((n) => {
+        const found = getAllCards().find(
+          (c) => c.cardNumber === n && !c.isParallel,
+        );
+        if (!found) throw new Error(n);
+        return found;
+      });
+    // Blue Godzilla (2002) / (2003), ranks I to IV, sharing the Godzilla trait.
+    const godzilla: PlayerSetup = {
+      id: "P1",
+      monsterDeck: cards(["EBP03-014", "EBP03-012", "EBP03-016", "EBP03-013"]),
+      mainDeck: [
+        ...cards(Array(4).fill("EBP03-074")),
+        ...official("esd02-starter.txt").mainDeck.slice(0, 46),
+      ],
+    };
+    const decks: [PlayerSetup, PlayerSetup] = [
+      godzilla,
+      { id: "P2", ...official("esd01-starter.txt") },
+    ];
+    const lists = decklistsOf(decks);
+    for (let game = 0; game < 60; game++) {
+      const rng = seededRng(`journey-${game}`);
+      let state = advanceToDecision(
+        startGame({ seed: `journey-${game}`, decks }),
+      );
+      for (let n = 0; state.result === null && n < 3000; n++) {
+        const who = decider(state);
+        const input = botInput(state, who, lists, rng);
+        // P1 activates EBP03-074 whenever it can.
+        const journey = input.legalActions.find(
+          (a) =>
+            a.type === "activateStrategy" &&
+            state.cards[
+              state.players[0].hand.find(
+                (c) => c.instanceId === a.cardInstanceId,
+              )?.cardId ?? -1
+            ]?.cardNumber === "EBP03-074",
+        );
+        state = advanceToDecision(
+          applyAction(state, journey ?? weightedBot.chooseAction(input)),
+        );
+        const played = state.log.some(
+          (e) => e.type === "place" && e.payload["from"] === "monsterDeck",
+        );
+        if (played && decider(state) === "P2") {
+          const view = getPlayerView(state, "P2");
+          const det = determinize(
+            view,
+            { decks: lists, log: view.log },
+            seededRng(game),
+          );
+          expect(allCards(det, "P1")).toEqual(
+            [...godzilla.monsterDeck, ...godzilla.mainDeck]
+              .map((c) => c.id)
+              .sort((a, b) => a - b),
+          );
+          expect(checkInvariants(det)).toEqual([]);
+          return;
+        }
+      }
+    }
+    throw new Error("no game reached EBP03-074's play from the monster deck");
+  });
+});
+
+describe("determinize: a start phase replacement's yes / no (E21, M13a)", () => {
+  it("at EBP04-010's 7.2.4 question, the determinized state can be answered and searched", () => {
+    const cards = (numbers: string[]) =>
+      numbers.map((n) => {
+        const found = getAllCards().find(
+          (c) => c.cardNumber === n && !c.isParallel,
+        );
+        if (!found) throw new Error(n);
+        return found;
+      });
+    // EBP04-010 (rank II): with 2 or more rage at the start phase, it may discard 2 to keep it.
+    const keeper: PlayerSetup = {
+      id: "P1",
+      monsterDeck: cards(["ESD01-001", "EBP04-010", "ESD01-003", "ESD01-004"]),
+      mainDeck: official("esd01-starter.txt").mainDeck,
+    };
+    const decks: [PlayerSetup, PlayerSetup] = [
+      keeper,
+      { id: "P2", ...official("esd02-starter.txt") },
+    ];
+    const lists = decklistsOf(decks);
+    for (let game = 0; game < 80; game++) {
+      const rng = seededRng(`keep-${game}`);
+      let state = advanceToDecision(startGame({ seed: `keep-${game}`, decks }));
+      for (let n = 0; state.result === null && n < 3000; n++) {
+        const choice = state.pendingChoice;
+        if (
+          choice?.player === "P1" &&
+          choice.rule === "10.9" &&
+          state.step === "7.2.4"
+        ) {
+          const view = getPlayerView(state, "P1");
+          const det = determinize(
+            view,
+            { decks: lists, log: view.log },
+            seededRng(game),
+          );
+          expect(det.replacementAsks).toEqual(state.replacementAsks);
+          // Both answers resume the step in the simulation, and a search runs through it.
+          for (const optionId of ["yes", "no"])
+            advanceToDecision(
+              applyAction(det, {
+                type: "choose",
+                player: "P1",
+                choiceId: choice.id,
+                optionId,
+              }),
+            );
+          const input = botInput(state, "P1", lists, seededRng(game), {
+            iterations: 40,
+            maxMs: 1e9,
+          });
+          expect(() => ismctsBot.chooseAction(input)).not.toThrow();
+          return;
+        }
+        const who = decider(state);
+        state = advanceToDecision(
+          applyAction(
+            state,
+            weightedBot.chooseAction(botInput(state, who, lists, rng)),
+          ),
+        );
+      }
+    }
+    throw new Error("no game reached EBP04-010's 7.2.4 question");
+  });
+});
+
+describe("determinize: an earlier pick of a multi-card search (5.8.1, M13a)", () => {
+  it("EBP01-019's search for up to 2 [kamacuras], after the first pick: the picked card stays in the deck", () => {
+    const real = (n: string) =>
+      getAllCards().find((c) => c.cardNumber === n && !c.isParallel)!;
+    const decks: [PlayerSetup, PlayerSetup] = [
+      { id: "P1", ...official("esd01-starter.txt") },
+      { id: "P2", ...official("esd02-starter.txt") },
+    ];
+    decks[0].mainDeck = [
+      ...Array(4).fill(real("EBP01-019")),
+      ...Array(4).fill(real("EBP04-038")),
+      ...decks[0].mainDeck.slice(8),
+    ];
+    const lists = decklistsOf(decks);
+    let state = advanceToDecision(startGame({ seed: "kamacuras", decks }));
+    while (state.pendingChoice || state.turnPlayer !== "P1")
+      state = advanceToDecision(
+        applyAction(
+          state,
+          weightedBot.chooseAction(
+            botInput(state, decider(state), lists, seededRng(1)),
+          ),
+        ),
+      );
+    const p1 = state.players[0];
+    const p2 = state.players[1];
+    p1.monsterPosition = 6;
+    p2.monsterPosition = 8;
+    // EBP01-019 in hand, and at least 2 [kamacuras] cards left in the deck to find.
+    const inDeck = p1.deck.filter((c) => [150, 757].includes(c.cardId));
+    const card = inDeck[0]!;
+    p1.deck = p1.deck.filter((c) => c !== card);
+    p1.hand.push(card);
+    const play = getLegalActions(state, "P1").find(
+      (a) =>
+        a.type === "playBattle" &&
+        a.cardInstanceId === card.instanceId &&
+        a.zone !== 6,
+    )!;
+    expect(card.cardId).toBe(150);
+    state = advanceToDecision(applyAction(state, play));
+    const first = state.pendingChoice!;
+    expect(first.rule).toBe("5.8.1");
+    const picked = first.options.find((o) => o.id !== "done")!;
+    state = advanceToDecision(
+      applyAction(state, {
+        type: "choose",
+        player: "P1",
+        choiceId: first.id,
+        optionId: picked.id,
+      }),
+    );
+    expect(state.resolution?.chosen).toEqual([picked.id]);
+    const view = getPlayerView(state, "P1");
+    const det = determinize(
+      view,
+      { decks: lists, log: view.log },
+      seededRng(2),
+    );
+    expect(checkInvariants(det)).toEqual([]);
+    expect(det.players[0].deck.some((c) => c.instanceId === picked.id)).toBe(
+      true,
+    );
+    expect(allCards(det, "P1")).toEqual(
+      [...decks[0].monsterDeck, ...decks[0].mainDeck]
+        .map((c) => c.id)
+        .sort((a, b) => a - b),
+    );
+    const input = botInput(state, "P1", lists, seededRng(3), {
+      iterations: 40,
+      maxMs: 1e9,
+    });
+    expect(() => ismctsBot.chooseAction(input)).not.toThrow();
+  });
+});
+
+describe("determinize: a bound card that has moved since (4.1.4, M13a)", () => {
+  it("EBP03-052: Land Moguera found and placed under it, then the search for Star Falcon: counted once", () => {
+    const real = (n: string) =>
+      getAllCards().find((c) => c.cardNumber === n && !c.isParallel)!;
+    const decks: [PlayerSetup, PlayerSetup] = [
+      { id: "P1", ...official("esd02-starter.txt") },
+      { id: "P2", ...official("esd01-starter.txt") },
+    ];
+    decks[0].mainDeck = [
+      real("EBP03-052"),
+      real("EBP03-046"),
+      ...Array(2).fill(real("EBP03-043")),
+      ...decks[0].mainDeck.slice(4),
+    ];
+    const lists = decklistsOf(decks);
+    let state = advanceToDecision(startGame({ seed: "moguera", decks }));
+    while (state.pendingChoice || state.turnPlayer !== "P1")
+      state = advanceToDecision(
+        applyAction(
+          state,
+          weightedBot.chooseAction(
+            botInput(state, decider(state), lists, seededRng(1)),
+          ),
+        ),
+      );
+    const [p1, p2] = state.players;
+    p1.monsterPosition = 6;
+    p2.monsterPosition = 8;
+    const ids = (number: string) => real(number).id;
+    // M.O.G.U.E.R.A. in hand; Land Moguera and the Star Falcons in the deck.
+    for (const n of ["EBP03-052", "EBP03-046", "EBP03-043"]) {
+      const where = [p1.hand, p1.deck, p1.discard].find((l) =>
+        l.some((c) => c.cardId === ids(n)),
+      );
+      expect(where).toBeDefined();
+    }
+    const card = [...p1.hand, ...p1.deck].find(
+      (c) => c.cardId === ids("EBP03-052"),
+    )!;
+    p1.deck = p1.deck.filter((c) => c !== card);
+    p1.hand = [...p1.hand.filter((c) => c !== card), card];
+    const play = getLegalActions(state, "P1").find(
+      (a) =>
+        a.type === "playBattle" &&
+        a.cardInstanceId === card.instanceId &&
+        a.zone !== 6,
+    )!;
+    state = advanceToDecision(applyAction(state, play));
+    const first = state.pendingChoice!;
+    const moguera = first.options.find((o) => o.cardId === ids("EBP03-046"))!;
+    state = advanceToDecision(
+      applyAction(state, {
+        type: "choose",
+        player: "P1",
+        choiceId: first.id,
+        optionId: moguera.id,
+      }),
+    );
+    // Now the Star Falcon search: Land Moguera is under M.O.G.U.E.R.A. with a new instance id.
+    expect(
+      state.pendingChoice?.options.some((o) => o.cardId === ids("EBP03-043")),
+    ).toBe(true);
+    const view = getPlayerView(state, "P1");
+    const det = determinize(
+      view,
+      { decks: lists, log: view.log },
+      seededRng(2),
+    );
+    expect(checkInvariants(det)).toEqual([]);
+    expect(allCards(det, "P1")).toEqual(
+      [...decks[0].monsterDeck, ...decks[0].mainDeck]
+        .map((c) => c.id)
+        .sort((a, b) => a - b),
+    );
   });
 });

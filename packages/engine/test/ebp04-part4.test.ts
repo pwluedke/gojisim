@@ -7,9 +7,11 @@ import {
   getCounterPower,
   getLegalActions,
   getRank,
+  nextMonsterCandidates,
   type GameState,
   type PlayerState,
 } from "../src";
+import { counterMonster } from "../src/counter";
 import { checkInvariants } from "../src/invariants";
 import { setTestAbilities } from "../src/testing";
 import {
@@ -40,7 +42,12 @@ import {
   real,
   zoneCardIds,
 } from "./fixtures/real";
-import { battleCard, monsterCard, strategyCard } from "./fixtures/state";
+import {
+  addCard,
+  battleCard,
+  monsterCard,
+  strategyCard,
+} from "./fixtures/state";
 
 // M12d-2: the rest of EBP04 (docs/abilities/m12-plan.md): T9, M3, the Q22/Q23 monster plays,
 // EBP04-045's play cost, EBP04-010's rage replacement and the three custom handlers.
@@ -306,6 +313,67 @@ describe("EBP04-033, EBP04-034 Kaizer Ghidorah: Q23 onto Monster X", () => {
           a.type === "playMonster" && a.cardInstanceId === kaizer.instanceId,
       ),
     ).toBe(false);
+  });
+});
+
+describe("EBP04-033, EBP04-034 Kaizer Ghidorah: the next monster after a countered Monster X (5.15.1.2, Q23 as amended Oct 28, 2026)", () => {
+  /** My invading monster in zone 6, about to be countered, with `deck` as the monster deck. */
+  const start = (invading: string, deck: string[]) => {
+    const { state, me } = setup(6);
+    monster(state, me, real(invading), 6);
+    me.monsterDeck = deck.map((n) => addCard(state, real(n), me.id));
+    return { state, me };
+  };
+  const ids = (cards: { cardId: number }[]) => cards.map((c) => c.cardId);
+
+  for (const kaizer of ["EBP04-033", "EBP04-034"])
+    it(`5.15.1.2, Q23: Monster X II countered with ${kaizer} (rank III) in the monster deck: it becomes the invading monster, no loss`, () => {
+      const { state, me } = start("EBP04-032", [kaizer, "EBP04-035"]);
+      expect(ids(nextMonsterCandidates(state, me))).toEqual([real(kaizer).id]);
+      counterMonster(state, me);
+      expect(me.invadingMonsterZone.at(-1)?.cardId).toBe(real(kaizer).id);
+      expect(state.pendingLosses).toEqual([]);
+    });
+
+  it("5.15.1.2, Q23: Monster X I countered: Kaizer Ghidorah III isn't offered (the rank must be II + 1)", () => {
+    const { state, me } = start("EBP04-031", ["EBP04-033"]);
+    expect(nextMonsterCandidates(state, me)).toEqual([]);
+    counterMonster(state, me);
+    expect(state.pendingLosses).toMatchObject([
+      { player: me.id, rule: "5.15.1.2.1" },
+    ]);
+  });
+
+  it("5.15.1.2.1: Monster X II countered with no Kaizer Ghidorah III: its master loses", () => {
+    const { state, me } = start("EBP04-032", ["EBP04-035"]);
+    counterMonster(state, me);
+    expect(state.pendingLosses).toMatchObject([
+      {
+        player: me.id,
+        reason: "victoryThroughCountering",
+        rule: "5.15.1.2.1",
+      },
+    ]);
+  });
+
+  it("5.15.1.2: the next counter from Kaizer Ghidorah III goes to Kaizer Ghidorah IV through their shared trait", () => {
+    const { state, me } = start("EBP04-032", ["EBP04-033", "EBP04-035"]);
+    counterMonster(state, me);
+    me.monsterPosition = 6;
+    counterMonster(state, me);
+    expect(me.invadingMonsterZone.at(-1)?.cardId).toBe(real("EBP04-035").id);
+    expect(state.pendingLosses).toEqual([]);
+  });
+
+  it("Q23: the main phase play from the hand is unchanged (on Monster X at any rank)", () => {
+    const { state, me } = start("EBP04-031", []);
+    const kaizer = inHand(state, me, real("EBP04-033"));
+    expect(
+      getLegalActions(state, me.id).some(
+        (a) =>
+          a.type === "playMonster" && a.cardInstanceId === kaizer.instanceId,
+      ),
+    ).toBe(true);
   });
 });
 

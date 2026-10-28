@@ -721,3 +721,17 @@ Accepted by Monarch in the M12g review (PR #62).
 516. When one destroy takes several cards, every card's "cannot be destroyed by your opponent's effects" is read before any of them leaves (5.12), for every card with that flag.
 517. `/debug` imports are labelled with `deckName` and grouped by `[deck]` folder; imports with no folder come first, then each folder in name order, after the other groups. Keys stay `imported:<index>`.
 518. "No entry means manual" uses RAGE-E01; every card with text (388 in scope plus 5 tokens) is implemented, and tests that need a manual window use `MANUAL_TEST_CARD`.
+
+Accepted by Monarch in the Tester fixes 1 review (PR #63).
+
+519. The official images are `<name>.webp` and `<name>-thumb.webp` (`first-1`, `first-2`, `second-1`, `second-2`, `back`); the board and the pick use the 300 px thumbs. `pnpm official-images` (also the end of `pnpm images`) converts them from the gitignored `public/cards/official-src/`; the volume copy excludes that folder.
+520. The back image switches on through a one-time load check (`data-card-back="image"` on `<html>`), with no drawn border or outline in any theme; without the image the drawn back is the fallback.
+521. `/debug`'s plain board keeps its drawn backs (decision 190).
+522. The First and Second fronts are picked independently from one FNV hash of the game's seed (bit 0 and bit 1), never from the game's RNG.
+523. Face-down pick cards show the back image with the key number low on the card.
+524. A pick of 2 or more cards selects, then Confirms (`multiPick`); picks whose options depend on earlier picks stay one card at a time: ordered destroys (X), rank totals, and "exactly N" read from the game.
+525. Done is disabled while cards are selected (Confirm sends them); with none selected it works as before.
+526. "Show whole deck" starts off; the searched deck is listed by card number, the matching cards pickable and the rest dimmed.
+527. Esc while viewing the board only returns to the modal; Esc in the modal clears a selection before anything else.
+528. Zone choices (a banner, with the board already visible) get no View board.
+529. Hovering a card in a modal shows the preview over the modal's top right, covering View board while the hover lasts.
