@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { firstSecondArt } from "../game/officialArt";
 import type { Session } from "../game/session";
 import board from "./Board.module.css";
 import styles from "./NewGame.module.css";
+import { useViewBoard, ViewBoardBanner, ViewBoardButton } from "./ViewBoard";
 
 /** The key that peeks: Cmd on a Mac, Ctrl on Windows and Linux. */
 const PEEK_KEY =
@@ -18,14 +20,21 @@ const PEEK_KEY =
  * Cmd (Ctrl on Windows and Linux) shows both cards face up while held, and the record notes the
  * peek; in a Tournament game the key does nothing. Once picked, both turn face up and the game
  * starts on Continue.
+ *
+ * Tester fixes 1: face up, the cards show the official First / Second fronts, one of the two
+ * of each kind picked by the game's seed (`firstSecondArt`); a front whose image doesn't load
+ * shows the drawn face. The heading says what the pick decides (6.3.1.4).
  */
 export function FirstPick({
+  seed,
   picker,
   firstCard,
   canPeek,
   build,
   onStart,
 }: {
+  /** The game's seed: it picks which official fronts show. */
+  seed: number;
   /** The seat that picks: the human, against a bot. */
   picker: string;
   /** The card (0 or 1) that reads First for `picker`. */
@@ -41,6 +50,10 @@ export function FirstPick({
   } | null>(null);
   const [peeking, setPeeking] = useState(false);
   const [peeked, setPeeked] = useState(false);
+  // Fronts whose image failed to load (none made yet, or CI): drawn faces instead.
+  const [missing, setMissing] = useState<Set<string>>(() => new Set());
+  const art = firstSecondArt(seed);
+  const view = useViewBoard();
   const goesFirst = picked?.card === firstCard;
   const face = (card: 0 | 1) => (card === firstCard ? "First" : "Second");
   const shown = picked !== null || peeking;
@@ -51,6 +64,7 @@ export function FirstPick({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (view.viewing) return;
       if (e.key === PEEK_KEY) {
         if (canPeek && !picked) {
           setPeeking(true);
@@ -82,9 +96,15 @@ export function FirstPick({
   });
 
   return (
-    <div className={board.modalBackdrop} data-testid="first-pick-backdrop">
+    <div
+      className={view.viewing ? board.modalBackdropHidden : board.modalBackdrop}
+      data-testid="first-pick-backdrop"
+      data-viewing-board={view.viewing ? "true" : undefined}
+    >
+      {view.viewing && <ViewBoardBanner onReturn={view.toggle} />}
       <div
         className={board.modal}
+        style={view.viewing ? { visibility: "hidden" } : undefined}
         role="dialog"
         aria-modal="true"
         aria-labelledby="first-pick-title"
@@ -92,8 +112,9 @@ export function FirstPick({
         data-picker={picker}
         data-peeking={peeking ? "true" : "false"}
       >
+        <ViewBoardButton onClick={view.toggle} />
         <h2 id="first-pick-title" className={board.modalHeading}>
-          Pick First or Second
+          Pick a card. It decides who goes first.
         </h2>
         <p>
           {picked
@@ -101,25 +122,46 @@ export function FirstPick({
             : "One card is First, the other is Second. Pick one (1 or 2)."}
         </p>
         <div className={styles.pickCards}>
-          {([0, 1] as const).map((card) => (
-            <button
-              key={card}
-              type="button"
-              className={shown ? styles.pickFace : styles.pickBack}
-              data-testid={`first-pick-card-${card}`}
-              data-face={shown ? face(card) : undefined}
-              data-picked={picked?.card === card ? "true" : undefined}
-              disabled={picked !== null}
-              onClick={() => pick(card)}
-            >
-              {shown ? face(card) : card + 1}
-            </button>
-          ))}
+          {([0, 1] as const).map((card) => {
+            const src = art[face(card)];
+            const image = shown && !missing.has(src);
+            return (
+              <button
+                key={card}
+                type="button"
+                className={
+                  image
+                    ? `${styles.pickFace} ${styles.pickArt}`
+                    : shown
+                      ? styles.pickFace
+                      : styles.pickBack
+                }
+                data-testid={`first-pick-card-${card}`}
+                data-face={shown ? face(card) : undefined}
+                data-picked={picked?.card === card ? "true" : undefined}
+                disabled={picked !== null}
+                onClick={() => pick(card)}
+              >
+                {image ? (
+                  <img
+                    src={src}
+                    alt={face(card)}
+                    data-testid="first-pick-art"
+                    onError={() => setMissing((now) => new Set(now).add(src))}
+                  />
+                ) : shown ? (
+                  face(card)
+                ) : (
+                  card + 1
+                )}
+              </button>
+            );
+          })}
         </div>
         {canPeek && !picked && (
-          <p className={styles.note} data-testid="first-pick-peek-hint">
-            Casual: hold {PEEK_KEY === "Meta" ? "Cmd" : "Ctrl"} to see both
-            cards (the game record notes it).
+          <p className={styles.peekHint} data-testid="first-pick-peek-hint">
+            Casual: hold {PEEK_KEY === "Meta" ? "Cmd" : "Ctrl"} to see the
+            fronts and choose.
           </p>
         )}
         {picked && (

@@ -45,7 +45,7 @@ describe("debug decision heading and choice labels", () => {
     const opp = state.pendingChoice!.player;
     expect(opp).not.toBe(state.turnPlayer);
     expect(decisionHeading(state)).toBe(
-      `${opp} is choosing what to discard for Godzilla (2023), down to 4 cards (discard 1 more) during ${state.turnPlayer}'s turn`,
+      `${opp} is choosing what to discard for Godzilla (2023): discard 1 card, down to 4 during ${state.turnPlayer}'s turn`,
     );
     const choices = getLegalActions(state, opp).filter(
       (a) => a.type === "choose",

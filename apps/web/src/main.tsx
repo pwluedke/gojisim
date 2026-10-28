@@ -4,6 +4,7 @@ import { App } from "./App";
 // The theme's variables apply to every page, `/debug` included (M5g).
 import "./theme.css";
 import "./fonts";
+import { detectCardBackImage } from "./game/officialArt";
 
 // The debug viewer and the board pull in the whole card database; load them only on their routes.
 const DebugViewer = lazy(() =>
@@ -19,6 +20,8 @@ if (!root) {
 }
 
 const path = window.location.pathname;
+// The official card back, when its image was made (public/cards/back-thumb.webp).
+detectCardBackImage();
 // The menu and the board fill the window; /debug keeps the browser's default page margin.
 if (!path.startsWith("/debug")) document.body.classList.add("gojisim-body");
 createRoot(root).render(

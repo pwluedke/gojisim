@@ -8,6 +8,7 @@ import {
   type Session,
   sessionFromRecord,
   withAction,
+  withChoices,
 } from "./session";
 
 export interface Thinking {
@@ -246,6 +247,20 @@ export function useGameSession(options: GameSessionOptions = {}) {
     }
   };
 
+  /** A confirmed multi-card pick (Tester fixes 1): the picks in order, then Done if `done`. */
+  const takeChoices = (
+    player: PlayerId,
+    optionIds: readonly string[],
+    done: boolean,
+  ) => {
+    if (!session || !state) return;
+    try {
+      setSession(withChoices(session, player, optionIds, done));
+    } catch (err) {
+      window.alert(String(err));
+    }
+  };
+
   /**
    * Loads an exported game record. In `/debug` it opens paused (replays never re-run a bot; press
    * Play to continue); `/play` passes `autoPlay` so its bot seats carry on. Returns an error
@@ -273,6 +288,7 @@ export function useGameSession(options: GameSessionOptions = {}) {
     humanSeats,
     startSession,
     takeAction,
+    takeChoices,
     importRecord,
     playing,
     setPlaying,

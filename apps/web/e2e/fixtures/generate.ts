@@ -54,6 +54,14 @@ const noBurstIII: Deck = {
     c.deckCardNumber === "ESD01-006" ? byId(7) : c,
   ),
 };
+/**
+ * Blue Godzilla monsters up to EBP03-017 (rank IV), whose [enter] may discard a battle card to
+ * destroy one: P1's discard comes before the target pick (Tester fixes 1, undo from the modal).
+ */
+const blueGodzilla: Deck = {
+  monsterDeck: [byId(494), byId(496), byId(498), byId(500)],
+  mainDeck: esd02.mainDeck,
+};
 /** P1 plays the made-up MANUAL_TEST_CARD, which has no ability data: it opens a manual window. */
 const withManual: Deck = {
   monsterDeck: esd01.monsterDeck,
@@ -396,6 +404,29 @@ const FIXTURES: Fixture[] = [
       action.player === "P1" &&
       after.result?.winner === "P1" &&
       after.result.reason === "invasion",
+  },
+  {
+    name: "undo-discard",
+    note: "P1 discarded a battle card for EBP03-017's [enter] and now picks its destroy target: the modal can undo the discard (Tester fixes 1)",
+    decks: () => [blueGodzilla, esd01],
+    confirmSingleOption: true,
+    match: (c, s) =>
+      c.kind === "target" &&
+      c.rule === "10.5.3" &&
+      source(s) === "EBP03-017" &&
+      s.log
+        .slice(-4)
+        .some(
+          (e) =>
+            e.type === "discard" &&
+            e.player === "P1" &&
+            e.payload["cost"] === true,
+        ) &&
+      !s.log
+        .slice(-4)
+        .some((e) =>
+          ["draw", "reveal", "search", "shuffleDeck", "mill"].includes(e.type),
+        ),
   },
   {
     name: "manual",

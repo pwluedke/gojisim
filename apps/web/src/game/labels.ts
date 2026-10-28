@@ -151,7 +151,7 @@ export function optionText(state: GameState, index: number): string {
 }
 
 /** The effect a paused ability is performing (format.md), from its card's ability data. */
-function currentEffect(state: GameState): Effect | undefined {
+export function currentEffect(state: GameState): Effect | undefined {
   const r = state.resolution;
   if (!r) return undefined;
   const [number, id] = r.standby.abilityId.split("#");
@@ -215,10 +215,11 @@ function choiceWhat(state: GameState): string {
   }
   const effect = currentEffect(state);
   if (choice.rule === "5.7.2" && effect?.effect === "discardDownTo") {
-    const picked = state.resolution?.chosen.length ?? 0;
+    // The whole discard, not what is left of it (Tester fixes 1): the hand shrinks only once
+    // every pick is made.
     const hand = state.players.find((p) => p.id === who)?.hand.length ?? 0;
-    const left = hand - effect.size - picked;
-    return `choosing what to discard${by}, down to ${effect.size} card${effect.size === 1 ? "" : "s"} (discard ${left} more)`;
+    const total = hand - effect.size;
+    return `choosing what to discard${by}: discard ${total} card${total === 1 ? "" : "s"}, down to ${effect.size}`;
   }
   if (choice.rule === "5.7.1") return `choosing a card to discard${by}`;
   // M5h #14: a search names what it searches for (the source card is the modal's source line).
@@ -255,7 +256,7 @@ export function decisionHeading(state: GameState): string {
 /**
  * The choice modal's heading (M5c, PR #19 pattern): who is choosing, what for, and during whose
  * turn, with seat names from `name` ("You", "Bot", "P2"), e.g. "You are choosing what to discard
- * for Godzilla (2023), down to 6 cards (discard 1 more) during Bot's turn".
+ * for Godzilla (2023): discard 1 card, down to 6 during Bot's turn".
  */
 export function choiceHeading(
   state: GameState,

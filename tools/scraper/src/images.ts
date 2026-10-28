@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { CardListSchema } from "@gojisim/cards";
 import sharp from "sharp";
 import { PoliteFetcher } from "./fetcher";
+import { convertOfficialImages, OFFICIAL_SOURCE_DIR } from "./officialImages";
 
 const cacheDir = fileURLToPath(new URL("../.cache/", import.meta.url));
 const dataDir = new URL("../../../packages/cards/data/", import.meta.url);
@@ -126,6 +127,15 @@ async function main(): Promise<void> {
   );
   console.log(
     `PNG ${mb(totals.png)} | WebP full ${mb(totals.full)} | WebP thumb ${mb(totals.thumb)}`,
+  );
+  // The official First / Second cards and card back, from Paul's gitignored source folder.
+  const official = await convertOfficialImages(
+    OFFICIAL_SOURCE_DIR,
+    publicDir,
+    force,
+  );
+  console.log(
+    `Official images: ${official.converted.join(", ") || "none"}${official.missing.length ? ` (not in ${OFFICIAL_SOURCE_DIR}: ${official.missing.join(", ")})` : ""}.`,
   );
   if (failures.length > 0) {
     console.error(`${failures.length} failures:`, failures);

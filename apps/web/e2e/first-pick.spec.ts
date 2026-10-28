@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { loadFixture, passTurn } from "./helpers";
+import { loadFixture, officialImages, passTurn } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -305,4 +305,71 @@ test.describe("the bot hand's count badge", () => {
     expect(still.length).toBeGreaterThan(0);
     expect(still.at(-1)?.badge).toBe(still.at(-1)?.size);
   });
+});
+
+test("Tester fixes 1: the heading says what the pick decides; Casual's peek hint is its own line", async ({
+  page,
+}) => {
+  await start(page, "7");
+  await expect(page.locator("#first-pick-title")).toHaveText(
+    "Pick a card. It decides who goes first.",
+  );
+  await expect(page.getByTestId("first-pick-peek-hint")).toHaveText(
+    /^Casual: hold (Cmd|Ctrl) to see the fronts and choose\.$/,
+  );
+});
+
+test("Tester fixes 1: with the official images, the cards flip to a First and a Second front, and every back is the image", async ({
+  page,
+}) => {
+  await officialImages(page, true);
+  await start(page, "7");
+  await expect(page.locator("html")).toHaveAttribute("data-card-back", "image");
+  // Face down: the official back on both pick cards and on every pile.
+  for (const testId of ["first-pick-card-0", "pile-back"]) {
+    const image = await page
+      .getByTestId(testId)
+      .first()
+      .evaluate((el) => getComputedStyle(el).backgroundImage);
+    expect(image).toContain("/cards/back-thumb.webp");
+  }
+  await page.getByTestId("first-pick-card-0").click();
+  const art = page.getByTestId("first-pick-art");
+  await expect(art).toHaveCount(2);
+  const sources = await art.evaluateAll((imgs) =>
+    imgs.map((img) => (img as HTMLImageElement).getAttribute("src")),
+  );
+  expect(sources.some((src) => /\/first-\d-thumb\.webp$/.test(src ?? ""))).toBe(
+    true,
+  );
+  expect(
+    sources.some((src) => /\/second-\d-thumb\.webp$/.test(src ?? "")),
+  ).toBe(true);
+  // The accessible names stay First and Second.
+  await expect(page.getByRole("button", { name: "First" })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Second" })).toHaveCount(1);
+});
+
+test("Tester fixes 1: without the official images, the drawn back and First / Second faces stay", async ({
+  page,
+}) => {
+  await officialImages(page, false);
+  await start(page, "7");
+  await page.getByTestId("first-pick-card-0").click();
+  await expect(page.getByTestId("first-pick-art")).toHaveCount(0);
+  await expect(faces(page)).resolves.toEqual(
+    expect.arrayContaining(["First", "Second"]),
+  );
+  await expect(page.getByTestId("first-pick-card-0")).toHaveText(
+    /^(First|Second)$/,
+  );
+  await expect(page.locator("html")).not.toHaveAttribute(
+    "data-card-back",
+    "image",
+  );
+  const image = await page
+    .getByTestId("pile-back")
+    .first()
+    .evaluate((el) => getComputedStyle(el).backgroundImage);
+  expect(image).toContain("repeating-linear-gradient");
 });

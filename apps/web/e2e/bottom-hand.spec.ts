@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { loadFixture, visibleCenter } from "./helpers";
+import { loadFixture, officialImages, visibleCenter } from "./helpers";
 
 /**
  * Your hand at the window's bottom edge (Paul): only the top 40 % of each card shows; cards overlap
@@ -299,6 +299,8 @@ test.describe("raising a card", () => {
 
 test.describe("card backs", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
+  // The drawn back (decision 472): the official back image is blocked (Tester fixes 1).
+  test.beforeEach(({ page }) => officialImages(page, false));
 
   for (const theme of THEMES)
     test(`a white border on every back, 3 % of its width, in ${theme}`, async ({
@@ -345,5 +347,41 @@ test.describe("card backs", () => {
         .withRules(["color-contrast"])
         .analyze();
       expect(results.violations).toEqual([]);
+    });
+});
+
+test.describe("the official card back (Tester fixes 1)", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  for (const theme of THEMES)
+    test(`with its image, every back is the image, with no drawn border, in ${theme}`, async ({
+      page,
+    }) => {
+      await officialImages(page, true);
+      await settings(page, theme);
+      await loadFixture(page, "hand-ten");
+      await expect(page.locator("html")).toHaveAttribute(
+        "data-card-back",
+        "image",
+      );
+      for (const id of ["pile-back", "opponent-card-back"]) {
+        const backs = page.getByTestId(id);
+        await expect(backs.first()).toBeVisible();
+        const styles = await backs.evaluateAll((els) =>
+          els.map((el) => {
+            const s = getComputedStyle(el);
+            return {
+              image: s.backgroundImage,
+              border: s.borderTopWidth,
+              outline: s.outlineStyle,
+            };
+          }),
+        );
+        for (const style of styles) {
+          expect(style.image).toContain("/cards/back-thumb.webp");
+          expect(style.border).toBe("0px");
+          expect(style.outline).toBe("none");
+        }
+      }
     });
 });

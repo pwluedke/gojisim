@@ -710,3 +710,14 @@ Accepted by Monarch in the M12f review (PR #61).
 508. ESC01-006's "you may discard your entire hand" is an optional ability whose first effect is the discard (not a cost), since the rage counts the cards "discarded by this effect"; with an empty hand Yes does nothing.
 509. The manual-card web tests (the ManualPanel test and the e2e `manual` fixture) moved from ESC01-003 to FC01-003, manual until M12g (amends decision 389); M12g needs a test-only manual card for them.
 510. Plain words word a rage change "for each" card an earlier effect bound ("…increase your rage by 1 for each strategy card among them").
+
+Accepted by Monarch in the M12g review (PR #62).
+
+511. FC01-001's +10,000 total counter power has no turn gate; a total counter power bonus only matters in its master's own counter phase.
+512. FC01-003's "search your deck for one battle card" is `exact 1`, and like every search it may find nothing (decision 139).
+513. FC01-004 counts the battle cards in the opponent's zones by stack top (tokens included, Q39); covered cards don't count.
+514. FC01-005's "During your counter phase, discard all cards in your hand" fires once, at the beginning of your counter phase (mandatory); its monster-play trigger also fires on Burst plays and on the next monster after a counter in your turn (decision 155).
+515. FC01-006 is active on the opponent's turn only, read at the destroy; crush and overload still destroy (Q35).
+516. When one destroy takes several cards, every card's "cannot be destroyed by your opponent's effects" is read before any of them leaves (5.12), for every card with that flag.
+517. `/debug` imports are labelled with `deckName` and grouped by `[deck]` folder; imports with no folder come first, then each folder in name order, after the other groups. Keys stay `imported:<index>`.
+518. "No entry means manual" uses RAGE-E01; every card with text (388 in scope plus 5 tokens) is implemented, and tests that need a manual window use `MANUAL_TEST_CARD`.

@@ -6,9 +6,13 @@ import {
   newSession,
   prePickSession,
   sessionFromRecord,
+  undoConfirmed,
   undoSession,
   withAction,
+  withChoices,
 } from "./session";
+import { readFileSync } from "node:fs";
+import { multiPick } from "./multiPick";
 import type { DeckOption } from "./decks";
 import type { Session } from "./session";
 import { buildLog } from "../play/logLines";
@@ -251,5 +255,61 @@ describe("deck names in the record (M5h #18)", () => {
     expect(
       sessionFromRecord(JSON.stringify(old)).record.deckNames,
     ).toBeUndefined();
+  });
+});
+
+describe("multi-card picks (Tester fixes 1)", () => {
+  /** The e2e fixture where P1 (human) discards down during the bot's turn (5.7.2). */
+  const fixture = () =>
+    sessionFromRecord(
+      readFileSync(
+        new URL("../../e2e/fixtures/discard-bot-turn.json", import.meta.url),
+        "utf8",
+      ),
+    );
+
+  it("Confirm sends one choose per card, in selection order, as one batch; undo takes the batch back whole", () => {
+    const session = fixture();
+    const state = session.states[session.position]!;
+    const pick = multiPick(state);
+    expect(pick?.max).toBeGreaterThanOrEqual(2);
+    const ids = state
+      .pendingChoice!.options.map((o) => o.id)
+      .filter((id) => id !== "done")
+      .slice(0, pick!.max)
+      .reverse();
+    const before = session.record.actions.length;
+    const after = withChoices(session, "P1", ids, false);
+    const added = after.record.actions.slice(before);
+    expect(
+      added.map((a) => (a.type === "choose" ? a.optionId : a.type)),
+    ).toEqual(ids);
+    expect(after.batches).toEqual([
+      { start: before, end: before + ids.length },
+    ]);
+    // The discards happened: the picked cards are in P1's discard pile.
+    const p1 = after.states[after.position]!.players.find(
+      (p) => p.id === "P1",
+    )!;
+    const discarded = p1.discard.map((c) => c.cardId);
+    for (const id of ids) {
+      const cardId = state.players
+        .find((p) => p.id === "P1")!
+        .hand.find((c) => c.instanceId === id)!.cardId;
+      expect(discarded).toContain(cardId);
+    }
+    // One undo takes back every pick of the batch.
+    expect(canUndoSession(after, "P1")).toBe(true);
+    const undone = undoConfirmed(after, "P1");
+    expect(undone.record.actions).toHaveLength(before);
+    expect(stateHash(undone.states[undone.position]!)).toBe(stateHash(state));
+    expect(undone.batches).toEqual([]);
+  });
+
+  it("a pick the engine no longer offers stops the batch", () => {
+    const session = fixture();
+    const before = session.record.actions.length;
+    const after = withChoices(session, "P1", ["c99999"], false);
+    expect(after.record.actions).toHaveLength(before);
   });
 });

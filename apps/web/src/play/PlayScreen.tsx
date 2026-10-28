@@ -22,7 +22,7 @@ import {
   type PlayerId,
   prePickSession,
   type Session,
-  undoSession,
+  undoConfirmed,
 } from "../game/session";
 import { useGameSession } from "../game/useGameSession";
 import styles from "./Board.module.css";
@@ -95,17 +95,19 @@ const SHORTCUTS: [string, string][] = [
   ["Space", "Pass (the prompt panel's main button)"],
   [
     "1 to 9",
-    "Pick an option in a choice, numbered left to right (search cards have no number badges)",
+    "Pick an option in a choice, numbered left to right (search cards have no number badges); in a pick of 2 or more cards, select or deselect it",
   ],
+  ["Enter", "Confirm the selected cards in a pick of 2 or more"],
+  ["B", "View the board behind a choice, search or pick, and return"],
   ["H", "Expand / close the hand"],
   [
     "Esc",
-    "Cancel the selected card, close the expanded hand, a dialog or the preview",
+    "Cancel the selected card or a choice's selection, return from the board view, close the expanded hand, a dialog or the preview",
   ],
   ["L", "Collapse / expand the battle log"],
   [
     "U",
-    "Undo your last action (Casual games, back to the last draw, search, reveal, shuffle, random result or opponent action)",
+    "Undo your last action, or a whole confirmed pick of cards (Casual games, back to the last draw, search, reveal, shuffle, random result or opponent action)",
   ],
   ["?", "Show / hide this list"],
 ];
@@ -332,9 +334,10 @@ export function PlayScreen() {
   const undoFor = human && decider ? decider : null;
   const undoable = !!undoFor && !!session && canUndoSession(session, undoFor);
   const undo = () => {
-    if (!session || !undoable) return;
+    if (!session || !undoFor || !undoable) return;
     setConfirming(null);
-    game.setSession(undoSession(session));
+    // A confirmed multi-card pick is taken back whole (Tester fixes 1).
+    game.setSession(undoConfirmed(session, undoFor as PlayerId));
   };
   const casual = session?.record.mode !== "tournament";
 
@@ -996,6 +999,7 @@ export function PlayScreen() {
       )}
       {pending && (
         <FirstPick
+          seed={pending.seed}
           picker={pending.picker}
           firstCard={pending.firstCard}
           canPeek={pending.matchMode === "casual"}
@@ -1011,6 +1015,7 @@ export function PlayScreen() {
           key={search.seq}
           result={search}
           cards={state.cards}
+          model={model}
           onConfirm={() => setSearches((queue) => queue.slice(1))}
         />
       )}
@@ -1025,6 +1030,10 @@ export function PlayScreen() {
           onAction={game.takeAction}
           labelOf={(action) => actionLabel(state, action)}
           model={model}
+          onConfirmPicks={(ids, done) =>
+            choice && game.takeChoices(choice.player as PlayerId, ids, done)
+          }
+          onUndo={undoable ? undo : undefined}
         />
       )}
       {callout && comboOf(callout) && !animating && !(search && !animating) && (
