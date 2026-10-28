@@ -41,10 +41,15 @@ export interface GameRecord {
    */
   mode?: MatchMode;
   /**
-   * The human saw the bot's hand all game (M5h #13, a `/play` setting). Information only: such
-   * games never count toward win/loss statistics (M11).
+   * The human saw the bot's hand (M5h #13; from M13b it can be turned on mid-game). Set for the
+   * whole game once turned on, even if turned off again. Information only: such games never count
+   * toward win/loss statistics (M11).
    */
   showOpponentHand?: boolean;
+  /** The action index at which `showOpponentHand` was first turned on (M13b; 0 = at the start). */
+  showOpponentHandAt?: number;
+  /** Achievement progress (later) doesn't count for this game (M13b, set with `showOpponentHand`). */
+  excludedFromAchievements?: boolean;
   /**
    * The human held Cmd / Ctrl during the First / Second pick and saw which card was First (a
    * Casual peek). Information only, like `showOpponentHand`: such games never count toward
@@ -63,6 +68,33 @@ export interface GameRecord {
    * Information only; a record without it shows "Mystery Deck".
    */
   deckNames?: Partial<Record<PlayerId, string>>;
+  /** Bad Bot! reports (M13b), oldest first. Information only: replay never reads them. */
+  botFeedback?: FeedbackEntry[];
+  /** Report bug notes (M13b), oldest first. Information only, like `botFeedback`. */
+  bugReports?: BugReport[];
+}
+
+/** One Bad Bot! report (M13b): the bot action it marks and what the reporter said. */
+export interface FeedbackEntry {
+  /** The marked bot action's index in `actions`. */
+  actionIndex: number;
+  /** The action in battle-log wording ("Bot (Hard): Play Scale Attack"), with turn and phase. */
+  label: string;
+  text: string;
+  /** The reporter's name (M9 fills it from the signed-in account). */
+  reporter: string;
+  /** ISO time of the report. */
+  at: string;
+}
+
+/** One Report bug note (M13b): where the game was and what went wrong. */
+export interface BugReport {
+  /** The session position when the report was made. */
+  actionIndex: number;
+  text: string;
+  reporter: string;
+  /** ISO time of the report. */
+  at: string;
 }
 
 /** One undo (M5h #10): the action taken back, and where it was in the record. */

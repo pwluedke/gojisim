@@ -209,6 +209,28 @@ export function tournamentProblems(
   return legality.failures.map((f) => `${f.rule}: ${f.message}`);
 }
 
+/** Every plain reason a deck is illegal (M13b), card by card; empty when it's legal. */
+export function deckReasons(
+  legality: DeckValidation | { error: string },
+): string[] {
+  if ("error" in legality) return [legality.error];
+  return legality.failures.flatMap((f) => f.reasons);
+}
+
+/** How many reasons a badge shows before "+N more" (M13b); the tooltip lists them all. */
+export const BADGE_REASONS = 3;
+
+/** The reasons a badge shows, and how many more the tooltip holds. */
+export function badgeReasons(reasons: readonly string[]): {
+  shown: string[];
+  more: number;
+} {
+  return {
+    shown: reasons.slice(0, BADGE_REASONS),
+    more: Math.max(0, reasons.length - BADGE_REASONS),
+  };
+}
+
 const STORAGE_KEY = "gojisim.debug.importedDecks";
 
 /** Imported decks remembered in this browser; empty if storage is unavailable or unreadable. */

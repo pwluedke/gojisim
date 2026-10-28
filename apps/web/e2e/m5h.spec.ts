@@ -134,20 +134,27 @@ for (const [width, height] of [
 test("#13 Show opponent's hand (vs bot): the bot's hand shows face up", async ({
   page,
 }) => {
+  // M13b: the toggle is in the Test Site panel's Test settings, and asks first.
   await page.goto("/play");
   await page.getByTestId("seed-input").fill("2");
-  await page.getByTestId("show-opponent-hand").check();
   await page.getByTestId("start-game").click();
+  await page.getByTestId("test-settings").click();
+  await page.getByTestId("show-opponent-hand").click();
+  await page.getByTestId("confirm-yes").click();
   await page.getByTestId("first-pick-card-0").click();
   await page.getByTestId("first-pick-continue").click();
   const hand = page.getByTestId("opponent-hand");
   await expect(hand.getByTestId("card").first()).toBeVisible();
   await expect(hand.getByTestId("opponent-card-back")).toHaveCount(0);
-  // Off by default: backs only.
+  // Off in the next game: backs only.
   await page.goto("/play");
+  await page.getByTestId("start-game").click();
   await expect(page.getByTestId("show-opponent-hand")).not.toBeChecked();
   // Watching two bots: not offered.
+  await page.goto("/play");
   await page.getByTestId("seat-P1").selectOption("bot");
+  await page.getByTestId("start-game").click();
+  await expect(page.getByTestId("test-site")).toBeVisible();
   await expect(page.getByTestId("show-opponent-hand")).toHaveCount(0);
 });
 

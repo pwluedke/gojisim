@@ -735,3 +735,17 @@ Accepted by Monarch in the Tester fixes 1 review (PR #63).
 527. Esc while viewing the board only returns to the modal; Esc in the modal clears a selection before anything else.
 528. Zone choices (a banner, with the board already visible) get no View board.
 529. Hovering a card in a modal shows the preview over the modal's top right, covering View board while the hover lasts.
+
+Accepted by Monarch in the M13a review (PR #64).
+
+530. Pruning covers strategy activations only, and only from Medium (difficulty 55) up; Easy stays as before.
+531. A dead activation is decided from the engine's result on the first determinization of each decision (log types, `conditionNotMet`/`abilityInactive`, no own pending choice, counter made either way), never from card names.
+532. Determinizer workarounds: EBP04-010's 7.2.3/7.2.4 asks are rebuilt, earlier asks aren't; unnamed search picks get a guessed hidden card; a bound card whose copies are all elsewhere is dropped.
+533. `--decks mixed` pairs the two starters with random EBP01–EBP04 test decks, seeded `<seed>-<pair>-<set>`, each pairing twice with seats swapped.
+534. The pre-M13a bot stays registered as `easy-m12`, `medium-m12`, `hard-m12` for comparisons.
+535. `bot-explain` defaults to no time limit and the browser's seed (`<botSeed>-<index>`), so its output is the same on any machine.
+536. `bot-positions` runs at the browser's 1 s budget by default.
+537. Timed tournaments run 5 games at a time on this Mac (6 performance cores).
+538. The old weights stay; `counterMade` and `overCommit` were removed after tuning showed no gain; `w.<feature>` overrides stay for M13c.
+539. Q23 amended (Paul, provisional): a `monsterOnto` play rule also meets 5.15.1.2's trait requirement for that card; the rank requirement is unchanged; the hand play is unchanged.
+540. Release notes: the heading's date is the merge date, so a PR's own entry reads "not merged yet" and the next PR fixes it.

@@ -13,4 +13,8 @@ apps/web/public/cards/
 stress-failures/
 loop-reports/
 /local-decks/
+# Uploaded game records (M13b): players' decks, never committed.
+/records/
+apps/web/e2e-records/
+apps/web/test-results/prod-records/
 bot-reports/

@@ -57,6 +57,9 @@
   --color-card-back-outline: #1a1410;
   --color-legal: #1d6b2e;
   --color-illegal: #b81d17;
+  /* The Test Site panel's hazard stripes (M13b), decoration only (no text on them). */
+  --color-hazard: #f2c200;
+  --color-hazard-dark: #1a1410;
   --color-warning: #7a4c00;
   --color-status-bg: #e7f0ee;
   --color-alert-bg: #f7cfc9;
@@ -187,6 +190,9 @@
   /* Was #1a7f37 (4.48:1 on panel-alt); darkened to meet WCAG AA (M7a). */
   --color-legal: #187634;
   --color-illegal: #b42318;
+  /* The Test Site panel's hazard stripes (M13b), decoration only (no text on them). */
+  --color-hazard: #f2c200;
+  --color-hazard-dark: #1d2330;
   --color-warning: #9a5b00;
   --color-status-bg: #eeeeff;
   --color-alert-bg: #ffcdd2;
@@ -306,6 +312,9 @@
   --color-card-back-outline: #2a2e35;
   --color-legal: #073d1a;
   --color-illegal: #6e1207;
+  /* The Test Site panel's hazard stripes (M13b), decoration only (no text on them). */
+  --color-hazard: #e8b800;
+  --color-hazard-dark: #101318;
   --color-warning: #5a3300;
   --color-status-bg: #a9afc4;
   --color-alert-bg: #c49ca0;
@@ -425,6 +434,9 @@
   --color-card-back-outline: #000000;
   --color-legal: #56d364;
   --color-illegal: #ff7b72;
+  /* The Test Site panel's hazard stripes (M13b), decoration only (no text on them). */
+  --color-hazard: #f2c200;
+  --color-hazard-dark: #0d1117;
   --color-warning: #e3b341;
   --color-status-bg: #23283a;
   --color-alert-bg: #4a2124;

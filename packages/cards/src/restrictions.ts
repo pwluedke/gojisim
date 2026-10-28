@@ -70,6 +70,21 @@ export function getMaxCopies(deckCardNumber: string, asOf: Date): number {
   return entry?.maxCopies ?? DEFAULT_MAX_COPIES;
 }
 
+/**
+ * The restriction in force on `asOf` for a card, with the date its list took effect
+ * (`YYYY-MM-DD`); `null` when no list limits it below 4.
+ */
+export function getRestriction(
+  deckCardNumber: string,
+  asOf: Date,
+): { maxCopies: number; effective: string } | null {
+  const list = governingList(deckCardNumber, asOf);
+  const entry = list?.entries.find((e) => e.deckCardNumber === deckCardNumber);
+  return list && entry && entry.maxCopies < DEFAULT_MAX_COPIES
+    ? { maxCopies: entry.maxCopies, effective: list.effective }
+    : null;
+}
+
 /** Choice-restricted groups in force on `asOf`. */
 export function getChoiceRestrictions(asOf: Date): ChoiceRestriction[] {
   const day = isoDay(asOf);

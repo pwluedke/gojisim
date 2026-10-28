@@ -24,6 +24,8 @@ export default defineConfig({
       GOJISIM_PASSWORD: "e2e testers only",
       SESSION_SECRET: "e2e-session-secret-0123456789abcdef",
       CARDS_DIR: "e2e-prod/cards",
+      // Uploads (M13b) go to a throwaway folder, never the volume path.
+      RECORDS_DIR: "test-results/prod-records",
     },
   },
 });

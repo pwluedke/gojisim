@@ -20,3 +20,5 @@ docs/combos/combos.md
 bench/baseline.json
 packages/cards/test/fixtures/decklog-*.json
 tools/bots/positions/*.json
+records/
+apps/web/e2e-records/
