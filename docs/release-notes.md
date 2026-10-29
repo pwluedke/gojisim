@@ -2,7 +2,27 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #67 One stored file per game; plain bot moves in the report listing (not merged yet)
+## #68 Hidden decklists: the bot works out your deck from what you play (not merged yet)
+
+### What changed
+
+- The bot no longer knows your deck list; it works it out from what you play, like a player does. At the start of a game you show your opponent a deck and your 4 monsters, never what's in them (Comprehensive Rules 6.3.1.1, confirmed by a judge).
+- Until it has seen your cards, the bot imagines the rest of your deck as any legal deck with your rank I monster: its colors, the copy limits, the restriction list and its Resonance rules. Every card you play, discard or reveal narrows it down.
+
+### Fixed
+
+- The bot read your full deck list when planning its moves, which a player can't do.
+
+### Testing notes
+
+- New tests: the bot gets only its own deck list; two games whose hidden decks differ but look the same from the bot's side get the same move; 200 imagined decks across the four booster sets are all legal; cards already seen count toward the copy limits. Details in the PR's Tests section.
+- Try it: play a deck the bot has never seen (an imported one) and watch whether it still plays sensibly in the first turns.
+
+### Known issues
+
+- In the first turns the bot knows little about your deck, so it may play a little worse than before against an unusual deck. The next steps of the bot learning plan teach it to recognize common decks.
+
+## #67 One stored file per game; plain bot moves in the report listing (2026-10-28)
 
 ### What changed
 

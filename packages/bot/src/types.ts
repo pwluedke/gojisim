@@ -1,19 +1,22 @@
 import type { Card } from "@gojisim/cards";
 import type { Action, LogEntry, PlayerId, PlayerView } from "@gojisim/engine";
 
-/** A deck as presented at setup (6.3.1.1): public to both players. */
+/** A player's monster deck and main deck. */
 export interface Decklist {
   monsterDeck: Card[];
   mainDeck: Card[];
 }
 
 /**
- * What a bot knows besides its view: both decklists (players present their decks at setup,
- * 6.3.1.1) and the public log so far. Never the real state.
+ * What a bot knows besides its view: its own decklist and the public log so far. Never the real
+ * state. At setup the opponent presents a deck and 4 monsters, never their contents (6.3.1.1,
+ * Q42), so the opponent's decklist is here only for the tools' `knowsDecklists` comparison.
  */
 export interface Knowledge {
-  decks: Record<PlayerId, Decklist>;
+  decks: Partial<Record<PlayerId, Decklist>>;
   log: LogEntry[];
+  /** The game's date (ISO), for the restriction list a guessed deck follows; today if absent. */
+  asOf?: string;
 }
 
 /** Bot tuning (difficulty, time budget, ...). Each bot reads its own keys. */
@@ -33,4 +36,9 @@ export interface BotInput {
 export interface Bot {
   name: string;
   chooseAction(input: BotInput): Action;
+  /**
+   * Tools only: the harness gives this bot both decklists (`knowsDecklists`), as every bot had
+   * before Q42 (`hard-m12`, `hard-open`). The web app never seats such a bot.
+   */
+  knowsDecklists?: boolean;
 }

@@ -25,7 +25,7 @@ export function seededRng(seed: string | number): () => number {
   };
 }
 
-/** Both decklists, keyed by player (public at setup, 6.3.1.1). */
+/** Both decklists, keyed by player; `botInput` keeps only the bot's own (Q42). */
 export function decklistsOf(
   decks: readonly PlayerSetup[],
 ): Record<PlayerId, Decklist> {
@@ -39,8 +39,11 @@ export function decklistsOf(
 
 /**
  * Everything a bot gets for one decision, built only from what `botId` may see: its view, its
- * legal actions (concede left out), both decklists and the public log. The real state is used
- * only to compute these; the bot never receives it.
+ * legal actions (concede left out), its own decklist and the public log. The opponent's decklist
+ * is dropped here (Q42: presented, never shown, 6.3.1.1), so no caller can pass it on; only the
+ * tools' `knowsDecklists: true` setting keeps it, for comparisons. `asOf` is the game's date (the
+ * restriction list a guessed deck follows). The real state is used only to compute these; the
+ * bot never receives it.
  */
 export function botInput(
   state: GameState,
@@ -48,9 +51,19 @@ export function botInput(
   decks: Record<PlayerId, Decklist>,
   rng: () => number,
   settings: BotSettings = {},
+  asOf?: string,
 ): BotInput {
   const view = getPlayerView(state, botId);
-  const knowledge: Knowledge = { decks, log: view.log };
+  const own = decks[botId];
+  // `true` from code, "true" from a command line's `key=value` settings.
+  const knows =
+    settings["knowsDecklists"] === true ||
+    settings["knowsDecklists"] === "true";
+  const knowledge: Knowledge = {
+    decks: knows ? decks : own ? { [botId]: own } : {},
+    log: view.log,
+    ...(asOf ? { asOf } : {}),
+  };
   return {
     view,
     legalActions: getLegalActions(state, botId).filter(

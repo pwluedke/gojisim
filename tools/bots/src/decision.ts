@@ -109,12 +109,15 @@ export function runDecision(
     maxMs: Number.POSITIVE_INFINITY,
     ...options.settings,
   };
+  // Q42: the opponent's decklist only with `--set knowsDecklists=true`; the game's date for the
+  // restriction list a guessed deck follows.
   const input = botInput(
     state,
     player,
     decklistsOf(record.decks),
     seededRng(options.seed),
     settings,
+    record.deckLegality?.[0]?.asOf,
   );
   const decision = decide(input);
   const chosenKey = actionKey(state, decision.action);

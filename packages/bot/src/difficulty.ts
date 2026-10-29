@@ -51,8 +51,9 @@ export const mediumBot = difficultyBot("medium", PRESETS.medium);
 export const hardBot = difficultyBot("hard", PRESETS.hard);
 
 /**
- * The search bot as it was before M13a: no pruning, weighted rollouts. M13a's tournaments compare
- * against it (`pnpm bots --b hard-m12`); explicit settings still win.
+ * The search bot as it was before M13a: no pruning, weighted rollouts, and both decklists known
+ * (as before Q42). M13a's tournaments compare against it (`pnpm bots --b hard-m12`); explicit
+ * settings still win.
  */
 export const M12_SETTINGS: BotSettings = {
   prune: 0,
@@ -62,10 +63,19 @@ export function m12Bot(name: string, difficulty: number): Bot {
   const bot = difficultyBot(name, difficulty);
   return {
     name,
+    knowsDecklists: true,
     chooseAction: (input) =>
       bot.chooseAction({
         ...input,
         settings: { ...M12_SETTINGS, ...input.settings },
       }),
   };
+}
+
+/**
+ * Tools only: a difficulty bot that also knows its opponent's decklist (as before Q42), for the
+ * value test of hidden decklists and old comparisons (`hard-open`).
+ */
+export function openBot(name: string, difficulty: number): Bot {
+  return { ...difficultyBot(name, difficulty), knowsDecklists: true };
 }
