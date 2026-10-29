@@ -1,16 +1,23 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import type { GameRecord } from "@gojisim/engine";
-import { PRESETS } from "@gojisim/bot";
+import { feedbackLines } from "./feedbackList";
 
 /**
- * `pnpm bot-feedback <records folder>` (M13b): every Bad Bot! report in the uploaded records under
- * the folder (the volume's `/data/records`, downloaded with docs/deploy.md's command): file,
- * reporter, bot level, the move with its turn and phase, and the text. Run `pnpm bot-explain
- * <file> --at <index>` on a file to see the bot's search there.
+ * `pnpm bot-feedback <records folder> [--kind bot|bug]` (M13b): every Bad Bot! report and Report
+ * bug note in the uploaded records under the folder (the volume's `/data/records`, downloaded with
+ * docs/deploy.md's command), each headed with its kind: file, reporter, the bot level and move
+ * (Bad Bot!) or the game position (Report bug), and the text. `--kind` lists one kind only. Run
+ * `pnpm bot-explain <file> --at <index>` on a file to see the bot's search there.
  */
-const folder = process.argv[2];
-if (!folder) throw new Error("Usage: pnpm bot-feedback <records folder>");
+const args = process.argv.slice(2);
+const kindAt = args.indexOf("--kind");
+const kind = kindAt >= 0 ? args[kindAt + 1] : undefined;
+const folder = args.find(
+  (a, i) => !a.startsWith("--") && (kindAt < 0 || i !== kindAt + 1),
+);
+if (!folder || (kindAt >= 0 && kind !== "bot" && kind !== "bug"))
+  throw new Error("Usage: pnpm bot-feedback <records folder> [--kind bot|bug]");
 const root = resolve(process.env["INIT_CWD"] ?? ".", folder);
 
 function jsonFiles(dir: string): string[] {
@@ -23,37 +30,13 @@ function jsonFiles(dir: string): string[] {
     });
 }
 
-/** "Hard" for a preset, "Level 70" otherwise (as the web app names bots). */
-function levelName(difficulty: number): string {
-  const preset = Object.entries(PRESETS).find(([, d]) => d === difficulty)?.[0];
-  return preset
-    ? `${preset[0]?.toUpperCase()}${preset.slice(1)}`
-    : `Level ${difficulty}`;
-}
-
-let count = 0;
-for (const file of jsonFiles(root)) {
-  let record: GameRecord;
+const records = jsonFiles(root).flatMap((file) => {
   try {
-    record = JSON.parse(readFileSync(file, "utf8")) as GameRecord;
+    const record = JSON.parse(readFileSync(file, "utf8")) as GameRecord;
+    return [{ file: relative(root, file), record }];
   } catch {
-    continue;
+    return [];
   }
-  for (const entry of record.botFeedback ?? []) {
-    const action = record.actions[entry.actionIndex];
-    const seat = action ? record.seats?.[action.player] : undefined;
-    const level =
-      seat?.kind === "bot" && typeof seat.settings?.["difficulty"] === "number"
-        ? levelName(seat.settings["difficulty"])
-        : "?";
-    count++;
-    console.log(
-      [
-        `${relative(root, file)} --at ${entry.actionIndex}`,
-        `  ${entry.reporter} (${entry.at.slice(0, 10)}), bot ${level}: ${entry.label}`,
-        `  "${entry.text}"`,
-      ].join("\n"),
-    );
-  }
-}
-console.log(`${count} Bad Bot! ${count === 1 ? "report" : "reports"}.`);
+});
+for (const line of feedbackLines(records, kind as "bot" | "bug" | undefined))
+  console.log(line);

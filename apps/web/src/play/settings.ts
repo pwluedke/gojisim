@@ -41,6 +41,13 @@ export interface Settings {
   showUndone: boolean;
   /** The invade arrow while a card is dragged over your discard pile (M5h #7, default on). */
   invadeArrow: boolean;
+  /**
+   * Bot announcements: one plain-English line per bot action in a banner over the board, replacing
+   * the move toast, with the bot waiting on it (default off: the toast, decision 221).
+   */
+  announceBotPlays: boolean;
+  /** The announcement pace slider: 0 to 4 are 1.5 / 2.5 / 3.5 / 5 / 7 s, 5 is Confirm (default 2). */
+  announcePace: number;
   /** Finished games (and Bad Bot! reports) are uploaded to the server (M13b, default on). */
   shareGames: boolean;
   /** The Test Site panel's "Test settings" part is open (M13b, default closed). */
@@ -62,6 +69,8 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: "showa",
   showUndone: false,
   invadeArrow: true,
+  announceBotPlays: false,
+  announcePace: 2,
   shareGames: true,
   testSettingsOpen: false,
   whichButtonOpen: false,

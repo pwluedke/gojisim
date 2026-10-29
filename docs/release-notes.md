@@ -2,7 +2,35 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #65 M13b: Test Site panel, Bad Bot!, Report bug notes, game sharing, named deck problems (not merged yet)
+## #66 Bot announcements, Report bug sends, zone choice in the Prompt panel, Mechagodzilla (1975) Weapon (not merged yet)
+
+### What changed
+
+- **Announce bot plays** (Settings, off by default): each bot action shows as one plain-English line in a banner over the top of the board, such as "Bot plays Destoroyah Flying Form to zone 3" or "Bot searches its deck and takes 1 card". It never names a card you can't see.
+  - The **Pace** slider sets how long each line stays: 1.5, 2.5, 3.5 (the default), 5 or 7 seconds, a little longer for long lines. Its last step, **Confirm**, keeps each line until you press OK or Space.
+  - The bot waits for the line before its next move, and choice windows wait too, so you can follow the bot's turn without reading the battle log.
+  - With it off, the small move toast shows as before.
+- **Report bug** now sends your note and the game straight to us (the button reads Send). If sending fails, or you turned off Share finished games, the game file downloads instead for you to send to Paul.
+- **Zone choices** ("You are choosing a zone for …") now sit in the Prompt panel on the left, with buttons like "Your zone 1" and "Bot's zone 3". The battle log is no longer covered.
+
+### Fixed
+
+- Mechagodzilla (1975) EBP01-023 was missing its Weapon trait, so a Multi-Purpose Fighting System 3 (EBP03-006) deck with it was wrongly called illegal.
+
+### Testing notes
+
+- New tests for the announcement wording (no hidden card is ever named), the timing, the setting and the bot waiting; Report bug's send and its download fallback; the zone choice in the Prompt panel; and the Mechagodzilla (1975) deck. Details in the PR's Tests section.
+- Try it:
+  1. Open Settings, tick **Announce bot plays**, and watch the bot's turn. Move the Pace slider to Confirm and press Space after each line.
+  2. Press **Report bug**, write a note and Send: it says "Thanks, sent."
+  3. Play a card that makes you choose a zone (for example one that moves a battle card), and check the zone buttons in the Prompt panel.
+  4. Import a Multi-Purpose Fighting System 3 deck with Mechagodzilla (1975) EBP01-023: it's legal now.
+
+### Known issues
+
+- None known.
+
+## #65 M13b: Test Site panel, Bad Bot!, Report bug notes, game sharing, named deck problems (2026-10-28)
 
 ### What changed
 

@@ -26,6 +26,14 @@ import {
 } from "../game/session";
 import { useGameSession } from "../game/useGameSession";
 import {
+  ANNOUNCED_KINDS,
+  type AnnounceNames,
+  announce,
+  lineMs,
+  PACE_CONFIRM,
+  paceLabel,
+} from "../game/announce";
+import {
   fetchConfig,
   latestBotMove,
   type SiteConfig,
@@ -150,6 +158,13 @@ interface BotMove {
   highlight: Set<string>;
 }
 
+/** A bot announcement line: shown for `ms`, or until OK with the Confirm pace (`null`). */
+interface Announcement {
+  id: number;
+  text: string;
+  ms: number | null;
+}
+
 /** A game set up on the new-game screen, waiting for the First / Second pick (M5e). */
 interface PendingGame {
   seed: number;
@@ -171,6 +186,11 @@ interface PendingGame {
 export function PlayScreen() {
   const [settings, updateSettings] = useSettings();
   const [botMove, setBotMove] = useState<BotMove | null>(null);
+  // Bot announcements: the lines waiting (the first shows), the action count seen last, and the
+  // first action index that may be announced (a loaded record's actions are history).
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const announceFrom = useRef(0);
+  const lastCount = useRef(0);
   const [confirming, setConfirming] = useState<
     "pass" | "concede" | "showHand" | null
   >(null);
@@ -231,11 +251,16 @@ export function PlayScreen() {
       setCallouts([]);
       setGameOver(null);
       lastCombo.current = next.record.actions.length;
+      setAnnouncements([]);
+      announceFrom.current = next.record.actions.length;
+      lastCount.current = next.record.actions.length;
     },
     // While the history view or a search result is open, a bot's answer waits.
     // A combo modal holds the bot too (M5g), until it is closed.
     // The First / Second pick holds the bot on the board under it.
+    // A bot announcement holds the bot too, until its time is up or OK is pressed.
     hold:
+      announcements.length > 0 ||
       historyAt !== null ||
       searches.length > 0 ||
       callouts.length > 0 ||
@@ -244,6 +269,7 @@ export function PlayScreen() {
     // While cards move or a combo modal is open, no bot decision starts; nor while a Bad Bot! or
     // Report bug popup is open (M13b).
     pause:
+      announcements.length > 0 ||
       animating ||
       callouts.length > 0 ||
       pending !== null ||
@@ -255,6 +281,19 @@ export function PlayScreen() {
 
   const name = (id: string) =>
     session?.seats[id as PlayerId]?.kind === "human" ? "You" : "Bot";
+  // Announcements name the bot "Bot" (or "Bot P1" / "Bot P2" between two bots) and the human's
+  // cards "your".
+  const twoBots =
+    !!session && PLAYER_IDS.every((id) => session.seats[id].kind === "bot");
+  const announceNames: AnnounceNames = {
+    subject: (player) => (twoBots ? `Bot ${player}` : "Bot"),
+    whose: (owner, actor) =>
+      owner === actor
+        ? "its"
+        : session?.seats[owner as PlayerId]?.kind === "human"
+          ? "your"
+          : `Bot ${owner}'s`,
+  };
   const liveBottom =
     state && session ? bottomPlayer(state, session.seats) : null;
   // M5g: every combo in the game so far, from the record's steps (an undo drops its combos).
@@ -343,14 +382,37 @@ export function PlayScreen() {
     if (found.length) setSearches((queue) => [...queue, ...found]);
   }, [session, state]);
 
-  // Each bot action shows a one-line toast, and lights where it landed for the delay time.
+  // Each bot action shows a one-line toast, and lights where it landed for the delay time. With
+  // "Announce bot plays" on, a banner line replaces the toast.
   const count = session?.record.actions.length ?? 0;
   useEffect(() => {
-    if (!session || count === 0 || session.position !== count) return;
+    // An undo (fewer actions) is no new action; the next action at that index is announced.
+    const grew = count > lastCount.current;
+    lastCount.current = count;
+    if (!grew) announceFrom.current = Math.min(announceFrom.current, count);
+    if (!session || count === 0 || session.position !== count || !grew) return;
     const action = session.record.actions[count - 1] as Action;
     const before = session.states[count - 1] as GameState;
     const seat = session.seats[action.player as PlayerId];
     if (seat?.kind !== "bot") return;
+    if (settings.announceBotPlays && count - 1 >= announceFrom.current) {
+      announceFrom.current = count;
+      const line = announce(
+        before,
+        session.states[count] as GameState,
+        action,
+        announceNames,
+      );
+      if (ANNOUNCED_KINDS.includes(line.kind))
+        setAnnouncements((queue) => [
+          ...queue,
+          {
+            id: count,
+            text: line.text,
+            ms: lineMs(line.text, settings.announcePace),
+          },
+        ]);
+    }
     setBotMove({
       id: count,
       text: botLabel(before, action, seat.difficulty, true),
@@ -366,6 +428,16 @@ export function PlayScreen() {
     setTimeout(() => setBotMove((m) => (m?.id === count ? null : m)), 3000);
     // Only a new action starts a toast.
   }, [count]);
+
+  // The current announcement stays its time (Confirm: until OK or Space), then the next one shows.
+  const announcement = announcements[0] ?? null;
+  const announcing = announcement !== null;
+  const dismissAnnouncement = () => setAnnouncements((queue) => queue.slice(1));
+  useEffect(() => {
+    if (!announcement || announcement.ms === null) return;
+    const timer = setTimeout(dismissAnnouncement, announcement.ms);
+    return () => clearTimeout(timer);
+  }, [announcement?.id]);
 
   const decider = game.decider;
   const seat = decider && session ? session.seats[decider] : null;
@@ -425,6 +497,19 @@ export function PlayScreen() {
       if (target?.closest("input, select, textarea, [contenteditable]")) return;
       // The First / Second pick takes its own keys (1, 2, Space, the peek key).
       if (pending) return;
+      // A Confirm-pace announcement takes Space (its OK), before anything waiting behind it.
+      if (
+        e.key === " " &&
+        announcement?.ms === null &&
+        !reporting &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey
+      ) {
+        e.preventDefault();
+        dismissAnnouncement();
+        return;
+      }
       // Input waits while cards move (M5f) and while the combo modal is open (its own keys), and
       // while a Bad Bot! or Report bug popup is open (M13b: its own Esc).
       if (animating || callouts.length > 0 || reporting) return;
@@ -549,7 +634,8 @@ export function PlayScreen() {
   ) as GameState;
   const model = boardModel(shown, liveBottom ?? "P1", testSite && showHand);
 
-  const search = viewing === null ? (searches[0] ?? null) : null;
+  // Search results and combo callouts wait for a bot announcement, like for animations.
+  const search = viewing === null && !announcing ? (searches[0] ?? null) : null;
 
   // The bottom player plays hand cards on the board (M5b) when it is their decision; otherwise
   // (a bot decides, or the game is over) the hand is locked.
@@ -562,12 +648,16 @@ export function PlayScreen() {
   const concedeFor = game.humanSeats[0] as PlayerId | undefined;
   // Choice and search modals open once the cards have landed (M5f).
   const showModal =
+    !announcing &&
     pending === null &&
     viewing === null &&
     human &&
     choice !== null &&
     decider === model.bottom &&
     !animating;
+  // A zone choice shows in the Prompt panel; every other choice is a modal.
+  const zoneInPrompt =
+    showModal && choice?.kind === "zone" && !search && !callout;
   const zoneChoice = new Map<string, Action>(
     showModal && choice?.kind === "zone"
       ? actions.flatMap((a) =>
@@ -645,6 +735,20 @@ export function PlayScreen() {
                 </button>
               )}
             </>
+          ) : zoneInPrompt ? (
+            <ChoiceModal
+              key={choice?.id}
+              state={state}
+              heading={choiceHeading(state, name)}
+              source={choiceSource(state)}
+              actions={actions}
+              manualCards={[]}
+              onAction={game.takeAction}
+              labelOf={(action) => actionLabel(state, action)}
+              model={model}
+              onUndo={undoable ? undo : undefined}
+              name={name}
+            />
           ) : choice && showModal ? (
             <div className={styles.muted} data-testid="prompt-choice">
               {choiceHeading(state, name)}
@@ -730,7 +834,9 @@ export function PlayScreen() {
         : "Couldn't send. It will be sent with the finished game, and Report bug includes it.",
     );
   };
-  const saveBugReport = (reporter: string, text: string) => {
+  // Report bug sends the record with the note, like Bad Bot!; a failed send, or sharing off,
+  // downloads the file for the tester to send to Paul instead.
+  const sendBugReport = async (reporter: string, text: string) => {
     remember(reporter);
     setReporting(null);
     const entry = {
@@ -741,10 +847,20 @@ export function PlayScreen() {
     };
     const next = withBugReport(session, entry);
     game.setSession((s) => (s ? withBugReport(s, entry) : s));
+    if (!settings.shareGames) {
+      downloadRecord(next);
+      setNote(
+        "Saved this game's record. Send the file to Paul with a few words about what went wrong.",
+      );
+      return;
+    }
+    setNote("Sending…");
+    if (await uploadRecord(next)) {
+      setNote("Thanks, sent.");
+      return;
+    }
     downloadRecord(next);
-    setNote(
-      "Saved this game's record. Send the file to Paul with a few words about what went wrong.",
-    );
+    setNote("Couldn't send. The game file was downloaded; send it to Paul.");
   };
   const settingsPanel = (
     <>
@@ -766,6 +882,37 @@ export function PlayScreen() {
             />{" "}
             {settings.botDelay} ms
           </label>
+          <label>
+            <input
+              type="checkbox"
+              data-testid="setting-announce"
+              checked={settings.announceBotPlays}
+              onChange={(e) => {
+                updateSettings({ announceBotPlays: e.target.checked });
+                if (!e.target.checked) setAnnouncements([]);
+              }}
+            />{" "}
+            Announce bot plays
+          </label>
+          {settings.announceBotPlays && (
+            <label>
+              Pace{" "}
+              <input
+                type="range"
+                min={0}
+                max={PACE_CONFIRM}
+                step={1}
+                data-testid="setting-announce-pace"
+                value={settings.announcePace}
+                onChange={(e) =>
+                  updateSettings({ announcePace: Number(e.target.value) })
+                }
+              />{" "}
+              <span data-testid="announce-pace-label">
+                {paceLabel(settings.announcePace)}
+              </span>
+            </label>
+          )}
           <label>
             <input
               type="checkbox"
@@ -1117,38 +1264,46 @@ export function PlayScreen() {
           onConfirm={() => setSearches((queue) => queue.slice(1))}
         />
       )}
-      {showModal && !(search && !animating) && !callout && (
-        <ChoiceModal
-          key={choice?.id}
-          state={state}
-          heading={choiceHeading(state, name)}
-          source={choiceSource(state)}
-          actions={actions}
-          manualCards={manualCards}
-          onAction={game.takeAction}
-          labelOf={(action) => actionLabel(state, action)}
-          model={model}
-          onConfirmPicks={(ids, done) =>
-            choice && game.takeChoices(choice.player as PlayerId, ids, done)
-          }
-          onUndo={undoable ? undo : undefined}
-        />
-      )}
-      {callout && comboOf(callout) && !animating && !(search && !animating) && (
-        <ComboModal
-          key={`${callout.actionIndex}-${callout.comboId}-${callout.player}`}
-          combo={comboOf(callout) as Combo}
-          who={comboWho(callout.player)}
-          cards={callout.cards.map((n) => cardByNumber(state, n))}
-          model={model}
-          shake={settings.animation !== "off"}
-          onClose={closeCallout}
-        />
-      )}
+      {showModal &&
+        choice?.kind !== "zone" &&
+        !(search && !animating) &&
+        !callout && (
+          <ChoiceModal
+            key={choice?.id}
+            state={state}
+            heading={choiceHeading(state, name)}
+            source={choiceSource(state)}
+            actions={actions}
+            manualCards={manualCards}
+            onAction={game.takeAction}
+            labelOf={(action) => actionLabel(state, action)}
+            model={model}
+            onConfirmPicks={(ids, done) =>
+              choice && game.takeChoices(choice.player as PlayerId, ids, done)
+            }
+            onUndo={undoable ? undo : undefined}
+          />
+        )}
+      {callout &&
+        comboOf(callout) &&
+        !animating &&
+        !announcing &&
+        !(search && !animating) && (
+          <ComboModal
+            key={`${callout.actionIndex}-${callout.comboId}-${callout.player}`}
+            combo={comboOf(callout) as Combo}
+            who={comboWho(callout.player)}
+            cards={callout.cards.map((n) => cardByNumber(state, n))}
+            model={model}
+            shake={settings.animation !== "off"}
+            onClose={closeCallout}
+          />
+        )}
       {gameOver &&
         !gameOver.closed &&
         viewing === null &&
         !animating &&
+        !announcing &&
         !callout && (
           <div className={styles.modalBackdrop} data-testid="game-over-modal">
             <div className={styles.modal}>
@@ -1189,14 +1344,43 @@ export function PlayScreen() {
         <ReportModal
           kind="bug"
           name={settings.reporterName}
-          onSubmit={saveBugReport}
+          sharingOff={!settings.shareGames}
+          onSubmit={(reporter, text) => void sendBugReport(reporter, text)}
           onCancel={() => setReporting(null)}
         />
       )}
       {rulesAt && <RulesPanel at={rulesAt} onClose={() => setRulesAt(null)} />}
-      {botMove && (
+      {botMove && !settings.announceBotPlays && (
         <div className={styles.toast} data-testid="bot-toast">
           {botMove.text}
+        </div>
+      )}
+      {settings.announceBotPlays && (
+        // Always in the page while the setting is on, so screen readers follow it (polite).
+        <div
+          className={styles.announceRegion}
+          aria-live="polite"
+          data-testid="bot-announcement-region"
+        >
+          {announcement && (
+            <div
+              key={announcement.id}
+              className={styles.announce}
+              data-testid="bot-announcement"
+            >
+              <span>{announcement.text}</span>
+              {announcement.ms === null && (
+                <button
+                  type="button"
+                  className={styles.button}
+                  data-testid="announce-ok"
+                  onClick={dismissAnnouncement}
+                >
+                  OK [Space]
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
       {confirming && (

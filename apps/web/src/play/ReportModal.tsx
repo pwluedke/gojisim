@@ -8,7 +8,10 @@ export interface ReportModalProps {
   move?: { label: string; when: string };
   /** The name last used, pre-filled. */
   name: string;
-  /** Bad Bot! with sharing off: nothing can be sent, so it points to Report bug. */
+  /**
+   * Sharing finished games is off. Bad Bot!: nothing can be sent, so it points to Report bug.
+   * Report bug: its button reads Download instead of Send.
+   */
   sharingOff?: boolean;
   onSubmit: (name: string, text: string) => void;
   onCancel: () => void;
@@ -25,13 +28,14 @@ const COPY = {
   bug: {
     title: "What went wrong?",
     label: "What happened, and what did you expect?",
-    submit: "Download",
+    submit: "Send",
   },
 } as const;
 
 /**
  * The Bad Bot! and Report bug popups (M13b): a required name (remembered) and a required text of
- * up to 1,000 characters; Esc cancels. While one is open the bot waits.
+ * up to 1,000 characters; Esc cancels. While one is open the bot waits. Both send the record to
+ * the server; Report bug downloads it when sharing is off.
  */
 export function ReportModal({
   kind,
@@ -47,6 +51,8 @@ export function ReportModal({
   const first = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const copy = COPY[kind];
   const ready = name.trim() !== "" && text.trim() !== "";
+  // Bad Bot! can't send with sharing off; Report bug downloads the file instead.
+  const blocked = sharingOff && kind === "badBot";
   useEffect(() => {
     first.current?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -70,7 +76,7 @@ export function ReportModal({
         aria-labelledby="report-title"
         onSubmit={(e) => {
           e.preventDefault();
-          if (ready && !sharingOff) onSubmit(name.trim(), text.trim());
+          if (ready && !blocked) onSubmit(name.trim(), text.trim());
         }}
       >
         <div className={styles.modalHeading} id="report-title">
@@ -82,7 +88,13 @@ export function ReportModal({
             <div className={styles.muted}>{move.when}</div>
           </div>
         )}
-        {sharingOff ? (
+        {sharingOff && kind === "bug" && (
+          <p data-testid="report-bug-sharing-off">
+            Sharing finished games is off (Test settings), so the game file
+            downloads instead. Send it to Paul.
+          </p>
+        )}
+        {blocked ? (
           <p data-testid="bad-bot-sharing-off">
             Sharing finished games is off (Test settings), so nothing can be
             sent. Report bug downloads the game file for you to send to Paul
@@ -123,7 +135,7 @@ export function ReportModal({
           </>
         )}
         <div className={styles.modalButtons}>
-          {sharingOff ? (
+          {blocked ? (
             <button
               type="button"
               className={styles.button}
@@ -139,7 +151,7 @@ export function ReportModal({
               data-testid="report-submit"
               disabled={!ready}
             >
-              {copy.submit}
+              {sharingOff ? "Download" : copy.submit}
             </button>
           )}
           <button

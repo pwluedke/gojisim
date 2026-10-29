@@ -70,18 +70,37 @@ for (const { fixture, kind, heading } of KINDS)
       await expect(page.getByTestId("choice-option")).toHaveCount(2);
   });
 
-test("choice: zone options light the zones on the mat, with a banner instead of a modal", async ({
+test("choice: zone options light the zones on the mat, with a banner in the Prompt panel instead of a modal", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
   await loadFixture(page, "zone");
   await expect(page.getByTestId("choice-modal")).toHaveCount(0);
-  await expect(page.getByTestId("choice-banner")).toHaveAttribute(
-    "data-kind",
-    "zone",
+  const banner = page.getByTestId("prompt").getByTestId("choice-banner");
+  await expect(banner).toHaveAttribute("data-kind", "zone");
+  await expect(banner.getByTestId("choice-heading")).toHaveText(
+    /^You are choosing a zone for /,
   );
-  await expect(page.getByTestId("choice-heading")).toHaveText(
-    /^You are choosing a zone/,
+  await expect(banner.getByTestId("choice-source")).toHaveText(
+    /^From .+ \[[A-Z0-9]+-\d+\]$/,
   );
+  await expect(banner).toContainText("Click a lit zone, or press its number");
+  // Buttons name the zone's side as target locations do: "Your zone 1", "Bot's zone 3".
+  for (const text of await banner
+    .getByTestId("choice-option")
+    .allTextContents())
+    expect(text).toMatch(/^\d (Your|Bot's) zone \d$/);
+  // The battle log stays fully visible: the banner doesn't overlap it.
+  const box = await banner.boundingBox();
+  const log = await page.getByTestId("battle-log").boundingBox();
+  expect(box && log).toBeTruthy();
+  if (box && log)
+    expect(
+      box.x + box.width <= log.x ||
+        log.x + log.width <= box.x ||
+        box.y + box.height <= log.y ||
+        log.y + log.height <= box.y,
+    ).toBe(true);
   const zones = page.locator("[data-zone-choice]");
   const options = page
     .getByTestId("choice-banner")
