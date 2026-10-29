@@ -230,6 +230,21 @@ describe("EBP04 blue battle cards", () => {
     expect(self(after, me).hand).toEqual([]);
   });
 
+  it("EBP04-050 8.6, Q43 (provisional): an invasion that advances 2 zones triggers it once", () => {
+    const { state, me } = setup(3);
+    place(state, me, real("EBP04-050"), 8);
+    const paid = invader(state, me, 2);
+    const after = settle(invade(state, me, paid));
+    expect(self(after, me).monsterPosition).toBe(5);
+    expect(
+      after.log.filter(
+        (e) =>
+          e.type === "resolveAbility" &&
+          e.payload["abilityId"] === "EBP04-050#invades-choose",
+      ),
+    ).toHaveLength(1);
+  });
+
   it("EBP04-051 12.2, 5.13.2: on enter in the column of the opponent's monster, retreats it by 1 if its threat is 30,000 or lower", () => {
     const { state, me, opp } = setup(3);
     monster(state, opp, monsterCard(2), 6);

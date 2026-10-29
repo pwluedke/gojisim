@@ -407,11 +407,25 @@ export function select(ctx: Context, selector: Selector): Located[] {
         : [];
     found = found.filter((l) => owners.includes(l.player));
   } else found = owners.flatMap((p) => cardsIn(p, selector.area));
+  return selectAmong(ctx, selector, found);
+}
 
+/**
+ * The cards among `found` that pass a selector's filters (owner included, area not), so a card
+ * not yet in play can be checked where it would go (Q270: a token).
+ */
+export function selectAmong(
+  ctx: Context,
+  selector: Selector,
+  found: Located[],
+): Located[] {
+  const { state } = ctx;
+  const owners = players(ctx, selector.owner);
   const zoneRefs = selector.zones
     ? resolveZoneSet(ctx, selector.zones, owners)
     : null;
   return found.filter(({ card, player, zone, area }) => {
+    if (!owners.includes(player)) return false;
     const data = cardOf(state, card);
     if (selector.this && card.instanceId !== ctx.sourceInstanceId) return false;
     if (selector.other && card.instanceId === ctx.sourceInstanceId)
@@ -2314,7 +2328,14 @@ function perform(state: GameState, effect: Effect): Outcome {
                 (st) => topOf(st)?.instanceId === host.card.instanceId,
               )
             : undefined;
-        if (!found || !host || host.zone === undefined || !stack) {
+        if (
+          !found ||
+          !host ||
+          host.zone === undefined ||
+          !stack ||
+          // M1: a zone where it can't be played (Q270).
+          !playAllowed(state, me, found.card, host.zone)
+        ) {
           bindCards(ctx, effect.as, []);
           return "done";
         }
@@ -2343,10 +2364,11 @@ function perform(state: GameState, effect: Effect): Outcome {
           continue;
         }
         const used = zones.filter((z): z is ZoneNumber => z !== null);
-        // M2: a card that can only be played in some zones (EBP04-067).
-        const only = cards[i] ? playZoneLimit(state, cards[i].card) : null;
+        // M2: a card that can only be played in some zones (EBP04-067); M1: a zone where it
+        // can't be played is left out (Q270).
+        const card = cards[i]?.card;
         let legal = playZones(ctx, effect, used).filter(
-          (z) => !only || only.includes(z),
+          (z) => !card || playAllowed(state, me, card, z),
         );
         // One card per zone: no unused zone left, no more cards (EBP02-028).
         if (effect.onePerZone) legal = legal.filter((z) => !used.includes(z));
@@ -3117,13 +3139,26 @@ function perform(state: GameState, effect: Effect): Outcome {
       // (9.1.2.1). Zones as for an effect play: not the monster's, empty first (Q3, Q5).
       const me = getPlayer(state, ctx.master);
       const token = getTokenCard(effect.name);
+      // The token joins the catalog the first time one is made (shared catalog: replaced, not
+      // written into, decision 168).
+      if (!state.cards[token.id])
+        state.cards = { ...state.cards, [token.id]: token };
+      // Making a token plays it (5.11.4): not where its master can't play it (M1, Q270).
+      const probe: CardInstance = {
+        instanceId: "token",
+        cardId: token.id,
+        owner: me.id,
+      };
       const refs = effect.zones
         ? resolveZoneSet(ctx, effect.zones, [me])
         : ZONE_NUMBERS.map((zone) => ({ player: me.id, zone }));
       const allowed = [
         ...new Set(refs.filter((r) => r.player === me.id).map((r) => r.zone)),
       ]
-        .filter((zone) => zone !== me.monsterPosition)
+        .filter(
+          (zone) =>
+            zone !== me.monsterPosition && playAllowed(state, me, probe, zone),
+        )
         .sort((a, b) => a - b);
       const count = effect.count ?? 1;
       const zones: ZoneNumber[] = [];
@@ -3165,10 +3200,6 @@ function perform(state: GameState, effect: Effect): Outcome {
           );
           return "paused";
         }
-      // The token joins the catalog the first time one appears (shared catalog: replaced, not
-      // written into, decision 168).
-      if (!state.cards[token.id])
-        state.cards = { ...state.cards, [token.id]: token };
       const made: CardInstance[] = [];
       for (const zone of zones) {
         const card = newInstance(state, token.id, me.id);
@@ -3378,9 +3409,11 @@ function evolveSubject(
     traits: [evolution.trait],
     rank: { op: "<=", value: evolution.rank },
   };
+  // M1: a card that can't be played into the evolving card's zone can't be found (Q270).
+  const zone = target.zone;
   const found = pickCards(
     ctx,
-    select(ctx, filter),
+    select(ctx, filter).filter((l) => playAllowed(state, me, l.card, zone)),
     { exact: 1 },
     me.id,
     "12.6.2",
