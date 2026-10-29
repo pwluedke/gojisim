@@ -13,6 +13,7 @@ What each merged PR changed, in plain words, for Paul and the testers. Newest fi
 ### Fixed
 
 - Evolution, effect plays and tokens could put a battle card into a column SpaceGodzilla had locked.
+- When a card went to the bottom of a deck (for example by Mothra's replacement, ESD01-011) and a copy of the same card was drawn in the same step, the animation showed the first card flying into the hand.
 
 ### Testing notes
 
