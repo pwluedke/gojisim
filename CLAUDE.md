@@ -802,3 +802,32 @@ Accepted by Monarch in the Good Bot! review (PR #68).
 579. `pnpm feedback` explains each bot report at the record's bot difficulty (Hard when the record has none), keeps the top 5 by visits, and takes `--no-download` and `--dir`.
 580. Report keys are `<game>|<kind>|<action index>`; two reports of one kind at one action share a key.
 581. The cap warning starts at 80% of 1 GB, measured on the local copy.
+
+Accepted by Monarch in the community rulings review (PR #69).
+
+582. EBP04-079 uses the existing `onePerZone` play flag with no `preferEmpty`. The Q3 empty-zones-first rule stays for every other effect play.
+583. "Play simultaneously" is met by choosing every zone before placing any card (decision 143); the [enter] abilities enter standby at each card's place event and resolve after all are placed.
+584. Q270 applies through `playAllowed` to every play: hand, effect play, play on top, Evolution and token. An Evolution with nothing it can play still searches and shuffles (finding nothing, 5.8.1.2) rather than being skipped.
+585. Making the token's catalog entry moved before the zone check, so a token that can't be placed anywhere still joins the catalog (unused).
+586. Battra's ruling is numbered Q43 (Q42 is hidden decklists), as Monarch accepted.
+587. The planner never pairs a card the log put on the deck bottom with a copy that turned up elsewhere in the same step.
+
+Accepted by Monarch in the sound effects review (PR #71).
+
+588. Sources: Kenney's site blocks scripted downloads, so every pack came from its OpenGameArt copy (same CC0 packs), each page's license checked.
+589. Sounds were chosen by name, length and a rough pitch check (zero crossings), not by ear: win is a rising jingle (SAX02), loss a falling one (SAX01). Swapping is a `sounds.json` change.
+590. Evolution and the slam crash are each one mixed file (thud + roar, slam + explosion), rather than two sounds played together.
+591. Card, monster, strategy and evolve sounds wait for the move to land; destroy, counter, rage, draw and shuffle play when the step's moves start (the shards explode then).
+592. Repeats in one step are spaced (stomps 180 ms, destroys 50 ms) so the 80 ms throttle lets a few through instead of one.
+593. A game counts as loaded when its record has actions at start; a loaded record's choice gets no chime and its end no stinger.
+594. The first `pointerdown` anywhere unlocks audio (Start or the First / Second pick in practice); a sound cued at that very moment is lost, since its file is still loading.
+595. The Volume slider is disabled while Sound is off; M toggles the same Sound setting.
+
+Accepted by Monarch in the hidden decklists review (PR #70).
+
+596. Decision 167 is amended: the determinizer fills the bot's own hidden cards from its own list and the opponent's from `guessHidden`; only the tools' `knowsDecklists` passes the opponent's list.
+597. The guess is uniform over the legal pool (step 4's recognizer replaces it behind `guessHidden`).
+598. The candidate pool is cached per rank I monster and date.
+599. `hard-open` is registered for comparisons alongside `hard-m12`; neither is offered in the web app.
+600. The m5g e2e test's seed changes from 3 to 1, because its old seed depended on the bot's play.
+601. The bot worker bundles the full card list (`@gojisim/cards/all-cards`) for the deck guess. From `pnpm build`, the worker chunk grows from 381 KB to 973 KB (82 KB to 134 KB gzipped). In the built app (Chromium, the new-game default bot, seed 7, the bot moving first, 6 runs each), the first decision's median goes from 282 ms to 288 ms (+6 ms). The worker starts about 0.7 s before its first request, and its start-up (module load to first reply, 8 runs) goes from a 12.5 to a 15 ms median. That's well under the 100 ms line, so the cards stay bundled.

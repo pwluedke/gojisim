@@ -376,3 +376,54 @@ test("Tester fixes 1: without the official images, the drawn back and First / Se
     .evaluate((el) => getComputedStyle(el).backgroundImage);
   expect(image).toContain("repeating-linear-gradient");
 });
+
+/**
+ * The seed's random first player (6.3.1.4): picking the card with your own seat's index (P1: card
+ * 0) gives the RNG draw's first player (decision 246).
+ */
+async function seedFirstPlayer(page: Page, seed: number): Promise<string> {
+  await start(page, String(seed));
+  await page.getByTestId("first-pick-card-0").click();
+  await expect(page.getByTestId("first-pick-card-0")).toHaveAttribute(
+    "data-face",
+    /First|Second/,
+  );
+  const face = await page
+    .getByTestId("first-pick-card-0")
+    .getAttribute("data-face");
+  return face === "First" ? "P1" : "P2";
+}
+
+test("Skip First / Second pick: saved, no pick modal, and the seed's random draw picks the first player", async ({
+  page,
+}) => {
+  // Seeds 1 and 2's first players, from the pick, before the setting is on.
+  const firsts = [
+    await seedFirstPlayer(page, 1),
+    await seedFirstPlayer(page, 2),
+  ];
+  expect(new Set(firsts).size).toBe(2);
+  await page.goto("/play?mode=bot");
+  await expect(page.getByTestId("skip-first-pick")).not.toBeChecked();
+  await page.getByTestId("skip-first-pick").check();
+  // Saved: still on after a reload.
+  await page.reload();
+  await expect(page.getByTestId("skip-first-pick")).toBeChecked();
+  for (const [i, seed] of [1, 2].entries()) {
+    const first = firsts[i];
+    await page.goto("/play?mode=bot");
+    await page.getByTestId("seed-input").fill(String(seed));
+    await page.getByTestId("start-game").click();
+    await expect(page.getByTestId("mat-you")).toBeVisible();
+    await expect(page.getByTestId("first-pick")).toHaveCount(0);
+    // Your (P1's) first play timing is turn 1 if you go first, turn 2 after the bot's turn.
+    await expect(page.getByTestId("pass")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("turn")).toHaveText(
+      first === "P1" ? "1" : "2",
+    );
+  }
+  // Off again: the pick modal is back.
+  await page.goto("/play?mode=bot");
+  await page.getByTestId("skip-first-pick").uncheck();
+  await start(page, "3");
+});

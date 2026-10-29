@@ -2,7 +2,26 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #70 Hidden decklists: the bot works out your deck from what you play (not merged yet)
+## #72 Skip the First / Second pick (not merged yet)
+
+### What changed
+
+- A new checkbox on the new-game screen, **Skip First / Second pick (random first player)**. With it on, the game starts without the pick, and the game's seed decides who goes first, the same way it does for two bots. It's off by default, remembered for next time, and works in Casual and Tournament games.
+
+### Fixed
+
+- Nothing.
+
+### Testing notes
+
+- New tests: the setting starts off and is remembered; with it on there is no pick and the first player is the seed's random one (checked on two seeds, one where you go first and one where the bot does); with it off the pick shows as before.
+- Try it: tick the box, start a few games with different seeds, and check that sometimes you go first and sometimes the bot does.
+
+### Known issues
+
+- None known.
+
+## #70 Hidden decklists: the bot works out your deck from what you play (2026-10-29)
 
 ### What changed
 

@@ -60,6 +60,8 @@ export interface Settings {
   sound: boolean;
   /** Sound volume, 0 to 100 (default 50). */
   volume: number;
+  /** New games skip the First / Second pick; the seed's random draw picks the first player (default off). */
+  skipFirstPick: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -81,6 +83,7 @@ export const DEFAULT_SETTINGS: Settings = {
   reporterName: "",
   sound: true,
   volume: 50,
+  skipFirstPick: false,
 };
 
 /** Applies a theme to the page (`:root[data-theme]`, see `theme.css`). */
