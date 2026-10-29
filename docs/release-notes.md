@@ -2,7 +2,7 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #68 Hidden decklists: the bot works out your deck from what you play (not merged yet)
+## #70 Hidden decklists: the bot works out your deck from what you play (not merged yet)
 
 ### What changed
 
@@ -16,6 +16,7 @@ What each merged PR changed, in plain words, for Paul and the testers. Newest fi
 ### Testing notes
 
 - New tests: the bot gets only its own deck list; two games whose hidden decks differ but look the same from the bot's side get the same move; 200 imagined decks across the four booster sets are all legal; cards already seen count toward the copy limits. Details in the PR's Tests section.
+- Bot runs: in 400 timed games, the bot that still knew both deck lists beat the new one only 206–194 (51.5%), so not knowing your list costs it little. The bot's test positions still pass 20 of 20.
 - Try it: play a deck the bot has never seen (an imported one) and watch whether it still plays sensibly in the first turns.
 
 ### Known issues
