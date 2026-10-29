@@ -1,9 +1,13 @@
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { BOTS, type BotSettings } from "@gojisim/bot";
+import {
+  appendJournal,
+  clearJournal,
+  journalDir,
+  readJournal,
+} from "./journal";
 import {
   type DeckSource,
   type GameResult,
@@ -14,7 +18,9 @@ import {
 
 /**
  * Bot tournament (M6a): `pnpm bots --a weighted --b random --games 1000 --seed s --decks official`.
- * Seats alternate every game; the JSON report goes to `bot-reports/` (gitignored).
+ * Seats alternate every game; the JSON report goes to `bot-reports/` (gitignored). Each finished
+ * game is journaled under `bot-reports/runs/`, so the same command run again after a crash or a
+ * restart plays only the games still missing (M13c).
  */
 const { values } = parseArgs({
   options: {
@@ -33,9 +39,9 @@ const { values } = parseArgs({
     progress: { type: "string", default: "50" },
     // Play games in N child processes (one shard each), then merge the results in game order.
     workers: { type: "string", default: "1" },
-    // Internal: which games a child plays ("k/N": games with game % N === k), and where it writes.
+    // Internal: which games a child plays ("k/N": games with game % N === k), and its journal.
     shard: { type: "string" },
-    results: { type: "string" },
+    journal: { type: "string" },
     // pnpm runs this script inside tools/bots; INIT_CWD is where `pnpm bots` was typed.
     out: { type: "string", default: process.env["INIT_CWD"] ?? "." },
   },
@@ -82,17 +88,34 @@ const shard = values.shard?.split("/").map(Number) as
   [number, number] | undefined;
 const mine = (game: number) => !shard || game % shard[1] === shard[0];
 
-const results: GameResult[] = [];
+// Everything that decides which games are played and how; the worker count doesn't.
+const journal =
+  values.journal ??
+  journalDir(values.out, values.seed, {
+    a: values.a,
+    b: values.b,
+    aSettings,
+    bSettings,
+    seed: values.seed,
+    decks,
+    games,
+    turnCap: values["turn-cap"],
+  });
+const played = await readJournal(journal);
+if (!shard && played.size > 0)
+  console.log(
+    `  resuming ${journal}: ${played.size} / ${games} games already played`,
+  );
+
+let results: GameResult[] = [];
 if (workers > 1 && !shard) {
-  // Each child replays this command for its shard and writes its results to a file.
-  const dir = await mkdtemp(join(tmpdir(), "gojisim-bots-"));
+  // Each child replays this command for its shard and journals its games; the parent reads them.
   const args = process.argv
     .slice(2)
     .filter((x, i, all) => x !== "--workers" && all[i - 1] !== "--workers");
   let done = 0;
   await Promise.all(
     Array.from({ length: workers }, (_, k) => {
-      const file = join(dir, `shard-${k}.json`);
       return new Promise<void>((resolve, reject) => {
         const child = spawn(
           process.execPath,
@@ -102,31 +125,33 @@ if (workers > 1 && !shard) {
             ...args,
             "--shard",
             `${k}/${workers}`,
-            "--results",
-            file,
+            "--journal",
+            journal,
           ],
           { stdio: ["ignore", "ignore", "inherit"] },
         );
         child.on("exit", async (code) => {
           if (code !== 0)
             return reject(new Error(`shard ${k} exited with ${code}`));
-          results.push(
-            ...(JSON.parse(await readFile(file, "utf8")) as GameResult[]),
-          );
           done++;
           console.log(
-            `  shard ${done} / ${workers} done (${results.length} / ${games} games)`,
+            `  shard ${done} / ${workers} done (${(await readJournal(journal)).size} / ${games} games)`,
           );
           resolve();
         });
       });
     }),
   );
-  results.sort((x, y) => x.game - y.game);
+  results = [...(await readJournal(journal)).values()].sort(
+    (x, y) => x.game - y.game,
+  );
 } else {
+  const file = `shard-${shard ? shard[0] : 0}.jsonl`;
   for (let game = 0; game < games; game++) {
     if (!mine(game)) continue;
-    results.push(
+    const old = played.get(game);
+    const result =
+      old ??
       playMatchGame(
         { bot: a, settings: aSettings },
         { bot: b, settings: bSettings },
@@ -134,8 +159,9 @@ if (workers > 1 && !shard) {
         game,
         decks,
         Number(values["turn-cap"]),
-      ),
-    );
+      );
+    if (!old) await appendJournal(journal, file, result);
+    results.push(result);
     if (!shard && ((game + 1) % progress === 0 || game + 1 === games)) {
       const s = summarize(a, b, values.seed, decks, results);
       console.log(
@@ -143,10 +169,7 @@ if (workers > 1 && !shard) {
       );
     }
   }
-  if (shard) {
-    await writeFile(values.results as string, JSON.stringify(results));
-    process.exit(0);
-  }
+  if (shard) process.exit(0);
 }
 
 const summary = summarize(a, b, values.seed, decks, results);
@@ -166,4 +189,5 @@ await writeFile(
   // Per-decision times are summed up in the summary; the report leaves them out.
   `${JSON.stringify({ summary, games: results.map(({ times: _times, ...r }) => r) }, null, 2)}\n`,
 );
+await clearJournal(journal);
 console.log(`report: ${file}`);
