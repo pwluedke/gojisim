@@ -1,6 +1,7 @@
 import {
   type Card,
   type CardAbilities,
+  type Effect,
   getCardAbilities,
 } from "@gojisim/cards";
 import { afterEach, describe, expect, it } from "vitest";
@@ -922,6 +923,90 @@ describe("EBP02 play restrictions (M1 cannotPlay)", () => {
     };
     expect(run("yes")).toEqual([]);
     expect(run("no")).toHaveLength(1);
+  });
+});
+
+describe("EBP02-055 column lock on every play (Q270)", () => {
+  const numbers: string[] = [];
+  afterEach(() => {
+    for (const n of numbers.splice(0)) setTestAbilities(n, null);
+  });
+  /** A rank 1 strategy card whose placement runs `effects`. */
+  function strategyWith(effects: Effect[]): Card {
+    const card = strategyCard({ rank: 1 });
+    numbers.push(card.deckCardNumber);
+    setTestAbilities(card.deckCardNumber, {
+      deckCardNumber: card.deckCardNumber,
+      status: "implemented",
+      abilities: [
+        {
+          kind: "triggered",
+          id: "test",
+          trigger: { on: "placedInStrategyZone" },
+          effects,
+        },
+      ],
+    });
+    return card;
+  }
+  /** SpaceGodzilla in my zone 4 with 3 Crystals: the opponent's zone 2 is locked (4.4.5.4). */
+  function locked() {
+    const { state, me, opp } = opponentsTurn();
+    monster(state, me, real("EBP02-055"), 4);
+    for (const zone of [1, 2, 3] as ZoneNumber[])
+      place(state, me, battleCard({ name: "Crystals" }), zone);
+    return { state, me, opp };
+  }
+
+  it("Q270, 12.6.2: Evolution can't play a card into the locked column", () => {
+    const { state, opp } = locked();
+    place(state, opp, real("ESD02-007"), 1);
+    place(state, opp, real("ESD02-007"), 2);
+    onDeck(state, opp, real("ESD02-010"));
+    onDeck(state, opp, real("ESD02-010"));
+    const after = self(
+      settle(activate(state, opp, inHand(state, opp, real("EBP04-080")))),
+      opp,
+    );
+    expect(after.zones[1][0]).toHaveLength(2);
+    expect(after.zones[2][0]).toHaveLength(1);
+  });
+
+  it("Q270, 5.11.1: an effect play leaves the locked zone out of the zone choice", () => {
+    const { state, opp } = locked();
+    inHand(state, opp, battleCard());
+    const card = strategyWith([
+      {
+        effect: "play",
+        from: "hand",
+        filter: { owner: "you", area: "hand", type: "Battle" },
+        count: { exact: 1 },
+      },
+    ]);
+    let after = activate(state, opp, inHand(state, opp, card));
+    for (let i = 0; i < 5 && after.pendingChoice?.kind !== "zone"; i++)
+      after = choose(after, (id) => id !== "done");
+    expect(after.pendingChoice?.kind).toBe("zone");
+    // Not the locked zone 2, nor the zone of the opponent's own monster (5).
+    expect(after.pendingChoice?.options.map((o) => o.id)).toEqual(
+      [1, 3, 4, 6, 7, 8].map((z) => `${opp.id}:${z}`),
+    );
+  });
+
+  it("Q270, 5.11.4: no token is made in the locked zone", () => {
+    const { state, opp } = locked();
+    const card = strategyWith([
+      { effect: "createToken", name: "Crystals", count: "each" },
+    ]);
+    const after = settle(activate(state, opp, inHand(state, opp, card)));
+    expect(Object.keys(zoneCardIds(self(after, opp)))).toEqual([
+      "1",
+      "3",
+      "4",
+      "6",
+      "7",
+      "8",
+    ]);
   });
 });
 

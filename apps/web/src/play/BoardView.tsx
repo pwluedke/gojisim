@@ -821,6 +821,7 @@ export function BoardView({
   step = null,
   animation = "off",
   onAnimating,
+  onSlamImpact,
   turnGlow = false,
   picking = false,
   invadeArrow = false,
@@ -859,6 +860,8 @@ export function BoardView({
   animation?: AnimationSpeed;
   /** Called when card animations start and end, so input and the bot wait for them. */
   onAnimating?: (animating: boolean) => void;
+  /** The invasion-win slam's hit (its sounds). */
+  onSlamImpact?: () => void;
   /** Glow the turn player's mat border in their monster's colors (M5f setting). */
   turnGlow?: boolean;
   /** The First / Second pick is open over the board (setup): no phase, no turn player yet. */
@@ -1235,6 +1238,7 @@ export function BoardView({
               speed={animation}
               waiting={animating}
               onPlaying={setSlamming}
+              onImpact={onSlamImpact}
             />
           )}
           {(flights.length > 0 || animating) &&

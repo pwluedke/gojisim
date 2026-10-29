@@ -7,6 +7,7 @@ import {
   type PlayerView,
   ZONE_NUMBERS,
 } from "@gojisim/engine";
+import { guessHidden } from "./deckGuess";
 import type { Knowledge } from "./types";
 
 /**
@@ -15,12 +16,15 @@ import type { Knowledge } from "./types";
  * deck, and both decks' order. Public areas, the viewer's own hand and own monster deck are
  * copied exactly, so `getPlayerView(result, viewer)` equals `view`.
  *
- * Accounting per player, from the public decklists (6.3.1.1):
- * - monster deck = the presented monster deck minus the monsters the log shows leaving it
+ * Accounting per player, from the decklists the viewer knows (its own; Q42):
+ * - monster deck = the decklist's monster deck minus the monsters the log shows leaving it
  *   (6.3.1.6 setup, 5.15.1.2 next monster);
- * - hidden main-deck cards = the presented main deck minus every main-deck card the viewer can
+ * - hidden main-deck cards = the decklist's main deck minus every main-deck card the viewer can
  *   see (zones and stacks, strategy zones, the invading monster, the discard pile, revealed cards,
  *   their own hand, cards their own private choice showed them).
+ * The opponent presents a deck and 4 monsters at setup, never their contents (6.3.1.1, Q42), so
+ * without the opponent's decklist (every bot but the tools' `knowsDecklists` comparison) their
+ * hidden cards are drawn by `guessHidden` from what a legal deck could hold, given what's public.
  */
 export function determinize(
   view: PlayerView,
@@ -32,10 +36,14 @@ export function determinize(
     throw new Error("determinize needs a player's view");
   const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
-  // Every card in either decklist, plus any card the view names (tokens, fixtures).
+  // Every card in the known decklists, plus any card the view names (tokens, fixtures); guessed
+  // cards join as they are drawn.
   const cards: Record<string, Card> = { ...clone(view.cards) };
   for (const deck of Object.values(knowledge.decks))
-    for (const card of [...deck.monsterDeck, ...deck.mainDeck])
+    for (const card of [
+      ...(deck?.monsterDeck ?? []),
+      ...(deck?.mainDeck ?? []),
+    ])
       cards[card.id] = card;
 
   // Fresh instance ids for filled cards start above every id the view mentions.
@@ -171,18 +179,93 @@ export function determinize(
         area: "deck",
       });
 
+  /**
+   * Fills an opponent's hidden hand, deck and monster deck with `guessHidden`'s draw: every
+   * card of theirs the viewer has seen counts against the deck's limits, and the counts come
+   * from the view, so the result matches it exactly.
+   */
+  const guessOpponent = (
+    player: PlayerState,
+    pv: PlayerView["players"][number],
+    mine: { card: CardInstance; area: "hand" | "deck" | "monsterDeck" }[],
+    left: number[],
+  ) => {
+    const isToken = (cardId: number) => cards[cardId]?.type === "Token";
+    const seenIds = [
+      ...ZONE_NUMBERS.flatMap((z) => player.zones[z].flat()),
+      ...player.strategyZones.flat().map((p) => p.card),
+      ...player.invadingMonsterZone,
+      ...player.discard,
+      ...(view.resolutionArea.cards ?? []).filter((c) => c.owner === player.id),
+      ...mine.map((k) => k.card),
+    ]
+      .map((c) => c.cardId)
+      .filter((id) => !isToken(id));
+    const seen = seenIds.flatMap((id) => (cards[id] ? [cards[id]] : []));
+    const revealedHere = mine.filter((k) => k.area === "monsterDeck");
+    const knownHand = mine.filter((k) => k.area === "hand").map((k) => k.card);
+    const knownDeck = mine.filter((k) => k.area === "deck").map((k) => k.card);
+    const handNeeded = Math.max(0, pv.hand.count - knownHand.length);
+    const deckNeeded = Math.max(0, pv.deck.count - knownDeck.length);
+    // Monster deck ranks still hidden: one deck has one card of each rank (6.1.1.1).
+    const gone = [...left, ...revealedHere.map((k) => k.card.cardId)].map(
+      (id) => cards[id]?.rank,
+    );
+    const monstersNeeded = Math.max(
+      0,
+      pv.monsterDeck.count - revealedHere.length,
+    );
+    const ranks = [1, 2, 3, 4].filter((r) => !gone.includes(r));
+    while (ranks.length < monstersNeeded) ranks.push(1 + Math.floor(rng() * 4));
+    const firstMonster = view.log.find(
+      (e) => e.type === "setInvadingMonster" && e.player === player.id,
+    )?.payload["cardId"];
+    const guess = guessHidden(
+      {
+        rankOne:
+          typeof firstMonster === "number" ? cards[firstMonster] : undefined,
+        seen,
+        hiddenMain: handNeeded + deckNeeded,
+        hiddenRanks: shuffle(ranks).slice(0, monstersNeeded),
+        asOf: knowledge.asOf ? new Date(knowledge.asOf) : new Date(),
+      },
+      rng,
+    );
+    for (const card of [...guess.main, ...guess.monsterDeck])
+      cards[card.id] ??= card;
+    player.monsterDeck = shuffle([
+      ...revealedHere.map((k) => k.card),
+      ...guess.monsterDeck.map((c) => fresh(c.id, player.id)),
+    ]);
+    player.hand = [
+      ...knownHand,
+      ...guess.main.slice(0, handNeeded).map((c) => fresh(c.id, player.id)),
+    ];
+    player.deck = shuffle([
+      ...knownDeck,
+      ...guess.main.slice(handNeeded).map((c) => fresh(c.id, player.id)),
+    ]);
+  };
+
   for (const player of players) {
     const pv = view.players.find(
       (p) => p.id === player.id,
     ) as PlayerView["players"][number];
-    const list = knowledge.decks[player.id];
-    if (!list) throw new Error(`determinize: no decklist for ${player.id}`);
     const isViewer = player.id === viewer;
+    const list = knowledge.decks[player.id];
+    if (!list && isViewer)
+      throw new Error(`determinize: no decklist for ${player.id}`);
     let mine = [...known.values()].filter((k) => k.player === player.id);
     for (const k of mine) visibleIds.add(k.card.instanceId);
 
-    // Monster deck: exact for the viewer; otherwise the presented monster deck minus what left.
     const left = leftMonsterDeck.get(player.id) ?? [];
+    if (!list) {
+      // Q42: without the opponent's decklist, their hidden cards are guessed from what's public.
+      guessOpponent(player, pv, mine, left);
+      continue;
+    }
+
+    // Monster deck: exact for the viewer; otherwise the decklist's monster deck minus what left.
     if (!isViewer) {
       const pool = list.monsterDeck.map((c) => c.id);
       subtract(pool, left, `${player.id}'s monster deck`);

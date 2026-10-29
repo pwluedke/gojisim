@@ -142,13 +142,12 @@ export function playMatchGame(
     const decider = state.pendingChoice?.player ?? state.turnPlayer;
     const seat = seats[decider];
     if (!seat) throw new Error(`No bot for ${decider}`);
-    const input = botInput(
-      state,
-      decider,
-      lists,
-      seat.rng,
-      seat.settings ?? {},
-    );
+    // Q42: only bots registered as knowing decklists (`hard-m12`, `hard-open`) or run with
+    // `knowsDecklists=true` see their opponent's list; `botInput` drops it otherwise.
+    const input = botInput(state, decider, lists, seat.rng, {
+      ...(seat.bot.knowsDecklists ? { knowsDecklists: true } : {}),
+      ...seat.settings,
+    });
     const start = performance.now();
     let action;
     try {

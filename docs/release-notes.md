@@ -21,6 +21,72 @@ What each merged PR changed, in plain words, for Paul and the testers. Newest fi
 
 - None known.
 
+## #70 Hidden decklists: the bot works out your deck from what you play (2026-10-29)
+
+### What changed
+
+- The bot no longer knows your deck list; it works it out from what you play, like a player does. At the start of a game you show your opponent a deck and your 4 monsters, never what's in them (Comprehensive Rules 6.3.1.1, confirmed by a judge).
+- Until it has seen your cards, the bot imagines the rest of your deck as any legal deck with your rank I monster: its colors, the copy limits, the restriction list and its Resonance rules. Every card you play, discard or reveal narrows it down.
+
+### Fixed
+
+- The bot read your full deck list when planning its moves, which a player can't do.
+
+### Testing notes
+
+- New tests: the bot gets only its own deck list; two games whose hidden decks differ but look the same from the bot's side get the same move; 200 imagined decks across the four booster sets are all legal; cards already seen count toward the copy limits. Details in the PR's Tests section.
+- Bot runs: in 400 timed games, the bot that still knew both deck lists beat the new one only 206–194 (51.5%), so not knowing your list costs it little. The bot's test positions still pass 20 of 20.
+- Try it: play a deck the bot has never seen (an imported one) and watch whether it still plays sensibly in the first turns.
+
+### Known issues
+
+- In the first turns the bot knows little about your deck, so it may play a little worse than before against an unusual deck. The next steps of the bot learning plan teach it to recognize common decks.
+
+## #71 Sound effects (2026-10-29)
+
+### What changed
+
+- The game has sound: a thud when a card is played (heavier for a monster, with a short roar for Evolution), a flip for strategy cards, a crunch for destroys, a stomp for each zone an invasion advances, a crash and a roar when an invasion wins, an impact when a counter succeeds, a low rumble when rage goes up, card slides and shuffles, a soft chime when a choice opens for you, a quiet tick for each bot announcement, and a short tune when you win or lose.
+- **Settings → Sound** (on by default) and **Volume** (50% to start). **M** mutes and unmutes, and the ? list shows it.
+- Sounds follow the card animations, so they land with the cards. The history view, undos and a loaded game's moves stay silent.
+- Nothing plays until your first click on the page (browsers block sound before that).
+
+### Fixed
+
+- Nothing.
+
+### Testing notes
+
+- New tests for which event plays which sound, the timing and the limit on repeated sounds, the silent history view and loaded games, and in the browser: nothing plays before the first click, a card play and a destroy play their sounds, M mutes, and the Sound and Volume settings are saved. Details in the PR's Tests section.
+- Try it:
+  1. Start a game, play a battle card, and listen for the thud; let the bot play a turn.
+  2. Press M to mute, and M again to bring the sound back; move the Volume slider in Settings.
+  3. Win a game by invasion and listen for the crash and roar.
+
+### Known issues
+
+- The sounds were picked by name and length, not by ear; any that sound wrong can be swapped in `sounds.json` without code.
+
+## #69 Rules fixes from community rulings: Godzilla Final Wars zones, SpaceGodzilla's lock (2026-10-29)
+
+### What changed
+
+- **Godzilla Final Wars (EBP04-079):** you now pick the zone for each revealed [final-wars] card, and any zone works, even one with a card in it (that card may be destroyed by overload). The cards are played together, so two of them can't go to the same zone. Before, the game put them in empty zones first.
+- **SpaceGodzilla (EBP02-055):** its locked column now stops every way of playing a battle card there, not only from the hand: Evolution, cards played by effects (such as Godzilla Emerges or Odo Island) and tokens (official Q&A 270).
+- **Battra (Larva) (EBP04-050):** still triggers once per invasion; this is noted as a ruling to check later.
+
+### Fixed
+
+- Evolution, effect plays and tokens could put a battle card into a column SpaceGodzilla had locked.
+- When a card went to the bottom of a deck (for example by Mothra's replacement, ESD01-011) and a copy of the same card was drawn in the same step, the animation showed the first card flying into the hand.
+
+### Testing notes
+
+- New engine tests for each ruling. Details in the PR's Tests section.
+- Try it:
+  1. Activate Godzilla Final Wars with a [final-wars] battle card on top of your deck: you choose its zone, and zones with cards in them are offered.
+  2. Against SpaceGodzilla in zone 4 or later with 3 Crystals, try to evolve a battle card in its column: Evolution finds nothing.
+
 ## #68 Good Bot!, one-command feedback, number keys in the middle of cards (2026-10-29)
 
 ### What changed

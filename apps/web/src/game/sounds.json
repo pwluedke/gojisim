@@ -1,0 +1,18 @@
+{
+  "card": { "file": "card-play.mp3", "volume": 0.8, "cooldownMs": 80 },
+  "monster": { "file": "monster-play.mp3", "volume": 0.9, "cooldownMs": 80 },
+  "evolve": { "file": "evolve.mp3", "volume": 0.9, "cooldownMs": 80 },
+  "strategy": { "file": "strategy-flip.mp3", "volume": 0.8, "cooldownMs": 80 },
+  "destroy": { "file": "destroy.mp3", "volume": 0.8, "cooldownMs": 80 },
+  "stomp": { "file": "stomp.mp3", "volume": 0.9, "cooldownMs": 80 },
+  "slamCrash": { "file": "slam-crash.mp3", "volume": 1, "cooldownMs": 80 },
+  "roar": { "file": "roar.mp3", "volume": 0.9, "cooldownMs": 80 },
+  "counter": { "file": "counter-hit.mp3", "volume": 0.9, "cooldownMs": 80 },
+  "rage": { "file": "rage-rumble.mp3", "volume": 0.6, "cooldownMs": 80 },
+  "draw": { "file": "draw.mp3", "volume": 0.6, "cooldownMs": 80 },
+  "shuffle": { "file": "shuffle.mp3", "volume": 0.6, "cooldownMs": 80 },
+  "choice": { "file": "choice-chime.mp3", "volume": 0.5, "cooldownMs": 80 },
+  "announce": { "file": "tick.mp3", "volume": 0.4, "cooldownMs": 80 },
+  "win": { "file": "win.mp3", "volume": 0.8, "cooldownMs": 80 },
+  "loss": { "file": "loss.mp3", "volume": 0.8, "cooldownMs": 80 }
+}

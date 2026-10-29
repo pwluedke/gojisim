@@ -11,7 +11,8 @@ export default defineConfig({
   reporter: process.env.CI ? [["github"], ["blob"]] : "list",
   use: {
     baseURL: `http://localhost:${PORT}`,
-    // Card animations are off in every spec unless it says otherwise (M5f): the m5f spec tests them.
+    // Card animations and sound are off in every spec unless it says otherwise (M5f): the m5f spec
+    // tests animations, sound.spec.ts the sounds.
     storageState: "e2e/animation-off.json",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],

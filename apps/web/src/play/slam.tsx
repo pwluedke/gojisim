@@ -104,6 +104,7 @@ export function InvasionSlam({
   speed,
   waiting,
   onPlaying,
+  onImpact,
 }: {
   model: BoardModel;
   /** The board, to find the monster card, the zone and the mat. */
@@ -112,6 +113,8 @@ export function InvasionSlam({
   /** Card moves are still flying: the slam starts after them. */
   waiting: boolean;
   onPlaying: (playing: boolean) => void;
+  /** The monster hits the zone (the crash and roar sounds). */
+  onImpact?: (() => void) | undefined;
 }) {
   const result = model.view.result;
   const winner =
@@ -135,6 +138,8 @@ export function InvasionSlam({
   const cardRef = useRef<HTMLDivElement>(null);
   const report = useRef(onPlaying);
   report.current = onPlaying;
+  const impact = useRef(onImpact);
+  impact.current = onImpact;
 
   // Waiting and playing both hold the game-over modal; report it before the first paint.
   useLayoutEffect(() => {
@@ -205,6 +210,7 @@ export function InvasionSlam({
     );
     let shake: Animation | undefined;
     const timer = setTimeout(() => {
+      impact.current?.();
       shake = mat?.animate(
         [
           { translate: "0 0" },

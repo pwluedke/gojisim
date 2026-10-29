@@ -7,6 +7,7 @@ import {
   destroyedCards,
   flightsTime,
   planFlights,
+  planMoves,
   type Snapshot,
 } from "./animation";
 import { glowCycle } from "./glow";
@@ -246,6 +247,31 @@ describe("card movement flights (M5f)", () => {
       to: anchors["P1|deck"],
       underPile: true,
       shatter: true,
+    });
+  });
+
+  it("a card put on the deck bottom isn't paired with a copy of it drawn in the same step", () => {
+    const before = snap([spot("c1", 19, 100)]);
+    const drawn: [string, CardSpot] = [
+      "c9",
+      {
+        instanceId: "c9",
+        cardId: 19,
+        owner: "P1",
+        box: box(50, 500),
+        pile: "hand",
+      },
+    ];
+    // One card to the deck bottom, then one drawn: the deck's count is unchanged.
+    const after = snap([drawn], { "P1|hand": 6 });
+    const { flights, unexplained } = planMoves(before, after, [19], null, [19]);
+    expect(unexplained).toEqual({});
+    expect(flights.find((f) => f.id === "c1>")).toMatchObject({
+      to: anchors["P1|deck"],
+      underPile: true,
+    });
+    expect(flights.find((f) => f.id === "c9")).toMatchObject({
+      from: anchors["P1|deck"],
     });
   });
 
