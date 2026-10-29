@@ -79,8 +79,13 @@ export interface GameRecord {
   bugReports?: BugReport[];
 }
 
-/** One Bad Bot! report (M13b): the bot action it marks and what the reporter said. */
+/**
+ * One Bad Bot! or Good Bot! report (M13b): the bot action it marks and what the reporter said.
+ * Entries from before Good Bot! have no `kind` and read as `"bad"`.
+ */
 export interface FeedbackEntry {
+  /** Bad Bot! (a bad move) or Good Bot! (a good play to keep); absent means `"bad"`. */
+  kind?: "bad" | "good";
   /** The marked bot action's index in `actions`. */
   actionIndex: number;
   /** The action in battle-log wording ("Bot (Hard): Play Scale Attack"), with turn and phase. */

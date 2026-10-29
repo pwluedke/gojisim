@@ -4,7 +4,8 @@ import {
   type GameState,
   stepPhase,
 } from "@gojisim/engine";
-import { botLabel } from "./bots";
+import { announce } from "./announce";
+import { botLabel, difficultyName } from "./bots";
 import type { ExportedRecord, PlayerId, Session } from "./session";
 
 /**
@@ -72,8 +73,10 @@ const PHASES: Record<ReturnType<typeof stepPhase>, string> = {
 /** The newest bot action Bad Bot! would mark: its index and its battle-log line. */
 export interface BotMoveRef {
   actionIndex: number;
-  /** "Bot (Hard): Play Scale Attack [EBP01-061] → strategy 1" */
+  /** "Bot (Hard): Play Scale Attack [EBP01-061] → strategy 1" (stored in the record) */
   label: string;
+  /** The move in announcement wording, for the popups: "Bot (Hard): activates Scale Attack" */
+  plain: string;
   /** "Turn 7, Main phase" */
   when: string;
 }
@@ -86,10 +89,24 @@ export function latestBotMove(session: Session): BotMoveRef | null {
     const seat = action && session.seats[action.player as PlayerId];
     if (!action || seat?.kind !== "bot") continue;
     const before = session.states[i] as GameState;
+    const after = session.states[i + 1] ?? before;
+    const words = announce(before, after, action, {
+      subject: () => "Bot",
+      whose: (owner, actor) =>
+        owner === actor
+          ? "its"
+          : session.seats[owner as PlayerId]?.kind === "human"
+            ? "your"
+            : `Bot ${owner}'s`,
+    }).text;
     return {
       actionIndex: i,
       // Private choices stay private, as in the battle log.
       label: botLabel(before, action, seat.difficulty, true),
+      plain: words.replace(
+        /^Bot /,
+        `Bot (${difficultyName(seat.difficulty)}): `,
+      ),
       when: `Turn ${before.turn}, ${PHASES[stepPhase(before.currentStep)]}`,
     };
   }

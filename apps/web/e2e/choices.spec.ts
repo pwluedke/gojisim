@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { loadFixture, startGame } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -264,4 +264,79 @@ test("bot moves: a toast names the action and the destination lights up", async 
       { timeout: 60_000, intervals: [50] },
     )
     .toBe(true);
+});
+
+/** Whether two boxes overlap. */
+const overlaps = (
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number },
+) =>
+  a.x < b.x + b.width &&
+  b.x < a.x + a.width &&
+  a.y < b.y + b.height &&
+  b.y < a.y + a.height;
+
+/**
+ * Checks each option's key badge (and selection number) sits in the middle of the card: its
+ * center within 10% of the card's, clear of the top-left rank corner and the bottom text box.
+ */
+async function badgesCentered(page: Page) {
+  const options = page.getByTestId("choice-option");
+  const count = await options.count();
+  expect(count).toBeGreaterThan(0);
+  for (let i = 0; i < count; i++) {
+    const card = await options.nth(i).boundingBox();
+    const badges = options
+      .nth(i)
+      .locator(
+        '[data-testid="choice-key"], [data-testid="choice-select-order"]',
+      );
+    expect(await badges.count()).toBeGreaterThan(0);
+    for (let b = 0; b < (await badges.count()); b++) {
+      const box = await badges.nth(b).boundingBox();
+      if (!card || !box) throw new Error("no box");
+      const rank = {
+        x: card.x,
+        y: card.y,
+        width: card.width * 0.25,
+        height: card.height * 0.15,
+      };
+      const text = {
+        x: card.x,
+        y: card.y + card.height * 0.7,
+        width: card.width,
+        height: card.height * 0.3,
+      };
+      expect(overlaps(box, rank), `card ${i} badge ${b} over the rank`).toBe(
+        false,
+      );
+      expect(
+        overlaps(box, text),
+        `card ${i} badge ${b} over the text box`,
+      ).toBe(false);
+      if (b === 0) {
+        expect(
+          Math.abs(box.x + box.width / 2 - (card.x + card.width / 2)),
+        ).toBeLessThanOrEqual(card.width * 0.1);
+        expect(
+          Math.abs(box.y + box.height / 2 - (card.y + card.height / 2)),
+        ).toBeLessThanOrEqual(card.height * 0.1);
+      }
+    }
+  }
+}
+
+test("key number badges sit in the middle of the card, clear of the rank and the text box (target pick, discard multi-pick)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await loadFixture(page, "target");
+  await expect(page.getByTestId("choice-modal")).toBeVisible();
+  await badgesCentered(page);
+  await loadFixture(page, "discard-bot-turn");
+  await expect(page.getByTestId("choice-modal")).toBeVisible();
+  // With a card selected, its selection number sits with the key number.
+  await page.getByTestId("choice-option").first().click();
+  await expect(page.getByTestId("choice-select-order")).toHaveText("1");
+  await badgesCentered(page);
 });
