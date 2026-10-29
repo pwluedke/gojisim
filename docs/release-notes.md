@@ -27,7 +27,53 @@ What each merged PR changed, in plain words, for Paul and the testers. Newest fi
 
 - The sounds were picked by name and length, not by ear; any that sound wrong can be swapped in `sounds.json` without code.
 
-## #67 One stored file per game; plain bot moves in the report listing (not merged yet)
+## #69 Rules fixes from community rulings: Godzilla Final Wars zones, SpaceGodzilla's lock (2026-10-29)
+
+### What changed
+
+- **Godzilla Final Wars (EBP04-079):** you now pick the zone for each revealed [final-wars] card, and any zone works, even one with a card in it (that card may be destroyed by overload). The cards are played together, so two of them can't go to the same zone. Before, the game put them in empty zones first.
+- **SpaceGodzilla (EBP02-055):** its locked column now stops every way of playing a battle card there, not only from the hand: Evolution, cards played by effects (such as Godzilla Emerges or Odo Island) and tokens (official Q&A 270).
+- **Battra (Larva) (EBP04-050):** still triggers once per invasion; this is noted as a ruling to check later.
+
+### Fixed
+
+- Evolution, effect plays and tokens could put a battle card into a column SpaceGodzilla had locked.
+- When a card went to the bottom of a deck (for example by Mothra's replacement, ESD01-011) and a copy of the same card was drawn in the same step, the animation showed the first card flying into the hand.
+
+### Testing notes
+
+- New engine tests for each ruling. Details in the PR's Tests section.
+- Try it:
+  1. Activate Godzilla Final Wars with a [final-wars] battle card on top of your deck: you choose its zone, and zones with cards in them are offered.
+  2. Against SpaceGodzilla in zone 4 or later with 3 Crystals, try to evolve a battle card in its column: Evolution finds nothing.
+
+## #68 Good Bot!, one-command feedback, number keys in the middle of cards (2026-10-29)
+
+### What changed
+
+- A **Good Bot!** button joins the Test Site panel: when the bot makes a good play, tell us what it did right, so later changes to the bot don't break it. It works like Bad Bot!: your name and a note, sent at once.
+- The panel's buttons are now **Report bug** on top, then **Good Bot!** and **Bad Bot!** side by side. The "Which button?" help follows the same order.
+- Bad Bot! and Good Bot! show the bot's move in plain words ("Bot (Hard): activates Scale Attack"), with the turn and phase.
+- In choice windows, the number key sits big in the middle of each card, so it no longer covers the card's rank. In a pick of 2 or more cards, the order you selected them shows right beside it.
+- For Paul: `pnpm feedback` downloads all the uploaded games and writes one summary file of the new reports, with the bot's thinking for each Good Bot! and Bad Bot!, the last moves before each Report bug, and how often players beat each bot level.
+
+### Fixed
+
+- The number keys in choice windows covered each card's rank (reported more than once).
+
+### Testing notes
+
+- New tests for Good Bot! (the popup, the upload, sharing off), the panel's layout and help order, the number keys' place on the card, and the feedback summary (one file per game, reports already reviewed left out, the win rate leaving out Show opponent's hand games and peeked First / Second picks). Details in the PR's Tests section.
+- Try it:
+  1. Play against a bot, press **Good Bot!** after a move you liked, write a note and Send: it says "Thanks, sent."
+  2. Play a card that makes you discard 2 or more, and check the numbers sit in the middle of the cards.
+  3. Paul: run `pnpm feedback` from the repo root and open the file it names.
+
+### Known issues
+
+- None known.
+
+## #67 One stored file per game; plain bot moves in the report listing (2026-10-28)
 
 ### What changed
 

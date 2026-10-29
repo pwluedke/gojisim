@@ -53,6 +53,8 @@ describe("game collection in the browser (M13b)", () => {
     const index = session.record.actions.map((a) => a.player).lastIndexOf("P2");
     expect(move?.actionIndex).toBe(index);
     expect(move?.label).toMatch(/^Bot \(Hard\): /);
+    // The popups show the move in announcement wording ("Bot (Hard): plays …").
+    expect(move?.plain).toMatch(/^Bot \(Hard\): [a-z]/);
     expect(move?.when).toMatch(/^Turn \d+, (Start|Main|Counter|End) phase$/);
   });
 

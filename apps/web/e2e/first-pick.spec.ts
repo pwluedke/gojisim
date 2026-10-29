@@ -135,14 +135,17 @@ test("the same seed and the same card give the same result, peek or not", async 
       await page.keyboard.up(key);
     }
     await page.getByTestId("first-pick-card-1").click();
-    const text = await page.getByTestId("first-pick").textContent();
+    // The pick's result, not the modal's text: with no card images (CI) the faces' name fallback
+    // shows only once an image has failed, so the text depended on load timing (decision 211).
+    await expect.poll(() => faces(page)).not.toContain(null);
+    const picked = await faces(page);
     await page.getByTestId("first-pick-continue").click();
     await expect(page.getByTestId("hand-card").first()).toBeVisible();
     const hand = await page
       .getByTestId("hand-card")
       .locator("[data-card-id]")
       .evaluateAll((cards) => cards.map((c) => c.getAttribute("data-card-id")));
-    return { text, hand };
+    return { picked, hand };
   };
   const plain = await result(false);
   expect(await result(false)).toEqual(plain);
