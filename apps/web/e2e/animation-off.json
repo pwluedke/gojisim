@@ -4,7 +4,10 @@
     {
       "origin": "http://localhost:5179",
       "localStorage": [
-        { "name": "gojisim.settings", "value": "{\"animation\":\"off\"}" }
+        {
+          "name": "gojisim.settings",
+          "value": "{\"animation\":\"off\",\"sound\":false}"
+        }
       ]
     }
   ]

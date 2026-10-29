@@ -2,7 +2,32 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #69 Rules fixes from community rulings: Godzilla Final Wars zones, SpaceGodzilla's lock (not merged yet)
+## #71 Sound effects (not merged yet)
+
+### What changed
+
+- The game has sound: a thud when a card is played (heavier for a monster, with a short roar for Evolution), a flip for strategy cards, a crunch for destroys, a stomp for each zone an invasion advances, a crash and a roar when an invasion wins, an impact when a counter succeeds, a low rumble when rage goes up, card slides and shuffles, a soft chime when a choice opens for you, a quiet tick for each bot announcement, and a short tune when you win or lose.
+- **Settings → Sound** (on by default) and **Volume** (50% to start). **M** mutes and unmutes, and the ? list shows it.
+- Sounds follow the card animations, so they land with the cards. The history view, undos and a loaded game's moves stay silent.
+- Nothing plays until your first click on the page (browsers block sound before that).
+
+### Fixed
+
+- Nothing.
+
+### Testing notes
+
+- New tests for which event plays which sound, the timing and the limit on repeated sounds, the silent history view and loaded games, and in the browser: nothing plays before the first click, a card play and a destroy play their sounds, M mutes, and the Sound and Volume settings are saved. Details in the PR's Tests section.
+- Try it:
+  1. Start a game, play a battle card, and listen for the thud; let the bot play a turn.
+  2. Press M to mute, and M again to bring the sound back; move the Volume slider in Settings.
+  3. Win a game by invasion and listen for the crash and roar.
+
+### Known issues
+
+- The sounds were picked by name and length, not by ear; any that sound wrong can be swapped in `sounds.json` without code.
+
+## #69 Rules fixes from community rulings: Godzilla Final Wars zones, SpaceGodzilla's lock (2026-10-29)
 
 ### What changed
 

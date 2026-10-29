@@ -80,6 +80,7 @@ import {
 } from "./settings";
 import { MAT_MAX_BYTES } from "./matStore";
 import { useCustomMat } from "./useCustomMat";
+import { SoundPlayer, slamCues, stepIsHeard, stepSounds } from "../game/sounds";
 
 /** A combo hit's data entry (name, cards, steps, result). */
 const comboOf = (hit: ComboHit): Combo | undefined =>
@@ -125,6 +126,7 @@ const SHORTCUTS: [string, string][] = [
     "Cancel the selected card or a choice's selection, return from the board view, close the expanded hand, a dialog or the preview",
   ],
   ["L", "Collapse / expand the battle log"],
+  ["M", "Mute / unmute the sound effects"],
   [
     "U",
     "Undo your last action, or a whole confirmed pick of cards (Casual games, back to the last draw, search, reveal, shuffle, random result or opponent action)",
@@ -191,6 +193,14 @@ export function PlayScreen() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const announceFrom = useRef(0);
   const lastCount = useRef(0);
+  // Sound effects: the player, the action count heard last, and the first action index that plays
+  // (a loaded record's actions are history, like its animations).
+  const sounds = useRef(new SoundPlayer());
+  const heardCount = useRef(0);
+  const soundFrom = useRef(0);
+  const loadedGame = useRef(false);
+  // The game ended in this page (not a loaded finished one): its game-over modal plays a stinger.
+  const endedHere = useRef(false);
   const [confirming, setConfirming] = useState<
     "pass" | "concede" | "showHand" | null
   >(null);
@@ -256,6 +266,9 @@ export function PlayScreen() {
       setAnnouncements([]);
       announceFrom.current = next.record.actions.length;
       lastCount.current = next.record.actions.length;
+      soundFrom.current = next.record.actions.length;
+      heardCount.current = next.record.actions.length;
+      loadedGame.current = next.record.actions.length > 0;
     },
     // While the history view or a search result is open, a bot's answer waits.
     // A combo modal holds the bot too (M5g), until it is closed.
@@ -356,6 +369,7 @@ export function PlayScreen() {
   useEffect(() => {
     if (!result || gameOver || !liveBottom) return;
     const key = outcomeKey(result, liveBottom);
+    endedHere.current = !startResult.current;
     const line = pickLine(key, lastLine());
     rememberLine(line);
     setGameOver({ key, line, closed: false });
@@ -431,10 +445,65 @@ export function PlayScreen() {
     // Only a new action starts a toast.
   }, [count]);
 
+  // Sound effects: Sound and Volume, and the first click unlocks audio (browsers block it until a
+  // user gesture, so nothing plays before).
+  useEffect(() => {
+    sounds.current.set(settings.volume / 100, settings.sound);
+  }, [settings.sound, settings.volume]);
+  useEffect(() => {
+    const unlock = () => sounds.current.unlock();
+    window.addEventListener("pointerdown", unlock, {
+      capture: true,
+      once: true,
+    });
+    return () =>
+      window.removeEventListener("pointerdown", unlock, { capture: true });
+  }, []);
+  // Each new step of a live game plays its sounds (both players' actions), timed like its card
+  // moves; history views, undos and a loaded record's actions stay silent.
+  useEffect(() => {
+    const grew = count > heardCount.current;
+    heardCount.current = count;
+    if (!grew) soundFrom.current = Math.min(soundFrom.current, count);
+    if (!session) return;
+    const live = session.position === count;
+    if (!stepIsHeard({ grew, live, index: count - 1, from: soundFrom.current }))
+      return;
+    const before = session.states[count - 1] as GameState;
+    const after = session.states[count] as GameState;
+    sounds.current.playCues(
+      stepSounds(
+        after.log.slice(before.log.length),
+        after.cards,
+        settings.animation,
+      ),
+    );
+  }, [count]);
+
   // The current announcement stays its time (Confirm: until OK or Space), then the next one shows.
   const announcement = announcements[0] ?? null;
   const announcing = announcement !== null;
   const dismissAnnouncement = () => setAnnouncements((queue) => queue.slice(1));
+  // Each announcement line shows with a quiet tick.
+  useEffect(() => {
+    if (announcement) sounds.current.play("announce");
+  }, [announcement?.id]);
+  // A game that ends here plays a win or loss stinger as its game-over modal opens (after the slam,
+  // the cards' moves and any announcement, like the modal).
+  const gameOverShowing =
+    !!gameOver &&
+    !gameOver.closed &&
+    (historyAt === null ||
+      (!!session && historyAt >= session.states.length - 1)) &&
+    !animating &&
+    !announcing &&
+    !callout;
+  useEffect(() => {
+    if (!gameOverShowing || !gameOver || !endedHere.current) return;
+    endedHere.current = false;
+    if (gameOver.key.startsWith("win")) sounds.current.play("win");
+    else if (gameOver.key.startsWith("loss")) sounds.current.play("loss");
+  }, [gameOverShowing]);
   useEffect(() => {
     if (!announcement || announcement.ms === null) return;
     const timer = setTimeout(dismissAnnouncement, announcement.ms);
@@ -452,6 +521,12 @@ export function PlayScreen() {
   // EBP03-004 (E21): an invasion paid with the deck's top card has no hand card to drag.
   const deckInvade = actions.find((a) => a.type === "invadeFromDeck");
   const choice = state?.pendingChoice ?? null;
+  // A choice for the human opens with a soft chime (not one a loaded record stopped at).
+  useEffect(() => {
+    if (!choice || !human) return;
+    if (loadedGame.current && count <= soundFrom.current) return;
+    sounds.current.play("choice");
+  }, [choice?.id]);
   // Casual undo (M5e): the deciding human takes back their own last action.
   const undoFor = human && decider ? decider : null;
   const undoable = !!undoFor && !!session && canUndoSession(session, undoFor);
@@ -540,6 +615,10 @@ export function PlayScreen() {
         case "l":
         case "L":
           updateSettings({ logCollapsed: !settings.logCollapsed });
+          return;
+        case "m":
+        case "M":
+          updateSettings({ sound: !settings.sound });
           return;
         case "u":
         case "U":
@@ -923,6 +1002,31 @@ export function PlayScreen() {
           <label>
             <input
               type="checkbox"
+              data-testid="setting-sound"
+              checked={settings.sound}
+              onChange={(e) => updateSettings({ sound: e.target.checked })}
+            />{" "}
+            Sound [M]
+          </label>
+          <label>
+            Volume{" "}
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              data-testid="setting-volume"
+              value={settings.volume}
+              disabled={!settings.sound}
+              onChange={(e) =>
+                updateSettings({ volume: Number(e.target.value) })
+              }
+            />{" "}
+            {settings.volume}%
+          </label>
+          <label>
+            <input
+              type="checkbox"
               data-testid="setting-rules"
               checked={settings.showRules}
               onChange={(e) => updateSettings({ showRules: e.target.checked })}
@@ -1148,6 +1252,7 @@ export function PlayScreen() {
         step={viewing === null ? session.position : null}
         animation={settings.animation}
         onAnimating={setAnimating}
+        onSlamImpact={() => sounds.current.playCues(slamCues(0))}
         turnGlow={settings.turnGlow}
         picking={pending !== null}
         invadeArrow={settings.invadeArrow}
