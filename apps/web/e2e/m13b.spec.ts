@@ -189,12 +189,53 @@ test("Bad Bot!: the popup names the bot's last move, needs a name and a text, Es
   const feedback = sent?.["botFeedback"] as Record<string, unknown>[];
   expect(feedback[0]).toMatchObject({ text, reporter: "Dr. Serizawa" });
   expect(String(feedback[0]?.["label"])).toMatch(/^Bot \(.*\(Turn \d+, /);
-  // The game goes on; the finished game's upload carries the report again.
+  // The game goes on; the finished game's upload carries the report again, into the same file.
   await concede(page);
-  await expect.poll(() => uploadsWith(text).length).toBe(2);
+  await expect
+    .poll(() =>
+      uploadsWith(text).map(
+        (r) => (r["actions"] as { type: string }[]).at(-1)?.type,
+      ),
+    )
+    .toEqual(["concede"]);
   // And Report bug's upload has it too.
   const record = await reportBug(page);
   expect(record["botFeedback"]).toEqual(feedback);
+});
+
+test("one file per game: two Bad Bot! reports and the game end leave one stored file", async ({
+  page,
+}) => {
+  await loadFixture(page, "hand-five");
+  const first = marker("first report");
+  const second = marker("second report");
+  for (const text of [first, second]) {
+    await page.getByTestId("bad-bot").click();
+    await fill(page, "Dr. Serizawa", text);
+    await page.getByTestId("report-submit").click();
+    await expect(page.getByTestId("test-site-note")).toHaveText(
+      "Thanks, sent.",
+    );
+  }
+  await concede(page);
+  // One file holds both reports and the finished game, named by its gameId.
+  await expect
+    .poll(() =>
+      uploadsWith(first).map(
+        (r) => (r["actions"] as { type: string }[]).at(-1)?.type,
+      ),
+    )
+    .toEqual(["concede"]);
+  const [stored] = uploadsWith(first);
+  expect(uploadsWith(second)).toHaveLength(1);
+  expect(
+    (stored?.["botFeedback"] as { text: string }[]).map((f) => f.text),
+  ).toEqual([first, second]);
+  const files = (dir: string): string[] =>
+    readdirSync(dir).flatMap((name) =>
+      statSync(join(dir, name)).isDirectory() ? files(join(dir, name)) : [name],
+    );
+  expect(files(RECORDS)).toContain(`${String(stored?.["gameId"])}.json`);
 });
 
 test("a failed Bad Bot! send says so, and the report goes with the finished game", async ({

@@ -184,6 +184,7 @@ export function newSession(
     seed,
     decks,
     actions: [],
+    gameId: crypto.randomUUID(),
     // Illegal decks are allowed, with a warning (Paul's ruling, Oct 21, 2026).
     deckLegality: deckLegalityFor(decks, new Date()),
     seats: { P1: seatRecord(seats.P1), P2: seatRecord(seats.P2) },
@@ -260,6 +261,8 @@ export function sessionFromRecord(text: string): Session {
       ...(record.excludedFromAchievements
         ? { excludedFromAchievements: true }
         : {}),
+      // A record from before game ids gets one now, so its uploads become one file too.
+      gameId: record.gameId ?? crypto.randomUUID(),
       ...(record.botFeedback ? { botFeedback: record.botFeedback } : {}),
       ...(record.bugReports ? { bugReports: record.bugReports } : {}),
       ...(record.firstPickPeeked ? { firstPickPeeked: true } : {}),

@@ -2,7 +2,29 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #66 Bot announcements, Report bug sends, zone choice in the Prompt panel, Mechagodzilla (1975) Weapon (not merged yet)
+## #67 One stored file per game; plain bot moves in the report listing (not merged yet)
+
+### What changed
+
+- Each game is now one file on the GojiSim server, however many times it's sent. Before, every Bad Bot! report and the game's end each saved a new copy of the whole game.
+- For Paul: `pnpm bot-feedback` lists each report once, says "N reports in M games", and shows the bot's move in plain words, with the stored label under it.
+
+### Fixed
+
+- One game with 4 Bad Bot! reports was stored as 5 files and listed 13 times.
+
+### Testing notes
+
+- New tests for the server (the same game sent twice keeps one file; a game that crosses midnight stays one file; older pages without a game id still get their own file), the listing (5 copies of one game list its 4 reports), and a browser test where 2 Bad Bot! reports and the game end leave one file. Details in the PR's Tests section.
+- Try it:
+  1. Play a game, press **Bad Bot!** twice with different notes, then finish or concede.
+  2. Paul: download the records (docs/deploy.md) and run `pnpm bot-feedback records`: the game is one file, and both notes are listed once.
+
+### Known issues
+
+- Files saved before this change stay as they are; the listing still shows each of their reports once.
+
+## #66 Bot announcements, Report bug sends, zone choice in the Prompt panel, Mechagodzilla (1975) Weapon (2026-10-28)
 
 ### What changed
 

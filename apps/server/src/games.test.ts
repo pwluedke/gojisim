@@ -180,6 +180,78 @@ describe("game collection (M13b)", () => {
     }
   });
 
+  it("one file per game: the same gameId replaces its earlier upload, even in another day's folder", async () => {
+    const gameId = "0f8e6f3c-2b1d-4c5e-9a7b-1d2e3f4a5b6c";
+    const { request, recordsDir } = await serve();
+    const first = JSON.stringify({ ...RECORD, gameId });
+    const second = JSON.stringify({
+      ...RECORD,
+      gameId,
+      actions: [...RECORD.actions, { type: "pass", player: "P2" }],
+    });
+    const res = await request("/api/games", upload(first));
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ id: gameId });
+    expect((await request("/api/games", upload(second))).status).toBe(201);
+    expect(stored(recordsDir)).toEqual([`2026-10-28/${gameId}.json`]);
+    expect(
+      readFileSync(join(recordsDir, "2026-10-28", `${gameId}.json`), "utf8"),
+    ).toBe(second);
+    // A game that started before midnight: its file stays in that day's folder.
+    const late = "5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f";
+    mkdirSync(join(recordsDir, "2026-10-27"));
+    writeFileSync(
+      join(recordsDir, "2026-10-27", `${late}.json`),
+      JSON.stringify({ ...RECORD, gameId: late }),
+    );
+    const after = JSON.stringify({ ...RECORD, gameId: late.toUpperCase() });
+    expect((await request("/api/games", upload(after))).status).toBe(201);
+    expect(stored(recordsDir).sort()).toEqual([
+      `2026-10-27/${late}.json`,
+      `2026-10-28/${gameId}.json`,
+    ]);
+    expect(
+      readFileSync(join(recordsDir, "2026-10-27", `${late}.json`), "utf8"),
+    ).toBe(after);
+  });
+
+  it("no gameId (older clients) gives a new file each time; a malformed gameId gives 400", async () => {
+    const { request, recordsDir } = await serve();
+    const body = JSON.stringify(RECORD);
+    expect((await request("/api/games", upload(body))).status).toBe(201);
+    expect((await request("/api/games", upload(body))).status).toBe(201);
+    expect(stored(recordsDir)).toHaveLength(2);
+    for (const gameId of ["../escape", "not-a-uuid", 42, ""])
+      expect(
+        (
+          await request(
+            "/api/games",
+            upload(JSON.stringify({ ...RECORD, gameId })),
+          )
+        ).status,
+      ).toBe(400);
+    expect(stored(recordsDir)).toHaveLength(2);
+  });
+
+  it("replacing a game's file counts its old size as freed under the cap", async () => {
+    const gameId = "0f8e6f3c-2b1d-4c5e-9a7b-1d2e3f4a5b6c";
+    const body = JSON.stringify({ ...RECORD, gameId });
+    // Room for one record and a little more: the same game's re-upload still fits.
+    const { request, recordsDir } = await serve({
+      maxRecordsBytes: Buffer.byteLength(body) + 10,
+    });
+    for (let i = 0; i < 3; i++)
+      expect((await request("/api/games", upload(body))).status).toBe(201);
+    expect(stored(recordsDir)).toHaveLength(1);
+    const other = JSON.stringify(RECORD);
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect((await request("/api/games", upload(other))).status).toBe(507);
+    } finally {
+      logged.mockRestore();
+    }
+  });
+
   it("with the Test Site off, the upload route answers 404 and stores nothing", async () => {
     const { request, recordsDir } = await serve({ testSite: false });
     const res = await request("/api/games", upload(JSON.stringify(RECORD)));
