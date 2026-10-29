@@ -5,16 +5,19 @@ import { fixture, loadFixture } from "./helpers";
 test.use({ viewport: { width: 1440, height: 900 } });
 
 /**
- * Report bug (deploy for testers): a button in `/play`'s left column, under Settings, downloads
+ * Report bug (deploy for testers; in the Test Site panel and behind a popup since M13b) downloads
  * the current game record as JSON (the format `/debug` exports and "Load a game record" reads),
  * at any moment of the game: mid-choice and after the game ends included.
  */
 
-/** Clicks Report bug and returns the downloaded record. */
+/** Reports a bug through the popup and returns the downloaded record. */
 async function report(page: Page): Promise<Record<string, unknown>> {
+  await page.getByTestId("report-bug").click();
+  await page.getByTestId("report-name").fill("Dr. Serizawa");
+  await page.getByTestId("report-text").fill("something looked wrong");
   const [download] = await Promise.all([
     page.waitForEvent("download"),
-    page.getByTestId("report-bug").click(),
+    page.getByTestId("report-submit").click(),
   ]);
   expect(download.suggestedFilename()).toMatch(/^gojisim-\d+-\d+\.json$/);
   return JSON.parse(readFileSync(await download.path(), "utf8")) as Record<
@@ -34,7 +37,7 @@ test("mid-choice: the button works over the choice modal, and the file loads bac
   expect(record["seed"]).toBe(original["seed"]);
   expect(record["actions"]).toEqual(original["actions"]);
   expect(record["position"]).toBe((original["actions"] as unknown[]).length);
-  await expect(page.getByTestId("report-bug-note")).toContainText(
+  await expect(page.getByTestId("test-site-note")).toContainText(
     "Send the file to Paul",
   );
   // "Load a game record" reads it: the same choice opens.
@@ -68,8 +71,8 @@ test("not during the First / Second pick: no game record exists yet", async ({
   await page.goto("/play?mode=bot");
   await page.getByTestId("start-game").click();
   await expect(page.getByTestId("first-pick")).toBeVisible();
-  await expect(page.getByTestId("report-bug")).toHaveCount(0);
+  await expect(page.getByTestId("report-bug")).toBeDisabled();
   await page.getByTestId("first-pick-card-0").click();
   await page.getByTestId("first-pick-continue").click();
-  await expect(page.getByTestId("report-bug")).toBeVisible();
+  await expect(page.getByTestId("report-bug")).toBeEnabled();
 });

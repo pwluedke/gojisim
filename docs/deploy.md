@@ -37,11 +37,13 @@ The repo's `railway.json` holds the build command, the start command and the hea
 
 **Variables → New Variable** for each:
 
-| Variable           | Value                            | Why                                                                                           |
-| ------------------ | -------------------------------- | --------------------------------------------------------------------------------------------- |
-| `GOJISIM_PASSWORD` | the testers' password            | The one shared password. Testers type it once per browser.                                    |
-| `SESSION_SECRET`   | 64 random characters (see below) | Signs the login cookie. The server won't start with a password and a missing or short secret. |
-| `CARDS_DIR`        | `/data/cards`                    | Where the server finds the card images (the volume, step 3).                                  |
+| Variable            | Value                            | Why                                                                                           |
+| ------------------- | -------------------------------- | --------------------------------------------------------------------------------------------- |
+| `GOJISIM_PASSWORD`  | the testers' password            | The one shared password. Testers type it once per browser.                                    |
+| `SESSION_SECRET`    | 64 random characters (see below) | Signs the login cookie. The server won't start with a password and a missing or short secret. |
+| `CARDS_DIR`         | `/data/cards`                    | Where the server finds the card images (the volume, step 3).                                  |
+| `RECORDS_DIR`       | `/data/records`                  | Where uploaded game records go (the volume, step 3). This is the default; set it to be sure.  |
+| `GOJISIM_TEST_SITE` | `on` or `off`                    | The Test Site panel (Bad Bot!, Report bug, Test settings) and game uploads. Default `on`.     |
 
 Make the secret on your Mac with `openssl rand -hex 32` and paste the output. Railway sets `PORT` itself; don't add it.
 
@@ -118,7 +120,16 @@ Merging into `main` doesn't deploy. To put main's current state in front of test
 - **Change the password:** edit `GOJISIM_PASSWORD` in **Variables**; Railway redeploys. People already signed in stay signed in.
 - **Sign everyone out:** change `SESSION_SECRET` (a new `openssl rand -hex 32`). Every old login cookie stops working, and everyone types the password again.
 - **Health:** `https://gojisim.somanygames.app/healthz` answers `{"status":"ok"}` without a password; Railway checks it on each deploy.
-- **Bug reports:** testers press **Report bug** (left column, under Settings). It downloads the game as a JSON file for them to send you. Open it with **Load a game record** on the new-game screen, or in `/debug`.
+- **Bug reports:** testers press **Report bug** (the Test Site panel, left column), write what went wrong, and get the game as a JSON file to send you; their note is in its `bugReports`. Open it with **Load a game record** on the new-game screen, or in `/debug`.
+- **Finished games and Bad Bot! reports:** with the Test Site on and "Share finished games" on (testers can turn it off in Test settings), each finished game uploads to `/data/records/<YYYY-MM-DD>/<uuid>.json`, and **Bad Bot!** uploads at once. There's no route to read them back. Download them all to your Mac's gitignored `records/` folder:
+
+  ```
+  mkdir -p records && railway ssh -i ~/.ssh/railway_ed25519 -- "tar czf - -C /data/records ." | tar xzf - -C records
+  ```
+
+  Then `pnpm bot-feedback records` lists every Bad Bot! report, `pnpm bot-explain records/<day>/<file>.json --at <index>` shows the bot's search there, and `pnpm bot-positions --from <file> --at <index>` makes a position from it. The files hold the players' decks: never commit them.
+
+- **Turn the Test Site off:** set `GOJISIM_TEST_SITE` to `off`. The panel disappears, nothing uploads (`POST /api/games` answers 404) and Show opponent's hand is off; records still load and replay.
 
 ## How the gate works
 

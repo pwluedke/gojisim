@@ -27,6 +27,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { type Box, FlightLayer, useMoveAnimations } from "./animation";
+import { badgeReasons } from "../game/decks";
 import styles from "./Board.module.css";
 import { CardBack, CardFace } from "./CardFace";
 import {
@@ -669,7 +670,7 @@ function Mat({
   player: PlayerAreasView;
   opponent: string;
   side: "opp" | "you";
-  /** Why this player's deck is illegal, one line per failure; empty or absent when legal. */
+  /** Why this player's deck is illegal, one plain reason per line (M13b); empty or absent when legal. */
   warning?: readonly string[] | undefined;
   /** The turn glow's current color name (M5f), or `null` when this mat doesn't glow. */
   glow: string | null;
@@ -716,9 +717,17 @@ function Mat({
           }
         >
           <strong>Illegal deck</strong>
-          <span>
-            {[...new Set(warning.map((line) => line.split(":")[0]))].join(", ")}
-          </span>
+          {/* M13b: up to 3 plain reasons, then "+N more"; the tooltip lists them all. */}
+          {badgeReasons(warning).shown.map((line) => (
+            <span key={line} data-testid="deck-warning-reason">
+              {line}
+            </span>
+          ))}
+          {badgeReasons(warning).more > 0 && (
+            <span data-testid="deck-warning-more">
+              +{badgeReasons(warning).more} more
+            </span>
+          )}
         </div>
       )}
       {MAT.filter(

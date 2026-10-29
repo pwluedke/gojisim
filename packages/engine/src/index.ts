@@ -64,6 +64,8 @@ export {
   replayAll,
   startGame,
   type UndoEntry,
+  type FeedbackEntry,
+  type BugReport,
 } from "./record";
 export { canUndo, type UndoBoundary, undoBoundary, undoLast } from "./undo";
 export { isFreezeGuardOn, setFreezeGuard } from "./freeze";

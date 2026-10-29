@@ -1,7 +1,8 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import type { GameRecord } from "@gojisim/engine";
+import { actionKey } from "@gojisim/bot";
+import { type GameRecord, replayAll } from "@gojisim/engine";
 import { parseSettings, runDecision } from "./decision";
 
 /**
@@ -10,6 +11,12 @@ import { parseSettings, runDecision } from "./decision";
  * cut at a bot decision plus action keys to `avoid` or `prefer`) runs over the seeds at each
  * difficulty, and the report is the share of seeds that pass. The search keeps the browser's 1 s
  * budget unless `--max-ms` says otherwise (`--max-ms 0`: no time limit, iterations only).
+ *
+ * `pnpm bot-positions --from <record> --at <actionIndex> [--out file]` (M13b) writes a position to
+ * start from instead: the record cut before that action, with the recorded action's key to avoid
+ * and the Bad Bot! text at that index as its note. Uploaded records hold players' decks, so the
+ * file goes next to the record unless `--out` says otherwise; committed positions still use
+ * starters, test decks or made-up decks.
  */
 const { values } = parseArgs({
   options: {
@@ -19,6 +26,9 @@ const { values } = parseArgs({
     settings: { type: "string", default: "" },
     "max-ms": { type: "string", default: "1000" },
     only: { type: "string" },
+    from: { type: "string" },
+    at: { type: "string" },
+    out: { type: "string" },
   },
 });
 
@@ -27,6 +37,44 @@ interface Position {
   avoid?: string[];
   prefer?: string[];
   record: GameRecord;
+}
+
+if (values.from) {
+  const from = resolve(process.env["INIT_CWD"] ?? ".", values.from);
+  const record = JSON.parse(readFileSync(from, "utf8")) as GameRecord;
+  const at = Number(values.at);
+  if (!Number.isInteger(at) || at < 0 || at >= record.actions.length)
+    throw new Error(
+      `--at needs an action index from 0 to ${record.actions.length - 1}`,
+    );
+  const action = record.actions[at] as GameRecord["actions"][number];
+  const state = replayAll({
+    ...record,
+    actions: record.actions.slice(0, at),
+  }).at(-1);
+  if (!state) throw new Error("Could not replay the record");
+  const feedback = record.botFeedback?.filter((f) => f.actionIndex === at);
+  // The position is the game up to the decision: no reports, no export position.
+  const {
+    botFeedback: _feedback,
+    bugReports: _bugs,
+    position: _position,
+    ...kept
+  } = record as GameRecord & { position?: number };
+  const position: Position & { made: string } = {
+    note:
+      feedback?.map((f) => `${f.reporter}: ${f.text}`).join(" / ") ||
+      `Action ${at} of ${basename(from)}`,
+    made: `pnpm bot-positions --from ${basename(from)} --at ${at}`,
+    avoid: [actionKey(state, action)],
+    record: { ...kept, actions: record.actions.slice(0, at) },
+  };
+  const out = values.out
+    ? resolve(process.env["INIT_CWD"] ?? ".", values.out)
+    : from.replace(/\.json$/, `-at-${at}.json`);
+  writeFileSync(out, `${JSON.stringify(position, null, 2)}\n`);
+  console.log(`Wrote ${out} (avoid ${position.avoid?.join(", ")})`);
+  process.exit(0);
 }
 
 const dir = values.dir

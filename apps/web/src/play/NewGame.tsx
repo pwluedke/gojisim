@@ -10,6 +10,8 @@ import {
   playDeckOptions,
   randomDeckKey,
   STARTER_PICKS,
+  badgeReasons,
+  deckReasons,
   tournamentProblems,
 } from "../game/decks";
 import {
@@ -47,6 +49,21 @@ const LABEL_MAX = 40;
 export const shortLabel = (label: string) =>
   label.length > LABEL_MAX ? `${label.slice(0, LABEL_MAX).trimEnd()}…` : label;
 
+/** An illegal deck's badge (M13b): up to 3 plain reasons and "+N more"; the tooltip has them all. */
+function LegalityWarning({ reasons }: { reasons: string[] }) {
+  const { shown, more } = badgeReasons(reasons);
+  return (
+    <span
+      className={styles.warning}
+      data-testid="legality"
+      title={reasons.join("\n")}
+    >
+      Warnings: {shown.join("; ")}
+      {more > 0 && ` +${more} more`}
+    </span>
+  );
+}
+
 function Legality({
   legality,
 }: {
@@ -61,13 +78,7 @@ function Legality({
       Legal
     </span>
   ) : (
-    <span
-      className={styles.warning}
-      data-testid="legality"
-      title={tournamentProblems(legality).join("\n")}
-    >
-      Warnings: {legality.failures.map((f) => f.rule).join(", ")}
-    </span>
+    <LegalityWarning reasons={deckReasons(legality)} />
   );
 }
 
@@ -94,7 +105,6 @@ export function NewGame({
     picked: [DeckOption, DeckOption],
     seats: Record<PlayerId, SeatConfig>,
     matchMode: MatchMode,
-    showOpponentHand: boolean,
   ) => void;
 }) {
   // M7a: the starters, My decks (saved in this browser), then the development decks.
@@ -122,7 +132,6 @@ export function NewGame({
   const [recordName, setRecordName] = useState<string | null>(null);
   const [seed, setSeed] = useState(() => String(randomSeed()));
   const [matchMode, setMatchMode] = useState<MatchMode>("casual");
-  const [showOpponentHand, setShowOpponentHand] = useState(false);
   const byKey = (key: string) =>
     options.find((o) => o.key === key) ?? (options[0] as DeckOption);
   const tournament = matchMode === "tournament";
@@ -162,7 +171,6 @@ export function NewGame({
           [byKey(keys.P1), byKey(keys.P2)],
           seats,
           matchMode,
-          showOpponentHand && seats.P1.kind === "human",
         );
       }}
     >
@@ -437,18 +445,6 @@ export function NewGame({
               </label>
             ))}
           </span>
-          {seats.P1.kind === "human" && (
-            <label>
-              <input
-                type="checkbox"
-                data-testid="show-opponent-hand"
-                checked={showOpponentHand}
-                onChange={(e) => setShowOpponentHand(e.target.checked)}
-              />{" "}
-              Show opponent&apos;s hand{" "}
-              <span className={styles.note}>(practice: no statistics)</span>
-            </label>
-          )}
         </div>
         <div className={styles.line}>
           <button

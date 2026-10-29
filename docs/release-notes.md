@@ -2,7 +2,37 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #64 M13a: bot fixes from tester games, Kaizer Ghidorah after Monster X (not merged yet)
+## #65 M13b: Test Site panel, Bad Bot!, Report bug notes, game sharing, named deck problems (not merged yet)
+
+### What changed
+
+- A **Test Site** panel sits under Settings, on the left of the board (look for the yellow and black stripes). It holds two buttons:
+  - **Bad Bot!**: the bot made a bad move. Write your name and what it got wrong; your note and the game are sent to us straight away so the bot can learn from it.
+  - **Report bug**: something in the game is wrong. Write your name and what happened; the game file downloads with your note inside. Send it to Paul as before.
+  - Your name is remembered for next time.
+- **Sharing finished games:** when a game ends, it's sent to the GojiSim server, decks included, to help improve the game and the bot. To turn this off, open **Test settings** in the panel and untick "Share finished games to improve GojiSim". With sharing off nothing is sent, Bad Bot! included.
+- **Show opponent's hand** moved into Test settings and now works at any point in a game, not only at the start. It asks first, because the game is then left out of your statistics and achievements, even if you turn it off again.
+- Test settings also has a short "Which button?" help.
+- The **Illegal deck** badge, and the warning next to a deck when you pick one, now say exactly what's wrong, card by card: for example "Gravity Beam (EBP01-079): banned since Sep 1, 2026". Up to three show, and hovering lists them all.
+
+### Fixed
+
+- The Illegal deck badge said only "Restriction list" for a deck with a banned Gravity Beam, which looked like a color problem.
+
+### Testing notes
+
+- New tests for the server's upload route (a stored record, too large, wrong shape, too many uploads, password needed), the panel, both popups, the uploads, the opponent's-hand warning and every deck-problem wording. Browser tests watch the uploads arrive at a test server. Details in the PR's Tests section.
+- Try it:
+  1. Play a few moves against a bot, press **Bad Bot!**, fill in your name and a note, and press Send: it says "Thanks, sent."
+  2. Press **Report bug**, write a note and Download; the file has your note in it.
+  3. Open **Test settings**, tick **Show opponent's hand** mid-game, and read the warning before saying Show hand.
+  4. Import a deck with a Gravity Beam and check its badge names the card.
+
+### Known issues
+
+- Uploaded games can only be read by Paul, by downloading them from the server (docs/deploy.md); there's no page to see them.
+
+## #64 M13a: bot fixes from tester games, Kaizer Ghidorah after Monster X (2026-10-28)
 
 ### What changed
 

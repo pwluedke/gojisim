@@ -76,10 +76,11 @@ test("Casual: an illegal deck plays, with a warning on its mat for the whole gam
   await startGame(page);
   const warning = page.getByTestId("deck-warning-P1");
   await expect(warning).toContainText("Illegal deck");
-  await expect(warning).toContainText("6.1.1.2");
+  // M13b: plain reasons, not rule numbers.
+  await expect(warning).toContainText("Main deck: 47 cards, needs exactly 50");
   await expect(warning).toHaveAttribute(
     "title",
-    "6.1.1.2: Main deck needs exactly 50 cards (has 47)",
+    "Main deck: 47 cards, needs exactly 50",
   );
   // It sits on P1's mat; the bot's legal deck has none.
   await expect(
@@ -93,4 +94,36 @@ test("Casual: an illegal deck plays, with a warning on its mat for the whole gam
     })
     .toBeGreaterThanOrEqual(3);
   await expect(warning).toBeVisible();
+});
+
+test("the badges name a restricted card, its limit and the date (Gravity Beam, banned since Sep 1, 2026)", async ({
+  page,
+}) => {
+  // The ESD01 starter with one invasion-icon-2 card swapped for Gravity Beam (EBP01-079: White
+  // and icon 2, so colors and the icon-2 count stay legal): only the restriction list fails.
+  const starter = readFileSync(
+    new URL(
+      "../../../packages/cards/data/decks/esd01-starter.txt",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const list = starter
+    .replace("[deck] Starter Deck - Godzilla Minus One", "[deck] Beam Test")
+    .replace("\n2 ESD01-004\n", "\n1 ESD01-004\n1 EBP01-079\n");
+  expect(list).toContain("1 EBP01-079");
+  await page.goto("/play?mode=bot");
+  await page.getByTestId("import-deck").click();
+  await page.getByTestId("import-text").fill(list);
+  await page.getByTestId("import-name").fill("Beam Test");
+  await page.getByTestId("import-save").click();
+  const reason = "Gravity Beam (EBP01-079): banned since Sep 1, 2026";
+  const badge = page.getByTestId("seat-panel-P1").getByTestId("legality");
+  await expect(badge).toHaveText(`Warnings: ${reason}`);
+  await expect(badge).toHaveAttribute("title", reason);
+  await page.getByTestId("seat-P1").selectOption("bot");
+  await startGame(page);
+  const warning = page.getByTestId("deck-warning-P1");
+  await expect(warning.getByTestId("deck-warning-reason")).toHaveText([reason]);
+  await expect(warning).toHaveAttribute("title", reason);
 });

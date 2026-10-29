@@ -168,13 +168,10 @@ test.describe("bottom block", () => {
     await expect(page.getByTestId("load-error")).toBeVisible();
   });
 
-  test("Show opponent's hand is in the bottom block with a human P1, and hidden with a bot P1", async ({
+  test("Show opponent's hand left the new-game screen (M13b: the Test Site panel)", async ({
     page,
   }) => {
     await open(page, "showa");
-    const options = page.getByTestId("game-options");
-    await expect(options.getByTestId("show-opponent-hand")).toBeVisible();
-    await page.getByTestId("seat-P1").selectOption("bot");
     await expect(page.getByTestId("show-opponent-hand")).toHaveCount(0);
   });
 });

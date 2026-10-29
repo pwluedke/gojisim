@@ -175,6 +175,67 @@ describe("validateDeck (6.1.1)", () => {
   });
 });
 
+describe("plain reasons for the Illegal deck badges (M13b)", () => {
+  const reasons = (deck: NamedDeck, asOf = TODAY) =>
+    validateDeck(deck, asOf).failures.flatMap((f) => f.reasons);
+  const named = (number: string) => `${card(number).name} (${number})`;
+
+  it("Restriction list: a card restricted to 0 is banned since its list's date", () => {
+    expect(reasons(esd01With(card("EBP01-079")))).toEqual([
+      "Gravity Beam (EBP01-079): banned since Sep 1, 2026",
+    ]);
+  });
+
+  it("Restriction list: copies over a limit name the count, the limit and the date", () => {
+    expect(reasons(esd01With(card("EBP01-077"), card("EBP01-077")))).toEqual([
+      `${named("EBP01-077")}: 2 copies, limit 1 since Apr 1, 2026`,
+    ]);
+  });
+
+  it("Choice restriction: names the cards, only one may be played", () => {
+    expect(reasons(esd01With(card("EBP02-003"), card("EBP03-035")))).toEqual([
+      `Choice restriction: ${named("EBP02-003")} and ${named("EBP03-035")}, only one may be played`,
+    ]);
+  });
+
+  it("6.1.1.3 colors: each off-color card, not white and not the rank I monster's color", () => {
+    expect(reasons(esd01With(card("ESD02-007")))).toEqual([
+      `${named("ESD02-007")} isn't white and doesn't include Red (the rank I monster's color)`,
+    ]);
+  });
+
+  it("6.1.1.2, 6.1.1.1, 6.1.1.2.2, 6.1.1.4, 6.1.1.5: sizes, copies, invasion icon 2 and tokens with their counts", () => {
+    const deck = starter("esd01-starter.txt");
+    expect(reasons({ ...deck, mainDeck: deck.mainDeck.slice(0, 47) })).toEqual([
+      "Main deck: 47 cards, needs exactly 50",
+    ]);
+    expect(
+      reasons({ ...deck, monsterDeck: deck.monsterDeck.slice(0, 3) }),
+    ).toEqual([
+      "Monster deck: 3 cards, needs one monster card each of rank I to IV",
+    ]);
+    const mainDeck = [...deck.mainDeck];
+    mainDeck.splice(
+      mainDeck.findIndex((c) => c.cardNumber === "ESD01-015"),
+      1,
+    );
+    expect(
+      reasons({ ...deck, mainDeck: [...mainDeck, card("ESD01-004")] }),
+    ).toEqual(["11 cards with invasion icon 2, limit 10"]);
+    // The four ESD01-015 out; a fifth ESD01-013 and three cards that stay within 4 in.
+    const five = [
+      ...deck.mainDeck.filter((c) => c.cardNumber !== "ESD01-015"),
+      ...["ESD01-013", "ESD01-002", "ESD01-003", "ESD01-016"].map(card),
+    ];
+    expect(reasons({ ...deck, mainDeck: five })).toEqual([
+      `${named("ESD01-013")}: 5 copies, limit 4`,
+    ]);
+    expect(reasons(esd01With(card("EBP02-T01"), card("EBP02-T01")))).toEqual([
+      `${named("EBP02-T01")}: 2 copies, Token cards can't be in a deck`,
+    ]);
+  });
+});
+
 describe("Resonance (K2, 6.1.2, 12.8.2)", () => {
   const resonance = (deck: NamedDeck) =>
     validateDeck(deck, TODAY)

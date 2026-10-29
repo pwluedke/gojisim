@@ -193,7 +193,13 @@ export function newSession(
       : {}),
     ...(firstPick ? { firstPick } : {}),
     ...(mode ? { mode } : {}),
-    ...(showOpponentHand ? { showOpponentHand } : {}),
+    ...(showOpponentHand
+      ? {
+          showOpponentHand,
+          showOpponentHandAt: 0,
+          excludedFromAchievements: true,
+        }
+      : {}),
     ...(firstPickPeeked ? { firstPickPeeked } : {}),
     deckNames: { P1: picked[0].label, P2: picked[1].label },
   };
@@ -248,6 +254,14 @@ export function sessionFromRecord(text: string): Session {
       ...(record.firstPick ? { firstPick: record.firstPick } : {}),
       ...(record.mode ? { mode: record.mode } : {}),
       ...(record.showOpponentHand ? { showOpponentHand: true } : {}),
+      ...(record.showOpponentHandAt !== undefined
+        ? { showOpponentHandAt: record.showOpponentHandAt }
+        : {}),
+      ...(record.excludedFromAchievements
+        ? { excludedFromAchievements: true }
+        : {}),
+      ...(record.botFeedback ? { botFeedback: record.botFeedback } : {}),
+      ...(record.bugReports ? { bugReports: record.bugReports } : {}),
       ...(record.firstPickPeeked ? { firstPickPeeked: true } : {}),
       ...(record.undos ? { undos: record.undos } : {}),
       ...(record.undoCount ? { undoCount: record.undoCount } : {}),

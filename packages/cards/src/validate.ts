@@ -1,6 +1,6 @@
 import { getCardAbilities } from "./abilities";
 import { getCardTraits } from "./errata";
-import { getChoiceRestrictions, getMaxCopies } from "./restrictions";
+import { getChoiceRestrictions, getRestriction } from "./restrictions";
 import type { Card } from "./schema";
 
 export const MAIN_DECK_SIZE = 50;
@@ -17,6 +17,11 @@ export interface DeckFailure {
   /** Rule number (e.g. "6.1.1.4"), or "Restriction list" / "Choice restriction". */
   rule: string;
   message: string;
+  /**
+   * The same failure in plain words, one line per card where it names cards (M13b): "Gravity Beam
+   * (EBP01-079): banned since Sep 1, 2026". The "Illegal deck" badges show these.
+   */
+  reasons: string[];
 }
 
 export interface DeckValidation {
@@ -33,6 +38,22 @@ function countBy<T>(items: T[], key: (item: T) => string): Map<string, number> {
 }
 
 const label = (card: Card) => `${card.cardNumber} ${card.name}`;
+/** A card as the plain reasons name it: "Gravity Beam (EBP01-079)". */
+const named = (card: Card) => `${card.name} (${card.deckCardNumber})`;
+const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
+/** `2026-09-01` as "Sep 1, 2026". */
+const longDate = (iso: string) => {
+  const [year, month, day] = iso.split("-").map(Number);
+  return `${MONTHS[(month ?? 1) - 1]} ${day}, ${year}`;
+};
+/** "a", "a and b", "a, b and c". */
+const and = (items: string[]) =>
+  items.length < 2
+    ? (items[0] ?? "")
+    : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+const unique = (cards: Card[]) => [
+  ...new Map(cards.map((c) => [c.deckCardNumber, c])).values(),
+];
 const copiesOf = (count: number, number: string) =>
   `${count} ${count === 1 ? "copy" : "copies"} of ${number}`;
 
@@ -44,10 +65,15 @@ const copiesOf = (count: number, number: string) =>
  */
 export function validateDeck(deck: Deck, asOf: Date): DeckValidation {
   const failures: DeckFailure[] = [];
-  const fail = (rule: string, message: string) =>
-    failures.push({ rule, message });
+  const fail = (rule: string, message: string, reasons: string[]) =>
+    failures.push({ rule, message, reasons });
   const { monsterDeck, mainDeck } = deck;
   const all = [...monsterDeck, ...mainDeck];
+  const byNumber = new Map(all.map((c) => [c.deckCardNumber, c]));
+  const nameOf = (number: string) => {
+    const card = byNumber.get(number);
+    return card ? named(card) : number;
+  };
 
   // 6.1.1.1: exactly 4 monster cards, one each of rank I to IV.
   const ranks = monsterDeck.map((c) => (c.type === "Monster" ? c.rank : null));
@@ -66,6 +92,12 @@ export function validateDeck(deck: Deck, asOf: Date): DeckValidation {
     fail(
       "6.1.1.1",
       `Monster deck needs one monster card each of rank I, II, III and IV (has ${parts.join("; ")})`,
+      [
+        `Monster deck: ${monsterDeck.length} ${monsterDeck.length === 1 ? "card" : "cards"}, needs one monster card each of rank I to IV`,
+        ...unique(nonMonsters).map(
+          (c) => `${named(c)} isn't a monster card (monster deck)`,
+        ),
+      ],
     );
   }
 
@@ -74,6 +106,7 @@ export function validateDeck(deck: Deck, asOf: Date): DeckValidation {
     fail(
       "6.1.1.2",
       `Main deck needs exactly ${MAIN_DECK_SIZE} cards (has ${mainDeck.length})`,
+      [`Main deck: ${mainDeck.length} cards, needs exactly ${MAIN_DECK_SIZE}`],
     );
   }
 
@@ -83,6 +116,7 @@ export function validateDeck(deck: Deck, asOf: Date): DeckValidation {
     fail(
       "6.1.1.2.2",
       `Main deck has ${icon2} cards with invasion icon 2 (at most ${MAX_INVASION_2})`,
+      [`${icon2} cards with invasion icon 2, limit ${MAX_INVASION_2}`],
     );
   }
 
@@ -105,9 +139,15 @@ export function validateDeck(deck: Deck, asOf: Date): DeckValidation {
     );
     if (offColor.length > 0) {
       const names = [...new Set(offColor.map(label))].join(", ");
+      const colors = [...new Set(allowed)];
+      const which =
+        colors.length === 0
+          ? "has no color the rank I monster allows"
+          : `doesn't include ${colors.join(" or ")} (the rank I monster's ${colors.length === 1 ? "color" : "colors"})`;
       fail(
         "6.1.1.3",
-        `Cards must be White or ${[...new Set(allowed)].join("/") || "colorless"} like the rank I monster: ${names}`,
+        `Cards must be White or ${colors.join("/") || "colorless"} like the rank I monster: ${names}`,
+        unique(offColor).map((c) => `${named(c)} isn't white and ${which}`),
       );
     }
     if (resonance?.rule === "resonance")
@@ -127,6 +167,10 @@ export function validateDeck(deck: Deck, asOf: Date): DeckValidation {
             fail(
               "12.8.2",
               `Resonance (${rankOne.cardNumber}): ${condition.text}: ${[...new Set(breaking.map(label))].join(", ")}`,
+              unique(breaking).map(
+                (c) =>
+                  `${named(c)} breaks ${named(rankOne)}'s Resonance: ${condition.text}`,
+              ),
             );
         } else {
           const count = all.filter((c) => c.type === condition.cards).length;
@@ -134,6 +178,9 @@ export function validateDeck(deck: Deck, asOf: Date): DeckValidation {
             fail(
               "12.8.2",
               `Resonance (${rankOne.cardNumber}): ${condition.text} (has ${count})`,
+              [
+                `${named(rankOne)}'s Resonance: ${condition.text} (has ${count})`,
+              ],
             );
         }
       }
@@ -150,6 +197,7 @@ export function validateDeck(deck: Deck, asOf: Date): DeckValidation {
       fail(
         "6.1.1.4",
         `${copiesOf(count, number)} (at most ${MAX_COPIES_PER_CARD})`,
+        [`${nameOf(number)}: ${count} copies, limit ${MAX_COPIES_PER_CARD}`],
       );
   }
 
@@ -159,15 +207,27 @@ export function validateDeck(deck: Deck, asOf: Date): DeckValidation {
     fail(
       "6.1.1.5",
       `Token cards can't be in a deck: ${[...new Set(tokens.map(label))].join(", ")}`,
+      unique(tokens).map((c) => {
+        const n = tokens.filter(
+          (t) => t.deckCardNumber === c.deckCardNumber,
+        ).length;
+        return `${named(c)}: ${n} ${n === 1 ? "copy" : "copies"}, Token cards can't be in a deck`;
+      }),
     );
 
   // Restriction lists in force on `asOf` (M1c).
   for (const [number, count] of copies) {
-    const max = getMaxCopies(number, asOf);
-    if (max < MAX_COPIES_PER_CARD && count > max) {
+    const restriction = getRestriction(number, asOf);
+    if (restriction && count > restriction.maxCopies) {
+      const since = longDate(restriction.effective);
       fail(
         "Restriction list",
-        `${copiesOf(count, number)}; restricted to ${max} on ${asOf.toISOString().slice(0, 10)}`,
+        `${copiesOf(count, number)}; restricted to ${restriction.maxCopies} on ${asOf.toISOString().slice(0, 10)}`,
+        [
+          restriction.maxCopies === 0
+            ? `${nameOf(number)}: banned since ${since}`
+            : `${nameOf(number)}: ${count} ${count === 1 ? "copy" : "copies"}, limit ${restriction.maxCopies} since ${since}`,
+        ],
       );
     }
   }
@@ -179,6 +239,9 @@ export function validateDeck(deck: Deck, asOf: Date): DeckValidation {
       fail(
         "Choice restriction",
         `Only one of ${group.deckCardNumbers.join(", ")} may be in a deck (has ${present.join(", ")})`,
+        [
+          `Choice restriction: ${and(present.map(nameOf))}, only one may be played`,
+        ],
       );
     }
   }

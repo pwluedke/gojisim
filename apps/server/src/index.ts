@@ -8,6 +8,7 @@ import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { decklogMiddleware } from "./decklog.js";
 import { createGate } from "./gate.js";
+import { gamesMiddleware, type SiteConfig, siteConfig } from "./games.js";
 import { cardImages, webApp } from "./static.js";
 
 export interface AppServerOptions {
@@ -20,6 +21,10 @@ export interface AppServerOptions {
   distDir?: string;
   /** The card images (`/cards/*`): the volume on Railway, `apps/web/public/cards` locally. */
   cardsDir?: string;
+  /** Uploaded game records (M13b): the volume's `/data/records` on Railway. */
+  recordsDir?: string;
+  /** The Test Site switch (M13b, `GOJISIM_TEST_SITE`); on by default. */
+  config?: SiteConfig;
   now?: () => number;
 }
 
@@ -56,7 +61,8 @@ export function safeHandler(
 
 /**
  * The app server (deploy for testers): the built web app, its card images and
- * `GET /api/decklog/<code>`, behind the testers' password when one is set. `robots.txt` and the
+ * `GET /api/decklog/<code>`, `GET /api/config` and `POST /api/games` (M13b), behind the testers'
+ * password when one is set. `robots.txt` and the
  * health route (`/healthz`) answer without it, and every response says `noindex`.
  */
 export function createAppServer({
@@ -65,6 +71,8 @@ export function createAppServer({
   secret,
   distDir = fileURLToPath(new URL("../../web/dist/", import.meta.url)),
   cardsDir = fileURLToPath(new URL("../../web/public/cards/", import.meta.url)),
+  recordsDir = "/data/records",
+  config = { testSite: true },
   now,
 }: AppServerOptions = {}): Server {
   if (password && (!secret || secret.length < 32))
@@ -76,6 +84,11 @@ export function createAppServer({
       ? createGate({ password, secret, ...(now ? { now } : {}) })
       : null;
   const decklog = decklogMiddleware(fetchImpl);
+  const games = gamesMiddleware({
+    config,
+    recordsDir,
+    ...(now ? { now } : {}),
+  });
   const cards = cardImages(cardsDir);
   const app = webApp(distDir);
   return createServer(
@@ -106,6 +119,7 @@ export function createAppServer({
       };
       if (gate && !(await passes((next) => gate(req, res, next)))) return;
       if (!(await passes((next) => decklog(req, res, next)))) return;
+      if (!(await passes((next) => games(req, res, next)))) return;
       if (!(await passes((next) => cards(req, res, next)))) return;
       await app(req, res);
     }),
@@ -137,6 +151,8 @@ if (
     ...(process.env.CARDS_DIR
       ? { cardsDir: resolve(process.env.CARDS_DIR) }
       : {}),
+    recordsDir: resolve(process.env.RECORDS_DIR ?? "/data/records"),
+    config: siteConfig(process.env),
   }).listen(port, () => {
     console.log(
       `GojiSim server listening on http://localhost:${port}${process.env.GOJISIM_PASSWORD ? " (password gate on)" : ""}`,

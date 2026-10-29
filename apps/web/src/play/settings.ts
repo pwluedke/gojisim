@@ -41,6 +41,14 @@ export interface Settings {
   showUndone: boolean;
   /** The invade arrow while a card is dragged over your discard pile (M5h #7, default on). */
   invadeArrow: boolean;
+  /** Finished games (and Bad Bot! reports) are uploaded to the server (M13b, default on). */
+  shareGames: boolean;
+  /** The Test Site panel's "Test settings" part is open (M13b, default closed). */
+  testSettingsOpen: boolean;
+  /** The "Which button?" help is open (M13b, default closed). */
+  whichButtonOpen: boolean;
+  /** The name last typed in the Bad Bot! or Report bug popup, pre-filled next time (M13b). */
+  reporterName: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -54,6 +62,10 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: "showa",
   showUndone: false,
   invadeArrow: true,
+  shareGames: true,
+  testSettingsOpen: false,
+  whichButtonOpen: false,
+  reporterName: "",
 };
 
 /** Applies a theme to the page (`:root[data-theme]`, see `theme.css`). */

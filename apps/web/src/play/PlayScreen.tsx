@@ -25,6 +25,18 @@ import {
   undoConfirmed,
 } from "../game/session";
 import { useGameSession } from "../game/useGameSession";
+import {
+  fetchConfig,
+  latestBotMove,
+  type SiteConfig,
+  testSiteEnabled,
+  uploadRecord,
+  withBugReport,
+  withFeedback,
+  withOpponentHandShown,
+} from "../game/collection";
+import { ReportModal } from "./ReportModal";
+import { TestSitePanel } from "./TestSitePanel";
 import styles from "./Board.module.css";
 import { BoardView, STEP_NAMES } from "./BoardView";
 import { ThemeHeader } from "../ThemeHeader";
@@ -159,14 +171,31 @@ interface PendingGame {
 export function PlayScreen() {
   const [settings, updateSettings] = useSettings();
   const [botMove, setBotMove] = useState<BotMove | null>(null);
-  const [confirming, setConfirming] = useState<"pass" | "concede" | null>(null);
+  const [confirming, setConfirming] = useState<
+    "pass" | "concede" | "showHand" | null
+  >(null);
   // M5d: the read-only history view (a session position), the log (L), and the overlays (H, ?).
   const [historyAt, setHistoryAt] = useState<number | null>(null);
   const [overlay, setOverlay] = useState<"hand" | "shortcuts" | null>(null);
   // M5e: the game waiting for its First / Second pick, and human searches waiting for Confirm.
   const [pending, setPending] = useState<PendingGame | null>(null);
-  // Report bug was used in this game: show where the file goes.
-  const [reported, setReported] = useState(false);
+  // M13b: the server's Test Site switch, the open Bad Bot! / Report bug popup, the panel's note
+  // (where the Report bug file went, or how a Bad Bot! send went), and whether the bot's hand
+  // shows now (the record keeps its flag even after it is turned off).
+  const [config, setConfig] = useState<SiteConfig | null>(null);
+  const [reporting, setReporting] = useState<"badBot" | "bug" | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [showHand, setShowHand] = useState(false);
+  // The result each game started with: a game that ends here (not a loaded finished one) uploads.
+  const startResult = useRef<GameState["result"]>(null);
+  useEffect(() => {
+    let live = true;
+    void fetchConfig().then((c) => live && setConfig(c));
+    return () => {
+      live = false;
+    };
+  }, []);
+  const testSite = testSiteEnabled(config);
   const [searches, setSearches] = useState<SearchResult[]>([]);
   // Log entries already checked for searches (a loaded record's searches are history).
   const seenLog = useRef(0);
@@ -193,7 +222,10 @@ export function PlayScreen() {
       const start = next.states[next.position] as GameState;
       setHistoryAt(null);
       setSearches([]);
-      setReported(false);
+      setNote(null);
+      setReporting(null);
+      setShowHand(next.record.showOpponentHand === true);
+      startResult.current = start.result;
       seenLog.current = start.log.length;
       // A loaded record's combos are history: no callouts for them.
       setCallouts([]);
@@ -207,9 +239,15 @@ export function PlayScreen() {
       historyAt !== null ||
       searches.length > 0 ||
       callouts.length > 0 ||
-      pending !== null,
-    // While cards move or a combo modal is open, no bot decision starts.
-    pause: animating || callouts.length > 0 || pending !== null,
+      pending !== null ||
+      reporting !== null,
+    // While cards move or a combo modal is open, no bot decision starts; nor while a Bad Bot! or
+    // Report bug popup is open (M13b).
+    pause:
+      animating ||
+      callouts.length > 0 ||
+      pending !== null ||
+      reporting !== null,
   });
   const { session, state } = game;
   const { setDelay } = game;
@@ -233,13 +271,14 @@ export function PlayScreen() {
     for (const entry of legality ?? []) {
       const deck = decks?.find((d) => d.id === entry.player);
       if (entry.legal || !deck) continue;
+      // M13b: plain reasons naming the cards ("Gravity Beam (EBP01-079): banned since Sep 1, 2026").
       warnings[entry.player] = validateDeck(
         deck,
         new Date(entry.asOf),
-      ).failures.map((f) => `${f.rule}: ${f.message}`);
+      ).failures.flatMap((f) => f.reasons);
       // A deck checked legal again today (a list changed) still shows the rules it failed then.
       if (warnings[entry.player]?.length === 0)
-        warnings[entry.player] = entry.failedRules.map((rule) => `${rule}:`);
+        warnings[entry.player] = entry.failedRules;
     }
     return warnings;
   }, [decks, legality]);
@@ -282,6 +321,15 @@ export function PlayScreen() {
   }, [result]);
   const closeGameOver = () =>
     setGameOver((g) => (g ? { ...g, closed: true } : g));
+
+  // M13b: a game that ends here (win, loss, draw or concession) uploads its record, Bad Bot!
+  // reports included, when the Test Site is on and sharing is on. A loaded finished game doesn't.
+  useEffect(() => {
+    if (!result || startResult.current || !session) return;
+    startResult.current = result;
+    if (!testSite || !settings.shareGames) return;
+    void uploadRecord(session);
+  }, [result]);
 
   // A deck search by a human seat, found or not, opens the search modal (M5e). An undo shortens
   // the log, so its searches are never shown again.
@@ -354,6 +402,20 @@ export function PlayScreen() {
     if (confirming === "pass" && pass) game.takeAction(pass);
     if (confirming === "concede" && concedeFor)
       game.takeAction({ type: "concede", player: concedeFor });
+    if (confirming === "showHand") turnOnHand();
+  };
+
+  // M13b: Show opponent's hand, at any point of a game. Turning it on asks first (statistics and
+  // achievements leave the game out) and flags the record for the whole game; off just hides it.
+  const turnOnHand = () => {
+    setShowHand(true);
+    // During the First / Second pick the game isn't built yet: it starts flagged at action 0.
+    if (pending) setPending({ ...pending, showOpponentHand: true });
+    else game.setSession((s) => (s ? withOpponentHandShown(s) : s));
+  };
+  const onShowHand = (on: boolean) => {
+    if (!on) setShowHand(false);
+    else setConfirming("showHand");
   };
 
   // Keyboard shortcuts (M5d). None fires while focus is in a text field.
@@ -363,8 +425,9 @@ export function PlayScreen() {
       if (target?.closest("input, select, textarea, [contenteditable]")) return;
       // The First / Second pick takes its own keys (1, 2, Space, the peek key).
       if (pending) return;
-      // Input waits while cards move (M5f) and while the combo modal is open (its own keys).
-      if (animating || callouts.length > 0) return;
+      // Input waits while cards move (M5f) and while the combo modal is open (its own keys), and
+      // while a Bad Bot! or Report bug popup is open (M13b: its own Esc).
+      if (animating || callouts.length > 0 || reporting) return;
       if (e.ctrlKey || e.metaKey || e.altKey || !session) return;
       // The game-over modal takes Space and Esc (M5h #17).
       if (gameOver && !gameOver.closed) {
@@ -444,13 +507,14 @@ export function PlayScreen() {
       <div className="gojisim">
         <ThemeHeader />
         <NewGame
-          onStart={(seed, picked, seats, matchMode, showOpponentHand) => {
+          onStart={(seed, picked, seats, matchMode) => {
+            // Show opponent's hand is turned on from the Test Site panel (M13b).
             const setup = {
               seed,
               picked,
               seats,
               matchMode,
-              showOpponentHand,
+              showOpponentHand: false,
             };
             // The human picks; two bots skip the pick.
             const picker = (["P1", "P2"] as const).find(
@@ -483,11 +547,7 @@ export function PlayScreen() {
   const shown = (
     viewing === null ? state : session.states[viewing]
   ) as GameState;
-  const model = boardModel(
-    shown,
-    liveBottom ?? "P1",
-    session.record.showOpponentHand === true,
-  );
+  const model = boardModel(shown, liveBottom ?? "P1", testSite && showHand);
 
   const search = viewing === null ? (searches[0] ?? null) : null;
 
@@ -644,6 +704,48 @@ export function PlayScreen() {
       </div>
     );
 
+  // M13b: the bot action Bad Bot! marks (its latest), and the two popups' submit handlers.
+  const badBotMove = latestBotMove(session);
+  const remember = (reporter: string) =>
+    reporter !== settings.reporterName &&
+    updateSettings({ reporterName: reporter });
+  const sendFeedback = async (reporter: string, text: string) => {
+    if (!badBotMove) return;
+    remember(reporter);
+    setReporting(null);
+    const entry = {
+      actionIndex: badBotMove.actionIndex,
+      label: `${badBotMove.label} (${badBotMove.when})`,
+      text,
+      reporter,
+      at: new Date().toISOString(),
+    };
+    const next = withFeedback(session, entry);
+    game.setSession((s) => (s ? withFeedback(s, entry) : s));
+    // The game goes on while it sends; a failed send rides along with the finished game.
+    setNote("Sending…");
+    setNote(
+      (await uploadRecord(next))
+        ? "Thanks, sent."
+        : "Couldn't send. It will be sent with the finished game, and Report bug includes it.",
+    );
+  };
+  const saveBugReport = (reporter: string, text: string) => {
+    remember(reporter);
+    setReporting(null);
+    const entry = {
+      actionIndex: session.position,
+      text,
+      reporter,
+      at: new Date().toISOString(),
+    };
+    const next = withBugReport(session, entry);
+    game.setSession((s) => (s ? withBugReport(s, entry) : s));
+    downloadRecord(next);
+    setNote(
+      "Saved this game's record. Send the file to Paul with a few words about what went wrong.",
+    );
+  };
   const settingsPanel = (
     <>
       <details className={styles.settings}>
@@ -816,29 +918,25 @@ export function PlayScreen() {
           <div className={styles.muted}>Press ? for the shortcut list.</div>
         </div>
       </details>
-      {/* Report bug (deploy for testers): the game record as JSON, the format /debug exports and
-        "Load a game record" reads, at any moment of the game. */}
-      {/* Not during the First / Second pick: no game record exists yet. */}
-      {!pending && (
-        <div className={styles.reportBug}>
-          <button
-            type="button"
-            className={styles.button}
-            data-testid="report-bug"
-            onClick={() => {
-              downloadRecord(session);
-              setReported(true);
-            }}
-          >
-            Report bug
-          </button>
-          {reported && (
-            <div className={styles.muted} data-testid="report-bug-note">
-              Saved this game&apos;s record. Send the file to Paul with a few
-              words about what went wrong.
-            </div>
-          )}
-        </div>
+      {/* M13b: the Test Site panel (Bad Bot!, Report bug, Test settings), only while the server
+        says the Test Site is on. During the First / Second pick no game record exists yet, so its
+        buttons wait; the opponent's hand can be turned on already. */}
+      {testSite && (
+        <TestSitePanel
+          settings={settings}
+          updateSettings={updateSettings}
+          badBotReady={!pending && badBotMove !== null}
+          onBadBot={() => setReporting("badBot")}
+          reportReady={!pending}
+          onReportBug={() => setReporting("bug")}
+          note={note}
+          canShowHand={
+            PLAYER_IDS.some((id) => session.seats[id].kind === "human") &&
+            PLAYER_IDS.some((id) => session.seats[id].kind === "bot")
+          }
+          showHand={showHand}
+          onShowHand={onShowHand}
+        />
       )}
     </>
   );
@@ -1076,6 +1174,25 @@ export function PlayScreen() {
             </div>
           </div>
         )}
+      {reporting === "badBot" && badBotMove && (
+        <ReportModal
+          kind="badBot"
+          move={badBotMove}
+          name={settings.reporterName}
+          sharingOff={!settings.shareGames}
+          onSubmit={(reporter, text) => void sendFeedback(reporter, text)}
+          onCancel={() => setReporting(null)}
+          onReportBug={() => setReporting("bug")}
+        />
+      )}
+      {reporting === "bug" && (
+        <ReportModal
+          kind="bug"
+          name={settings.reporterName}
+          onSubmit={saveBugReport}
+          onCancel={() => setReporting(null)}
+        />
+      )}
       {rulesAt && <RulesPanel at={rulesAt} onClose={() => setRulesAt(null)} />}
       {botMove && (
         <div className={styles.toast} data-testid="bot-toast">
@@ -1088,8 +1205,16 @@ export function PlayScreen() {
             <div className={styles.modalHeading}>
               {confirming === "pass"
                 ? "End Main and move to the Counter Phase?"
-                : "Concede the game?"}
+                : confirming === "showHand"
+                  ? "Show the bot's hand?"
+                  : "Concede the game?"}
             </div>
+            {confirming === "showHand" && (
+              <p data-testid="show-hand-warning">
+                This game will be left out of your statistics, and achievement
+                progress won&apos;t count for it.
+              </p>
+            )}
             <div className={styles.modalButtons}>
               <button
                 type="button"
@@ -1097,7 +1222,11 @@ export function PlayScreen() {
                 data-testid="confirm-yes"
                 onClick={confirmYes}
               >
-                {confirming === "pass" ? "Confirm [Space]" : "Concede"}
+                {confirming === "pass"
+                  ? "Confirm [Space]"
+                  : confirming === "showHand"
+                    ? "Show hand"
+                    : "Concede"}
               </button>
               <button
                 type="button"
