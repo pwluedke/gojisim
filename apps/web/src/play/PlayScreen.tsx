@@ -203,7 +203,9 @@ export function PlayScreen() {
   // (where the Report bug file went, or how a Bad Bot! send went), and whether the bot's hand
   // shows now (the record keeps its flag even after it is turned off).
   const [config, setConfig] = useState<SiteConfig | null>(null);
-  const [reporting, setReporting] = useState<"badBot" | "bug" | null>(null);
+  const [reporting, setReporting] = useState<
+    "badBot" | "goodBot" | "bug" | null
+  >(null);
   const [note, setNote] = useState<string | null>(null);
   const [showHand, setShowHand] = useState(false);
   // The result each game started with: a game that ends here (not a loaded finished one) uploads.
@@ -808,16 +810,21 @@ export function PlayScreen() {
       </div>
     );
 
-  // M13b: the bot action Bad Bot! marks (its latest), and the two popups' submit handlers.
+  // M13b: the bot action Bad Bot! and Good Bot! mark (its latest), and the popups' submit handlers.
   const badBotMove = latestBotMove(session);
   const remember = (reporter: string) =>
     reporter !== settings.reporterName &&
     updateSettings({ reporterName: reporter });
-  const sendFeedback = async (reporter: string, text: string) => {
+  const sendFeedback = async (
+    kind: "bad" | "good",
+    reporter: string,
+    text: string,
+  ) => {
     if (!badBotMove) return;
     remember(reporter);
     setReporting(null);
     const entry = {
+      kind,
       actionIndex: badBotMove.actionIndex,
       label: `${badBotMove.label} (${badBotMove.when})`,
       text,
@@ -1074,6 +1081,7 @@ export function PlayScreen() {
           updateSettings={updateSettings}
           badBotReady={!pending && badBotMove !== null}
           onBadBot={() => setReporting("badBot")}
+          onGoodBot={() => setReporting("goodBot")}
           reportReady={!pending}
           onReportBug={() => setReporting("bug")}
           note={note}
@@ -1329,13 +1337,20 @@ export function PlayScreen() {
             </div>
           </div>
         )}
-      {reporting === "badBot" && badBotMove && (
+      {(reporting === "badBot" || reporting === "goodBot") && badBotMove && (
         <ReportModal
-          kind="badBot"
+          key={reporting}
+          kind={reporting}
           move={badBotMove}
           name={settings.reporterName}
           sharingOff={!settings.shareGames}
-          onSubmit={(reporter, text) => void sendFeedback(reporter, text)}
+          onSubmit={(reporter, text) =>
+            void sendFeedback(
+              reporting === "goodBot" ? "good" : "bad",
+              reporter,
+              text,
+            )
+          }
           onCancel={() => setReporting(null)}
           onReportBug={() => setReporting("bug")}
         />

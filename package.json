@@ -22,6 +22,7 @@
     "bot-explain": "pnpm --filter @gojisim/bots bot-explain",
     "bot-positions": "pnpm --filter @gojisim/bots bot-positions",
     "bot-feedback": "pnpm --filter @gojisim/bots bot-feedback",
+    "feedback": "pnpm --filter @gojisim/bots feedback",
     "survey": "pnpm --filter @gojisim/ability-survey survey",
     "abilities:coverage": "pnpm --filter @gojisim/ability-survey coverage"
   },

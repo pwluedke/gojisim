@@ -61,19 +61,25 @@ if (values.from) {
     position: _position,
     ...kept
   } = record as GameRecord & { position?: number };
+  // A Good Bot! report at this action makes a position to keep (`prefer` the move played);
+  // otherwise (Bad Bot!, or no report) the move played is to `avoid`.
+  const good =
+    (feedback?.length ?? 0) > 0 &&
+    (feedback ?? []).every((f) => f.kind === "good");
+  const key = actionKey(state, action);
   const position: Position & { made: string } = {
     note:
       feedback?.map((f) => `${f.reporter}: ${f.text}`).join(" / ") ||
       `Action ${at} of ${basename(from)}`,
     made: `pnpm bot-positions --from ${basename(from)} --at ${at}`,
-    avoid: [actionKey(state, action)],
+    ...(good ? { prefer: [key] } : { avoid: [key] }),
     record: { ...kept, actions: record.actions.slice(0, at) },
   };
   const out = values.out
     ? resolve(process.env["INIT_CWD"] ?? ".", values.out)
     : from.replace(/\.json$/, `-at-${at}.json`);
   writeFileSync(out, `${JSON.stringify(position, null, 2)}\n`);
-  console.log(`Wrote ${out} (avoid ${position.avoid?.join(", ")})`);
+  console.log(`Wrote ${out} (${good ? "prefer" : "avoid"} ${key})`);
   process.exit(0);
 }
 
