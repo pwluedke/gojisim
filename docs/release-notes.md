@@ -18,7 +18,7 @@ What each merged PR changed, in plain words, for Paul and the testers. Newest fi
 
 ### Testing notes
 
-- New tests for Good Bot! (the popup, the upload, sharing off), the panel's layout and help order, the number keys' place on the card, and the feedback summary (one file per game, reports already reviewed left out, the win rate leaving out Show opponent's hand games). Details in the PR's Tests section.
+- New tests for Good Bot! (the popup, the upload, sharing off), the panel's layout and help order, the number keys' place on the card, and the feedback summary (one file per game, reports already reviewed left out, the win rate leaving out Show opponent's hand games and peeked First / Second picks). Details in the PR's Tests section.
 - Try it:
   1. Play against a bot, press **Good Bot!** after a move you liked, write a note and Send: it says "Thanks, sent."
   2. Play a card that makes you discard 2 or more, and check the numbers sit in the middle of the cards.

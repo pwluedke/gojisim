@@ -215,16 +215,20 @@ describe("pnpm feedback", () => {
     ).toEqual(first.listed);
   });
 
-  it("the human's win rate by bot level leaves out games with Show opponent's hand", () => {
+  it("the human's win rate by bot level leaves out games with Show opponent's hand or a peeked First / Second pick", () => {
     const id = (n: number) => `0f8e6f3c-2b1d-4c5e-9a7b-1d2e3f4a5b6${n}`;
     const files = [
       { file: "w1.json", record: won(id(1)) },
       { file: "w2.json", record: won(id(2)) },
       { file: "w3.json", record: won(id(3), { showOpponentHand: true }) },
+      { file: "w5.json", record: won(id(5), { firstPickPeeked: true }) },
       { file: "open.json", record: { ...game(6), gameId: id(4) } },
     ];
     const { markdown } = buildSummary(files, options);
-    expect(markdown).toContain("- Games: 4 (3 finished)");
+    expect(markdown).toContain("- Games: 5 (4 finished)");
+    expect(markdown).toContain(
+      "Finished human-vs-bot games, without Show opponent's hand or a peeked First / Second pick.",
+    );
     expect(markdown).toContain("| Hard | 2 | 2 | 0 | 0 | 100% |");
   });
 

@@ -98,7 +98,7 @@ export interface LevelRecord {
 
 /**
  * The human's results by bot level, over finished human-vs-bot games, leaving out games with
- * Show opponent's hand (decision 396, M13b).
+ * Show opponent's hand or a peeked First / Second pick (decisions 396, 483).
  */
 export function winRates(
   games: readonly RecordFile[],
@@ -106,7 +106,7 @@ export function winRates(
 ): LevelRecord[] {
   const levels = new Map<string, LevelRecord>();
   for (const { record } of games) {
-    if (record.showOpponentHand) continue;
+    if (record.showOpponentHand || record.firstPickPeeked) continue;
     const seats = (["P1", "P2"] as const).map((id) => ({
       id,
       seat: seatFromRecord(record.seats?.[id]),
@@ -235,7 +235,10 @@ export function buildSummary(
       );
   }
   out.push("", "## Human win rate by bot level", "");
-  out.push("Finished human-vs-bot games, without Show opponent's hand.", "");
+  out.push(
+    "Finished human-vs-bot games, without Show opponent's hand or a peeked First / Second pick.",
+    "",
+  );
   if (rates.length === 0) out.push("No finished games.");
   else {
     out.push("| Bot | Games | Human wins | Losses | Draws | Win rate |");

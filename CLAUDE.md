@@ -793,3 +793,12 @@ Accepted by Monarch in the one-file-per-game review (PR #67).
 573. `bot-feedback` keeps each report from the game's file with the most actions, and lists a game's entries together, in action order.
 574. Records without a `gameId` are told apart by seed and bot seed; two games with the same seed and bot seed would merge in the listing (rare: the seed is random per game).
 575. `tools/bots` imports the web app's `announce.ts` by relative path, rather than moving it into a package.
+
+Accepted by Monarch in the Good Bot! review (PR #68).
+
+576. Good Bot! with sharing off shows only the "nothing can be sent" line: no download and no Report bug link.
+577. Popups show the move in announcement wording (`plain`); the record keeps the battle-log `label` (decision 547 unchanged).
+578. `bot-positions --from` writes `prefer` only when every report at that action is Good Bot!; mixed or none writes `avoid`.
+579. `pnpm feedback` explains each bot report at the record's bot difficulty (Hard when the record has none), keeps the top 5 by visits, and takes `--no-download` and `--dir`.
+580. Report keys are `<game>|<kind>|<action index>`; two reports of one kind at one action share a key.
+581. The cap warning starts at 80% of 1 GB, measured on the local copy.
