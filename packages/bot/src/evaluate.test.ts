@@ -215,5 +215,7 @@ describe("greedy bot (M6b)", () => {
       if (state.result?.winner === greedySeat) greedyWins++;
     }
     expect(greedyWins).toBeGreaterThanOrEqual(7);
-  });
+    // 10 whole games: about 1.2 s here, several times that on a CI runner (Q42's deck guess added
+    // about half), past the 5 s default.
+  }, 20_000);
 });
