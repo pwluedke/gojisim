@@ -2,7 +2,27 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #68 Good Bot!, one-command feedback, number keys in the middle of cards (not merged yet)
+## #69 Rules fixes from community rulings: Godzilla Final Wars zones, SpaceGodzilla's lock (not merged yet)
+
+### What changed
+
+- **Godzilla Final Wars (EBP04-079):** you now pick the zone for each revealed [final-wars] card, and any zone works, even one with a card in it (that card may be destroyed by overload). The cards are played together, so two of them can't go to the same zone. Before, the game put them in empty zones first.
+- **SpaceGodzilla (EBP02-055):** its locked column now stops every way of playing a battle card there, not only from the hand: Evolution, cards played by effects (such as Godzilla Emerges or Odo Island) and tokens (official Q&A 270).
+- **Battra (Larva) (EBP04-050):** still triggers once per invasion; this is noted as a ruling to check later.
+
+### Fixed
+
+- Evolution, effect plays and tokens could put a battle card into a column SpaceGodzilla had locked.
+- When a card went to the bottom of a deck (for example by Mothra's replacement, ESD01-011) and a copy of the same card was drawn in the same step, the animation showed the first card flying into the hand.
+
+### Testing notes
+
+- New engine tests for each ruling. Details in the PR's Tests section.
+- Try it:
+  1. Activate Godzilla Final Wars with a [final-wars] battle card on top of your deck: you choose its zone, and zones with cards in them are offered.
+  2. Against SpaceGodzilla in zone 4 or later with 3 Crystals, try to evolve a battle card in its column: Evolution finds nothing.
+
+## #68 Good Bot!, one-command feedback, number keys in the middle of cards (2026-10-29)
 
 ### What changed
 

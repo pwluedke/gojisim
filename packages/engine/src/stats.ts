@@ -6,10 +6,12 @@ import {
   conditionHolds,
   type Context,
   gatesOpen,
+  type Located,
   locate,
   playZoneLimit,
   resolveZoneSet,
   select,
+  selectAmong,
 } from "./interpreter";
 import { cardOf, isBattle, topOf } from "./rules";
 import { getPlayer } from "./state";
@@ -160,8 +162,9 @@ export function counterProofAgainst(
 }
 
 /**
- * Whether `player` may play the hand card `card` (M1 `cannotPlay`, 8.2, 8.3, Q32), into `zone`
- * for a battle card. A flag with `zones` forbids only those zones.
+ * Whether `player` may play `card` (M1 `cannotPlay`, 8.2, 8.3, Q32), into `zone` for a battle
+ * card: from the hand, or by an effect, Evolution included (Q270). A flag with `zones` forbids only
+ * those zones. A card in no area yet (a token being made) is checked as though in `zone`.
  */
 export function playAllowed(
   state: GameState,
@@ -183,11 +186,14 @@ export function playAllowed(
       if (!who) continue;
       // `what` is read wherever the card is now: a hand, or a discard pile or deck for an
       // effect that puts it into play (Q32).
-      const area = locate(state, card.instanceId)?.area ?? "hand";
+      const at: Located =
+        locate(state, card.instanceId) ??
+        (zone === undefined
+          ? { card, player, area: "hand" }
+          : { card, player, area: "zones", zone });
       if (
-        !select(context, { ...modifier.what, area }).some(
-          (l) => l.card.instanceId === card.instanceId,
-        )
+        selectAmong(context, { ...modifier.what, area: at.area }, [at])
+          .length === 0
       )
         continue;
       if (!modifier.zones) return false;
