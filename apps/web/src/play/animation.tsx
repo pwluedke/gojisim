@@ -272,10 +272,14 @@ export function planMoves(
   // M5h #8: a card the log put on the bottom of its deck explains one card of that deck's
   // change, counted first, so a card drawn or played from the same deck finds its source.
   const bottomed = [...bottoms];
+  // Those cards went to the deck: never paired with a copy that showed up elsewhere (a copy drawn
+  // in the same step).
+  const toBottom = new Set<string>();
   for (const card of removed) {
     const i = card.cardId === null ? -1 : bottomed.indexOf(card.cardId);
     if (i < 0 || card.token) continue;
     bottomed.splice(i, 1);
+    toBottom.add(card.instanceId);
     const key = `${card.owner}|deck`;
     left.set(key, (left.get(key) ?? 0) - 1);
   }
@@ -332,6 +336,7 @@ export function planMoves(
     const partners = removed.filter(
       (r) =>
         !used.has(r.instanceId) &&
+        !toBottom.has(r.instanceId) &&
         r.cardId !== null &&
         r.cardId === card.cardId &&
         !samePlace(r.box, card.box) &&

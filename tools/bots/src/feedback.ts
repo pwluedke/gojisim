@@ -1,13 +1,13 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import type { GameRecord } from "@gojisim/engine";
-import { feedbackLines } from "./feedbackList";
+import { type FeedbackKind, feedbackLines } from "./feedbackList";
 
 /**
- * `pnpm bot-feedback <records folder> [--kind bot|bug]` (M13b): every Bad Bot! report and Report
- * bug note in the uploaded records under the folder (the volume's `/data/records`, downloaded with
- * docs/deploy.md's command), each headed with its kind: file, reporter, the bot level and move
- * (Bad Bot!) or the game position (Report bug), and the text. `--kind` lists one kind only. Run
+ * `pnpm bot-feedback <records folder> [--kind bad|good|bot|bug]` (M13b): every Bad Bot!, Good Bot!
+ * and Report bug entry in the uploaded records under the folder (`pnpm feedback` downloads them),
+ * each headed with its kind: file, reporter, the bot level and move (Bad Bot!, Good Bot!) or the
+ * game position (Report bug), and the text. `--kind` lists one kind (`bot`: both bot kinds). Run
  * `pnpm bot-explain <file> --at <index>` on a file to see the bot's search there.
  */
 const args = process.argv.slice(2);
@@ -16,8 +16,11 @@ const kind = kindAt >= 0 ? args[kindAt + 1] : undefined;
 const folder = args.find(
   (a, i) => !a.startsWith("--") && (kindAt < 0 || i !== kindAt + 1),
 );
-if (!folder || (kindAt >= 0 && kind !== "bot" && kind !== "bug"))
-  throw new Error("Usage: pnpm bot-feedback <records folder> [--kind bot|bug]");
+const KINDS = ["bad", "good", "bot", "bug"];
+if (!folder || (kindAt >= 0 && !KINDS.includes(kind ?? "")))
+  throw new Error(
+    "Usage: pnpm bot-feedback <records folder> [--kind bad|good|bot|bug]",
+  );
 const root = resolve(process.env["INIT_CWD"] ?? ".", folder);
 
 function jsonFiles(dir: string): string[] {
@@ -38,5 +41,5 @@ const records = jsonFiles(root).flatMap((file) => {
     return [];
   }
 });
-for (const line of feedbackLines(records, kind as "bot" | "bug" | undefined))
+for (const line of feedbackLines(records, kind as FeedbackKind | undefined))
   console.log(line);

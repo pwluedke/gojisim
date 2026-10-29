@@ -900,11 +900,23 @@
   text-align: center;
 }
 
+/*
+ * A card option's number key sits in the middle of the card, on the art, larger than a chip, so
+ * it covers no rank, type, name, text box or counter power (Paul, Oct 28, 2026).
+ */
 .choiceCard .keyBadge {
   position: absolute;
-  top: 4px;
-  left: 4px;
+  top: 50%;
+  left: 50%;
   z-index: 1;
+  translate: -50% -50%;
+  min-width: 1.8em;
+  padding: 2px 8px;
+  border: 2px solid var(--color-chip-text);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  font-size: 1.5rem;
+  line-height: 1.2;
 }
 
 .eye {
@@ -1955,10 +1967,15 @@
   fill: var(--color-hazard);
 }
 
+/* Report bug on its own row, then Good Bot! and Bad Bot! side by side. */
 .testSiteButtons {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: var(--space-1);
+}
+
+.testSiteWide {
+  grid-column: 1 / -1;
 }
 
 .testSettings > summary,
@@ -2043,16 +2060,20 @@
   outline-offset: 2px;
 }
 
+/* The selection order number, in the middle of the card beside the key number. */
 .selectOrder {
   position: absolute;
-  top: var(--space-1);
-  right: var(--space-1);
+  top: 50%;
+  left: calc(50% + 1.7rem);
   z-index: 2;
-  min-width: 1.6em;
-  padding: 0 var(--space-1);
+  translate: 0 -50%;
+  min-width: 1.8em;
+  padding: 0 6px;
+  border: 3px solid var(--color-selected);
   border-radius: 999px;
   background: var(--color-chip);
   color: var(--color-chip-text);
+  font-size: 1.1rem;
   font-weight: 700;
   text-align: center;
 }

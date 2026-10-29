@@ -443,7 +443,11 @@ export function ChoiceModal({
                     setHoverCard(null);
                   }}
                 >
-                  {!search && <span className={styles.keyBadge}>{i + 1}</span>}
+                  {!search && (
+                    <span className={styles.keyBadge} data-testid="choice-key">
+                      {i + 1}
+                    </span>
+                  )}
                   {order > 0 && (
                     <span
                       className={styles.selectOrder}

@@ -1,7 +1,13 @@
 import type { Card } from "@gojisim/cards";
-import { describe, expect, it } from "vitest";
-import { getCounterPower, getLegalActions, type GameState } from "../src";
+import { describe, expect, it, onTestFinished } from "vitest";
+import {
+  advanceToDecision,
+  getCounterPower,
+  getLegalActions,
+  type GameState,
+} from "../src";
 import { checkInvariants } from "../src/invariants";
+import { setTestAbilities } from "../src/testing";
 import {
   destroyWith,
   green,
@@ -144,6 +150,90 @@ describe("EBP04 red strategy cards", () => {
       activate(state, me, inHand(state, me, real("EBP04-079"))),
     );
     expect(tops(after, me).sort()).toEqual([964791, 964792]);
+  });
+
+  describe("EBP04-079 zones (Paul's ruling, Oct 28, 2026; amends Q3)", () => {
+    const wars = (id: number) => battleCard({ id, traits: ["Final Wars"] });
+    /** Reveals two [final-wars] cards with zone 1 already taken; stops at the first zone pick. */
+    const reveal = () => {
+      const { state, me } = setup(7);
+      place(state, me, battleCard({ id: 964790 }), 1);
+      for (const card of [wars(964793), wars(964794)].reverse())
+        onDeck(state, me, card);
+      const at = advanceToDecision(
+        activate(state, me, inHand(state, me, real("EBP04-079"))),
+      );
+      return { at, me };
+    };
+
+    it("5.11.1, 11.5: the player picks each card's zone; an occupied zone is a legal pick and overloads", () => {
+      const { at, me } = reveal();
+      expect(at.pendingChoice?.kind).toBe("zone");
+      // Every zone but the monster's (7): empty zones are not forced first.
+      expect(at.pendingChoice?.options.map((o) => o.id)).toEqual(
+        [1, 2, 3, 4, 5, 6, 8].map((z) => `${me.id}:${z}`),
+      );
+      const second = advanceToDecision(choose(at, (id) => id === `${me.id}:1`));
+      const after = settle(choose(second, (id) => id === `${me.id}:2`));
+      expect(
+        after.log.some(
+          (e) => e.type === "destroy" && e.payload["rule"] === "11.5",
+        ),
+      ).toBe(true);
+      expect(self(after, me).zones[1]).toHaveLength(1);
+    });
+
+    it("5.11.1.3: played at the same time, two revealed cards never share a zone", () => {
+      const { at, me } = reveal();
+      const second = advanceToDecision(choose(at, (id) => id === `${me.id}:3`));
+      expect(second.pendingChoice?.kind).toBe("zone");
+      expect(second.pendingChoice?.options.map((o) => o.id)).not.toContain(
+        `${me.id}:3`,
+      );
+      const after = settle(choose(second, (id) => id === `${me.id}:4`));
+      expect(zoneCardIds(self(after, me))).toEqual({
+        "1": [964790],
+        "3": [964793],
+        "4": [964794],
+      });
+    });
+
+    it("10.6.3, 10.4.3.2: every card is placed before any [enter] resolves; both wait in standby together", () => {
+      const enter = (card: Card) => {
+        setTestAbilities(card.deckCardNumber, {
+          deckCardNumber: card.deckCardNumber,
+          status: "implemented",
+          abilities: [
+            {
+              kind: "triggered",
+              id: "enter",
+              trigger: { on: "enter" },
+              effects: [{ effect: "draw", player: "you", count: 1 }],
+            },
+          ],
+        });
+        onTestFinished(() => setTestAbilities(card.deckCardNumber, null));
+      };
+      enter(wars(964793));
+      enter(wars(964794));
+      const { at, me } = reveal();
+      const second = advanceToDecision(choose(at, (id) => id === `${me.id}:2`));
+      const ordering = advanceToDecision(
+        choose(second, (id) => id === `${me.id}:3`),
+      );
+      expect(ordering.pendingChoice?.kind).toBe("standbyOrder");
+      expect(ordering.pendingChoice?.options).toHaveLength(2);
+      const entries = settle(ordering).log.slice(at.log.length);
+      const indexes = (match: (e: (typeof entries)[number]) => boolean) =>
+        entries.flatMap((e, i) => (match(e) ? [i] : []));
+      const places = indexes(
+        (e) => e.type === "place" && !!e.payload["played"],
+      );
+      const resolves = indexes((e) => e.type === "resolveAbility");
+      expect(places).toHaveLength(2);
+      expect(resolves).toHaveLength(2);
+      expect(Math.max(...places)).toBeLessThan(Math.min(...resolves));
+    });
   });
 
   it("EBP04-080 E18, 12.6.2: evolves each of your rank 3 or lower battle cards with Evolution in zones 1-5", () => {

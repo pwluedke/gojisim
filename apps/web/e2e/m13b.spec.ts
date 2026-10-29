@@ -187,7 +187,11 @@ test("Bad Bot!: the popup names the bot's last move, needs a name and a text, Es
   await expect.poll(() => uploadsWith(text).length).toBe(1);
   const [sent] = uploadsWith(text);
   const feedback = sent?.["botFeedback"] as Record<string, unknown>[];
-  expect(feedback[0]).toMatchObject({ text, reporter: "Dr. Serizawa" });
+  expect(feedback[0]).toMatchObject({
+    kind: "bad",
+    text,
+    reporter: "Dr. Serizawa",
+  });
   expect(String(feedback[0]?.["label"])).toMatch(/^Bot \(.*\(Turn \d+, /);
   // The game goes on; the finished game's upload carries the report again, into the same file.
   await concede(page);
@@ -236,6 +240,82 @@ test("one file per game: two Bad Bot! reports and the game end leave one stored 
       statSync(join(dir, name)).isDirectory() ? files(join(dir, name)) : [name],
     );
   expect(files(RECORDS)).toContain(`${String(stored?.["gameId"])}.json`);
+});
+
+test("Good Bot!: Report bug on top, then Good Bot! and Bad Bot!; the popup names the move in plain words, and Send uploads a good report", async ({
+  page,
+}) => {
+  await loadFixture(page, "hand-five");
+  // Report bug on its own row, then Good Bot! left of Bad Bot! below it.
+  const report = await page.getByTestId("report-bug").boundingBox();
+  const good = await page.getByTestId("good-bot").boundingBox();
+  const bad = await page.getByTestId("bad-bot").boundingBox();
+  if (!report || !good || !bad) throw new Error("no box");
+  expect(good.y).toBeGreaterThan(report.y + report.height - 1);
+  expect(Math.abs(good.y - bad.y)).toBeLessThan(2);
+  expect(good.x).toBeLessThan(bad.x);
+  await page.getByTestId("good-bot").click();
+  const modal = page.getByTestId("goodBot-modal");
+  await expect(modal).toContainText("What did the bot do right?");
+  await expect(modal).toContainText("Why was this a good play?");
+  await expect(page.getByTestId("report-name")).toHaveAttribute(
+    "placeholder",
+    "Dr. Serizawa? Put your name here",
+  );
+  // The move in announcement wording ("Bot (Medium): plays …"), with turn and phase.
+  await expect(page.getByTestId("bad-bot-move")).toContainText(
+    /^Bot \([^)]+\): [a-z]/,
+  );
+  await expect(page.getByTestId("bad-bot-move")).toContainText(/Turn \d+, /);
+  await expect(page.getByTestId("report-submit")).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(modal).toHaveCount(0);
+
+  const text = marker("it kept its blocker in zone 8");
+  await page.getByTestId("good-bot").click();
+  await fill(page, "Dr. Serizawa", text);
+  await page.getByTestId("report-submit").click();
+  await expect(page.getByTestId("test-site-note")).toHaveText("Thanks, sent.");
+  await expect.poll(() => uploadsWith(text).length).toBe(1);
+  const feedback = uploadsWith(text)[0]?.["botFeedback"] as Record<
+    string,
+    unknown
+  >[];
+  expect(feedback.at(-1)).toMatchObject({
+    kind: "good",
+    text,
+    reporter: "Dr. Serizawa",
+  });
+  // The help lists the three buttons in the panel's order.
+  await page.getByTestId("test-settings").click();
+  await page.getByTestId("which-button").click();
+  await expect(page.getByTestId("which-button-good-bot")).toHaveText(
+    "Good Bot!: the bot made a good play. Tell us what it did right, so later changes don't break it.",
+  );
+  const order = await page
+    .locator('[data-testid^="which-button-"]')
+    .evaluateAll((els) => els.map((e) => e.getAttribute("data-testid")));
+  expect(order).toEqual([
+    "which-button-report-bug",
+    "which-button-good-bot",
+    "which-button-bad-bot",
+  ]);
+});
+
+test("Good Bot! with sharing off says nothing can be sent, with no download", async ({
+  page,
+}) => {
+  await loadFixture(page, "hand-five");
+  await page.getByTestId("test-settings").click();
+  await page.getByTestId("setting-share-games").uncheck();
+  await page.getByTestId("good-bot").click();
+  await expect(page.getByTestId("good-bot-sharing-off")).toContainText(
+    "nothing can be sent",
+  );
+  await expect(page.getByTestId("report-submit")).toHaveCount(0);
+  await expect(page.getByTestId("bad-bot-report-bug")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("goodBot-modal")).toHaveCount(0);
 });
 
 test("a failed Bad Bot! send says so, and the report goes with the finished game", async ({

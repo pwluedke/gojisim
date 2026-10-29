@@ -3,14 +3,15 @@ import { MAX_REPORT_LENGTH } from "../game/collection";
 import styles from "./Board.module.css";
 
 export interface ReportModalProps {
-  kind: "badBot" | "bug";
-  /** Bad Bot!: the marked move in battle-log wording, and when it was played. */
-  move?: { label: string; when: string };
+  kind: "badBot" | "goodBot" | "bug";
+  /** Bad Bot! and Good Bot!: the marked move in announcement wording, and when it was played. */
+  move?: { plain: string; when: string };
   /** The name last used, pre-filled. */
   name: string;
   /**
    * Sharing finished games is off. Bad Bot!: nothing can be sent, so it points to Report bug.
-   * Report bug: its button reads Download instead of Send.
+   * Good Bot!: nothing can be sent, and there is no download. Report bug: its button reads
+   * Download instead of Send.
    */
   sharingOff?: boolean;
   onSubmit: (name: string, text: string) => void;
@@ -25,6 +26,11 @@ const COPY = {
     label: "Why was this a bad move? What would you have done?",
     submit: "Send",
   },
+  goodBot: {
+    title: "What did the bot do right?",
+    label: "Why was this a good play?",
+    submit: "Send",
+  },
   bug: {
     title: "What went wrong?",
     label: "What happened, and what did you expect?",
@@ -33,9 +39,9 @@ const COPY = {
 } as const;
 
 /**
- * The Bad Bot! and Report bug popups (M13b): a required name (remembered) and a required text of
- * up to 1,000 characters; Esc cancels. While one is open the bot waits. Both send the record to
- * the server; Report bug downloads it when sharing is off.
+ * The Bad Bot!, Good Bot! and Report bug popups (M13b): a required name (remembered) and a
+ * required text of up to 1,000 characters; Esc cancels. While one is open the bot waits. All
+ * three send the record to the server; Report bug downloads it when sharing is off.
  */
 export function ReportModal({
   kind,
@@ -52,7 +58,7 @@ export function ReportModal({
   const copy = COPY[kind];
   const ready = name.trim() !== "" && text.trim() !== "";
   // Bad Bot! can't send with sharing off; Report bug downloads the file instead.
-  const blocked = sharingOff && kind === "badBot";
+  const blocked = sharingOff && kind !== "bug";
   useEffect(() => {
     first.current?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -84,7 +90,7 @@ export function ReportModal({
         </div>
         {move && (
           <div className={styles.reportMove} data-testid="bad-bot-move">
-            <div>{move.label}</div>
+            <div>{move.plain}</div>
             <div className={styles.muted}>{move.when}</div>
           </div>
         )}
@@ -94,11 +100,16 @@ export function ReportModal({
             downloads instead. Send it to Paul.
           </p>
         )}
-        {blocked ? (
+        {blocked && kind === "badBot" ? (
           <p data-testid="bad-bot-sharing-off">
             Sharing finished games is off (Test settings), so nothing can be
             sent. Report bug downloads the game file for you to send to Paul
             instead.
+          </p>
+        ) : blocked ? (
+          <p data-testid="good-bot-sharing-off">
+            Sharing finished games is off (Test settings), so nothing can be
+            sent.
           </p>
         ) : (
           <>
@@ -136,14 +147,16 @@ export function ReportModal({
         )}
         <div className={styles.modalButtons}>
           {blocked ? (
-            <button
-              type="button"
-              className={styles.button}
-              data-testid="bad-bot-report-bug"
-              onClick={onReportBug}
-            >
-              Report bug instead
-            </button>
+            kind === "badBot" && (
+              <button
+                type="button"
+                className={styles.button}
+                data-testid="bad-bot-report-bug"
+                onClick={onReportBug}
+              >
+                Report bug instead
+              </button>
+            )
           ) : (
             <button
               type="submit"

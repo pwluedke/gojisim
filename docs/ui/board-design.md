@@ -4,6 +4,8 @@ Approved by Paul, Oct 22, 2026, with all proposed defaults for the open question
 
 ## Summary
 
+**Good Bot! change (Paul, Oct 28, 2026):** the Test Site panel's buttons are Report bug on its own row, then Good Bot! and Bad Bot! side by side. In choice modals, a card's number key sits large in the middle of the card (it covered the rank in the top-left corner), with the multi-pick selection number beside it.
+
 **Bot announcements change (Paul, Oct 28, 2026):** the zone choice banner (decisions 218, 251) moved from over the battle log into the Prompt panel in the left column (heading, source card, "Click a lit zone, or press its number", the numbered zone buttons and Done); the left column scrolls when it is full. With Announce bot plays on, a banner over the top of the board (the bot's side) shows each bot action, in place of the move toast.
 
 **M13b change (Paul, Oct 28, 2026):** a Test Site panel sits under Settings in the left column (hazard-stripe top border, radiation trefoils around its title): Bad Bot! and Report bug always show, and a folding "Test settings" holds Share finished games, Show opponent's hand (moved from the new-game screen) and the "Which button?" help. It shows only while the server's Test Site switch is on.
