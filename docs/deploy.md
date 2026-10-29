@@ -121,13 +121,13 @@ Merging into `main` doesn't deploy. To put main's current state in front of test
 - **Sign everyone out:** change `SESSION_SECRET` (a new `openssl rand -hex 32`). Every old login cookie stops working, and everyone types the password again.
 - **Health:** `https://gojisim.somanygames.app/healthz` answers `{"status":"ok"}` without a password; Railway checks it on each deploy.
 - **Bug reports:** testers press **Report bug** (the Test Site panel, left column), write what went wrong, and Send uploads the game to the records folder with their note in its `bugReports`. When the send fails, or Share finished games is off, the game downloads as a JSON file for them to send you instead. Open it with **Load a game record** on the new-game screen, or in `/debug`.
-- **Finished games and Bad Bot! reports:** with the Test Site on and "Share finished games" on (testers can turn it off in Test settings), each finished game uploads to `/data/records/<YYYY-MM-DD>/<uuid>.json`, and **Bad Bot!** uploads at once. There's no route to read them back. Download them all to your Mac's gitignored `records/` folder:
+- **Finished games and Bad Bot! reports:** with the Test Site on and "Share finished games" on (testers can turn it off in Test settings), each finished game uploads to `/data/records/<YYYY-MM-DD>/<gameId>.json`, and **Bad Bot!** and **Report bug** upload at once. Every upload of a game replaces that game's one file (in the day folder where it started), so a game is one file however many reports it has; uploads from older pages with no `gameId` get a random name. There's no route to read them back. Download them all to your Mac's gitignored `records/` folder:
 
   ```
   mkdir -p records && railway ssh -i ~/.ssh/railway_ed25519 -- "tar czf - -C /data/records ." | tar xzf - -C records
   ```
 
-  Then `pnpm bot-feedback records` lists every Bad Bot! report and Report bug note (`--kind bot` or `--kind bug` for one kind), `pnpm bot-explain records/<day>/<file>.json --at <index>` shows the bot's search there, and `pnpm bot-positions --from <file> --at <index>` makes a position from it. The files hold the players' decks: never commit them.
+  Then `pnpm bot-feedback records` lists every Bad Bot! report and Report bug note once (`--kind bot` or `--kind bug` for one kind), the bot's move in plain words with the stored label under it, `pnpm bot-explain records/<day>/<file>.json --at <index>` shows the bot's search there, and `pnpm bot-positions --from <file> --at <index>` makes a position from it. The files hold the players' decks: never commit them.
 
 - **Turn the Test Site off:** set `GOJISIM_TEST_SITE` to `off`. The panel disappears, nothing uploads (`POST /api/games` answers 404) and Show opponent's hand is off; records still load and replay.
 

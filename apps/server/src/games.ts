@@ -79,6 +79,43 @@ function readBody(req: IncomingMessage, limit: number): Promise<string | null> {
   });
 }
 
+/** A game id: a UUID as `crypto.randomUUID()` makes it (any case). */
+const GAME_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The record's `gameId`: `undefined` without one (older clients), `null` if it isn't a UUID.
+ * Lowercased, so it is one file name whatever the case.
+ */
+export function gameIdOf(record: object): string | null | undefined {
+  const id = (record as { gameId?: unknown }).gameId;
+  if (id === undefined) return undefined;
+  return typeof id === "string" && GAME_ID.test(id) ? id.toLowerCase() : null;
+}
+
+/** The stored file of game `id` in any day folder, with its size, or `null`. */
+async function storedGame(
+  recordsDir: string,
+  id: string,
+): Promise<{ path: string; size: number } | null> {
+  let days;
+  try {
+    days = await readdir(recordsDir, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  for (const day of days) {
+    if (!day.isDirectory()) continue;
+    const path = join(recordsDir, day.name, `${id}.json`);
+    try {
+      return { path, size: (await stat(path)).size };
+    } catch {
+      // Not in this day.
+    }
+  }
+  return null;
+}
+
 /** The total size of the files under `dir`, in bytes; 0 if it doesn't exist yet. */
 async function folderBytes(dir: string): Promise<number> {
   let entries;
@@ -106,7 +143,10 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
 
 export interface GamesOptions {
   config: SiteConfig;
-  /** Where records go: `<recordsDir>/<YYYY-MM-DD>/<uuid>.json`. */
+  /**
+   * Where records go: `<recordsDir>/<YYYY-MM-DD>/<gameId>.json`, one file per game (a record with
+   * no `gameId` gets a random name).
+   */
   recordsDir: string;
   /** The records folder's size cap, in bytes (default `MAX_RECORDS_DIR_BYTES`). */
   maxRecordsBytes?: number;
@@ -186,9 +226,18 @@ export function gamesMiddleware({
       sendJson(res, 400, { error: "not-a-record" });
       return;
     }
+    // One file per game: a record with a game id replaces that game's earlier upload, in whichever
+    // day folder it went to (a game may cross midnight). Without one (older clients), a new file.
+    const gameId = gameIdOf(record as object);
+    if (gameId === null) {
+      sendJson(res, 400, { error: "bad-game-id" });
+      return;
+    }
+    const earlier = gameId ? await storedGame(recordsDir, gameId) : null;
     folderSize ??= folderBytes(recordsDir);
     const size = Buffer.byteLength(text);
-    const total = await folderSize;
+    // The replaced file's size is freed.
+    const total = (await folderSize) - (earlier?.size ?? 0);
     if (total + size > maxRecordsBytes) {
       if (!full)
         log(
@@ -200,10 +249,13 @@ export function gamesMiddleware({
     }
     full = false;
     folderSize = Promise.resolve(total + size);
-    const day = new Date(now()).toISOString().slice(0, 10);
-    const id = randomUUID();
-    await mkdir(join(recordsDir, day), { recursive: true });
-    await writeFile(join(recordsDir, day, `${id}.json`), text);
+    const id = gameId ?? randomUUID();
+    if (earlier) await writeFile(earlier.path, text);
+    else {
+      const day = new Date(now()).toISOString().slice(0, 10);
+      await mkdir(join(recordsDir, day), { recursive: true });
+      await writeFile(join(recordsDir, day, `${id}.json`), text);
+    }
     sendJson(res, 201, { id });
   };
 }

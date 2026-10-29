@@ -51,6 +51,11 @@ export interface GameRecord {
   /** Achievement progress (later) doesn't count for this game (M13b, set with `showOpponentHand`). */
   excludedFromAchievements?: boolean;
   /**
+   * This game's id, a UUID made when it starts, so every upload of the same game replaces one
+   * stored file. Information only: replay ignores it; undo and reloading keep it.
+   */
+  gameId?: string;
+  /**
    * The human held Cmd / Ctrl during the First / Second pick and saw which card was First (a
    * Casual peek). Information only, like `showOpponentHand`: such games never count toward
    * win/loss statistics (M11).

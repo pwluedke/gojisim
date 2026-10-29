@@ -14,6 +14,7 @@ import {
   newSession,
   type Session,
   sessionFromRecord,
+  undoSession,
   withAction,
 } from "./session";
 
@@ -108,6 +109,28 @@ describe("game collection in the browser (M13b)", () => {
     const loaded = sessionFromRecord(JSON.stringify(shown.record));
     expect(loaded.record.showOpponentHandAt).toBe(3);
     expect(loaded.record.excludedFromAchievements).toBe(true);
+  });
+
+  it("every game gets a gameId (a UUID) that actions, undo and reloading keep; an older record gets one when loaded", () => {
+    const uuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+    const start = newSession(6, decks(), { P1: human, P2: bot });
+    const id = start.record.gameId;
+    expect(id).toMatch(uuid);
+    // Another game, another id.
+    expect(
+      newSession(6, decks(), { P1: human, P2: bot }).record.gameId,
+    ).not.toBe(id);
+    const played = play(start, 4);
+    expect(played.record.gameId).toBe(id);
+    expect(undoSession(played).record.gameId).toBe(id);
+    expect(sessionFromRecord(JSON.stringify(played.record)).record.gameId).toBe(
+      id,
+    );
+    const { gameId: _gameId, ...older } = played.record;
+    const loaded = sessionFromRecord(JSON.stringify(older)).record.gameId;
+    expect(loaded).toMatch(uuid);
+    expect(loaded).not.toBe(id);
   });
 
   it("the Test Site is on only when the server says so; an unreadable config leaves it off", async () => {

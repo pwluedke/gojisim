@@ -764,3 +764,22 @@ Accepted by Monarch in the M13b review (PR #65).
 550. The open / closed state of Test settings and Which button? is saved on the summary click, not on the `toggle` event (which comes a task later and could be lost to a reload).
 551. Plain deck reasons are a new `reasons` field on each `validateDeck` failure; `rule` and `message` stay for Tournament blocking and `/debug`.
 552. `bot-positions --from` writes next to the record unless `--out` says otherwise, never into `tools/bots/positions/`.
+
+Accepted by Monarch in the bot announcements review (PR #66).
+
+553. A choice's announcement is its main public result, in this order: evolve, search, next monster, destroy, a played card, discard, move, add to hand; otherwise the choice itself. A private choice with none of those reads "Bot makes a choice". Hand actions name only the card they play or discard.
+554. Announcements call the bot "Bot" against a human and "Bot P1" / "Bot P2" between two bots; cards are "your" (the human's), "its" (the actor's own) or "Bot P2's".
+555. `ANNOUNCED_KINDS` is a JSON file (`apps/web/src/game/announcedKinds.json`) of 21 kinds; a kind left out shows nothing, and the bot doesn't wait for it.
+556. A line's time starts when it shows, alongside the move's animation; the bot's next decision starts once both are done, and the Bot delay setting still applies after that.
+557. A line holds the bot through both `pause` (no new decision starts) and `hold` (a reply already in flight waits).
+558. Choice, search, combo and game-over modals wait for the line, so the bot's winning move is announced first.
+559. With Confirm, Space dismisses the line before anything else, even with a combo or game-over modal waiting; not while a Bad Bot! or Report bug popup is open.
+560. A loaded record's actions are not announced; after an undo, the next action at that index is.
+561. The landing-zone highlight (decision 221) stays with announcements on; only the toast is replaced.
+562. Turning Announce bot plays off clears the queued lines at once.
+563. The bot's next monster is announced only when the bot chooses among 2 or more; a single candidate is placed during the human's step (5.15.1.2).
+564. A zone choice renders in the Prompt panel through the same `ChoiceModal` (number keys, Done, Undo), with "Your zone N" / "Bot's zone N" buttons; every other choice kind stays a modal.
+565. Report bug sends on Send; a failed send, or sharing off (the button then reads Download), downloads the file. Bad Bot! with sharing off still points to Report bug.
+566. The records cap (1 GB, 1024³ bytes) includes the incoming record: total + body > cap answers 507, logged once while full. Two uploads at the same moment can pass it by a record or two; a restart re-reads the folder.
+567. EBP01-023's Weapon trait is a per-card override in `overrides.json` (trait-spellings.json renames a trait everywhere); `cards.json` was edited for those two prints, with no re-scrape.
+568. #65's release-notes date is Paul's local date (2026-10-28 CDT; it merged 2026-10-29 01:03 UTC).
