@@ -77,6 +77,24 @@ const onlyDeadOrPass = (s: GameState, cardNumber: string) => {
   return dead.size > 0 && others.length === 0;
 };
 
+/** P2's picks of `cardNumber` in Flying Form's Evolution search (12.6.2). */
+function evolutionOptions(s: GameState, cardNumber: string): Action[] {
+  const choice = s.pendingChoice;
+  if (
+    choice?.player !== P2 ||
+    choice.kind !== "target" ||
+    choice.rule !== "12.6.2" ||
+    !choice.options.some((o) => o.abilityId === "EBP01-054#evolution")
+  )
+    return [];
+  return getLegalActions(s, P2).filter(
+    (a) =>
+      a.type === "choose" &&
+      s.cards[choice.options.find((o) => o.id === a.optionId)?.cardId ?? -1]
+        ?.deckCardNumber === cardNumber,
+  );
+}
+
 interface Spec {
   name: string;
   note: string;
@@ -121,6 +139,17 @@ const SPECS: Spec[] = [
     p1: "ESD01",
     match: (s) => atPlayTiming(s) && onlyDeadOrPass(s, "EBP01-062"),
     avoid: avoidActivations("EBP01-062"),
+  },
+  {
+    name: "flying-form-evolves-to-perfect-form",
+    note: "Destoroyah Flying Form's (EBP01-054) Evolution search with Destoroyah Perfect Form (ESD02-013, 13,000 counter power) and another Flying Form both in the deck: take Perfect Form, not the copy (BFW182 game 1, decision 44; Monarch's #64 review).",
+    p1: "ESD01",
+    match: (s) =>
+      evolutionOptions(s, "EBP01-054").length > 0 &&
+      evolutionOptions(s, "ESD02-013").length > 0,
+    avoid: (s) => [
+      ...new Set(evolutionOptions(s, "EBP01-054").map((a) => actionKey(s, a))),
+    ],
   },
 ];
 
