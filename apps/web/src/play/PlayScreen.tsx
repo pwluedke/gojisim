@@ -603,10 +603,12 @@ export function PlayScreen() {
               matchMode,
               showOpponentHand: false,
             };
-            // The human picks; two bots skip the pick.
-            const picker = (["P1", "P2"] as const).find(
-              (id) => seats[id].kind === "human",
-            );
+            // The human picks; two bots, or the Skip First / Second pick setting, skip the pick.
+            const picker = settings.skipFirstPick
+              ? undefined
+              : (["P1", "P2"] as const).find(
+                  (id) => seats[id].kind === "human",
+                );
             if (picker) {
               // The pick is a modal over the board (Monarch, Oct 26, 2026): the mats with the
               // decks in place, before the pick (6.3.1.4). Card 0's game tells which card is
@@ -617,6 +619,8 @@ export function PlayScreen() {
               game.startSession(prePickSession(probe), true);
             } else game.startSession(build(setup), true);
           }}
+          skipFirstPick={settings.skipFirstPick}
+          onSkipFirstPick={(skip) => updateSettings({ skipFirstPick: skip })}
           onLoad={async (file) =>
             (await twoHumanSeats(file))
               ? "This record has two human seats (hotseat, removed in M5h). Open it in /debug."

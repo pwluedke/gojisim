@@ -97,7 +97,12 @@ function Legality({
 export function NewGame({
   onStart,
   onLoad,
+  skipFirstPick,
+  onSkipFirstPick,
 }: {
+  /** The saved "Skip First / Second pick" setting, and its change. */
+  skipFirstPick: boolean;
+  onSkipFirstPick: (skip: boolean) => void;
   /** Loads an exported game record (M5c); returns an error message, or `null`. */
   onLoad: (file: File) => Promise<string | null>;
   onStart: (
@@ -445,6 +450,19 @@ export function NewGame({
               </label>
             ))}
           </span>
+        </div>
+        <div className={styles.line}>
+          {/* Off by default; with it on, the 6.3.1.4 RNG draw picks the first player (decision 246). */}
+          <label>
+            <input
+              type="checkbox"
+              data-testid="skip-first-pick"
+              checked={skipFirstPick}
+              onChange={(e) => onSkipFirstPick(e.target.checked)}
+            />{" "}
+            Skip First / Second pick{" "}
+            <span className={styles.note}>(random first player)</span>
+          </label>
         </div>
         <div className={styles.line}>
           <button
