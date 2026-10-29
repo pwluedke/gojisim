@@ -9,6 +9,7 @@ import {
   startGame,
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
+import { pickWith, tacticalPick } from "./baseline";
 import { determinize } from "./determinize";
 import { difficultySettings, M12_SETTINGS, PRESETS } from "./difficulty";
 import { botInput, decklistsOf, seededRng } from "./input";
@@ -189,6 +190,48 @@ describe("ismcts (M6c)", { timeout: 60_000 }, () => {
       ),
     ).toBe(true);
     expect(state.result).toBeNull();
+  });
+
+  it("M13c tactical play-outs: a winning invasion is taken, and an open zone 8 is blocked", () => {
+    const state = start();
+    const [p1, p2] = state.players;
+    const pick = pickWith(seededRng("tactical"));
+    // In zone 8 with the opponent's zone 8 open: any card's icon wins, so it invades every time.
+    p1.monsterPosition = 8;
+    p2.zones[8] = [];
+    state.turnFlags.invasionUsed = false;
+    const options = getLegalActions(state, "P1").filter(
+      (a) => a.type !== "concede",
+    );
+    for (let i = 0; i < 20; i++)
+      expect(tacticalPick(state, options, pick).type).toBe("invade");
+    // Blocked: a battle card tops the opponent's zone 8, so no invasion wins; the weighted pick
+    // takes other actions too.
+    const blocked = JSON.parse(JSON.stringify(state)) as GameState;
+    const battle = blocked.players[0].hand.find(
+      (c) => blocked.cards[c.cardId]?.type === "Battle",
+    );
+    if (!battle) throw new Error("no battle card in hand");
+    blocked.players[1].zones[8] = [[{ ...battle, instanceId: "x1" }]];
+    const types = new Set(
+      Array.from(
+        { length: 40 },
+        () => tacticalPick(blocked, options, pick).type,
+      ),
+    );
+    expect(types.size).toBeGreaterThan(1);
+    // The opponent in its zone 8 and P1's zone 8 open: a battle card goes there every time.
+    p1.monsterPosition = 5;
+    p1.zones[8] = [];
+    p2.monsterPosition = 8;
+    const defend = getLegalActions(state, "P1").filter(
+      (a) => a.type !== "concede",
+    );
+    for (let i = 0; i < 20; i++)
+      expect(tacticalPick(state, defend, pick)).toMatchObject({
+        type: "playBattle",
+        zone: 8,
+      });
   });
 
   it("difficulty: 0 is close to random, 100 is the full search; presets 20, 55, 90", () => {

@@ -7,7 +7,7 @@ import {
   getLegalActions,
   type PlayerId,
 } from "@gojisim/engine";
-import { pickWith, stateBoard, weightedPick } from "./baseline";
+import { pickWith, stateBoard, tacticalPick, weightedPick } from "./baseline";
 import { determinize } from "./determinize";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
 import { deadKeys } from "./prune";
@@ -28,7 +28,7 @@ export interface IsmctsSettings {
   maxMs: number;
   /** UCB1 exploration constant (values are in [-1, 1]). */
   exploration: number;
-  rollout: "none" | "weighted" | "greedy";
+  rollout: "none" | "weighted" | "greedy" | "tactical";
   /** Opponent turns a rollout plays to the end of (1: until the end of the opponent's next turn). */
   rolloutTurns: number;
   /** Decisions a rollout may take before it stops. */
@@ -184,7 +184,9 @@ function rollout(
       );
       const best = Math.max(...scores);
       action = options[scores.indexOf(best)] as Action;
-    } else action = weightedPick(stateBoard(state), options, pick);
+    } else if (settings.rollout === "tactical")
+      action = tacticalPick(state, options, pick);
+    else action = weightedPick(stateBoard(state), options, pick);
     const turnBefore = state.turn;
     const turnPlayerBefore = state.turnPlayer;
     state = advanceToDecision(applyAction(state, action));
