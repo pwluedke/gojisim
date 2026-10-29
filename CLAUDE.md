@@ -783,3 +783,13 @@ Accepted by Monarch in the bot announcements review (PR #66).
 566. The records cap (1 GB, 1024³ bytes) includes the incoming record: total + body > cap answers 507, logged once while full. Two uploads at the same moment can pass it by a record or two; a restart re-reads the folder.
 567. EBP01-023's Weapon trait is a per-card override in `overrides.json` (trait-spellings.json renames a trait everywhere); `cards.json` was edited for those two prints, with no re-scrape.
 568. #65's release-notes date is Paul's local date (2026-10-28 CDT; it merged 2026-10-29 01:03 UTC).
+
+Accepted by Monarch in the one-file-per-game review (PR #67).
+
+569. `gameId` is made in `newSession`; the First / Second pick's probe and pre-pick sessions get ids too, but only the started game's session uploads.
+570. The server lowercases `gameId` before using it as a file name, so the same id in any case is one file.
+571. A game's earlier file is found by checking each day folder for `<gameId>.json` on each upload with an id; a game stays in the day folder where its first upload landed.
+572. A malformed `gameId` is refused (400) rather than stored under a random name, so a client bug shows up instead of piling up files.
+573. `bot-feedback` keeps each report from the game's file with the most actions, and lists a game's entries together, in action order.
+574. Records without a `gameId` are told apart by seed and bot seed; two games with the same seed and bot seed would merge in the listing (rare: the seed is random per game).
+575. `tools/bots` imports the web app's `announce.ts` by relative path, rather than moving it into a package.

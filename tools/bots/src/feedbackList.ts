@@ -2,11 +2,18 @@ import { type GameRecord, type GameState, replayAll } from "@gojisim/engine";
 import { PRESETS } from "@gojisim/bot";
 import { announce } from "../../../apps/web/src/game/announce";
 
-/** Which entries `pnpm bot-feedback` lists: Bad Bot! reports, Report bug notes, or both. */
-export type FeedbackKind = "bot" | "bug";
+/**
+ * Which entries `pnpm bot-feedback` lists: Bad Bot! (`bad`), Good Bot! (`good`), both bot kinds
+ * (`bot`), or Report bug notes (`bug`); all without one.
+ */
+export type FeedbackKind = "bad" | "good" | "bot" | "bug";
+
+/** Whether a Bad Bot! / Good Bot! entry (no `kind` reads as bad) is listed for `kind`. */
+const listsBot = (kind: FeedbackKind | undefined, entry: "bad" | "good") =>
+  kind === undefined || kind === "bot" || kind === entry;
 
 /** "Hard" for a preset, "Level 70" otherwise (as the web app names bots). */
-function levelName(difficulty: number): string {
+export function levelName(difficulty: number): string {
   const preset = Object.entries(PRESETS).find(([, d]) => d === difficulty)?.[0];
   return preset
     ? `${preset[0]?.toUpperCase()}${preset.slice(1)}`
@@ -16,14 +23,14 @@ function levelName(difficulty: number): string {
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /** A game across its uploads: its `gameId`, or seed and bot seed for records from before ids. */
-const gameKey = (record: GameRecord) =>
+export const gameKey = (record: GameRecord) =>
   record.gameId ?? `${String(record.seed)}|${record.botSeed ?? ""}`;
 
 /**
  * The bot's move at `index` in the announcement wording ("Bot (Hard): uses Mothra (Larva)'s
  * ability"), or `null` when the record doesn't replay that far.
  */
-function plainMove(
+export function plainMove(
   states: readonly GameState[] | null,
   record: GameRecord,
   index: number,
@@ -41,7 +48,7 @@ function plainMove(
 }
 
 /**
- * The `pnpm bot-feedback` listing for records by file name. Every upload of a game carries its
+ * The `pnpm bot-feedback` listing for records by file name (Bad Bot!, Good Bot! and Report bug). Every upload of a game carries its
  * whole record, so a report is listed once: by game (`gameId`, or seed and bot seed), kind and
  * time, from the game's latest file (the one with the most actions). Each entry is headed with
  * its kind, file and `--at` index, then the reporter and date with the bot's move in plain words
@@ -57,7 +64,8 @@ export function feedbackLines(
   const seen = new Set<string>();
   const games = new Set<string>();
   const entries: { game: string; index: number; lines: string[] }[] = [];
-  let bots = 0;
+  let bad = 0;
+  let good = 0;
   let bugs = 0;
   for (const { file, record } of latest) {
     const game = gameKey(record);
@@ -73,7 +81,9 @@ export function feedbackLines(
     };
     if (kind !== "bug")
       for (const entry of record.botFeedback ?? []) {
-        const key = `${game}|bot|${entry.at}`;
+        const entryKind = entry.kind ?? "bad";
+        if (!listsBot(kind, entryKind)) continue;
+        const key = `${game}|${entryKind}|${entry.at}`;
         if (seen.has(key)) continue;
         seen.add(key);
         games.add(game);
@@ -86,19 +96,20 @@ export function feedbackLines(
             : "?";
         const when = /\((Turn \d+, [^)]*)\)$/.exec(entry.label)?.[1];
         const move = plainMove(replayed(), record, entry.actionIndex, level);
-        bots++;
+        if (entryKind === "good") good++;
+        else bad++;
         entries.push({
           game,
           index: entry.actionIndex,
           lines: [
-            `[Bad Bot!] ${file} --at ${entry.actionIndex}`,
+            `[${entryKind === "good" ? "Good Bot!" : "Bad Bot!"}] ${file} --at ${entry.actionIndex}`,
             `  ${entry.reporter} (${entry.at.slice(0, 10)}): ${move ?? entry.label}${move && when ? ` (${when})` : ""}`,
             `    label: ${entry.label}`,
             `  "${entry.text}"`,
           ],
         });
       }
-    if (kind !== "bot")
+    if (kind === undefined || kind === "bug")
       for (const entry of record.bugReports ?? []) {
         const key = `${game}|bug|${entry.at}`;
         if (seen.has(key)) continue;
@@ -122,12 +133,19 @@ export function feedbackLines(
     (a, b) =>
       order.indexOf(a.game) - order.indexOf(b.game) || a.index - b.index,
   );
-  const counts = [
-    kind !== "bug" ? plural(bots, "Bad Bot! report") : null,
-    kind !== "bot" ? plural(bugs, "Report bug note") : null,
-  ]
-    .filter(Boolean)
-    .join(", ");
+  // Each kind listed that has entries; "No reports" when none does.
+  const counts =
+    [
+      listsBot(kind, "bad") && bad > 0 ? plural(bad, "Bad Bot! report") : null,
+      listsBot(kind, "good") && good > 0
+        ? plural(good, "Good Bot! report")
+        : null,
+      (kind === undefined || kind === "bug") && bugs > 0
+        ? plural(bugs, "Report bug note")
+        : null,
+    ]
+      .filter(Boolean)
+      .join(", ") || "No reports";
   return [
     ...entries.flatMap((e) => e.lines),
     `${counts} in ${plural(games.size, "game")}.`,

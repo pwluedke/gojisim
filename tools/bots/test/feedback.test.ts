@@ -6,7 +6,9 @@ import {
 } from "@gojisim/engine";
 import { buildTestDeck } from "@gojisim/cards/test-decks";
 import { describe, expect, it } from "vitest";
+import { downloadCommand, downloadRecords } from "../src/feedbackCmd";
 import { feedbackLines } from "../src/feedbackList";
+import { buildSummary } from "../src/feedbackSummary";
 
 /** A real game (ESD01 vs ESD02, P2 a Hard bot) played `n` actions with the first legal action. */
 function game(n: number): GameRecord {
@@ -125,5 +127,142 @@ describe("pnpm bot-feedback", () => {
     expect(feedbackLines(records, "bot").at(-1)).toBe(
       "2 Bad Bot! reports in 2 games.",
     );
+  });
+});
+
+describe("pnpm feedback", () => {
+  const full = game(40);
+  const bots = full.actions
+    .map((a, i) => (a.player === "P2" ? i : -1))
+    .filter((i) => i >= 0);
+  const entry = (n: number, kind?: "bad" | "good") => ({
+    ...(kind ? { kind } : {}),
+    actionIndex: bots[n] as number,
+    label: `Bot (Hard): stored ${n} (Turn 1, Main phase)`,
+    text: `note ${n}`,
+    reporter: "Ann",
+    at: `2026-10-28T10:0${n}:00.000Z`,
+  });
+  const reported: GameRecord = {
+    ...full,
+    // An entry without `kind` reads as Bad Bot! (older records).
+    botFeedback: [entry(0), entry(1, "good")],
+    bugReports: [
+      {
+        actionIndex: 12,
+        text: "a card vanished",
+        reporter: "Bo",
+        at: "2026-10-28T11:00:00.000Z",
+      },
+    ],
+  };
+  const options = {
+    reviewed: new Set<string>(),
+    all: false,
+    explain: () => ["→    40   0.120  pass"],
+    date: "2026-10-28",
+  };
+  /** A finished game: the bot (P2) concedes, so the human wins. */
+  const won = (id: string, extra: Partial<GameRecord> = {}): GameRecord => ({
+    ...game(6),
+    gameId: id,
+    ...extra,
+    actions: [...game(6).actions, { type: "concede", player: "P2" }],
+  });
+
+  it("dedupes to the latest file per game and lists all three kinds, with the bot's search and the log tail", () => {
+    const files = [
+      {
+        file: "2026-10-28/a-1.json",
+        record: {
+          ...reported,
+          actions: full.actions.slice(0, 20),
+          bugReports: [],
+        },
+      },
+      { file: "2026-10-28/a-2.json", record: reported },
+    ];
+    const { markdown, listed } = buildSummary(files, options);
+    expect(markdown).toContain("- Games: 1 (0 finished)");
+    expect(markdown).toContain(
+      "- New reports: 1 Bad Bot!, 1 Good Bot!, 1 Report bug (0 already reviewed)",
+    );
+    expect(markdown).toContain("### [Bad Bot!] Ann, Turn");
+    expect(markdown).toContain("### [Good Bot!] Ann, Turn");
+    expect(markdown).toContain("### [Report bug] Bo, Turn");
+    expect(markdown).toContain(
+      "- Stored label: Bot (Hard): stored 0 (Turn 1, Main phase)",
+    );
+    expect(markdown).toMatch(/- Move: Bot \(Hard\): \S/);
+    expect(markdown).toContain("→    40   0.120  pass");
+    expect(markdown).toContain("Last battle log lines:");
+    expect(markdown).toMatch(/Turn \d+: (Player|Bot \(Hard\))/);
+    // From the latest file only: each report once.
+    expect(listed).toHaveLength(3);
+    expect(markdown).toContain("2026-10-28/a-2.json");
+    expect(markdown).not.toContain("2026-10-28/a-1.json");
+  });
+
+  it("reviewed.json leaves out reports already reviewed; --all lists them again", () => {
+    const files = [{ file: "a.json", record: reported }];
+    const first = buildSummary(files, options);
+    const reviewed = new Set(first.listed.slice(0, 2));
+    const again = buildSummary(files, { ...options, reviewed });
+    expect(again.listed).toEqual(first.listed.slice(2));
+    expect(again.markdown).toContain("(2 already reviewed)");
+    expect(
+      buildSummary(files, { ...options, reviewed, all: true }).listed,
+    ).toEqual(first.listed);
+  });
+
+  it("the human's win rate by bot level leaves out games with Show opponent's hand", () => {
+    const id = (n: number) => `0f8e6f3c-2b1d-4c5e-9a7b-1d2e3f4a5b6${n}`;
+    const files = [
+      { file: "w1.json", record: won(id(1)) },
+      { file: "w2.json", record: won(id(2)) },
+      { file: "w3.json", record: won(id(3), { showOpponentHand: true }) },
+      { file: "open.json", record: { ...game(6), gameId: id(4) } },
+    ];
+    const { markdown } = buildSummary(files, options);
+    expect(markdown).toContain("- Games: 4 (3 finished)");
+    expect(markdown).toContain("| Hard | 2 | 2 | 0 | 0 | 100% |");
+  });
+
+  it("warns when the records folder is close to the cap", () => {
+    const files = [{ file: "a.json", record: reported }];
+    const near = buildSummary(files, {
+      ...options,
+      bytes: { used: 900, cap: 1000 },
+    });
+    expect(near.markdown).toContain(
+      "**Warning:** the records folder is 90% full",
+    );
+    const fine = buildSummary(files, {
+      ...options,
+      bytes: { used: 100, cap: 1000 },
+    });
+    expect(fine.markdown).not.toContain("Warning");
+  });
+
+  it("the download runs the railway ssh tar command; a failure says what to run by hand", () => {
+    const commands: string[] = [];
+    const ok = downloadRecords("records", (command) => {
+      commands.push(command);
+      return { status: 0, stderr: "" };
+    });
+    expect(ok).toBeNull();
+    expect(commands).toEqual([downloadCommand("records")]);
+    expect(commands[0]).toContain(
+      'railway ssh -i ~/.ssh/railway_ed25519 -- "tar czf - -C /data/records ."',
+    );
+    const failed = downloadRecords("records", () => ({
+      status: 1,
+      stderr: "Project not linked",
+    }));
+    expect(failed).toContain(
+      "Couldn't download the records from Railway: Project not linked.",
+    );
+    expect(failed).toContain(downloadCommand("records"));
+    expect(failed).toContain("pnpm feedback --no-download");
   });
 });

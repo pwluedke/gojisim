@@ -8,7 +8,8 @@
     "typecheck": "tsc -b",
     "bot-explain": "GOJISIM_FREEZE=1 tsx src/explain.ts",
     "bot-positions": "GOJISIM_FREEZE=1 tsx src/positions.ts",
-    "bot-feedback": "tsx src/feedback.ts"
+    "bot-feedback": "tsx src/feedback.ts",
+    "feedback": "GOJISIM_FREEZE=1 tsx src/feedbackCmd.ts"
   },
   "dependencies": {
     "@gojisim/bot": "workspace:*",

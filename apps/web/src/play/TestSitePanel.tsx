@@ -33,9 +33,10 @@ function Trefoil() {
 export interface TestSitePanelProps {
   settings: Settings;
   updateSettings: (change: Partial<Settings>) => void;
-  /** Bad Bot! is live once the bot has made an action. */
+  /** Good Bot! and Bad Bot! are live once the bot has made an action. */
   badBotReady: boolean;
   onBadBot: () => void;
+  onGoodBot: () => void;
   /** Report bug waits while no game record exists (the First / Second pick). */
   reportReady: boolean;
   onReportBug: () => void;
@@ -49,8 +50,8 @@ export interface TestSitePanelProps {
 }
 
 /**
- * The Test Site panel (M13b), under Settings in the left column: Bad Bot! and Report bug always
- * show; "Test settings" (sharing, the opponent's hand, the "Which button?" help) folds away, open
+ * The Test Site panel (M13b), under Settings in the left column: Report bug on its own row, then
+ * Good Bot! and Bad Bot! side by side, always shown; "Test settings" (sharing, the opponent's hand, the "Which button?" help) folds away, open
  * or closed as last left. It renders only while the Test Site is on (`testSiteEnabled`).
  */
 export function TestSitePanel({
@@ -58,6 +59,7 @@ export function TestSitePanel({
   updateSettings,
   badBotReady,
   onBadBot,
+  onGoodBot,
   reportReady,
   onReportBug,
   note,
@@ -75,6 +77,29 @@ export function TestSitePanel({
       <div className={styles.testSiteButtons}>
         <button
           type="button"
+          className={`${styles.button} ${styles.testSiteWide}`}
+          data-testid="report-bug"
+          disabled={!reportReady}
+          onClick={onReportBug}
+        >
+          Report bug
+        </button>
+        <button
+          type="button"
+          className={styles.button}
+          data-testid="good-bot"
+          disabled={!badBotReady}
+          title={
+            badBotReady
+              ? "Tell us what the bot's last move got right"
+              : "Live once the bot has made a move"
+          }
+          onClick={onGoodBot}
+        >
+          Good Bot!
+        </button>
+        <button
+          type="button"
           className={styles.button}
           data-testid="bad-bot"
           disabled={!badBotReady}
@@ -86,15 +111,6 @@ export function TestSitePanel({
           onClick={onBadBot}
         >
           Bad Bot!
-        </button>
-        <button
-          type="button"
-          className={styles.button}
-          data-testid="report-bug"
-          disabled={!reportReady}
-          onClick={onReportBug}
-        >
-          Report bug
         </button>
       </div>
       {note && (
@@ -151,15 +167,19 @@ export function TestSitePanel({
             >
               Which button?
             </summary>
-            <p data-testid="which-button-bad-bot">
-              <strong>Bad Bot!</strong> The bot made a bad move. Tell us what it
-              did wrong and what you&apos;d have done. Your note and the game
-              are sent to us so the bot can learn from it.
-            </p>
             <p data-testid="which-button-report-bug">
               <strong>Report bug:</strong> something in the game itself is
               wrong: a rule, a card doing the wrong thing, or the screen. Your
               note and the game are sent to us.
+            </p>
+            <p data-testid="which-button-good-bot">
+              <strong>Good Bot!:</strong> the bot made a good play. Tell us what
+              it did right, so later changes don&apos;t break it.
+            </p>
+            <p data-testid="which-button-bad-bot">
+              <strong>Bad Bot!</strong> The bot made a bad move. Tell us what it
+              did wrong and what you&apos;d have done. Your note and the game
+              are sent to us so the bot can learn from it.
             </p>
           </details>
         </div>
