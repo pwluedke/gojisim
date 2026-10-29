@@ -158,9 +158,8 @@ export function TestSitePanel({
             </p>
             <p data-testid="which-button-report-bug">
               <strong>Report bug:</strong> something in the game itself is
-              wrong: a rule, a card doing the wrong thing, or the screen. It
-              downloads the game file. Send that file to Paul with what you
-              expected to happen.
+              wrong: a rule, a card doing the wrong thing, or the screen. Your
+              note and the game are sent to us.
             </p>
           </details>
         </div>

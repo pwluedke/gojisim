@@ -53,6 +53,7 @@ export function ChoiceModal({
   model,
   onConfirmPicks,
   onUndo,
+  name,
 }: {
   state: GameState;
   heading: string;
@@ -68,6 +69,8 @@ export function ChoiceModal({
   onConfirmPicks?: (optionIds: string[], done: boolean) => void;
   /** Casual undo, when it's allowed now. */
   onUndo?: (() => void) | undefined;
+  /** Seats as the board names them ("You", "Bot"), for zone buttons ("Your zone 1"). */
+  name?: (playerId: string) => string;
 }) {
   const [hidden, setHidden] = useState(false);
   const view = useViewBoard();
@@ -205,7 +208,15 @@ export function ChoiceModal({
     </>
   );
 
-  // Zone options are lit on the mat; the banner keeps the board clear.
+  /** A zone option's button: "Your zone 1", "Bot's zone 3" (as target locations, decision 235). */
+  const zoneLabel = (optionId: string) => {
+    const [player, zone] = optionId.split(":");
+    const who = name ? name(player ?? "") : (player ?? "");
+    return `${who === "You" ? "Your" : `${who}'s`} zone ${zone}`;
+  };
+
+  // Zone options are lit on the mat; the banner sits in the Prompt panel, so the board and the
+  // battle log stay clear.
   if (kind === "zone")
     return (
       <div
@@ -228,7 +239,7 @@ export function ChoiceModal({
               onClick={() => onAction(action)}
             >
               <span className={styles.keyBadge}>{i + 1}</span>{" "}
-              {action.optionId.replace(":", " zone ")}
+              {zoneLabel(action.optionId)}
             </button>
           ))}
           {doneButton}

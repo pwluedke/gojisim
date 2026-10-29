@@ -1,4 +1,18 @@
 {
+  "157": {
+    "traits": [
+      "Mechagodzilla",
+      "Weapon"
+    ],
+    "reason": "Paul's report (Oct 28, 2026), confirmed on the card image and TCGsync (https://admintcg.tcgsync.com/products/mechagodzilla-1975-ebp01-023-ebp01-023-booster-set-1-godzilla-vs-godzilla): EBP01-023 Mechagodzilla (1975) prints 《Mechagodzilla》《Weapon》; the site lists only Mechagodzilla. Same card as 158 (the + print)."
+  },
+  "158": {
+    "traits": [
+      "Mechagodzilla",
+      "Weapon"
+    ],
+    "reason": "Paul's report (Oct 28, 2026), confirmed on the card image and TCGsync (https://admintcg.tcgsync.com/products/mechagodzilla-1975-ebp01-023-ebp01-023-booster-set-1-godzilla-vs-godzilla): EBP01-023 Mechagodzilla (1975) prints 《Mechagodzilla》《Weapon》; the site lists only Mechagodzilla."
+  },
   "443": {
     "parentId": 896,
     "deckCardNumber": "EPR-005",

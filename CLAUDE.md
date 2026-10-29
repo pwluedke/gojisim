@@ -749,3 +749,18 @@ Accepted by Monarch in the M13a review (PR #64).
 538. The old weights stay; `counterMade` and `overCommit` were removed after tuning showed no gain; `w.<feature>` overrides stay for M13c.
 539. Q23 amended (Paul, provisional): a `monsterOnto` play rule also meets 5.15.1.2's trait requirement for that card; the rank requirement is unchanged; the hand play is unchanged.
 540. Release notes: the heading's date is the merge date, so a PR's own entry reads "not merged yet" and the next PR fixes it.
+
+Accepted by Monarch in the M13b review (PR #65).
+
+541. An upload is stored exactly as the client sent it (no server fields), so nothing about the request reaches the file; the day folder is the server's UTC date.
+542. The upload shape check is `version: 1`, a number or string `seed`, two `decks` and an `actions` array; nothing deeper (the server never replays a record).
+543. The upload rate limit counts every attempt, including ones then refused for size or shape.
+544. The Test Site switch defaults to on; when `/api/config` can't be read, the web app treats it as off.
+545. A game uploads when it ends in this page; a record loaded already finished doesn't upload again. A Bad Bot! send after the game ended uploads at once, with no later retry.
+546. Report bug and Bad Bot! are disabled during the First / Second pick (no record yet); the opponent's-hand toggle works there and flags the game at action 0.
+547. Bad Bot!'s `label` stores the battle-log line plus turn and phase ("Bot (Hard): Play … (Turn 7, Main phase)"); a private bot choice stays private ("makes a private choice").
+548. Bad Bot! and Report bug have no keyboard shortcuts (B and U are taken).
+549. The Test Site panel sits above modal backdrops (z 32), so both buttons work mid-choice and after the game ends; the popups sit above the panel.
+550. The open / closed state of Test settings and Which button? is saved on the summary click, not on the `toggle` event (which comes a task later and could be lost to a reload).
+551. Plain deck reasons are a new `reasons` field on each `validateDeck` failure; `rule` and `message` stay for Tournament blocking and `/debug`.
+552. `bot-positions --from` writes next to the record unless `--out` says otherwise, never into `tools/bots/positions/`.

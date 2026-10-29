@@ -1,0 +1,23 @@
+[
+  "play",
+  "strategy",
+  "monster",
+  "rage",
+  "invade",
+  "pass",
+  "concede",
+  "evolve",
+  "search",
+  "nextMonster",
+  "destroy",
+  "place",
+  "discard",
+  "move",
+  "addToHand",
+  "zone",
+  "target",
+  "confirm",
+  "option",
+  "order",
+  "choice"
+]

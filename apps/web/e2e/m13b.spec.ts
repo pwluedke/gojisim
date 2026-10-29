@@ -43,18 +43,18 @@ async function fill(page: Page, name: string, text: string) {
   await page.getByTestId("report-text").fill(text);
 }
 
-/** Report bug's download, parsed. */
+/** Report bug's Send: the record it uploads, parsed. */
 async function reportBug(page: Page, text = "the board froze") {
   await page.getByTestId("report-bug").click();
   await fill(page, "Dr. Serizawa", text);
-  const [download] = await Promise.all([
-    page.waitForEvent("download"),
+  const [request] = await Promise.all([
+    page.waitForRequest(
+      (r) => r.url().endsWith("/api/games") && r.method() === "POST",
+    ),
     page.getByTestId("report-submit").click(),
   ]);
-  return JSON.parse(readFileSync(await download.path(), "utf8")) as Record<
-    string,
-    unknown
-  >;
+  await expect(page.getByTestId("test-site-note")).toHaveText("Thanks, sent.");
+  return JSON.parse(request.postData() ?? "{}") as Record<string, unknown>;
 }
 
 async function concede(page: Page) {
@@ -105,7 +105,7 @@ test("the panel: Bad Bot! and Report bug show with Test settings folded; open an
   await expect(page.getByTestId("show-opponent-hand")).toHaveCount(0);
 });
 
-test("Report bug: a popup needs a name and a text, Esc cancels, and the file holds the report; the name is pre-filled next time", async ({
+test("Report bug: a popup needs a name and a text, Esc cancels, and Send uploads the record with the report; the name is pre-filled next time", async ({
   page,
 }) => {
   await loadFixture(page, "hand-five");
@@ -118,7 +118,7 @@ test("Report bug: a popup needs a name and a text, Esc cancels, and the file hol
     "Dr. Serizawa? Put your name here",
   );
   const submit = page.getByTestId("report-submit");
-  await expect(submit).toHaveText("Download");
+  await expect(submit).toHaveText("Send");
   await expect(submit).toBeDisabled();
   await page.getByTestId("report-text").fill("cards vanished");
   await expect(submit).toBeDisabled();
@@ -129,17 +129,17 @@ test("Report bug: a popup needs a name and a text, Esc cancels, and the file hol
   // Esc closed only the popup: the game is still on.
   await expect(page.getByTestId("board")).toBeVisible();
 
-  const record = await reportBug(page, "the zone stayed lit");
+  const text = marker("the zone stayed lit");
+  const record = await reportBug(page, text);
   const reports = record["bugReports"] as Record<string, unknown>[];
   expect(reports).toHaveLength(1);
   expect(reports[0]).toMatchObject({
-    text: "the zone stayed lit",
+    text,
     reporter: "Dr. Serizawa",
     actionIndex: record["position"],
   });
-  await expect(page.getByTestId("test-site-note")).toContainText(
-    "Send the file to Paul",
-  );
+  // Stored on the server as sent.
+  await expect.poll(() => uploadsWith(text).length).toBe(1);
   // The name comes back filled in, in Bad Bot! too.
   await page.getByTestId("report-bug").click();
   await expect(page.getByTestId("report-name")).toHaveValue("Dr. Serizawa");
@@ -192,7 +192,7 @@ test("Bad Bot!: the popup names the bot's last move, needs a name and a text, Es
   // The game goes on; the finished game's upload carries the report again.
   await concede(page);
   await expect.poll(() => uploadsWith(text).length).toBe(2);
-  // And Report bug's file has it too.
+  // And Report bug's upload has it too.
   const record = await reportBug(page);
   expect(record["botFeedback"]).toEqual(feedback);
 });
@@ -214,7 +214,7 @@ test("a failed Bad Bot! send says so, and the report goes with the finished game
   await expect.poll(() => uploadsWith(text).length).toBe(1);
 });
 
-test("with sharing off nothing is sent, and Bad Bot! points to Report bug", async ({
+test("with sharing off nothing is sent: Bad Bot! points to Report bug, which downloads the file", async ({
   page,
 }) => {
   await loadFixture(page, "hand-five");
@@ -229,7 +229,22 @@ test("with sharing off nothing is sent, and Bad Bot! points to Report bug", asyn
   await expect(page.getByTestId("report-submit")).toHaveCount(0);
   await page.getByTestId("bad-bot-report-bug").click();
   await expect(page.getByTestId("bug-modal")).toBeVisible();
-  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("report-bug-sharing-off")).toContainText(
+    "the game file downloads instead",
+  );
+  await expect(page.getByTestId("report-submit")).toHaveText("Download");
+  await fill(page, "Dr. Serizawa", "the board froze");
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByTestId("report-submit").click(),
+  ]);
+  const record = JSON.parse(
+    readFileSync(await download.path(), "utf8"),
+  ) as Record<string, unknown>;
+  expect(record["bugReports"]).toMatchObject([{ text: "the board froze" }]);
+  await expect(page.getByTestId("test-site-note")).toContainText(
+    "Send the file to Paul",
+  );
   await concede(page);
   // The game-over upload would have gone out by now.
   await page.waitForTimeout(500);
@@ -249,7 +264,9 @@ test("a game that ends here uploads once; a finished game loaded from a file doe
   await loadFixture(page, "hand-five");
   await concede(page);
   await expect.poll(() => posts).toBe(1);
+  // Report bug sends it once more (its own upload).
   const record = await reportBug(page);
+  await expect.poll(() => posts).toBe(2);
   // Loading the finished record shows the end without sending it again.
   await page.goto("/play?mode=bot");
   await page.getByTestId("load-record").setInputFiles({
@@ -259,7 +276,7 @@ test("a game that ends here uploads once; a finished game loaded from a file doe
   });
   await expect(page.getByTestId("game-over-modal")).toBeVisible();
   await page.waitForTimeout(500);
-  expect(posts).toBe(1);
+  expect(posts).toBe(2);
 });
 
 test("Show opponent's hand mid-game: it asks first, Cancel leaves it off, and the record keeps the flag and where it was turned on, even after turning it off", async ({

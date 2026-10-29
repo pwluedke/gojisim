@@ -23,6 +23,8 @@ export interface AppServerOptions {
   cardsDir?: string;
   /** Uploaded game records (M13b): the volume's `/data/records` on Railway. */
   recordsDir?: string;
+  /** The records folder's size cap in bytes (default 1 GB; tests set a small one). */
+  maxRecordsBytes?: number;
   /** The Test Site switch (M13b, `GOJISIM_TEST_SITE`); on by default. */
   config?: SiteConfig;
   now?: () => number;
@@ -72,6 +74,7 @@ export function createAppServer({
   distDir = fileURLToPath(new URL("../../web/dist/", import.meta.url)),
   cardsDir = fileURLToPath(new URL("../../web/public/cards/", import.meta.url)),
   recordsDir = "/data/records",
+  maxRecordsBytes,
   config = { testSite: true },
   now,
 }: AppServerOptions = {}): Server {
@@ -87,6 +90,7 @@ export function createAppServer({
   const games = gamesMiddleware({
     config,
     recordsDir,
+    ...(maxRecordsBytes === undefined ? {} : { maxRecordsBytes }),
     ...(now ? { now } : {}),
   });
   const cards = cardImages(cardsDir);

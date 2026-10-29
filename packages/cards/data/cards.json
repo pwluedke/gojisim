@@ -1631,7 +1631,8 @@
     ],
     "type": "Battle",
     "traits": [
-      "Mechagodzilla"
+      "Mechagodzilla",
+      "Weapon"
     ],
     "rank": 5,
     "counterOrThreat": 4000,
@@ -1659,7 +1660,8 @@
     ],
     "type": "Battle",
     "traits": [
-      "Mechagodzilla"
+      "Mechagodzilla",
+      "Weapon"
     ],
     "rank": 5,
     "counterOrThreat": 4000,

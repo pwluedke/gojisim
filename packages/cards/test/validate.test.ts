@@ -269,6 +269,20 @@ describe("Resonance (K2, 6.1.2, 12.8.2)", () => {
     ]);
   });
 
+  it("EBP01-023 Mechagodzilla (1975) has [weapon] (both prints), so it meets EBP03-006's condition (12.8.2)", () => {
+    // The site lists only Mechagodzilla; the printed card has Weapon too (overrides.json).
+    const base = card("EBP01-023");
+    const plus = card("EBP01-023+");
+    expect(base.traits).toEqual(["Mechagodzilla", "Weapon"]);
+    expect(plus.traits).toEqual(["Mechagodzilla", "Weapon"]);
+    const legal = deck(
+      ["EBP03-006", "EBP03-007", "EBP03-008", "EBP03-009"],
+      [...Array(46).fill(card("EBP03-031")), base, base, plus, plus],
+    );
+    expect(resonance(legal)).toEqual([]);
+    expect(validateDeck(legal, TODAY).failures).toEqual([]);
+  });
+
   it("EBP03-018: at least 10 strategy cards; every monster card has [mothra]", () => {
     const monsters = ["EBP03-018", "EBP03-019", "EBP03-020", "EBP03-022"];
     const strategies = (n: number) =>

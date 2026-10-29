@@ -1,8 +1,14 @@
-import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { COOKIE, sessionValue } from "./gate.js";
 import {
   isGameRecord,
@@ -23,13 +29,22 @@ afterEach(() => {
 });
 
 /** A server with its own records folder; `password` turns the login gate on. */
-async function serve(options: { testSite?: boolean; password?: string } = {}) {
+async function serve(
+  options: {
+    testSite?: boolean;
+    password?: string;
+    maxRecordsBytes?: number;
+  } = {},
+) {
   const recordsDir = mkdtempSync(join(tmpdir(), "gojisim-records-"));
   const server = createAppServer({
     distDir: recordsDir,
     cardsDir: recordsDir,
     recordsDir,
     config: { testSite: options.testSite ?? true },
+    ...(options.maxRecordsBytes === undefined
+      ? {}
+      : { maxRecordsBytes: options.maxRecordsBytes }),
     now: () => NOW,
     ...(options.password ? { password: options.password, secret: SECRET } : {}),
   });
@@ -136,6 +151,33 @@ describe("game collection (M13b)", () => {
     expect(
       (await request("/api/games", upload(body, "198.51.100.4"))).status,
     ).toBe(201);
+  });
+
+  it("refuses uploads with 507 once the records folder would pass its cap, counting files already there", async () => {
+    const body = JSON.stringify(RECORD);
+    const size = Buffer.byteLength(body);
+    // Room for two records: the folder already holds one from before this server started.
+    const { request, recordsDir } = await serve({
+      maxRecordsBytes: size * 2 + 10,
+    });
+    mkdirSync(join(recordsDir, "2026-10-27"));
+    writeFileSync(join(recordsDir, "2026-10-27", "old.json"), body);
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect((await request("/api/games", upload(body))).status).toBe(201);
+      const full = await request("/api/games", upload(body));
+      expect(full.status).toBe(507);
+      expect(await full.json()).toEqual({ error: "storage-full" });
+      expect((await request("/api/games", upload(body))).status).toBe(507);
+      expect(stored(recordsDir)).toHaveLength(2);
+      // Logged once while it stays full, not once per refused upload.
+      expect(logged).toHaveBeenCalledTimes(1);
+      expect(String(logged.mock.calls[0]?.[0])).toMatch(
+        /records folder is full/,
+      );
+    } finally {
+      logged.mockRestore();
+    }
   });
 
   it("with the Test Site off, the upload route answers 404 and stores nothing", async () => {

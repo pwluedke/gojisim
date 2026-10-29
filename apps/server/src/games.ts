@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { join } from "node:path";
 import { clientIp } from "./gate.js";
@@ -35,6 +35,8 @@ export function testSiteEnabled(config: SiteConfig): boolean {
 
 /** The largest record body accepted, in bytes. */
 export const MAX_RECORD_BYTES = 2 * 1024 * 1024;
+/** The records folder's total size cap (1 GB, 1024³ bytes): past it, uploads answer 507. */
+export const MAX_RECORDS_DIR_BYTES = 1024 ** 3;
 /** Uploads per IP per minute. */
 export const UPLOADS_PER_MINUTE = 30;
 const MINUTE = 60_000;
@@ -77,6 +79,23 @@ function readBody(req: IncomingMessage, limit: number): Promise<string | null> {
   });
 }
 
+/** The total size of the files under `dir`, in bytes; 0 if it doesn't exist yet. */
+async function folderBytes(dir: string): Promise<number> {
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  let total = 0;
+  for (const entry of entries) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) total += await folderBytes(path);
+    else if (entry.isFile()) total += (await stat(path)).size;
+  }
+  return total;
+}
+
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, {
     "content-type": "application/json",
@@ -89,19 +108,31 @@ export interface GamesOptions {
   config: SiteConfig;
   /** Where records go: `<recordsDir>/<YYYY-MM-DD>/<uuid>.json`. */
   recordsDir: string;
+  /** The records folder's size cap, in bytes (default `MAX_RECORDS_DIR_BYTES`). */
+  maxRecordsBytes?: number;
   now?: () => number;
+  /** Where the "records folder full" line goes (default `console.error`). */
+  log?: (line: string) => void;
 }
 
 /**
  * The config and upload routes as middleware. An upload is stored as the client sent it (the
  * server adds nothing, so no IP address or user agent reaches the file); with the Test Site off
- * the upload route answers 404.
+ * the upload route answers 404. Once the records folder would pass `maxRecordsBytes`, uploads
+ * answer 507 and the server logs it (once until an upload fits again), so a looping client can't
+ * fill the volume.
  */
 export function gamesMiddleware({
   config,
   recordsDir,
+  maxRecordsBytes = MAX_RECORDS_DIR_BYTES,
   now = Date.now,
+  log = (line) => console.error(line),
 }: GamesOptions) {
+  // The folder's size, read from disk at the first upload, then kept by adding each stored file
+  // (only this server writes there). Paul's downloads don't change it; a restart re-reads it.
+  let folderSize: Promise<number> | null = null;
+  let full = false;
   const uploads = new Map<string, number[]>();
   /** This IP's uploads in the last minute; IPs with none are forgotten. */
   const recent = (ip: string) => {
@@ -155,6 +186,20 @@ export function gamesMiddleware({
       sendJson(res, 400, { error: "not-a-record" });
       return;
     }
+    folderSize ??= folderBytes(recordsDir);
+    const size = Buffer.byteLength(text);
+    const total = await folderSize;
+    if (total + size > maxRecordsBytes) {
+      if (!full)
+        log(
+          `GojiSim: the records folder is full (${total} of ${maxRecordsBytes} bytes in ${recordsDir}); uploads answer 507 until there is room.`,
+        );
+      full = true;
+      sendJson(res, 507, { error: "storage-full" });
+      return;
+    }
+    full = false;
+    folderSize = Promise.resolve(total + size);
     const day = new Date(now()).toISOString().slice(0, 10);
     const id = randomUUID();
     await mkdir(join(recordsDir, day), { recursive: true });
