@@ -1,7 +1,12 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import {
   actionKey,
+  botInput,
+  decide,
+  decklistsOf,
+  difficultySettings,
   isDeadAction,
+  PRESETS,
   pickWith,
   seededRng,
   stateBoard,
@@ -101,6 +106,38 @@ interface Spec {
   p1: string;
   match: (s: GameState) => boolean;
   avoid: (s: GameState) => string[];
+  /**
+   * M13c: keep only a position that today's Hard gets wrong, so it measures a miss. The check
+   * runs after `match`; a position that fails it is played on.
+   */
+  missedByHard?: boolean;
+}
+
+/** Seeds for the `missedByHard` check: Hard at its fixed iteration count, no clock. */
+const MISS_SEEDS = ["miss-0", "miss-1", "miss-2"];
+
+/** Hard plays one of the `avoid` keys, from P2's own view, in at least 2 of the 3 seeds. */
+function hardMisses(
+  s: GameState,
+  decks: readonly PlayerSetup[],
+  avoid: string[],
+): boolean {
+  const settings = {
+    ...difficultySettings(PRESETS.hard),
+    maxMs: Number.MAX_SAFE_INTEGER,
+  };
+  let misses = 0;
+  for (const seed of MISS_SEEDS) {
+    const input = botInput(
+      s,
+      P2,
+      decklistsOf(decks),
+      seededRng(seed),
+      settings,
+    );
+    if (avoid.includes(actionKey(s, decide(input).action))) misses++;
+  }
+  return misses >= 2;
 }
 
 const avoidActivations = (cardNumber: string) => (s: GameState) => [
@@ -142,11 +179,14 @@ const SPECS: Spec[] = [
   },
   {
     name: "flying-form-evolves-to-perfect-form",
-    note: "Destoroyah Flying Form's (EBP01-054) Evolution search with Destoroyah Perfect Form (ESD02-013, 13,000 counter power) and another Flying Form both in the deck: take Perfect Form, not the copy (BFW182 game 1, decision 44; Monarch's #64 review).",
+    note: "Destoroyah Flying Form's (EBP01-054) Evolution search with a Destoroyah Perfect Form (ESD02-013 or EBP01-060) and another Flying Form both in the deck: take Perfect Form, not the copy (BFW182 game 1, decision 44; Monarch's #64 review). Kept only where today's Hard takes the copy (M13c, #75).",
     p1: "ESD01",
+    // Either Perfect Form: in the tester game the copy beat EBP01-060.
     match: (s) =>
       evolutionOptions(s, "EBP01-054").length > 0 &&
-      evolutionOptions(s, "ESD02-013").length > 0,
+      (evolutionOptions(s, "ESD02-013").length > 0 ||
+        evolutionOptions(s, "EBP01-060").length > 0),
+    missedByHard: true,
     avoid: (s) => [
       ...new Set(evolutionOptions(s, "EBP01-054").map((a) => actionKey(s, a))),
     ],
@@ -168,7 +208,11 @@ for (const spec of SPECS.filter(
     const pick = pickWith(seededRng(`${spec.name}-${g}-policy`));
     let state = advanceToDecision(startGame(record));
     for (let i = 0; i < 3000 && !state.result; i++) {
-      if (spec.match(state)) {
+      if (
+        spec.match(state) &&
+        (!spec.missedByHard ||
+          hardMisses(state, record.decks, spec.avoid(state)))
+      ) {
         const position = {
           note: spec.note,
           made: `tools/bots/src/makePositions.ts, game ${g}: random weighted play, ${spec.p1} starter (P1) vs the made-up Destoroyah deck (P2)`,
