@@ -112,6 +112,8 @@ Merging into `main` doesn't deploy. To put main's current state in front of test
 2. In Railway, open the `gojisim` service → **Deployments**. The new deploy appears for that commit, builds, passes the `/healthz` check and becomes **Active**. That takes a few minutes. A deploy marked **Skipped: No changes to watched files** means Watch Paths are limiting it: clear them under **Settings → Source → Watch Paths** (the repo's `watchPatterns` covers everything), then push again or redeploy.
 3. Open `https://gojisim.somanygames.app` and check the change.
 
+The same push also publishes a GitHub Release (the Release workflow, `.github/workflows/release.yml`), tagged `release-<date>-<n>`, from the "Release notes" sections of the PRs merged since the last one: nothing to do by hand. If the workflow fails, the deploy is unaffected; re-run it from GitHub → Actions.
+
 **Roll back:** Railway → `gojisim` → **Deployments** → pick an older, working deploy → **⋯ → Redeploy**. The site goes back to that build at once. The `release` branch still points at the newer commit, so the next `git push origin main:release` deploys main again as usual.
 
 ## Railway settings as code

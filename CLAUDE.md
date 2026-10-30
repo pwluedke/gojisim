@@ -33,6 +33,10 @@
 
 - Never push to main without Paul's approval. Work on a branch, open a PR.
 
+## Release notes
+
+- Every PR description has a "## Release notes" section in plain words for Paul and the testers ("Nothing to try in the game." when testers see no change). Paul's push to `release` publishes them as a GitHub Release (`.github/workflows/release.yml`). PRs don't edit `docs/release-notes.md`, the archive up to #120.
+
 ## Deploys
 
 - Only Paul deploys. Mecha never pushes to the `release` branch and never runs Railway deploy commands (`railway up`, `railway redeploy` and the like). Railway deploys from `release`, which Paul updates with `git push origin main:release` (docs/deploy.md).
