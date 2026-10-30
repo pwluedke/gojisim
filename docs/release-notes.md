@@ -2,7 +2,28 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #110 Fix: the game froze after putting a strategy card under Godzilla (2016) Frozen (not merged yet)
+## #113 Gigan (1972) and M.O.G.U.E.R.A. count an invading monster in the zones (not merged yet)
+
+### What changed
+
+- Nothing new.
+
+### Fixed
+
+- Gigan (1972) (EBP02-064) now gains its +3,000 counter power when your invading monster is a King Ghidorah or Megalon card, not only with such a battle card in your zones.
+- M.O.G.U.E.R.A. (EBP02-067) now gains its +5,000 counter power when your opponent's invading monster is a Godzilla card, not only with a Godzilla battle card in their zones. Against a Godzilla deck that is nearly every game.
+- Both follow Paul's provisional ruling of Oct 29, 2026 (Q45), the same basis as Space Beam's (#103).
+
+### Testing notes
+
+- New tests for each card: a monster with the trait (bonus applies), a battle card with it (applies), neither (doesn't); and your own Godzilla monster doesn't turn on M.O.G.U.E.R.A.
+- Try it: play M.O.G.U.E.R.A. against a Godzilla deck and check its counter power reads 15,000.
+
+### Known issues
+
+- None known.
+
+## #110 Fix: the game froze after putting a strategy card under Godzilla (2016) Frozen (2026-10-29)
 
 ### What changed
 
