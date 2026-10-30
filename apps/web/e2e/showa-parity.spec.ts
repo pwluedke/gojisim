@@ -74,11 +74,19 @@ for (const [width, height] of [
         Math.abs((showa.boxes[id]?.[key] ?? 0) - (grey.boxes[id]?.[key] ?? 0)),
         `${id} ${key}: showa ${showa.boxes[id]?.[key]}, grey ${grey.boxes[id]?.[key]}`,
       ).toBeLessThanOrEqual(by);
+    // Showa may not sit lower or grow taller than Grey by more than a few pixels. It may be
+    // shorter: Grey's system-ui is another font on each platform (taller lines on CI's Linux
+    // than on a Mac), while Showa's fonts are bundled.
+    const notPast = (id: string, key: "y" | "height", by: number) =>
+      expect(
+        (showa.boxes[id]?.[key] ?? 0) - (grey.boxes[id]?.[key] ?? 0),
+        `${id} ${key}: showa ${showa.boxes[id]?.[key]}, grey ${grey.boxes[id]?.[key]}`,
+      ).toBeLessThanOrEqual(by);
     for (const id of LEFT) {
       near(id, "x", 4);
       near(id, "width", 4);
-      near(id, "y", 12);
-      near(id, "height", 12);
+      notPast(id, "y", 12);
+      notPast(id, "height", 12);
     }
     // The Test Site panel is on screen in both.
     for (const m of [grey, showa]) {
