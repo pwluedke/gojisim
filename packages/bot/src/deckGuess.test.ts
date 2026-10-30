@@ -226,5 +226,6 @@ describe("hidden decklists (Q42)", () => {
         ),
       );
     }
-  });
+    // 12 decisions searched twice each: about 6 s on the CI runner, over the 5 s default.
+  }, 30_000);
 });
