@@ -13,7 +13,7 @@ import { pickWith, tacticalPick } from "./baseline";
 import { determinize } from "./determinize";
 import { difficultySettings, M12_SETTINGS, PRESETS } from "./difficulty";
 import { botInput, decklistsOf, seededRng } from "./input";
-import { actionKey, ismctsBot, ismctsSettings } from "./ismcts";
+import { actionKey, ismctsBot, ismctsSettings, search } from "./ismcts";
 
 function official(file: string): Omit<PlayerSetup, "id"> {
   const url = new URL(`../../cards/data/decks/${file}`, import.meta.url);
@@ -232,6 +232,28 @@ describe("ismcts (M6c)", { timeout: 60_000 }, () => {
         type: "playBattle",
         zone: 8,
       });
+  });
+
+  it("M13c priorVisits (#75): off by default; on, a new node starts with that many visits at its static value from the chooser's side", () => {
+    expect(ismctsSettings({}).priorVisits).toBe(0);
+    const state = start();
+    // One iteration expands one root child; with no play-out its real visit is the same static
+    // value, from the same seeded determinization.
+    const once = (priorVisits: number) => {
+      const settings = { iterations: 1, maxMs: 1e9, rollout: "none" as const };
+      const result = search(
+        botInput(state, "P1", LISTS, seededRng("prior"), settings),
+        ismctsSettings({ ...settings, priorVisits }),
+      );
+      const [key, child] = [...result.root.children.entries()][0] ?? [];
+      return { key, visits: child?.visits, value: child?.value ?? NaN };
+    };
+    const off = once(0);
+    const on = once(20);
+    expect(on.key).toBe(off.key);
+    expect(off.visits).toBe(1);
+    expect(on.visits).toBe(21);
+    expect(on.value).toBeCloseTo(21 * off.value, 9);
   });
 
   it("difficulty: 0 is close to random, 100 is the full search; presets 20, 55, 90", () => {

@@ -39,6 +39,11 @@ export interface IsmctsSettings {
   blunder: number;
   /** M13a: 1 leaves dead strategy activations (`prune.ts`) out of the root's actions. */
   prune: number;
+  /**
+   * M13c (#75): virtual visits a new node starts with at its static evaluation (progressive
+   * bias), so a clear static preference isn't erased by play-out noise. 0 is off.
+   */
+  priorVisits: number;
 }
 
 export const ISMCTS_DEFAULTS: IsmctsSettings = {
@@ -51,6 +56,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   temperature: 0,
   blunder: 0,
   prune: 0,
+  priorVisits: 0,
 };
 
 /** Reads ISMCTS settings from a bot's settings, with defaults. */
@@ -263,6 +269,12 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         child.available = 1;
         node.children.set(next.key, child);
         state = advanceToDecision(applyAction(state, next.action));
+        if (settings.priorVisits > 0) {
+          // Its static value from the side of the player who chose it, as visits store it.
+          const v = evaluate(state, me, weightsOf(settings));
+          child.visits = settings.priorVisits;
+          child.value = settings.priorVisits * (who === me ? v : -v);
+        }
         node = child;
         path.push(child);
         break;
