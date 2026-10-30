@@ -90,6 +90,16 @@ Token setup (once, by Paul):
 
 The watcher reads `SLACK_WATCH_TOKEN` from the environment, or from `.envrc` directly when direnv hasn't loaded it (a background shell). It never prints the token; it sends it only in the request's `Authorization` header.
 
+## Discord notes
+
+`pnpm discord-notes` (`tools/discord-notes`) turns Discrub exports of the community Discord into notes for Monarch to read. No AI runs in the script.
+
+1. Export a channel with Discrub (JSON or plain text; JSON is better: it has message ids and reply links) and put the zip, or the unzipped folder, in `discord-exports/` at the repo root. The folder is gitignored, since it holds players' messages; never commit it.
+2. Run `pnpm discord-notes` from the repo root (`--dry-run` prints the summary and writes nothing; `--dir` reads another folder).
+3. It writes `discord-exports/new-<date>/`: one file per channel or thread with the messages not handed out before, each preceded by up to 20 earlier messages marked `(seen)` for context, plus `summary.md` (sources, counts per channel, and every image and attachment link). Then it adds the new messages to `discord-exports/seen.json`, so the next run gives only what came after.
+
+Lines read `Author (time) [reply to Author: "first 80 characters"]: text [attached: file names]`, with custom emoji as `:name:`, mentions as `@name`, links as `[link]` and line breaks as " / ". Bare links and empty messages are left out. A channel exported in both formats is read from its JSON pages only (the text format has local times and no ids, so its messages can't be matched to JSON's); text-only channels key each message by author, time and text. Thread folders (`threads/<name>`) become their own files.
+
 ## Layout
 
 | Path                   | Package                   | Purpose                                                            |

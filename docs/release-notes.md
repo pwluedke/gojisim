@@ -2,7 +2,26 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #110 Fix: the game froze after putting a strategy card under Godzilla (2016) Frozen (not merged yet)
+## #115 Discord notes for Monarch (not merged yet)
+
+### What changed
+
+- For the dev team: `pnpm discord-notes` reads the community Discord exports Paul drops in `discord-exports/` and writes only the messages that are new since the last run, each with some earlier messages for context, plus a summary with every image link. Monarch reads them for rulings and feedback.
+
+### Fixed
+
+- Nothing.
+
+### Testing notes
+
+- New tests with made-up messages in both export formats: new messages come with up to 20 earlier ones marked as seen; replies show what they answer; links, mentions and emoji read as plain words; a second run finds nothing new.
+- Nothing to try in the game.
+
+### Known issues
+
+- None known.
+
+## #110 Fix: the game froze after putting a strategy card under Godzilla (2016) Frozen (2026-10-29)
 
 ### What changed
 
