@@ -66,6 +66,7 @@ export {
   type UndoEntry,
   type FeedbackEntry,
   type BugReport,
+  type IdeaEntry,
 } from "./record";
 export { canUndo, type UndoBoundary, undoBoundary, undoLast } from "./undo";
 export { isFreezeGuardOn, setFreezeGuard } from "./freeze";
