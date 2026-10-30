@@ -2,7 +2,26 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #72 Skip the First / Second pick (not merged yet)
+## #88 Slack watcher for Mecha's session (not merged yet)
+
+### What changed
+
+- For the dev team: a small watcher, `pnpm slack-watch`, checks the team channel every 30 seconds and tells Mecha when Monarch has posted something it hasn't read yet, so Paul no longer has to type "check slack".
+
+### Fixed
+
+- Nothing.
+
+### Testing notes
+
+- New tests with Slack mocked: an unread Monarch message is reported once; read ones and Mecha's own aren't; replies in threads are found; when Slack says "slow down", the watcher waits as long as it's told.
+- Nothing to try in the game.
+
+### Known issues
+
+- None known.
+
+## #72 Skip the First / Second pick (2026-10-29)
 
 ### What changed
 
