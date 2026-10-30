@@ -2,7 +2,27 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #110 Fix: the game froze after putting a strategy card under Godzilla (2016) Frozen (not merged yet)
+## #NNN M13c: bot strength trials, and Hard sees Flying Form's better pick (not merged yet)
+
+### What changed
+
+- For the dev team: bot trials now give each bot the same number of searches per move it gets in the browser, measured once (`pnpm search-rate`), so several trials can run on one machine; a stopped trial resumes where it left off.
+- Tried and not kept, since none beat today's Hard: a different position weight, two other play-out styles, two exploration settings and deeper play-outs.
+
+### Fixed
+
+- (Pending tonight's trial.)
+
+### Testing notes
+
+- Bot positions: Destoroyah Flying Form's Evolution now has a test position where today's Hard takes the second Flying Form instead of Perfect Form.
+- Nothing to try in the game yet.
+
+### Known issues
+
+- None known.
+
+## #110 Fix: the game froze after putting a strategy card under Godzilla (2016) Frozen (2026-10-29)
 
 ### What changed
 

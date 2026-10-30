@@ -831,3 +831,24 @@ Accepted by Monarch in the hidden decklists review (PR #70).
 599. `hard-open` is registered for comparisons alongside `hard-m12`; neither is offered in the web app.
 600. The m5g e2e test's seed changes from 3 to 1, because its old seed depended on the bot's play.
 601. The bot worker bundles the full card list (`@gojisim/cards/all-cards`) for the deck guess. From `pnpm build`, the worker chunk grows from 381 KB to 973 KB (82 KB to 134 KB gzipped). In the built app (Chromium, the new-game default bot, seed 7, the bot moving first, 6 runs each), the first decision's median goes from 282 ms to 288 ms (+6 ms). The worker starts about 0.7 s before its first request, and its start-up (module load to first reply, 8 runs) goes from a 12.5 to a 15 ms median. That's well under the 100 ms line, so the cards stay bundled.
+
+Accepted by Monarch in the Slack watcher, Dependabot, Space Beam and Frozen reviews (PRs #101, #102, #103, #110).
+
+602. The Slack watcher reads the repo's `.envrc` itself when `SLACK_WATCH_TOKEN` isn't in the environment, since a background shell may not run direnv. The token goes only in the `Authorization` header and is never printed.
+603. A thread whose replies call failed keeps its old `latest_reply`, so the next poll reads it again. Lines print oldest first, with the `[Monarch]` prefix dropped and whitespace collapsed.
+604. Dependabot ignores TypeScript minor updates as well as majors (decision 1: typescript-eslint supports only TS < 6.1) and ignores `pnpm` (decision 2).
+605. Playwright updates come in their own Dependabot group, since each needs the e2e image tag changed by hand (decision 463). The github-actions entry covers `/.github/actions/*` as well as the workflows.
+606. Q44 (Paul, provisional): Space Beam's (EBP03-069) "a [mechagodzilla] card in zone 8" counts any Mechagodzilla card in your zone 8, your invading monster included; Q40 is unchanged.
+607. The deckGuess `knowsDecklists` test has a 30 s timeout: it takes about 6 s on the CI runner, and main's CI failed on it from #70 to #101.
+608. Stress has P1 confirm single options in every game (P2 never does), so pauses only a human seat makes are played.
+609. A `play` pick is private whenever a candidate is in a deck or hand, whatever its `from` (ESD01-014 plays a searched card from the deck).
+610. A step's optional replacement ask is worded "applies / doesn't apply <card>'s replacement to <card>" in the log and announcements.
+
+Accepted by Monarch in the M13c review (PR #NNN).
+
+611. Fixed-search trials: each bot plays `iterations=<mean>` with `--deterministic`. The mean comes from `pnpm search-rate` (10 timed games at 1 s, 5 shards, alone on the machine), and the candidate is paired with Hard's count from the same run, since Hard's mean varies between runs (593 to 694). Fixed-search trials can share the machine; only a winner's 800-game timed run runs alone, overnight. The bar is 55%. About 30% of Hard's decisions hit its 811-iteration cap.
+612. A `pnpm bots` run journals each finished game under `bot-reports/runs/<seed>-<key>/` (the key hashes everything that decides the games, not the worker count); the same command resumes it, and the folder is removed once the report is written.
+613. Results that changed nothing: `w.position=0.8` (800 timed games, 52.9%), greedy play-outs (400 timed, 48.0%), tactical play-outs (stopped at 183-190, 49.1%), exploration 0.5 and 1.0 (400 fixed-search, 48.7% and 50.2%), `rolloutTurns=2` (400 fixed-search at 386 vs 606 searches, 31.3%). The weights, exploration 0.7 and one play-out turn stay; `rollout=tactical` stays a setting.
+614. The useless-card check (M13a pruning) costs 0.8% of the searches per second and stays.
+615. The Flying Form position is made only where today's Hard takes the copy (`missedByHard`: 2 of 3 seeds at Hard's 811 iterations, no clock); either Perfect Form (ESD02-013 or EBP01-060) counts as the right pick.
+616. `priorVisits` (#75): a new search node starts with that many virtual visits at its static evaluation, from the chooser's side. 20 passes the Flying Form position (19/20 at Hard, 20/20 at 100) with no other position changing; it costs about 9% of the searches (584 vs 645).
