@@ -2,6 +2,7 @@ import {
   type BugReport,
   type FeedbackEntry,
   type GameState,
+  type IdeaEntry,
   stepPhase,
 } from "@gojisim/engine";
 import { announce } from "./announce";
@@ -135,6 +136,23 @@ export function withBugReport(session: Session, entry: BugReport): Session {
   };
 }
 
+/** The session with a Monster Island Mailbox suggestion added to the record. */
+export function withIdea(session: Session, entry: IdeaEntry): Session {
+  return {
+    ...session,
+    record: {
+      ...session.record,
+      ideas: [...(session.record.ideas ?? []), entry],
+    },
+  };
+}
+
+/**
+ * The general feedback button's name (#107, Paul's pick): the button, its popup title and its
+ * "Which button?" entry all read it, so a new name is this one line.
+ */
+export const MAILBOX_NAME = "Monster Island Mailbox";
+
 /**
  * The session with Show opponent's hand turned on: flagged for the whole game, with the action
  * index where it was first turned on, and left out of achievements. Turning it off later never
@@ -153,5 +171,5 @@ export function withOpponentHandShown(session: Session): Session {
   };
 }
 
-/** The longest Bad Bot! or Report bug text. */
+/** The longest Bad Bot!, Report bug or Monster Island Mailbox text. */
 export const MAX_REPORT_LENGTH = 1000;

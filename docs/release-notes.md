@@ -2,7 +2,27 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #110 Fix: the game froze after putting a strategy card under Godzilla (2016) Frozen (not merged yet)
+## #111 Monster Island Mailbox: send us your ideas (not merged yet)
+
+### What changed
+
+- A new button in the Test Site panel, **Monster Island Mailbox**, for ideas and improvements (not bugs). Write your idea and press Send: it goes to us with the game right away. It works at any time the panel shows, including during the First / Second pick and after the game ends. "Which button?" explains it.
+- `pnpm feedback` lists the suggestions under their own heading.
+
+### Fixed
+
+- Nothing.
+
+### Testing notes
+
+- New tests: the button sits on its own row; the popup needs a name and a text, Esc cancels, and Send uploads the idea with the game; it works during the First / Second pick and after the game; with sharing off it says nothing can be sent; the suggestion is kept when a saved game is loaded; `pnpm feedback` lists suggestions newest first under their own heading.
+- Try it: press Monster Island Mailbox, write an idea and Send. The panel should say "Thanks, sent."
+
+### Known issues
+
+- None known.
+
+## #110 Fix: the game froze after putting a strategy card under Godzilla (2016) Frozen (2026-10-29)
 
 ### What changed
 
