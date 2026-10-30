@@ -2,7 +2,27 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #117 Bad Bot! and Good Bot! let you pick which bot move you mean (not merged yet)
+## #120 Railway settings move into the repo as code (not merged yet)
+
+### What changed
+
+- For the dev team: the game server's Railway settings (how it builds and starts, its health check, the release branch, the storage volume and the domain) now live in `.railway/railway.ts`, replacing `railway.json`, which Railway stops reading on December 1, 2026. Paul applies the change once with the Railway CLI, following docs/deploy.md.
+- Nothing changes for testers: the site builds, starts and stores games exactly as before.
+
+### Fixed
+
+- Nothing.
+
+### Testing notes
+
+- Railway's preview of the change (`railway config plan`) shows only `railway.json`'s settings moving into the service: nothing added, nothing deleted, and no change to the volume, the release branch, the domain or any variable.
+- After Paul's switch and the next deploy: the site loads, cards show their images, and game records are still there.
+
+### Known issues
+
+- None known.
+
+## #117 Bad Bot! and Good Bot! let you pick which bot move you mean (2026-10-30)
 
 ### What changed
 
