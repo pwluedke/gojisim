@@ -1,18 +1,159 @@
 {
-  "card": { "file": "card-play.mp3", "volume": 0.8, "cooldownMs": 80 },
-  "monster": { "file": "monster-play.mp3", "volume": 0.9, "cooldownMs": 80 },
-  "evolve": { "file": "evolve.mp3", "volume": 0.9, "cooldownMs": 80 },
-  "strategy": { "file": "strategy-flip.mp3", "volume": 0.8, "cooldownMs": 80 },
-  "destroy": { "file": "destroy.mp3", "volume": 0.8, "cooldownMs": 80 },
-  "stomp": { "file": "stomp.mp3", "volume": 0.9, "cooldownMs": 80 },
-  "slamCrash": { "file": "slam-crash.mp3", "volume": 1, "cooldownMs": 80 },
-  "roar": { "file": "roar.mp3", "volume": 0.9, "cooldownMs": 80 },
-  "counter": { "file": "counter-hit.mp3", "volume": 0.9, "cooldownMs": 80 },
-  "rage": { "file": "rage-rumble.mp3", "volume": 0.6, "cooldownMs": 80 },
-  "draw": { "file": "draw.mp3", "volume": 0.6, "cooldownMs": 80 },
-  "shuffle": { "file": "shuffle.mp3", "volume": 0.6, "cooldownMs": 80 },
-  "choice": { "file": "choice-chime.mp3", "volume": 0.5, "cooldownMs": 80 },
-  "announce": { "file": "tick.mp3", "volume": 0.4, "cooldownMs": 80 },
-  "win": { "file": "win.mp3", "volume": 0.8, "cooldownMs": 80 },
-  "loss": { "file": "loss.mp3", "volume": 0.8, "cooldownMs": 80 }
+  "card": {
+    "file": "card-play.mp3",
+    "volume": 0.8,
+    "cooldownMs": 80
+  },
+  "monster": {
+    "file": "monster-play.mp3",
+    "volume": 0.9,
+    "cooldownMs": 80
+  },
+  "evolve": {
+    "file": "evolve.mp3",
+    "volume": 0.9,
+    "cooldownMs": 80
+  },
+  "strategy": {
+    "file": "strategy-flip.mp3",
+    "volume": 0.8,
+    "cooldownMs": 80
+  },
+  "destroy": {
+    "file": "destroy.mp3",
+    "volume": 0.8,
+    "cooldownMs": 80
+  },
+  "stomp": {
+    "file": "stomp.mp3",
+    "volume": 0.9,
+    "cooldownMs": 80
+  },
+  "slamCrash": {
+    "file": "slam-crash.mp3",
+    "volume": 1,
+    "cooldownMs": 80
+  },
+  "roar": {
+    "file": "roar.mp3",
+    "volume": 0.9,
+    "cooldownMs": 80
+  },
+  "counter": {
+    "file": "counter-hit.mp3",
+    "volume": 0.9,
+    "cooldownMs": 80
+  },
+  "rage": {
+    "file": "rage-rumble.mp3",
+    "volume": 0.6,
+    "cooldownMs": 80
+  },
+  "draw": {
+    "file": "draw.mp3",
+    "volume": 0.6,
+    "cooldownMs": 80
+  },
+  "shuffle": {
+    "file": "shuffle.mp3",
+    "volume": 0.6,
+    "cooldownMs": 80
+  },
+  "choice": {
+    "file": "choice-chime.mp3",
+    "volume": 0.5,
+    "cooldownMs": 80
+  },
+  "announce": {
+    "file": "tick.mp3",
+    "volume": 0.4,
+    "cooldownMs": 80
+  },
+  "win": {
+    "file": "win.mp3",
+    "volume": 0.8,
+    "cooldownMs": 80
+  },
+  "loss": {
+    "file": "loss.mp3",
+    "volume": 0.8,
+    "cooldownMs": 80
+  },
+  "cards": {
+    "ESD01-016": {
+      "file": "cards/heat-ray.mp3",
+      "volume": 0.8,
+      "cooldownMs": 80
+    },
+    "EBP03-067": {
+      "file": "cards/monster-x.mp3",
+      "volume": 0.8,
+      "cooldownMs": 80
+    },
+    "EBP02-053": {
+      "file": "cards/spacegodzilla.mp3",
+      "volume": 0.9,
+      "cooldownMs": 80
+    },
+    "EBP01-031": {
+      "file": "cards/space-beam.mp3",
+      "volume": 0.8,
+      "cooldownMs": 80
+    },
+    "EBP03-069": {
+      "file": "cards/space-beam.mp3",
+      "volume": 0.8,
+      "cooldownMs": 80
+    },
+    "EBP01-079": {
+      "file": "cards/gravity-beam.mp3",
+      "volume": 0.8,
+      "cooldownMs": 80
+    },
+    "EBP02-T03": {
+      "file": "cards/crystals.mp3",
+      "volume": 0.8,
+      "cooldownMs": 80
+    },
+    "EBP01-069": {
+      "file": "cards/varan.mp3",
+      "volume": 0.8,
+      "cooldownMs": 80
+    },
+    "EBP01-077": {
+      "file": "cards/oxygen-destroyer.mp3",
+      "volume": 0.8,
+      "cooldownMs": 80
+    },
+    "EBP03-058": {
+      "file": "cards/zilla.mp3",
+      "volume": 0.8,
+      "cooldownMs": 80
+    },
+    "EBP01-030": {
+      "file": "cards/godzilla-landing.mp3",
+      "volume": 0.8,
+      "cooldownMs": 80
+    },
+    "EBP01-033": {
+      "file": "cards/final-showdown.mp3",
+      "volume": 0.8,
+      "cooldownMs": 80
+    },
+    "EBP04-081": {
+      "file": "cards/entangling-fear.mp3",
+      "volume": 0.8,
+      "cooldownMs": 80
+    },
+    "EBP01-078": {
+      "file": "cards/godzilla-attacks.mp3",
+      "volume": 0.8,
+      "cooldownMs": 80
+    },
+    "EBP03-027": {
+      "file": "cards/ghidorah-2001.mp3",
+      "volume": 0.9,
+      "cooldownMs": 80
+    }
+  }
 }

@@ -299,7 +299,85 @@ test("Good Bot!: Report bug on top, then Good Bot! and Bad Bot!; the popup names
     "which-button-report-bug",
     "which-button-good-bot",
     "which-button-bad-bot",
+    "which-button-idea",
   ]);
+});
+
+test("Monster Island Mailbox (#107): its own row under Good Bot! and Bad Bot!; the popup needs a name and a text, Esc cancels, and Send uploads an idea at once", async ({
+  page,
+}) => {
+  await loadFixture(page, "hand-five");
+  const good = await page.getByTestId("good-bot").boundingBox();
+  const idea = await page.getByTestId("idea").boundingBox();
+  if (!good || !idea) throw new Error("no box");
+  expect(idea.y).toBeGreaterThan(good.y + good.height - 1);
+  await expect(page.getByTestId("idea")).toHaveText("Monster Island Mailbox");
+  await page.getByTestId("idea").click();
+  const modal = page.getByTestId("idea-modal");
+  await expect(modal).toContainText("Monster Island Mailbox");
+  await expect(modal).toContainText("What would make GojiSim better?");
+  await expect(page.getByTestId("bad-bot-move")).toHaveCount(0);
+  await expect(page.getByTestId("report-submit")).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(modal).toHaveCount(0);
+
+  const text = marker("a deck builder would be great");
+  await page.getByTestId("idea").click();
+  await fill(page, "Dr. Serizawa", text);
+  await page.getByTestId("report-submit").click();
+  await expect(page.getByTestId("test-site-note")).toHaveText("Thanks, sent.");
+  await expect.poll(() => uploadsWith(text).length).toBe(1);
+  const ideas = uploadsWith(text)[0]?.["ideas"] as Record<string, unknown>[];
+  expect(ideas).toEqual([
+    expect.objectContaining({
+      kind: "idea",
+      text,
+      reporter: "Dr. Serizawa",
+    }),
+  ]);
+  // Not a bug report or a bot report.
+  expect(uploadsWith(text)[0]?.["bugReports"]).toBeUndefined();
+  expect(uploadsWith(text)[0]?.["botFeedback"]).toBeUndefined();
+  await page.getByTestId("test-settings").click();
+  await page.getByTestId("which-button").click();
+  await expect(page.getByTestId("which-button-idea")).toHaveText(
+    "Monster Island Mailbox: an idea or an improvement for GojiSim, anything that isn't a bug. Your note is sent to us with the game.",
+  );
+});
+
+test("Monster Island Mailbox works during the First / Second pick and after the game; with sharing off it says nothing can be sent", async ({
+  page,
+}) => {
+  await page.goto("/play?mode=bot");
+  await page.getByTestId("seed-input").fill("2");
+  await page.getByTestId("start-game").click();
+  await expect(page.getByTestId("first-pick")).toBeVisible();
+  await expect(page.getByTestId("idea")).toBeEnabled();
+  const during = marker("idea during the pick");
+  await page.getByTestId("idea").click();
+  await fill(page, "Dr. Serizawa", during);
+  await page.getByTestId("report-submit").click();
+  await expect(page.getByTestId("test-site-note")).toHaveText("Thanks, sent.");
+  await expect.poll(() => uploadsWith(during).length).toBe(1);
+  // The pick is still open, then the game goes on.
+  await page.getByTestId("first-pick-card-0").click();
+  await page.getByTestId("first-pick-continue").click();
+  await concede(page);
+  const after = marker("idea after the game");
+  await page.getByTestId("idea").click();
+  await fill(page, "Dr. Serizawa", after);
+  await page.getByTestId("report-submit").click();
+  await expect.poll(() => uploadsWith(after).length).toBe(1);
+
+  await page.getByTestId("test-settings").click();
+  await page.getByTestId("setting-share-games").uncheck();
+  await page.getByTestId("idea").click();
+  await expect(page.getByTestId("idea-sharing-off")).toContainText(
+    "nothing can be sent",
+  );
+  await expect(page.getByTestId("report-submit")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("idea-modal")).toHaveCount(0);
 });
 
 test("Good Bot! with sharing off says nothing can be sent, with no download", async ({
