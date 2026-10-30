@@ -2,7 +2,30 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #110 Fix: the game froze after putting a strategy card under Godzilla (2016) Frozen (not merged yet)
+## #114 Showa Poster: the board's panels and controls fit like the other themes (not merged yet)
+
+### What changed
+
+- In Showa Poster, the board's buttons, menus and file picker are the same size as in the other themes, and panel text uses the same line spacing. The left column now fits: the Test Site panel shows on screen at 1440×900 instead of below the window. Showa keeps its header bar, fight card, colors and look; the new-game screen keeps its larger controls.
+- The "Illegal deck" badge on a mat now shows how many reasons there are ("2 reasons"); hover it to read them. It fits inside its space in every theme.
+
+### Fixed
+
+- Showa Poster: Pass, Undo and Concede were oversized, and Undo dropped to its own row.
+- Showa Poster: the Theme and Animation speed menus and the Mat image file picker were much taller than their rows.
+- Every theme: the Mat image box's border ran past the left column's edge.
+- Every theme: the Illegal deck badge ran over the gap into the other mat.
+
+### Testing notes
+
+- New tests at 1440×900 and 1920×1080: Showa's left column panels, Test Site panel and battle log line up with Grey's within a few pixels; in every theme the badge stays inside its mat and nothing in the left column overflows; Showa's board passes the contrast check.
+- Try it: switch to Showa Poster and open Settings during a game: the Test Site panel should still be visible at the bottom of the left column.
+
+### Known issues
+
+- Showa's cards stay a little smaller than the other themes', since its header bar takes 56 px of height (unchanged).
+
+## #110 Fix: the game froze after putting a strategy card under Godzilla (2016) Frozen (2026-10-29)
 
 ### What changed
 

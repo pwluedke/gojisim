@@ -123,7 +123,7 @@ test.describe("compact controls", () => {
     expect((p1?.x ?? 0) + (p1?.width ?? 0)).toBeLessThan(p2?.x ?? 0);
   });
 
-  test("the 44 px minimum stays outside the new-game screen", async ({
+  test("on the board, Showa's controls take the other themes' height, not the 44 px minimum (#108, amends decision 453)", async ({
     page,
   }) => {
     await open(page, "showa");
@@ -131,7 +131,7 @@ test.describe("compact controls", () => {
     await page.getByTestId("start-game").click();
     await page.getByTestId("settings").click();
     const select = page.getByTestId("setting-theme");
-    expect((await select.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    expect((await select.boundingBox())?.height).toBeLessThan(30);
   });
 });
 

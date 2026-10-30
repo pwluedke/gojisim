@@ -1301,7 +1301,10 @@ export function PlayScreen() {
       )}
       {overlay === "hand" && (
         // Read-only (Paul's rule): clicking a card here does nothing; H or Esc closes it.
-        <div className={styles.modalBackdrop} data-testid="expanded-hand">
+        <div
+          className={`${styles.modalBackdrop} ${styles.expandedBackdrop}`}
+          data-testid="expanded-hand"
+        >
           <div className={styles.expandedHand}>
             {handCards.map((card) => {
               const data = model.view.cards[card.cardId];
