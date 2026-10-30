@@ -2,7 +2,7 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #88 Slack watcher for Mecha's session (not merged yet)
+## #101 Slack watcher for Mecha's session (not merged yet)
 
 ### What changed
 
