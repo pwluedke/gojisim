@@ -27,7 +27,6 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { type Box, FlightLayer, useMoveAnimations } from "./animation";
-import { badgeReasons } from "../game/decks";
 import styles from "./Board.module.css";
 import { CardBack, CardFace } from "./CardFace";
 import {
@@ -717,17 +716,11 @@ function Mat({
           }
         >
           <strong>Illegal deck</strong>
-          {/* M13b: up to 3 plain reasons, then "+N more"; the tooltip lists them all. */}
-          {badgeReasons(warning).shown.map((line) => (
-            <span key={line} data-testid="deck-warning-reason">
-              {line}
-            </span>
-          ))}
-          {badgeReasons(warning).more > 0 && (
-            <span data-testid="deck-warning-more">
-              +{badgeReasons(warning).more} more
-            </span>
-          )}
+          {/* #108: the count only, so it fits its one-card cell in every theme; the tooltip
+              lists the plain reasons (M13b). */}
+          <span data-testid="deck-warning-count">
+            {warning.length} {warning.length === 1 ? "reason" : "reasons"}
+          </span>
         </div>
       )}
       {MAT.filter(
@@ -1067,6 +1060,7 @@ export function BoardView({
         <div
           className={styles.layout}
           data-testid="board"
+          data-play-board
           data-bottom={model.bottom}
         >
           <aside className={styles.leftColumn} data-testid="left-column">
