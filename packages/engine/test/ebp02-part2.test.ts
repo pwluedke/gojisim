@@ -379,6 +379,62 @@ describe("EBP02-012 Godzilla (2016) Frozen (E21, E12)", () => {
     expect(state.replacementAsks).toBeUndefined();
   });
 
+  it("EBP02-012 10.9, 7.2.3 (#104): for a player who confirms single options, Yes pauses the step for the placeUnder picks and the start phase goes on; No discards", () => {
+    const run = (answers: ["yes" | "no", "yes" | "no"]) => {
+      let state = runTo(newGame(), "7.2.1");
+      const me = turnPlayer(state);
+      state.confirmSingleOption = [me.id];
+      place(state, me, real("EBP02-012"), 8);
+      me.strategyZones[0].push({
+        card: addCard(state, strategyCard({ id: 967073 }), me.id),
+        placedOnTurn: state.turn - 1,
+      });
+      me.strategyZones[1].push({
+        card: addCard(state, strategyCard({ id: 967074 }), me.id),
+        placedOnTurn: state.turn - 1,
+      });
+      state = advanceToDecision(state);
+      const picks: string[] = [];
+      for (const answer of answers) {
+        expect(state.pendingChoice).toMatchObject({
+          kind: "confirm",
+          rule: "10.9",
+        });
+        state = advanceToDecision(choose(state, (id) => id === answer));
+        // Where it goes (Frozen itself) and which card (the replaced one): one option each.
+        while (state.pendingChoice?.kind === "target") {
+          expect(state.pendingChoice.options).toHaveLength(1);
+          expect(
+            checkInvariants(state).filter((p) => p.startsWith("resolution")),
+          ).toEqual([]);
+          picks.push(state.pendingChoice.rule);
+          state = advanceToDecision(choose(state, () => true));
+        }
+      }
+      const player = self(state, me);
+      expect(state.step).toBe("7.3.2");
+      expect(player.strategyZones.flat()).toEqual([]);
+      expect(state.replacementAsks).toBeUndefined();
+      return {
+        picks,
+        under: player.zones[8][0]?.map((c) => c.cardId).slice(0, -1),
+        discarded: player.discard
+          .map((c) => c.cardId)
+          .filter((id) => id === 967073 || id === 967074),
+      };
+    };
+    expect(run(["yes", "yes"])).toEqual({
+      picks: ["3.2", "3.2", "3.2", "3.2"],
+      under: [967073, 967074],
+      discarded: [],
+    });
+    expect(run(["no", "yes"])).toEqual({
+      picks: ["3.2", "3.2"],
+      under: [967074],
+      discarded: [967073],
+    });
+  });
+
   it("EBP02-012 5.15.1: at your main phase in zone 4+, with 2 cards under it, counter the opponent's monster (Q24)", () => {
     let state = runTo(newGame(), "7.3.1");
     const me = turnPlayer(state);

@@ -2,7 +2,84 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #72 Skip the First / Second pick (not merged yet)
+## #110 Fix: the game froze after putting a strategy card under Godzilla (2016) Frozen (not merged yet)
+
+### What changed
+
+- The battle log and the bot's announcement now name the card for Frozen's question: "applies Godzilla (2016) Frozen's replacement to Despair" instead of "uses a card's ability".
+
+### Fixed
+
+- With Godzilla (2016) Frozen (EBP02-012) in your zone 8, answering Yes at your start phase to put a strategy card under it stopped the game with "not implemented: a replacement effect that needs a choice". Yes now puts the card under Frozen and the turn goes on; No sends it to the discard pile as before.
+- Godzilla Emerges (ESD01-014): when you confirm one-option choices (the default for you in the app), the pick to play the found Godzilla (2023) let the bot see which card in your deck it was before it was played. That pick is now private, like the search.
+
+### Testing notes
+
+- New tests: Frozen with two strategy cards leaving at the start phase, answered Yes/Yes and No/Yes, with one-option choices confirmed as in the app; the log and announcement wording.
+- The stress test now plays every game with one side confirming one-option choices, as a human does in the app. With that, the old code crashed in 15 of 300 games; the fixed code crashed in none of 600, and a further 1,600 games across all decks found nothing else. The same change found the Godzilla Emerges leak above.
+- Try it: put Frozen in your zone 8, activate a strategy card, and at your next start phase answer Yes. The strategy card should go under Frozen.
+
+### Known issues
+
+- None known.
+
+## #102 Weekly dependency updates (2026-10-29)
+
+### What changed
+
+- For the dev team: GitHub's Dependabot now checks every Monday morning for newer versions of the libraries and GitHub Actions the project uses, and opens pull requests for them. Small updates come bundled into one pull request; big version jumps come one at a time. Each one is tested like any other change before it goes in.
+
+### Fixed
+
+- Nothing.
+
+### Testing notes
+
+- Nothing to try in the game. The first update pull requests should appear on the next Monday.
+
+### Known issues
+
+- A Playwright update needs one more line changed by hand (the test runner's image), so it comes in its own pull request.
+
+## #103 Space Beam counts a Mechagodzilla monster in zone 8 (2026-10-29)
+
+### What changed
+
+- Nothing new.
+
+### Fixed
+
+- Space Beam (EBP03-069) now destroys when your invading monster is a Mechagodzilla card standing in your zone 8, such as Multi-purpose Fighting System-3, even with no Mechagodzilla battle card there. Before, only a battle card counted. This follows Paul's ruling of Oct 29, 2026, and a matching answer in the community's rule questions. A Mechagodzilla card in your opponent's zone 8 still doesn't count.
+
+### Testing notes
+
+- New test: with your Multi-purpose Fighting System-3 monster in your zone 8 and no battle card there, Space Beam destroys; with it in the opponent's zone 8, in another zone, or with a monster that isn't a Mechagodzilla, it doesn't.
+- Try it: play an MFS-3 deck, invade to zone 8, then activate Space Beam (EBP03-069) and watch the opponent's rank 5 or lower battle cards go.
+
+### Known issues
+
+- Two cards with similar wording still count only battle cards, pending a ruling: Gigan (1972) (EBP02-064) and M.O.G.U.E.R.A. (EBP02-067).
+
+## #101 Slack watcher for Mecha's session (2026-10-29)
+
+### What changed
+
+- For the dev team: a small watcher, `pnpm slack-watch`, checks the team channel every 30 seconds and tells Mecha when Monarch has posted something it hasn't read yet, so Paul no longer has to type "check slack".
+
+### Fixed
+
+- Nothing.
+
+### Testing notes
+
+- New tests with Slack mocked: an unread Monarch message is reported once; read ones and Mecha's own aren't; replies in threads are found; when Slack says "slow down", the watcher waits as long as it's told.
+- Nothing to try in the game.
+
+### Known issues
+
+- None known.
+
+## #72 Skip the First / Second pick (2026-10-29)
 
 ### What changed
 

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   advanceToDecision,
   applyAction,
+  checkInvariants,
   type GameState,
   getPlayerView,
   type PlayerState,
@@ -303,6 +304,31 @@ describe("ESD01-014 Godzilla Emerges", () => {
       "ESD01-011#enter-rage",
     ]);
     expect(nonTurnPlayer(after).rage).toBe(2);
+  });
+
+  it("ESD01-014 4.8.2: for a player who confirms single options, the play pick of the found card (still in the deck) is private too", () => {
+    const state = atPlayTiming();
+    state.confirmSingleOption = [state.turnPlayer];
+    const me = turnPlayer(state);
+    me.monsterPosition = 6;
+    me.rage = 2;
+    onDeck(state, me, real("ESD01-012"));
+    const card = inHand(state, me, real("ESD01-014"));
+    const paused = applyAction(state, {
+      type: "activateStrategy",
+      player: me.id,
+      cardInstanceId: card.instanceId,
+      strategyZone: 1,
+    });
+    const pick = choose(paused, real("ESD01-012").id);
+    expect(pick.pendingChoice).toMatchObject({
+      kind: "target",
+      rule: "5.11.1",
+      private: true,
+    });
+    expect(checkInvariants(pick).filter((p) => p.includes("leaks"))).toEqual(
+      [],
+    );
   });
 
   it("ESD01-014 10.5.2.3.3: with less than 2 rage it does nothing", () => {

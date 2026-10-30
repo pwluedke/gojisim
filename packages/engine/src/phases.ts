@@ -163,20 +163,42 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
             ?.answer
         : "yes";
       if (!replacement || answer !== "yes") continue;
-      applyReplacement(state, replacement, card, "strategyToDiscard", "7.2.3", {
-        replaced: {
-          kind: "cards",
-          cards: [
-            {
-              instanceId: card.instanceId,
-              cardId: card.cardId,
-              rank: null,
-              counterPower: null,
-              threat: null,
-            },
-          ],
+      // Marked done first: its `instead` effects may stop for a choice (`placeUnder` asks where,
+      // and a human who confirms single options sees even one place); the step then runs again
+      // once the resolution ends, as 7.2.4 does.
+      state.replacementAsks = [
+        ...(state.replacementAsks ?? []).filter(
+          (a) => a.instanceId !== card.instanceId,
+        ),
+        {
+          instanceId: card.instanceId,
+          abilityId: replacement.abilityId,
+          answer: "done",
         },
-      });
+      ];
+      const outcome = applyReplacement(
+        state,
+        replacement,
+        card,
+        "strategyToDiscard",
+        "7.2.3",
+        {
+          replaced: {
+            kind: "cards",
+            cards: [
+              {
+                instanceId: card.instanceId,
+                cardId: card.cardId,
+                rank: null,
+                counterPower: null,
+                threat: null,
+              },
+            ],
+          },
+        },
+        true,
+      );
+      if (outcome === "paused") return;
     }
     delete state.replacementAsks;
     player.strategyZones = player.strategyZones.map((placements) => {

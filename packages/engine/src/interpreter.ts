@@ -2311,8 +2311,10 @@ function perform(state: GameState, effect: Effect): Outcome {
           const rank = getRank(state, c.card);
           return rank !== null && rank <= (opponent.monsterPosition ?? 0);
         });
+      // A bound card can still be in a hidden area: a searched card is played from the deck
+      // (ESD01-014), so its pick is private like the search (4.8.2, decision 140).
       const cards = pickCards(ctx, candidates, effect.count, me.id, "5.11.1", {
-        hidden: effect.from === "deck" || effect.from === "hand",
+        hidden: candidates.some((c) => c.area === "deck" || c.area === "hand"),
       });
       if (cards === "paused") return "paused";
       // E18: played on top of a card in a zone, stacked on it (3.2.5). With that card gone,

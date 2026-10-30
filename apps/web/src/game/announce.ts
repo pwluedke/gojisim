@@ -1,6 +1,6 @@
 import type { Action, GameState, LogEntry } from "@gojisim/engine";
 import announcedKinds from "./announcedKinds.json";
-import { findInstance, optionText } from "./labels";
+import { findInstance, optionText, replacementAskNames } from "./labels";
 
 /**
  * Bot announcements: one plain-English line per bot action, from the action and the log entries
@@ -200,7 +200,18 @@ function choiceLine(
         text: `${who} targets ${names.whose(instance?.owner ?? actor, actor)} ${named(before, option?.cardId)}`,
       };
     }
-    case "confirm":
+    case "confirm": {
+      // An optional replacement asked during a step (#104): no resolution names the card.
+      if (choice.rule === "10.9") {
+        const ask = replacementAskNames(before, choice);
+        return {
+          kind: "confirm",
+          text:
+            action.optionId === "yes"
+              ? `${who} applies ${ask.source}'s replacement to ${ask.card}`
+              : `${who} doesn't apply ${ask.source}'s replacement to ${ask.card}`,
+        };
+      }
       return {
         kind: "confirm",
         text:
@@ -208,6 +219,7 @@ function choiceLine(
             ? `${who} uses ${source}'s ability`
             : `${who} doesn't use ${source}'s ability`,
       };
+    }
     case "option":
       return {
         kind: "option",

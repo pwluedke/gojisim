@@ -1,0 +1,13 @@
+{
+  "name": "@gojisim/slack-watch",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "slack-watch": "tsx src/main.ts",
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}

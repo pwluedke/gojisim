@@ -76,6 +76,20 @@ Deploy only when you want testers to get what's on main; merging a PR doesn't de
 
 See [docs/deploy.md](docs/deploy.md) for the setup steps, deploying and rolling back, the card image volume and how the gate works. `pnpm build`, then `node apps/server/dist/index.js` (with `GOJISIM_PASSWORD` and `SESSION_SECRET` set to try the gate) serves the built app locally; `pnpm --filter @gojisim/web e2e:prod` tests it with the gate on. In `/play`, **Report bug** (the Test Site panel, left column) uploads the current game record with the tester's note (it downloads the file when the send fails or sharing is off); "Load a game record" or `/debug` opens it. Finished games, Bad Bot! reports and Report bug notes upload to `/data/records` (`RECORDS_DIR`, capped at 1 GB: past it, uploads answer 507 and the server logs it once); locally the dev server writes them to the gitignored `records/`.
 
+## Slack watcher
+
+`pnpm slack-watch` (`tools/slack-watch`) polls #gojisim-dev every 30 s and prints one line for each Monarch message (text starting with "[Monarch]") that has no :white_check_mark: reaction yet, once per run: `[slack] Monarch <time> <first 80 characters> ts=<ts>`. Thread replies count too. Mecha starts it as a monitored background command at the start of each session, so a printed line wakes the session to check Slack. An API error prints one line and polling goes on; a rate limit (429) waits the `Retry-After` time.
+
+Token setup (once, by Paul):
+
+1. At <https://api.slack.com/apps>, Create New App → From scratch, in the GojiSim workspace.
+2. OAuth & Permissions → User Token Scopes: add `channels:history` and `groups:history`.
+3. Install to Workspace, and allow.
+4. Copy the User OAuth Token (it starts with `xoxp-`). Reinstalling the app issues a new token and revokes the old one.
+5. Add `export SLACK_WATCH_TOKEN=xoxp-...` to the repo's `.envrc` (gitignored) and run `direnv allow`.
+
+The watcher reads `SLACK_WATCH_TOKEN` from the environment, or from `.envrc` directly when direnv hasn't loaded it (a background shell). It never prints the token; it sends it only in the request's `Authorization` header.
+
 ## Layout
 
 | Path                   | Package                   | Purpose                                                            |
