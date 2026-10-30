@@ -24,6 +24,6 @@ The file is the entry without its date or PR number: a `# ` title line, then the
 - None known.
 ```
 
-When Paul deploys, `pnpm release-notes` moves every file here that is on `main` into `docs/release-notes.md` as `## #<PR> <title> (<merge date>)`, newest merge first, reading the PR number and the date from the merge commit, and removes the files.
+When Paul deploys, `pnpm release-notes` moves every file here that is on `main` into `docs/release-notes.md` as `## #<PR> <title> (<merge date>)`, newest merge first, reading the PR number and the date from the merge commit, and removes the files, through a PR that merges itself once `ci` passes.
 
 CI fails a PR that changes `apps/` or `packages/` without a file here. A PR testers can't see (docs, tools, CI) takes the `no-release-notes` label instead; re-run the Release notes job after adding it.

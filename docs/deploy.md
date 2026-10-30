@@ -108,9 +108,12 @@ No redeploy is needed: the server reads `/data/cards` on each request. After a c
 
 Merging into `main` doesn't deploy. To put main's current state in front of testers:
 
-1. On your Mac, in the `gojisim` folder: `git fetch origin`, then `git push origin origin/main:release` (with `main` checked out and up to date, `git push origin main:release` is the same). If Git refuses because `release` has commits `main` doesn't, something other than this command pushed there; ask before forcing.
-2. In Railway, open the `gojisim` service → **Deployments**. The new deploy appears for that commit, builds, passes the `/healthz` check and becomes **Active**. That takes a few minutes. A deploy marked **Skipped: No changes to watched files** means Watch Paths are limiting it: clear them under **Settings → Source → Watch Paths** (the repo's `watchPatterns` covers everything), then push again or redeploy.
-3. Open `https://gojisim.somanygames.app` and check the change.
+1. On your Mac, in the `gojisim` folder: `pnpm release-notes`. It joins the merged PRs' notes (`docs/release-notes/unreleased/`) into `docs/release-notes.md`, dated by each merge, through a "Release notes for <date>" PR that merges itself once `ci` passes, and prints that PR's URL. Your checkout isn't changed, and you don't wait for it: the notes don't affect the site. With nothing new it says so and opens no PR. It needs auto-merge allowed once (below); if it isn't, it stops and says so.
+2. `git fetch origin`, then `git push origin origin/main:release` (with `main` checked out and up to date, `git push origin main:release` is the same). If Git refuses because `release` has commits `main` doesn't, something other than this command pushed there; ask before forcing.
+3. In Railway, open the `gojisim` service → **Deployments**. The new deploy appears for that commit, builds, passes the `/healthz` check and becomes **Active**. That takes a few minutes. A deploy marked **Skipped: No changes to watched files** means Watch Paths are limiting it: clear them under **Settings → Source → Watch Paths** (the repo's `watchPatterns` covers everything), then push again or redeploy.
+4. Open `https://gojisim.somanygames.app` and check the change.
+
+**Once: allow auto-merge.** GitHub → `pwluedke/gojisim` → **Settings → General → Pull Requests → Allow auto-merge**. `pnpm release-notes` turns it on for its own PR only; every other PR still merges by hand.
 
 **Roll back:** Railway → `gojisim` → **Deployments** → pick an older, working deploy → **⋯ → Redeploy**. The site goes back to that build at once. The `release` branch still points at the newer commit, so the next `git push origin main:release` deploys main again as usual.
 
