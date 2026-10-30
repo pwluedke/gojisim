@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { MAX_REPORT_LENGTH } from "../game/collection";
+import { type BotMoveRef, MAX_REPORT_LENGTH } from "../game/collection";
 import styles from "./Board.module.css";
 
 export interface ReportModalProps {
   kind: "badBot" | "goodBot" | "bug";
-  /** Bad Bot! and Good Bot!: the marked move in announcement wording, and when it was played. */
-  move?: { plain: string; when: string };
+  /**
+   * Bad Bot! and Good Bot! (#106): the bot's recent moves, newest first, in announcement wording
+   * with when each was played; the latest is preselected.
+   */
+  moves?: readonly BotMoveRef[];
   /** The name last used, pre-filled. */
   name: string;
   /**
@@ -14,7 +17,8 @@ export interface ReportModalProps {
    * Download instead of Send.
    */
   sharingOff?: boolean;
-  onSubmit: (name: string, text: string) => void;
+  /** The picked move (Bad Bot! and Good Bot!), or `null` for Report bug. */
+  onSubmit: (name: string, text: string, move: BotMoveRef | null) => void;
   onCancel: () => void;
   /** Bad Bot! with sharing off: open Report bug instead. */
   onReportBug?: () => void;
@@ -45,7 +49,7 @@ const COPY = {
  */
 export function ReportModal({
   kind,
-  move,
+  moves,
   name: savedName,
   sharingOff = false,
   onSubmit,
@@ -54,6 +58,8 @@ export function ReportModal({
 }: ReportModalProps) {
   const [name, setName] = useState(savedName);
   const [text, setText] = useState("");
+  const [picked, setPicked] = useState(0);
+  const move = moves?.[picked] ?? null;
   const first = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const copy = COPY[kind];
   const ready = name.trim() !== "" && text.trim() !== "";
@@ -82,17 +88,37 @@ export function ReportModal({
         aria-labelledby="report-title"
         onSubmit={(e) => {
           e.preventDefault();
-          if (ready && !blocked) onSubmit(name.trim(), text.trim());
+          if (ready && !blocked) onSubmit(name.trim(), text.trim(), move);
         }}
       >
         <div className={styles.modalHeading} id="report-title">
           {copy.title}
         </div>
-        {move && (
-          <div className={styles.reportMove} data-testid="bad-bot-move">
-            <div>{move.plain}</div>
-            <div className={styles.muted}>{move.when}</div>
-          </div>
+        {moves && moves.length > 0 && (
+          <fieldset className={styles.reportMoves} data-testid="bad-bot-move">
+            <legend>
+              {moves.length > 1 ? "Which move?" : "The bot's move"}
+            </legend>
+            {moves.map((m, i) => (
+              <label
+                key={m.actionIndex}
+                className={styles.reportMove}
+                data-testid="bad-bot-move-option"
+                data-action-index={m.actionIndex}
+              >
+                <input
+                  type="radio"
+                  name="bad-bot-move"
+                  checked={i === picked}
+                  onChange={() => setPicked(i)}
+                />
+                <span>
+                  <span>{m.plain}</span>{" "}
+                  <span className={styles.muted}>{m.when}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
         )}
         {sharingOff && kind === "bug" && (
           <p data-testid="report-bug-sharing-off">

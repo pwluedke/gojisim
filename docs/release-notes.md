@@ -2,7 +2,26 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #110 Fix: the game froze after putting a strategy card under Godzilla (2016) Frozen (not merged yet)
+## #117 Bad Bot! and Good Bot! let you pick which bot move you mean (not merged yet)
+
+### What changed
+
+- The Bad Bot! and Good Bot! popups now list the bot's recent moves: everything since your last action, plus its latest turn, newest first. The latest is picked to start; pick another to report that one. Before, they always marked the bot's very last move, often a Pass right after the move you meant.
+
+### Fixed
+
+- Nothing.
+
+### Testing notes
+
+- New tests: the list holds the bot's latest turn and its moves since your last action, newest first; picking an earlier move sends that move.
+- Try it: after the bot plays a few cards and passes, press Bad Bot!, pick one of its plays, and send.
+
+### Known issues
+
+- None known.
+
+## #110 Fix: the game froze after putting a strategy card under Godzilla (2016) Frozen (2026-10-29)
 
 ### What changed
 

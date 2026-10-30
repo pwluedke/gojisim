@@ -81,36 +81,77 @@ export interface BotMoveRef {
   when: string;
 }
 
+/** The bot action at `i` as Bad Bot! names it, or `null` when a human took it. */
+function botMoveAt(session: Session, i: number): BotMoveRef | null {
+  const action = session.record.actions[i];
+  const seat = action && session.seats[action.player as PlayerId];
+  if (!action || seat?.kind !== "bot") return null;
+  const before = session.states[i] as GameState;
+  const after = session.states[i + 1] ?? before;
+  const words = announce(before, after, action, {
+    subject: () => "Bot",
+    whose: (owner, actor) =>
+      owner === actor
+        ? "its"
+        : session.seats[owner as PlayerId]?.kind === "human"
+          ? "your"
+          : `Bot ${owner}'s`,
+  }).text;
+  return {
+    actionIndex: i,
+    // Private choices stay private, as in the battle log.
+    label: botLabel(before, action, seat.difficulty, true),
+    plain: words.replace(/^Bot /, `Bot (${difficultyName(seat.difficulty)}): `),
+    when: `Turn ${before.turn}, ${PHASES[stepPhase(before.currentStep)]}`,
+  };
+}
+
+/**
+ * The bot moves Bad Bot! and Good Bot! offer (#106), newest first: every bot action after the
+ * human's last action, plus the bot's latest turn (a bad play is often followed by a Pass, the
+ * latest move); between two bots, the latest turn. Empty before the bot has acted.
+ */
+export function recentBotMoves(session: Session): BotMoveRef[] {
+  const { actions } = session.record;
+  const isBot = (i: number) =>
+    session.seats[actions[i]?.player as PlayerId]?.kind === "bot";
+  let lastHuman = -1;
+  let lastBot = -1;
+  for (
+    let i = actions.length - 1;
+    i >= 0 && (lastHuman < 0 || lastBot < 0);
+    i--
+  ) {
+    if (isBot(i)) lastBot = lastBot < 0 ? i : lastBot;
+    else lastHuman = lastHuman < 0 ? i : lastHuman;
+  }
+  if (lastBot < 0) return [];
+  // The latest turn a bot seat took, read from the states before each action.
+  let botTurn: number | null = null;
+  for (let i = actions.length - 1; i >= 0; i--) {
+    const state = session.states[i] as GameState;
+    if (session.seats[state.turnPlayer as PlayerId]?.kind === "bot") {
+      botTurn = state.turn;
+      break;
+    }
+  }
+  const moves: BotMoveRef[] = [];
+  for (let i = actions.length - 1; i >= 0; i--) {
+    const inBotTurn = (session.states[i] as GameState).turn === botTurn;
+    // Between two bots there is no human action: the latest turn only.
+    if ((i <= lastHuman || lastHuman < 0) && !inBotTurn) {
+      if ((session.states[i] as GameState).turn < (botTurn ?? 0)) break;
+      continue;
+    }
+    const move = botMoveAt(session, i);
+    if (move) moves.push(move);
+  }
+  return moves;
+}
+
 /** The bot's latest action in the session, or `null` before the bot has acted. */
 export function latestBotMove(session: Session): BotMoveRef | null {
-  const { actions } = session.record;
-  for (let i = actions.length - 1; i >= 0; i--) {
-    const action = actions[i];
-    const seat = action && session.seats[action.player as PlayerId];
-    if (!action || seat?.kind !== "bot") continue;
-    const before = session.states[i] as GameState;
-    const after = session.states[i + 1] ?? before;
-    const words = announce(before, after, action, {
-      subject: () => "Bot",
-      whose: (owner, actor) =>
-        owner === actor
-          ? "its"
-          : session.seats[owner as PlayerId]?.kind === "human"
-            ? "your"
-            : `Bot ${owner}'s`,
-    }).text;
-    return {
-      actionIndex: i,
-      // Private choices stay private, as in the battle log.
-      label: botLabel(before, action, seat.difficulty, true),
-      plain: words.replace(
-        /^Bot /,
-        `Bot (${difficultyName(seat.difficulty)}): `,
-      ),
-      when: `Turn ${before.turn}, ${PHASES[stepPhase(before.currentStep)]}`,
-    };
-  }
-  return null;
+  return recentBotMoves(session)[0] ?? null;
 }
 
 /** The session with a Bad Bot! report added to the record. */
