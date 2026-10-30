@@ -20,6 +20,25 @@ What each merged PR changed, in plain words, for Paul and the testers. Newest fi
 
 - A Playwright update needs one more line changed by hand (the test runner's image), so it comes in its own pull request.
 
+## #103 Space Beam counts a Mechagodzilla monster in zone 8 (2026-10-29)
+
+### What changed
+
+- Nothing new.
+
+### Fixed
+
+- Space Beam (EBP03-069) now destroys when your invading monster is a Mechagodzilla card standing in your zone 8, such as Multi-purpose Fighting System-3, even with no Mechagodzilla battle card there. Before, only a battle card counted. This follows Paul's ruling of Oct 29, 2026, and a matching answer in the community's rule questions. A Mechagodzilla card in your opponent's zone 8 still doesn't count.
+
+### Testing notes
+
+- New test: with your Multi-purpose Fighting System-3 monster in your zone 8 and no battle card there, Space Beam destroys; with it in the opponent's zone 8, in another zone, or with a monster that isn't a Mechagodzilla, it doesn't.
+- Try it: play an MFS-3 deck, invade to zone 8, then activate Space Beam (EBP03-069) and watch the opponent's rank 5 or lower battle cards go.
+
+### Known issues
+
+- Two cards with similar wording still count only battle cards, pending a ruling: Gigan (1972) (EBP02-064) and M.O.G.U.E.R.A. (EBP02-067).
+
 ## #101 Slack watcher for Mecha's session (2026-10-29)
 
 ### What changed
