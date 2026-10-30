@@ -2,7 +2,26 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #111 Monster Island Mailbox: send us your ideas (not merged yet)
+## #112 Card sounds for 14 much-played cards (not merged yet)
+
+### What changed
+
+- Fourteen of the most-discussed cards now have their own sound in place of the generic one, picked by Paul: Heat Ray, Space Beam (both cards), Gravity Beam, Oxygen Destroyer, Godzilla Landing, Final Showdown, Entangling Fear and Godzilla Attacks when activated; Monster X, Varan and Zilla when played; SpaceGodzilla and Ghidorah (2001) when they become the monster (Burst plays and the next monster after a counter included); and a Crystals token when it's made. Every print of a card plays the same sound.
+
+### Fixed
+
+- Nothing.
+
+### Testing notes
+
+- New tests: each card's event plays its sound, every print included; both Space Beams share one; Evolution keeps its own sound; card sounds throttle on their own; every file is listed in the licenses and they total 156 KB.
+- Try it: activate Heat Ray or play Varan with Sound on and listen for the new sound instead of the usual card thud.
+
+### Known issues
+
+- None known.
+
+## #111 Monster Island Mailbox: send us your ideas (2026-10-30)
 
 ### What changed
 
