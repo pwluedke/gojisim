@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
 import type { Card } from "@gojisim/cards";
 import { getCardAbilities } from "@gojisim/cards";
+import { getAllCards } from "@gojisim/cards/test-decks";
 import { describe, expect, it, onTestFinished } from "vitest";
 import {
   advanceToDecision,
@@ -10,7 +12,9 @@ import {
   getCounterPower,
   getLegalActions,
   getThreat,
+  type GameRecord,
   type PlayerState,
+  replay,
   type ZoneNumber,
 } from "../src";
 import { setTestAbilities } from "../src/testing";
@@ -377,6 +381,107 @@ describe("EBP02-012 Godzilla (2016) Frozen (E21, E12)", () => {
     expect(player.discard.map((c) => c.cardId)).toContain(967072);
     expect(player.strategyZones.flat()).toEqual([]);
     expect(state.replacementAsks).toBeUndefined();
+  });
+
+  it("EBP02-012 10.9, 7.2.3 (#104): for a player who confirms single options, Yes pauses the step for the placeUnder picks and the start phase goes on; No discards", () => {
+    const run = (answers: ["yes" | "no", "yes" | "no"]) => {
+      let state = runTo(newGame(), "7.2.1");
+      const me = turnPlayer(state);
+      state.confirmSingleOption = [me.id];
+      place(state, me, real("EBP02-012"), 8);
+      me.strategyZones[0].push({
+        card: addCard(state, strategyCard({ id: 967073 }), me.id),
+        placedOnTurn: state.turn - 1,
+      });
+      me.strategyZones[1].push({
+        card: addCard(state, strategyCard({ id: 967074 }), me.id),
+        placedOnTurn: state.turn - 1,
+      });
+      state = advanceToDecision(state);
+      const picks: string[] = [];
+      for (const answer of answers) {
+        expect(state.pendingChoice).toMatchObject({
+          kind: "confirm",
+          rule: "10.9",
+        });
+        state = advanceToDecision(choose(state, (id) => id === answer));
+        // Where it goes (Frozen itself) and which card (the replaced one): one option each.
+        while (state.pendingChoice?.kind === "target") {
+          expect(state.pendingChoice.options).toHaveLength(1);
+          expect(
+            checkInvariants(state).filter((p) => p.startsWith("resolution")),
+          ).toEqual([]);
+          picks.push(state.pendingChoice.rule);
+          state = advanceToDecision(choose(state, () => true));
+        }
+      }
+      const player = self(state, me);
+      expect(state.step).toBe("7.3.2");
+      expect(player.strategyZones.flat()).toEqual([]);
+      expect(state.replacementAsks).toBeUndefined();
+      return {
+        picks,
+        under: player.zones[8][0]?.map((c) => c.cardId).slice(0, -1),
+        discarded: player.discard
+          .map((c) => c.cardId)
+          .filter((id) => id === 967073 || id === 967074),
+      };
+    };
+    expect(run(["yes", "yes"])).toEqual({
+      picks: ["3.2", "3.2", "3.2", "3.2"],
+      under: [967073, 967074],
+      discarded: [],
+    });
+    expect(run(["no", "yes"])).toEqual({
+      picks: ["3.2", "3.2"],
+      under: [967074],
+      discarded: [967073],
+    });
+  });
+
+  it("EBP02-012 10.9, 7.2.3 (#104): Paul's game replays past turn 8's start phase with Yes and with No", () => {
+    const fixture = JSON.parse(
+      readFileSync(
+        new URL("./fixtures/records/frozen-104.json", import.meta.url),
+        "utf8",
+      ),
+    ) as Omit<GameRecord, "decks" | "version"> & {
+      decks: { id: string; monsterDeck: number[]; mainDeck: number[] }[];
+    };
+    const byId = new Map(getAllCards().map((c) => [c.id, c]));
+    const card = (id: number) => byId.get(id) as Card;
+    const record: GameRecord = {
+      ...fixture,
+      version: 1,
+      decks: fixture.decks.map((d) => ({
+        id: d.id,
+        monsterDeck: d.monsterDeck.map(card),
+        mainDeck: d.mainDeck.map(card),
+      })) as GameRecord["decks"],
+    };
+    const at = replay(record);
+    expect(at).toMatchObject({ turn: 8, step: "7.2.3" });
+    expect(at.pendingChoice).toMatchObject({
+      kind: "confirm",
+      rule: "10.9",
+      player: "P1",
+    });
+    const despair = real("EBP02-018").id;
+    for (const answer of ["yes", "no"]) {
+      let state = advanceToDecision(choose(at, (id) => id === answer));
+      while (state.pendingChoice?.player === "P1")
+        state = advanceToDecision(choose(state, () => true));
+      const p1 = self(state, turnPlayer(at));
+      expect(state.step).toBe("7.3.2");
+      expect(p1.zones[8][0]?.map((c) => c.cardId)).toEqual(
+        answer === "yes"
+          ? [despair, real("EBP02-012").id]
+          : [real("EBP02-012").id],
+      );
+      expect(p1.discard.some((c) => c.cardId === despair)).toBe(
+        answer === "no",
+      );
+    }
   });
 
   it("EBP02-012 5.15.1: at your main phase in zone 4+, with 2 cards under it, counter the opponent's monster (Q24)", () => {

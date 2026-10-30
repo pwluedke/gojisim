@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import type { Card } from "@gojisim/cards";
+import { getAllCards } from "@gojisim/cards/test-decks";
 import type { GameState } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
-import { sessionFromRecord } from "../game/session";
+import { type AnnounceNames, announce } from "../game/announce";
+import { sessionFromRecord, withAction } from "../game/session";
 import { buildLog, type LogLine } from "./logLines";
 
 const fixture = (name: string) =>
@@ -13,6 +15,10 @@ const fixture = (name: string) =>
     ),
   );
 const names = (id: string) => (id === "P1" ? "You" : "Bot");
+const announceNames: AnnounceNames = {
+  subject: () => "Bot",
+  whose: (owner, actor) => (owner === actor ? "its" : "your"),
+};
 const text = (line: LogLine) =>
   line.parts.map((p) => (typeof p === "string" ? p : p.card.name)).join("");
 
@@ -113,5 +119,66 @@ describe("effect plays (M12c-1)", () => {
     const lines = buildLog(session, "P1", names).map(text);
     expect(lines).toContain(`${a?.name} becomes the invading monster`);
     expect(lines).toContain(`${a?.name} enters zone 2 on top of ${b?.name}`);
+  });
+});
+
+describe("an optional replacement asked during a step (#104)", () => {
+  // Paul's game: Godzilla (2016) Frozen's replacement asked for Despair at 7.2.3 (E21).
+  const fixture = JSON.parse(
+    readFileSync(
+      new URL(
+        "../../../../packages/engine/test/fixtures/records/frozen-104.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ) as { decks: { id: string; monsterDeck: number[]; mainDeck: number[] }[] };
+  const byId = new Map(getAllCards().map((c) => [c.id, c]));
+  const session = sessionFromRecord(
+    JSON.stringify({
+      ...fixture,
+      version: 1,
+      seats: {
+        P1: { kind: "human" },
+        P2: { kind: "bot", bot: "ismcts", settings: { difficulty: 55 } },
+      },
+      decks: fixture.decks.map((d) => ({
+        id: d.id,
+        monsterDeck: d.monsterDeck.map((id) => byId.get(id)),
+        mainDeck: d.mainDeck.map((id) => byId.get(id)),
+      })),
+    }),
+  );
+  const before = session.states[session.position] as GameState;
+  const answer = (optionId: string) => {
+    const choice = before.pendingChoice;
+    if (!choice) throw new Error("no choice");
+    const action = {
+      type: "choose" as const,
+      player: choice.player,
+      choiceId: choice.id,
+      optionId,
+    };
+    const next = withAction(session, action);
+    const line = buildLog(next, "P1", names)
+      .filter((l) => l.kind === "action")
+      .at(-1) as LogLine;
+    const after = next.states[next.position] as GameState;
+    return {
+      log: text(line),
+      announced: announce(before, after, action, announceNames).text,
+    };
+  };
+
+  it("the log and the announcement name the replacement and the card, as the modal does", () => {
+    expect(answer("yes")).toEqual({
+      log: "You: applies Godzilla (2016) Frozen's replacement to Despair",
+      announced: "Bot applies Godzilla (2016) Frozen's replacement to Despair",
+    });
+    expect(answer("no")).toEqual({
+      log: "You: doesn't apply Godzilla (2016) Frozen's replacement to Despair",
+      announced:
+        "Bot doesn't apply Godzilla (2016) Frozen's replacement to Despair",
+    });
   });
 });

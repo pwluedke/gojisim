@@ -1,7 +1,7 @@
 import type { Card } from "@gojisim/cards";
 import type { Action, ComboHit, GameState, LogEntry } from "@gojisim/engine";
 import { difficultyName } from "../game/bots";
-import { actionLabel, findInstance } from "../game/labels";
+import { actionLabel, findInstance, replacementAskNames } from "../game/labels";
 import type { PlayerId, Session } from "../game/session";
 
 /** A piece of a log line: plain text, or a card name that opens the preview. */
@@ -101,6 +101,13 @@ function actionText(state: GameState, action: Action): string {
   const option = choice.options.find((o) => o.id === action.optionId);
   switch (choice.kind) {
     case "confirm": {
+      // An optional replacement asked during a step (#104): no resolution names the card.
+      if (choice.rule === "10.9") {
+        const { source, card } = replacementAskNames(state, choice);
+        return action.optionId === "yes"
+          ? `applies ${source}'s replacement to ${card}`
+          : `doesn't apply ${source}'s replacement to ${card}`;
+      }
       const source = named(state.resolution?.standby.sourceCardId);
       return action.optionId === "yes"
         ? `uses ${source}'s ability`

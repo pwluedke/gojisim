@@ -170,6 +170,27 @@ export function currentEffect(state: GameState): Effect | undefined {
   return effect;
 }
 
+/**
+ * The replacement's card and the card it would apply to, for an optional replacement asked during
+ * a step (E21: EBP02-012 at 7.2.3, EBP04-010 at 7.2.4). There is no resolution yet, so both come
+ * from the choice's options.
+ */
+export function replacementAskNames(
+  state: GameState,
+  choice: NonNullable<GameState["pendingChoice"]>,
+): { source: string; card: string } {
+  const option = choice.options[0];
+  const card =
+    option?.cardId === null || option?.cardId === undefined
+      ? undefined
+      : state.cards[option.cardId];
+  const number = option?.abilityId?.split("#")[0];
+  const source = Object.values(state.cards).find(
+    (c) => c.deckCardNumber === number,
+  );
+  return { source: source?.name ?? "a card", card: card?.name ?? "a card" };
+}
+
 /** What the chooser of the pending choice is doing, e.g. "searching their deck for Heat Ray". */
 function choiceWhat(state: GameState): string {
   const choice = state.pendingChoice;
@@ -190,16 +211,8 @@ function choiceWhat(state: GameState): string {
       // "Your opponent may discard cards until ..." (EBP02-070): the opponent decides.
       // An optional replacement asked during a step (E21, EBP02-012 at 7.2.3).
       if (choice.rule === "10.9") {
-        const option = choice.options[0];
-        const card =
-          option?.cardId === null || option?.cardId === undefined
-            ? undefined
-            : state.cards[option.cardId];
-        const number = option?.abilityId?.split("#")[0];
-        const source = Object.values(state.cards).find(
-          (c) => c.deckCardNumber === number,
-        );
-        return `deciding whether ${source?.name ?? "a card"}'s replacement applies to ${card?.name ?? "a card"}`;
+        const { source, card } = replacementAskNames(state, choice);
+        return `deciding whether ${source}'s replacement applies to ${card}`;
       }
       const effect = currentEffect(state);
       if (choice.rule === "5.7.2" && effect?.effect === "discardDownTo")
