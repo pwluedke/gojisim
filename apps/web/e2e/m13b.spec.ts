@@ -299,7 +299,7 @@ test("Good Bot!: Report bug on top, then Good Bot! and Bad Bot!; the popup names
     "Dr. Serizawa? Put your name here",
   );
   // The move in announcement wording ("Bot (Medium): plays …"), with turn and phase.
-  await expect(page.getByTestId("bad-bot-move")).toContainText(
+  await expect(page.getByTestId("bad-bot-move-option").first()).toContainText(
     /^Bot \([^)]+\): [a-z]/,
   );
   await expect(page.getByTestId("bad-bot-move")).toContainText(/Turn \d+, /);
@@ -337,6 +337,38 @@ test("Good Bot!: Report bug on top, then Good Bot! and Bad Bot!; the popup names
     "which-button-bad-bot",
     "which-button-idea",
   ]);
+});
+
+test("Bad Bot! (#106): the popup lists the bot's recent moves, newest first with the latest picked; sending an earlier one uploads its action index", async ({
+  page,
+}) => {
+  await loadFixture(page, "hand-five");
+  await page.getByTestId("bad-bot").click();
+  const options = page.getByTestId("bad-bot-move-option");
+  // hand-five's bot turn: several plays and a search, then a Pass (the latest).
+  expect(await options.count()).toBeGreaterThan(1);
+  const indices = (await options.evaluateAll((els) =>
+    els.map((e) => Number(e.getAttribute("data-action-index"))),
+  )) as number[];
+  expect([...indices].sort((x, y) => y - x)).toEqual(indices);
+  await expect(options.first().locator("input")).toBeChecked();
+  await expect(options.first()).toContainText("passes");
+  await options.nth(1).click();
+  await expect(options.nth(1).locator("input")).toBeChecked();
+  const text = marker("the second Mechagodzilla play was the bad one");
+  await fill(page, "Dr. Serizawa", text);
+  await page.getByTestId("report-submit").click();
+  await expect(page.getByTestId("test-site-note")).toHaveText("Thanks, sent.");
+  await expect.poll(() => uploadsWith(text).length).toBe(1);
+  const feedback = uploadsWith(text)[0]?.["botFeedback"] as Record<
+    string,
+    unknown
+  >[];
+  expect(feedback.at(-1)).toMatchObject({
+    kind: "bad",
+    actionIndex: indices[1],
+    text,
+  });
 });
 
 test("Monster Island Mailbox (#107): its own row under Good Bot! and Bad Bot!; the popup needs a name and a text, Esc cancels, and Send uploads an idea at once", async ({

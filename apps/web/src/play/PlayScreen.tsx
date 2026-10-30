@@ -35,7 +35,9 @@ import {
 } from "../game/announce";
 import {
   fetchConfig,
+  type BotMoveRef,
   latestBotMove,
+  recentBotMoves,
   type SiteConfig,
   testSiteEnabled,
   uploadRecord,
@@ -908,18 +910,20 @@ export function PlayScreen() {
   const remember = (reporter: string) =>
     reporter !== settings.reporterName &&
     updateSettings({ reporterName: reporter });
+  const botMoves = recentBotMoves(session);
   const sendFeedback = async (
     kind: "bad" | "good",
     reporter: string,
     text: string,
+    move: BotMoveRef | null,
   ) => {
-    if (!badBotMove) return;
+    if (!move) return;
     remember(reporter);
     setReporting(null);
     const entry = {
       kind,
-      actionIndex: badBotMove.actionIndex,
-      label: `${badBotMove.label} (${badBotMove.when})`,
+      actionIndex: move.actionIndex,
+      label: `${move.label} (${move.when})`,
       text,
       reporter,
       at: new Date().toISOString(),
@@ -1509,14 +1513,15 @@ export function PlayScreen() {
         <ReportModal
           key={reporting}
           kind={reporting}
-          move={badBotMove}
+          moves={botMoves}
           name={settings.reporterName}
           sharingOff={!settings.shareGames}
-          onSubmit={(reporter, text) =>
+          onSubmit={(reporter, text, move) =>
             void sendFeedback(
               reporting === "goodBot" ? "good" : "bad",
               reporter,
               text,
+              move,
             )
           }
           onCancel={() => setReporting(null)}

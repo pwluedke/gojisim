@@ -3,6 +3,7 @@ import { type Action, getLegalActions, type GameState } from "@gojisim/engine";
 import {
   fetchConfig,
   latestBotMove,
+  recentBotMoves,
   testSiteEnabled,
   uploadRecord,
   MAILBOX_NAME,
@@ -43,6 +44,53 @@ function play(session: Session, n: number): Session {
 }
 
 describe("game collection in the browser (M13b)", () => {
+  it("#106: the moves offered are the bot's latest turn plus its actions since the human's last one, newest first", () => {
+    let session = newSession(2, decks(), { P1: human, P2: bot });
+    // Until the bot has finished a turn and the human has acted in the next one.
+    const turnOf = (i: number) => (session.states[i] as GameState).turn;
+    const botTurns = () =>
+      new Set(
+        session.record.actions
+          .map((a, i) =>
+            a.player === "P2" &&
+            (session.states[i] as GameState).turnPlayer === "P2"
+              ? turnOf(i)
+              : -1,
+          )
+          .filter((t) => t >= 0),
+      );
+    for (
+      let n = 0;
+      n < 400 && (botTurns().size < 2 || recentBotMoves(session).length < 2);
+      n++
+    )
+      session = play(session, 1);
+    const moves = recentBotMoves(session);
+    const { actions } = session.record;
+    const lastHuman = actions.map((a) => a.player).lastIndexOf("P1");
+    let botTurn = -1;
+    for (let i = actions.length - 1; i >= 0 && botTurn < 0; i--)
+      if ((session.states[i] as GameState).turnPlayer === "P2")
+        botTurn = turnOf(i);
+    const expected = actions
+      .map((a, i) => i)
+      .filter(
+        (i) =>
+          actions[i]?.player === "P2" &&
+          (i > lastHuman || turnOf(i) === botTurn),
+      )
+      .reverse();
+    expect(moves.map((m) => m.actionIndex)).toEqual(expected);
+    expect(moves.length).toBeGreaterThan(1);
+    expect(moves[0]).toEqual(latestBotMove(session));
+    // Nothing from an earlier bot turn.
+    expect(
+      moves.every(
+        (m) => m.actionIndex > lastHuman || turnOf(m.actionIndex) === botTurn,
+      ),
+    ).toBe(true);
+  });
+
   it("Bad Bot! marks the bot's latest action, and nothing before the bot has acted", () => {
     const start = newSession(2, decks(), { P1: human, P2: bot });
     expect(latestBotMove(start)).toBeNull();
