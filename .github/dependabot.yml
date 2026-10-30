@@ -1,0 +1,56 @@
+# Weekly version updates (#91). Minor and patch updates come as one PR per ecosystem; each
+# major comes on its own. Dependabot PRs need green CI like any other, and Monarch reviews them.
+version: 2
+updates:
+  # The root lockfile covers every pnpm workspace package.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: America/Chicago
+    open-pull-requests-limit: 5
+    groups:
+      # The e2e image tag must match the lockfile's Playwright version (decision 463), so a
+      # Playwright bump needs a hand edit; its own PR keeps it from holding up the others.
+      playwright:
+        patterns:
+          - "@playwright/test"
+          - "playwright"
+          - "playwright-core"
+        update-types:
+          - minor
+          - patch
+      npm-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # TypeScript stays on ~6.0.3: typescript-eslint 8.x supports only TS < 6.1 (decision 1).
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
+      # pnpm is pinned through packageManager and corepack (decision 2).
+      - dependency-name: pnpm
+  - package-ecosystem: github-actions
+    # "/" reads .github/workflows; the composite setup action needs its own entry.
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: America/Chicago
+    open-pull-requests-limit: 5
+    groups:
+      actions-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
