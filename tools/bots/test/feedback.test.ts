@@ -170,6 +170,53 @@ describe("pnpm feedback", () => {
     actions: [...game(6).actions, { type: "concede", player: "P2" }],
   });
 
+  it("Monster Island Mailbox suggestions (#107) get their own heading, newest first, and are marked reviewed like reports", () => {
+    const idea = (n: number, at: string) => ({
+      kind: "idea" as const,
+      actionIndex: 3,
+      text: `idea ${n}`,
+      reporter: "Cy",
+      at,
+    });
+    const files = [
+      {
+        file: "2026-10-29/b.json",
+        record: {
+          ...game(6),
+          gameId: "b",
+          ideas: [
+            idea(1, "2026-10-29T10:00:00.000Z"),
+            idea(2, "2026-10-29T11:00:00.000Z"),
+          ],
+        },
+      },
+    ];
+    const { markdown, listed } = buildSummary(files, options);
+    expect(markdown).toContain(
+      "- New reports: 0 Bad Bot!, 0 Good Bot!, 0 Report bug, 2 Monster Island Mailbox (0 already reviewed)",
+    );
+    const section = markdown
+      .split("## Monster Island Mailbox\n")[1]
+      ?.split("## ")[0];
+    expect(section?.trim().split("\n")).toEqual([
+      "- Cy, 2026-10-29T11:00:00.000Z (`2026-10-29/b.json`): idea 2",
+      "- Cy, 2026-10-29T10:00:00.000Z (`2026-10-29/b.json`): idea 1",
+    ]);
+    // Not listed as reports.
+    expect(markdown).toContain("## Reports\n\nNo new reports.");
+    expect(listed).toEqual([
+      "b|idea|2026-10-29T10:00:00.000Z",
+      "b|idea|2026-10-29T11:00:00.000Z",
+    ]);
+    const again = buildSummary(files, {
+      ...options,
+      reviewed: new Set(listed),
+    });
+    expect(again.markdown).toContain(
+      "## Monster Island Mailbox\n\nNo new suggestions.",
+    );
+  });
+
   it("dedupes to the latest file per game and lists all three kinds, with the bot's search and the log tail", () => {
     const files = [
       {
@@ -185,7 +232,7 @@ describe("pnpm feedback", () => {
     const { markdown, listed } = buildSummary(files, options);
     expect(markdown).toContain("- Games: 1 (0 finished)");
     expect(markdown).toContain(
-      "- New reports: 1 Bad Bot!, 1 Good Bot!, 1 Report bug (0 already reviewed)",
+      "- New reports: 1 Bad Bot!, 1 Good Bot!, 1 Report bug, 0 Monster Island Mailbox (0 already reviewed)",
     );
     expect(markdown).toContain("### [Bad Bot!] Ann, Turn");
     expect(markdown).toContain("### [Good Bot!] Ann, Turn");
