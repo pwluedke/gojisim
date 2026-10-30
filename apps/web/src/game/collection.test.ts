@@ -5,8 +5,10 @@ import {
   latestBotMove,
   testSiteEnabled,
   uploadRecord,
+  MAILBOX_NAME,
   withBugReport,
   withFeedback,
+  withIdea,
   withOpponentHandShown,
 } from "./collection";
 import { type DeckOption, deckOptions } from "./decks";
@@ -81,6 +83,26 @@ describe("game collection in the browser (M13b)", () => {
     const loaded = sessionFromRecord(JSON.stringify(both.record));
     expect(loaded.record.botFeedback).toEqual([feedback]);
     expect(loaded.record.bugReports).toEqual([bug]);
+  });
+
+  it('a Monster Island Mailbox suggestion (#107) is its own `kind: "idea"` entry, kept through a reload', () => {
+    const session = play(newSession(3, decks(), { P1: human, P2: bot }), 2);
+    const idea = {
+      kind: "idea" as const,
+      actionIndex: 2,
+      text: "a deck builder",
+      reporter: "Dr. Serizawa",
+      at: "2026-10-29T12:00:00.000Z",
+    };
+    const next = withIdea(session, idea);
+    expect(next.record.ideas).toEqual([idea]);
+    expect(next.record.bugReports).toBeUndefined();
+    expect(next.record.botFeedback).toBeUndefined();
+    expect(next.states).toBe(session.states);
+    expect(sessionFromRecord(JSON.stringify(next.record)).record.ideas).toEqual(
+      [idea],
+    );
+    expect(MAILBOX_NAME).toBe("Monster Island Mailbox");
   });
 
   it("Show opponent's hand flags the record once, at the index it was turned on; a game started with it is flagged at 0", () => {

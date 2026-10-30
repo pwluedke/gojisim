@@ -243,6 +243,39 @@ describe("EBP02 counter power and threat (10.8.1)", () => {
     expect(getCounterPower(state, card)).toBe(15000);
   });
 
+  it("EBP02-067 Q45, EBP02-064 Q45: an invading monster with the trait, standing in its master's zones, counts like a battle card there (provisional)", () => {
+    // M.O.G.U.E.R.A.: the opponent's Godzilla card in their zones.
+    const moguera = (opponentMonster: string[], opponentBattle: string[]) => {
+      const { state, me, opp } = setup();
+      monster(state, opp, monsterCard(2, { traits: opponentMonster }), 4);
+      if (opponentBattle.length > 0)
+        place(state, opp, battleCard({ traits: opponentBattle }), 2);
+      return getCounterPower(state, place(state, me, real("EBP02-067"), 2));
+    };
+    expect(moguera(["Godzilla"], [])).toBe(15000);
+    expect(moguera(["Mothra"], ["Godzilla"])).toBe(15000);
+    expect(moguera(["Mothra"], [])).toBe(10000);
+    // Your own Godzilla monster isn't the opponent's.
+    const { state, me, opp } = setup();
+    monster(state, opp, monsterCard(2, { traits: ["Mothra"] }), 4);
+    monster(state, me, monsterCard(2, { traits: ["Godzilla"] }), 6);
+    expect(getCounterPower(state, place(state, me, real("EBP02-067"), 2))).toBe(
+      10000,
+    );
+    // Gigan (1972): a King Ghidorah or Megalon card in your zones.
+    const gigan = (yourMonster: string[], yourBattle: string[]) => {
+      const { state, me } = setup();
+      monster(state, me, monsterCard(2, { traits: yourMonster }), 6);
+      if (yourBattle.length > 0)
+        place(state, me, battleCard({ traits: yourBattle }), 3);
+      return getCounterPower(state, place(state, me, real("EBP02-064"), 2));
+    };
+    expect(gigan(["King Ghidorah"], [])).toBe(6000);
+    expect(gigan(["Megalon"], [])).toBe(6000);
+    expect(gigan(["Godzilla"], ["Megalon"])).toBe(6000);
+    expect(gigan(["Godzilla"], [])).toBe(3000);
+  });
+
   it("EBP02-076 4.4.5.2: +3,000 adjacent to your monster", () => {
     const { state, me } = setup(3);
     expect(getCounterPower(state, place(state, me, real("EBP02-076"), 8))).toBe(
