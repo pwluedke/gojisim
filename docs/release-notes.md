@@ -15,7 +15,7 @@ What each merged PR changed, in plain words, for Paul and the testers. Newest fi
 
 ### Testing notes
 
-- New tests: Paul's game from the bug report now plays past that start phase with Yes and with No; Frozen with two strategy cards leaving, answered Yes/Yes and No/Yes; the log and announcement wording.
+- New tests: Frozen with two strategy cards leaving at the start phase, answered Yes/Yes and No/Yes, with one-option choices confirmed as in the app; the log and announcement wording.
 - The stress test now plays every game with one side confirming one-option choices, as a human does in the app. With that, the old code crashed in 15 of 300 games; the fixed code crashed in none of 600, and a further 1,600 games across all decks found nothing else. The same change found the Godzilla Emerges leak above.
 - Try it: put Frozen in your zone 8, activate a strategy card, and at your next start phase answer Yes. The strategy card should go under Frozen.
 

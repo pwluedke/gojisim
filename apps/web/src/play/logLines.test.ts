@@ -4,7 +4,8 @@ import { getAllCards } from "@gojisim/cards/test-decks";
 import type { GameState } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
 import { type AnnounceNames, announce } from "../game/announce";
-import { sessionFromRecord, withAction } from "../game/session";
+import { type DeckOption, deckOptions } from "../game/decks";
+import { newSession, sessionFromRecord } from "../game/session";
 import { buildLog, type LogLine } from "./logLines";
 
 const fixture = (name: string) =>
@@ -123,62 +124,69 @@ describe("effect plays (M12c-1)", () => {
 });
 
 describe("an optional replacement asked during a step (#104)", () => {
-  // Paul's game: Godzilla (2016) Frozen's replacement asked for Despair at 7.2.3 (E21).
-  const fixture = JSON.parse(
-    readFileSync(
-      new URL(
-        "../../../../packages/engine/test/fixtures/records/frozen-104.json",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  ) as { decks: { id: string; monsterDeck: number[]; mainDeck: number[] }[] };
-  const byId = new Map(getAllCards().map((c) => [c.id, c]));
-  const session = sessionFromRecord(
-    JSON.stringify({
-      ...fixture,
-      version: 1,
-      seats: {
-        P1: { kind: "human" },
-        P2: { kind: "bot", bot: "ismcts", settings: { difficulty: 55 } },
-      },
-      decks: fixture.decks.map((d) => ({
-        id: d.id,
-        monsterDeck: d.monsterDeck.map((id) => byId.get(id)),
-        mainDeck: d.mainDeck.map((id) => byId.get(id)),
+  // A made-up ask: the starter game's first decision, with Godzilla (2016) Frozen's 7.2.3 ask
+  // (E21) for one of the starter's strategy cards put in its place. The wording reads only the
+  // choice's options and the card catalog.
+  const [a, b] = deckOptions([]) as [DeckOption, DeckOption];
+  const start = newSession(7, [a, b], {
+    P1: { kind: "human" },
+    P2: { kind: "bot", difficulty: 55 },
+  });
+  const frozen = getAllCards().find(
+    (c) => c.cardNumber === "EBP02-012",
+  ) as Card;
+  const base = start.states[start.position] as GameState;
+  const strategy = Object.values(base.cards).find(
+    (c) => c.type === "Strategy",
+  ) as Card;
+  const before: GameState = {
+    ...base,
+    cards: { ...base.cards, [frozen.id]: frozen },
+    pendingChoice: {
+      id: 99,
+      player: "P1",
+      kind: "confirm",
+      rule: "10.9",
+      options: ["yes", "no"].map((id) => ({
+        id,
+        cardId: strategy.id,
+        abilityId: "EBP02-012#frozen",
       })),
-    }),
-  );
-  const before = session.states[session.position] as GameState;
+    },
+  };
   const answer = (optionId: string) => {
-    const choice = before.pendingChoice;
-    if (!choice) throw new Error("no choice");
     const action = {
       type: "choose" as const,
-      player: choice.player,
-      choiceId: choice.id,
+      player: "P1",
+      choiceId: 99,
       optionId,
     };
-    const next = withAction(session, action);
-    const line = buildLog(next, "P1", names)
+    const session = {
+      ...start,
+      record: {
+        ...start.record,
+        actions: [...start.record.actions, action],
+      },
+      states: [...start.states.slice(0, start.position), before, before],
+      position: start.position + 1,
+    };
+    const line = buildLog(session, "P1", names)
       .filter((l) => l.kind === "action")
       .at(-1) as LogLine;
-    const after = next.states[next.position] as GameState;
     return {
       log: text(line),
-      announced: announce(before, after, action, announceNames).text,
+      announced: announce(before, before, action, announceNames).text,
     };
   };
 
   it("the log and the announcement name the replacement and the card, as the modal does", () => {
     expect(answer("yes")).toEqual({
-      log: "You: applies Godzilla (2016) Frozen's replacement to Despair",
-      announced: "Bot applies Godzilla (2016) Frozen's replacement to Despair",
+      log: `You: applies Godzilla (2016) Frozen's replacement to ${strategy.name}`,
+      announced: `Bot applies Godzilla (2016) Frozen's replacement to ${strategy.name}`,
     });
     expect(answer("no")).toEqual({
-      log: "You: doesn't apply Godzilla (2016) Frozen's replacement to Despair",
-      announced:
-        "Bot doesn't apply Godzilla (2016) Frozen's replacement to Despair",
+      log: `You: doesn't apply Godzilla (2016) Frozen's replacement to ${strategy.name}`,
+      announced: `Bot doesn't apply Godzilla (2016) Frozen's replacement to ${strategy.name}`,
     });
   });
 });

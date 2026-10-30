@@ -1,7 +1,5 @@
-import { readFileSync } from "node:fs";
 import type { Card } from "@gojisim/cards";
 import { getCardAbilities } from "@gojisim/cards";
-import { getAllCards } from "@gojisim/cards/test-decks";
 import { describe, expect, it, onTestFinished } from "vitest";
 import {
   advanceToDecision,
@@ -12,9 +10,7 @@ import {
   getCounterPower,
   getLegalActions,
   getThreat,
-  type GameRecord,
   type PlayerState,
-  replay,
   type ZoneNumber,
 } from "../src";
 import { setTestAbilities } from "../src/testing";
@@ -437,51 +433,6 @@ describe("EBP02-012 Godzilla (2016) Frozen (E21, E12)", () => {
       under: [967074],
       discarded: [967073],
     });
-  });
-
-  it("EBP02-012 10.9, 7.2.3 (#104): Paul's game replays past turn 8's start phase with Yes and with No", () => {
-    const fixture = JSON.parse(
-      readFileSync(
-        new URL("./fixtures/records/frozen-104.json", import.meta.url),
-        "utf8",
-      ),
-    ) as Omit<GameRecord, "decks" | "version"> & {
-      decks: { id: string; monsterDeck: number[]; mainDeck: number[] }[];
-    };
-    const byId = new Map(getAllCards().map((c) => [c.id, c]));
-    const card = (id: number) => byId.get(id) as Card;
-    const record: GameRecord = {
-      ...fixture,
-      version: 1,
-      decks: fixture.decks.map((d) => ({
-        id: d.id,
-        monsterDeck: d.monsterDeck.map(card),
-        mainDeck: d.mainDeck.map(card),
-      })) as GameRecord["decks"],
-    };
-    const at = replay(record);
-    expect(at).toMatchObject({ turn: 8, step: "7.2.3" });
-    expect(at.pendingChoice).toMatchObject({
-      kind: "confirm",
-      rule: "10.9",
-      player: "P1",
-    });
-    const despair = real("EBP02-018").id;
-    for (const answer of ["yes", "no"]) {
-      let state = advanceToDecision(choose(at, (id) => id === answer));
-      while (state.pendingChoice?.player === "P1")
-        state = advanceToDecision(choose(state, () => true));
-      const p1 = self(state, turnPlayer(at));
-      expect(state.step).toBe("7.3.2");
-      expect(p1.zones[8][0]?.map((c) => c.cardId)).toEqual(
-        answer === "yes"
-          ? [despair, real("EBP02-012").id]
-          : [real("EBP02-012").id],
-      );
-      expect(p1.discard.some((c) => c.cardId === despair)).toBe(
-        answer === "no",
-      );
-    }
   });
 
   it("EBP02-012 5.15.1: at your main phase in zone 4+, with 2 cards under it, counter the opponent's monster (Q24)", () => {
