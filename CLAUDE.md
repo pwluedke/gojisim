@@ -255,7 +255,7 @@ Accepted by Monarch in the M6a review (PR #20).
 164. The engine view carries the public engine status (`counterTotal`, `checkTiming`, `timedTriggers`, `manualQueue`), revealed cards with their owner and area, and, for the player who must choose, the paused `resolution` (bindings only for the ability's master). The view-leak invariant allows exactly those.
 165. Hidden choice options are sorted by instance id, so a search never reveals deck order (4.8.2).
 166. `BotInput.legalActions` leaves out `concede`; it is computed from the real state but depends only on what the bot can see (the no-peeking test checks this).
-167. The determinizer derives the opponent's monster deck from the presented monster deck minus `setInvadingMonster`/`newInvadingMonster` cards in the log, and hidden main-deck cards from the presented main deck minus every visible main-deck card. Cards the viewer's own private choice or resolution names go into its deck. A mismatch throws.
+167. The determinizer fills each player's hidden cards from the decklist the bot knows: its own (monster deck minus `setInvadingMonster`/`newInvadingMonster` cards in the log, main deck minus every visible main-deck card; cards its own private choice or resolution names go into its deck; a mismatch throws). (Amended for Q42, hidden decklists: a bot knows only its own decklist; the opponent's hidden cards are drawn by `guessHidden` from the cards a legal deck could hold given what's public. Only the tools' `knowsDecklists` comparison passes the opponent's list.)
 168. `cloneState` deep-copies by hand and shares log entries and the card catalog, which the engine never writes once created. A freeze guard (off in production) makes any such write throw in tests and stress.
 169. The weighted policy lives in `@gojisim/bot` and reads the view; stress calls it.
 170. The tournament harness (`tools/bots`): bot a sits in P1 in even games, the sets swap every 2 games, games past turn 500 are unfinished draws, ms per decision covers `chooseAction` only.
@@ -783,3 +783,51 @@ Accepted by Monarch in the bot announcements review (PR #66).
 566. The records cap (1 GB, 1024³ bytes) includes the incoming record: total + body > cap answers 507, logged once while full. Two uploads at the same moment can pass it by a record or two; a restart re-reads the folder.
 567. EBP01-023's Weapon trait is a per-card override in `overrides.json` (trait-spellings.json renames a trait everywhere); `cards.json` was edited for those two prints, with no re-scrape.
 568. #65's release-notes date is Paul's local date (2026-10-28 CDT; it merged 2026-10-29 01:03 UTC).
+
+Accepted by Monarch in the one-file-per-game review (PR #67).
+
+569. `gameId` is made in `newSession`; the First / Second pick's probe and pre-pick sessions get ids too, but only the started game's session uploads.
+570. The server lowercases `gameId` before using it as a file name, so the same id in any case is one file.
+571. A game's earlier file is found by checking each day folder for `<gameId>.json` on each upload with an id; a game stays in the day folder where its first upload landed.
+572. A malformed `gameId` is refused (400) rather than stored under a random name, so a client bug shows up instead of piling up files.
+573. `bot-feedback` keeps each report from the game's file with the most actions, and lists a game's entries together, in action order.
+574. Records without a `gameId` are told apart by seed and bot seed; two games with the same seed and bot seed would merge in the listing (rare: the seed is random per game).
+575. `tools/bots` imports the web app's `announce.ts` by relative path, rather than moving it into a package.
+
+Accepted by Monarch in the Good Bot! review (PR #68).
+
+576. Good Bot! with sharing off shows only the "nothing can be sent" line: no download and no Report bug link.
+577. Popups show the move in announcement wording (`plain`); the record keeps the battle-log `label` (decision 547 unchanged).
+578. `bot-positions --from` writes `prefer` only when every report at that action is Good Bot!; mixed or none writes `avoid`.
+579. `pnpm feedback` explains each bot report at the record's bot difficulty (Hard when the record has none), keeps the top 5 by visits, and takes `--no-download` and `--dir`.
+580. Report keys are `<game>|<kind>|<action index>`; two reports of one kind at one action share a key.
+581. The cap warning starts at 80% of 1 GB, measured on the local copy.
+
+Accepted by Monarch in the community rulings review (PR #69).
+
+582. EBP04-079 uses the existing `onePerZone` play flag with no `preferEmpty`. The Q3 empty-zones-first rule stays for every other effect play.
+583. "Play simultaneously" is met by choosing every zone before placing any card (decision 143); the [enter] abilities enter standby at each card's place event and resolve after all are placed.
+584. Q270 applies through `playAllowed` to every play: hand, effect play, play on top, Evolution and token. An Evolution with nothing it can play still searches and shuffles (finding nothing, 5.8.1.2) rather than being skipped.
+585. Making the token's catalog entry moved before the zone check, so a token that can't be placed anywhere still joins the catalog (unused).
+586. Battra's ruling is numbered Q43 (Q42 is hidden decklists), as Monarch accepted.
+587. The planner never pairs a card the log put on the deck bottom with a copy that turned up elsewhere in the same step.
+
+Accepted by Monarch in the sound effects review (PR #71).
+
+588. Sources: Kenney's site blocks scripted downloads, so every pack came from its OpenGameArt copy (same CC0 packs), each page's license checked.
+589. Sounds were chosen by name, length and a rough pitch check (zero crossings), not by ear: win is a rising jingle (SAX02), loss a falling one (SAX01). Swapping is a `sounds.json` change.
+590. Evolution and the slam crash are each one mixed file (thud + roar, slam + explosion), rather than two sounds played together.
+591. Card, monster, strategy and evolve sounds wait for the move to land; destroy, counter, rage, draw and shuffle play when the step's moves start (the shards explode then).
+592. Repeats in one step are spaced (stomps 180 ms, destroys 50 ms) so the 80 ms throttle lets a few through instead of one.
+593. A game counts as loaded when its record has actions at start; a loaded record's choice gets no chime and its end no stinger.
+594. The first `pointerdown` anywhere unlocks audio (Start or the First / Second pick in practice); a sound cued at that very moment is lost, since its file is still loading.
+595. The Volume slider is disabled while Sound is off; M toggles the same Sound setting.
+
+Accepted by Monarch in the hidden decklists review (PR #70).
+
+596. Decision 167 is amended: the determinizer fills the bot's own hidden cards from its own list and the opponent's from `guessHidden`; only the tools' `knowsDecklists` passes the opponent's list.
+597. The guess is uniform over the legal pool (step 4's recognizer replaces it behind `guessHidden`).
+598. The candidate pool is cached per rank I monster and date.
+599. `hard-open` is registered for comparisons alongside `hard-m12`; neither is offered in the web app.
+600. The m5g e2e test's seed changes from 3 to 1, because its old seed depended on the bot's play.
+601. The bot worker bundles the full card list (`@gojisim/cards/all-cards`) for the deck guess. From `pnpm build`, the worker chunk grows from 381 KB to 973 KB (82 KB to 134 KB gzipped). In the built app (Chromium, the new-game default bot, seed 7, the bot moving first, 6 runs each), the first decision's median goes from 282 ms to 288 ms (+6 ms). The worker starts about 0.7 s before its first request, and its start-up (module load to first reply, 8 runs) goes from a 12.5 to a 15 ms median. That's well under the 100 ms line, so the cards stay bundled.

@@ -195,12 +195,15 @@ export function useGameSession(options: GameSessionOptions = {}) {
     const job = { id: nextJobId.current++, posted: false, key };
     jobRef.current = job;
     const timer = setTimeout(() => {
+      // Only the bot's own decklist reaches the worker (Q42: the opponent's is presented, never
+      // shown); the game's start date sets the restriction list a guessed deck follows.
       const { rng: _rng, ...input } = botInput(
         state,
         who,
         decklistsOf(session.record.decks),
         () => 0,
         { difficulty: seat.difficulty },
+        session.record.deckLegality?.[0]?.asOf,
       );
       job.posted = true;
       setThinking({

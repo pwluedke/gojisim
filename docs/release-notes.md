@@ -2,7 +2,118 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #67 One stored file per game; plain bot moves in the report listing (not merged yet)
+## #72 Skip the First / Second pick (not merged yet)
+
+### What changed
+
+- A new checkbox on the new-game screen, **Skip First / Second pick (random first player)**. With it on, the game starts without the pick, and the game's seed decides who goes first, the same way it does for two bots. It's off by default, remembered for next time, and works in Casual and Tournament games.
+
+### Fixed
+
+- Nothing.
+
+### Testing notes
+
+- New tests: the setting starts off and is remembered; with it on there is no pick and the first player is the seed's random one (checked on two seeds, one where you go first and one where the bot does); with it off the pick shows as before.
+- Try it: tick the box, start a few games with different seeds, and check that sometimes you go first and sometimes the bot does.
+
+### Known issues
+
+- None known.
+
+## #70 Hidden decklists: the bot works out your deck from what you play (2026-10-29)
+
+### What changed
+
+- The bot no longer knows your deck list; it works it out from what you play, like a player does. At the start of a game you show your opponent a deck and your 4 monsters, never what's in them (Comprehensive Rules 6.3.1.1, confirmed by a judge).
+- Until it has seen your cards, the bot imagines the rest of your deck as any legal deck with your rank I monster: its colors, the copy limits, the restriction list and its Resonance rules. Every card you play, discard or reveal narrows it down.
+
+### Fixed
+
+- The bot read your full deck list when planning its moves, which a player can't do.
+
+### Testing notes
+
+- New tests: the bot gets only its own deck list; two games whose hidden decks differ but look the same from the bot's side get the same move; 200 imagined decks across the four booster sets are all legal; cards already seen count toward the copy limits. Details in the PR's Tests section.
+- Bot runs: in 400 timed games, the bot that still knew both deck lists beat the new one only 206–194 (51.5%), so not knowing your list costs it little. The bot's test positions still pass 20 of 20.
+- Try it: play a deck the bot has never seen (an imported one) and watch whether it still plays sensibly in the first turns.
+
+### Known issues
+
+- In the first turns the bot knows little about your deck, so it may play a little worse than before against an unusual deck. The next steps of the bot learning plan teach it to recognize common decks.
+
+## #71 Sound effects (2026-10-29)
+
+### What changed
+
+- The game has sound: a thud when a card is played (heavier for a monster, with a short roar for Evolution), a flip for strategy cards, a crunch for destroys, a stomp for each zone an invasion advances, a crash and a roar when an invasion wins, an impact when a counter succeeds, a low rumble when rage goes up, card slides and shuffles, a soft chime when a choice opens for you, a quiet tick for each bot announcement, and a short tune when you win or lose.
+- **Settings → Sound** (on by default) and **Volume** (50% to start). **M** mutes and unmutes, and the ? list shows it.
+- Sounds follow the card animations, so they land with the cards. The history view, undos and a loaded game's moves stay silent.
+- Nothing plays until your first click on the page (browsers block sound before that).
+
+### Fixed
+
+- Nothing.
+
+### Testing notes
+
+- New tests for which event plays which sound, the timing and the limit on repeated sounds, the silent history view and loaded games, and in the browser: nothing plays before the first click, a card play and a destroy play their sounds, M mutes, and the Sound and Volume settings are saved. Details in the PR's Tests section.
+- Try it:
+  1. Start a game, play a battle card, and listen for the thud; let the bot play a turn.
+  2. Press M to mute, and M again to bring the sound back; move the Volume slider in Settings.
+  3. Win a game by invasion and listen for the crash and roar.
+
+### Known issues
+
+- The sounds were picked by name and length, not by ear; any that sound wrong can be swapped in `sounds.json` without code.
+
+## #69 Rules fixes from community rulings: Godzilla Final Wars zones, SpaceGodzilla's lock (2026-10-29)
+
+### What changed
+
+- **Godzilla Final Wars (EBP04-079):** you now pick the zone for each revealed [final-wars] card, and any zone works, even one with a card in it (that card may be destroyed by overload). The cards are played together, so two of them can't go to the same zone. Before, the game put them in empty zones first.
+- **SpaceGodzilla (EBP02-055):** its locked column now stops every way of playing a battle card there, not only from the hand: Evolution, cards played by effects (such as Godzilla Emerges or Odo Island) and tokens (official Q&A 270).
+- **Battra (Larva) (EBP04-050):** still triggers once per invasion; this is noted as a ruling to check later.
+
+### Fixed
+
+- Evolution, effect plays and tokens could put a battle card into a column SpaceGodzilla had locked.
+- When a card went to the bottom of a deck (for example by Mothra's replacement, ESD01-011) and a copy of the same card was drawn in the same step, the animation showed the first card flying into the hand.
+
+### Testing notes
+
+- New engine tests for each ruling. Details in the PR's Tests section.
+- Try it:
+  1. Activate Godzilla Final Wars with a [final-wars] battle card on top of your deck: you choose its zone, and zones with cards in them are offered.
+  2. Against SpaceGodzilla in zone 4 or later with 3 Crystals, try to evolve a battle card in its column: Evolution finds nothing.
+
+## #68 Good Bot!, one-command feedback, number keys in the middle of cards (2026-10-29)
+
+### What changed
+
+- A **Good Bot!** button joins the Test Site panel: when the bot makes a good play, tell us what it did right, so later changes to the bot don't break it. It works like Bad Bot!: your name and a note, sent at once.
+- The panel's buttons are now **Report bug** on top, then **Good Bot!** and **Bad Bot!** side by side. The "Which button?" help follows the same order.
+- Bad Bot! and Good Bot! show the bot's move in plain words ("Bot (Hard): activates Scale Attack"), with the turn and phase.
+- In choice windows, the number key sits big in the middle of each card, so it no longer covers the card's rank. In a pick of 2 or more cards, the order you selected them shows right beside it.
+- For Paul: `pnpm feedback` downloads all the uploaded games and writes one summary file of the new reports, with the bot's thinking for each Good Bot! and Bad Bot!, the last moves before each Report bug, and how often players beat each bot level.
+
+### Fixed
+
+- The number keys in choice windows covered each card's rank (reported more than once).
+
+### Testing notes
+
+- New tests for Good Bot! (the popup, the upload, sharing off), the panel's layout and help order, the number keys' place on the card, and the feedback summary (one file per game, reports already reviewed left out, the win rate leaving out Show opponent's hand games and peeked First / Second picks). Details in the PR's Tests section.
+- Try it:
+  1. Play against a bot, press **Good Bot!** after a move you liked, write a note and Send: it says "Thanks, sent."
+  2. Play a card that makes you discard 2 or more, and check the numbers sit in the middle of the cards.
+  3. Paul: run `pnpm feedback` from the repo root and open the file it names.
+
+### Known issues
+
+- None known.
+
+## #67 One stored file per game; plain bot moves in the report listing (2026-10-28)
 
 ### What changed
 

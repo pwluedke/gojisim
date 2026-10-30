@@ -56,6 +56,12 @@ export interface Settings {
   whichButtonOpen: boolean;
   /** The name last typed in the Bad Bot! or Report bug popup, pre-filled next time (M13b). */
   reporterName: string;
+  /** Sound effects (default on; M mutes and unmutes). */
+  sound: boolean;
+  /** Sound volume, 0 to 100 (default 50). */
+  volume: number;
+  /** New games skip the First / Second pick; the seed's random draw picks the first player (default off). */
+  skipFirstPick: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -75,6 +81,9 @@ export const DEFAULT_SETTINGS: Settings = {
   testSettingsOpen: false,
   whichButtonOpen: false,
   reporterName: "",
+  sound: true,
+  volume: 50,
+  skipFirstPick: false,
 };
 
 /** Applies a theme to the page (`:root[data-theme]`, see `theme.css`). */

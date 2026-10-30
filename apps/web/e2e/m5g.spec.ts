@@ -334,7 +334,9 @@ test.describe("moving cards stay on top (M5g fix)", () => {
     await normal(page, { botDelay: 0 });
     await sampleLayers(page);
     await page.goto("/play?mode=bot");
-    await page.getByTestId("seed-input").fill("3");
+    // Seed 1: the Easy bot plays a monster onto its stack early. (Seed 3 stopped doing so once
+    // the bot guessed the opponent's decklist instead of reading it, Q42.)
+    await page.getByTestId("seed-input").fill("1");
     // The Easy bot plays monsters readily.
     await page.getByTestId("preset-P2-easy").click();
     const { startGame } = await import("./helpers");
