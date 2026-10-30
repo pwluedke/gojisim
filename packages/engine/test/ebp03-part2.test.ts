@@ -664,6 +664,27 @@ describe("EBP03 strategy cards", () => {
     expect(run("none")).toEqual({ hand: 4, zones: ["1"] });
   });
 
+  it("EBP03-069 Q44, Q40: your Mechagodzilla invading monster in your zone 8 counts as the card in zone 8 (provisional); in the opponent's zone 8, in another zone, or without the trait it doesn't", () => {
+    const run = (who: "me" | "opp", card: Card, zone: ZoneNumber): string[] => {
+      const { state, me, opp } = setup();
+      opp.monsterPosition = 6;
+      monster(state, who === "me" ? me : opp, card, zone);
+      place(state, opp, battleCard({ rank: 5 }), 1);
+      const after = settle(
+        activate(state, me, inHand(state, me, real("EBP03-069"))),
+      );
+      return Object.keys(zoneCardIds(opponentOf(after, me)));
+    };
+    // Multi-purpose Fighting System-3 (Mechagodzilla, Weapon), with no battle card in zone 8.
+    const mfs3 = real("EBP03-009");
+    expect(run("me", mfs3, 8)).toEqual([]);
+    expect(run("opp", mfs3, 8)).toEqual(["1"]);
+    expect(run("me", mfs3, 6)).toEqual(["1"]);
+    expect(run("me", monsterCard(4, { traits: ["Godzilla"] }), 8)).toEqual([
+      "1",
+    ]);
+  });
+
   it("EBP03-072 4.4.5.4: destroys every opponent battle card in your monster's column", () => {
     const { state, me, opp } = setup(3);
     opp.monsterPosition = 6;
