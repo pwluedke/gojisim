@@ -2,7 +2,25 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #72 Skip the First / Second pick (not merged yet)
+## #102 Weekly dependency updates (not merged yet)
+
+### What changed
+
+- For the dev team: GitHub's Dependabot now checks every Monday morning for newer versions of the libraries and GitHub Actions the project uses, and opens pull requests for them. Small updates come bundled into one pull request; big version jumps come one at a time. Each one is tested like any other change before it goes in.
+
+### Fixed
+
+- Nothing.
+
+### Testing notes
+
+- Nothing to try in the game. The first update pull requests should appear on the next Monday.
+
+### Known issues
+
+- A Playwright update needs one more line changed by hand (the test runner's image), so it comes in its own pull request.
+
+## #72 Skip the First / Second pick (2026-10-29)
 
 ### What changed
 
