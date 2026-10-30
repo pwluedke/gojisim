@@ -1,8 +1,8 @@
 # Release notes
 
-What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
+What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail. Since #89, each PR adds its entry as a file in `docs/release-notes/unreleased/`, and `pnpm release-notes` joins them in here at deploy, dated by their merge.
 
-## #120 Railway settings move into the repo as code (not merged yet)
+## #120 Railway settings move into the repo as code (2026-10-30)
 
 ### What changed
 

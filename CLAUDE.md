@@ -33,6 +33,10 @@
 
 - Never push to main without Paul's approval. Work on a branch, open a PR.
 
+## Release notes
+
+- Each PR that changes what Paul or the testers see adds `docs/release-notes/unreleased/<issue>-<slug>.md` (format in that folder's README) and the same section in its description; any other PR takes the `no-release-notes` label. Never edit `docs/release-notes.md` in a PR: `pnpm release-notes` joins the files at deploy, dated from git.
+
 ## Deploys
 
 - Only Paul deploys. Mecha never pushes to the `release` branch and never runs Railway deploy commands (`railway up`, `railway redeploy` and the like). Railway deploys from `release`, which Paul updates with `git push origin main:release` (docs/deploy.md).

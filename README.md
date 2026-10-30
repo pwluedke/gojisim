@@ -90,6 +90,10 @@ Token setup (once, by Paul):
 
 The watcher reads `SLACK_WATCH_TOKEN` from the environment, or from `.envrc` directly when direnv hasn't loaded it (a background shell). It never prints the token; it sends it only in the request's `Authorization` header.
 
+## Release notes
+
+Each PR that changes what Paul or the testers see adds its entry as `docs/release-notes/unreleased/<issue>-<slug>.md`: a `# ` title and the four sections (What changed, Fixed, Testing notes, Known issues), with no date or PR number (format in [that folder's README](docs/release-notes/unreleased/README.md)). Open PRs then don't conflict on one shared file. CI's Release notes job fails a PR that changes `apps/` or `packages/` without one; a PR testers can't see takes the `no-release-notes` label (re-run the job after adding it). At deploy, `pnpm release-notes` joins the merged files into `docs/release-notes.md` as `## #<PR> <title> (<merge date>)`, newest first, reading the PR number and the date from each merge commit, and removes them (`--dry-run` shows the result without changing anything).
+
 ## Discord notes
 
 `pnpm discord-notes` (`tools/discord-notes`) turns Discrub exports of the community Discord into notes for Monarch to read. No AI runs in the script.

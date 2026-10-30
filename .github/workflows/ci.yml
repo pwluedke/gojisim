@@ -146,9 +146,35 @@ jobs:
           path: apps/web/playwright-report
           retention-days: 7
 
+  # #89: a PR that changes apps/ or packages/ adds a notes file in docs/release-notes/unreleased/,
+  # unless it is labeled `no-release-notes`. Labels are read when the job runs, so after adding the
+  # label re-run this job.
+  release-notes:
+    name: Release notes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+
+      - name: Check
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: origin/${{ github.base_ref }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          LABELS=$(gh pr view "$PR" --json labels --jq '[.labels[].name] | join(",")')
+          LABELS="$LABELS" pnpm --filter @gojisim/release-notes check
+
   ci:
     name: ci
-    needs: [lint-typecheck, unit, speed-guard, stress, e2e, e2e-prod]
+    needs:
+      [lint-typecheck, unit, speed-guard, stress, e2e, e2e-prod, release-notes]
     if: always()
     runs-on: ubuntu-latest
     steps:
