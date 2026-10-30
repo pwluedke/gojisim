@@ -20,7 +20,7 @@ export interface RecordFile {
   record: GameRecord;
 }
 
-export type ReportKind = "bad" | "good" | "bug";
+export type ReportKind = "bad" | "good" | "bug" | "idea";
 
 /** A report in a game, from its latest file. */
 export interface Report {
@@ -43,6 +43,7 @@ const HEADING: Record<ReportKind, string> = {
   bad: "Bad Bot!",
   good: "Good Bot!",
   bug: "Report bug",
+  idea: "Monster Island Mailbox",
 };
 
 /** The latest file of each game (the one with the most actions), in file order. */
@@ -85,7 +86,17 @@ export function reportsOf({ file, record }: RecordFile): Report[] {
     text: e.text,
     bug: e,
   }));
-  return [...bot, ...bugs].sort(
+  const ideas: Report[] = (record.ideas ?? []).map((e) => ({
+    key: `${game}|idea|${e.at}`,
+    kind: "idea" as const,
+    file,
+    record,
+    actionIndex: e.actionIndex,
+    reporter: e.reporter,
+    at: e.at,
+    text: e.text,
+  }));
+  return [...bot, ...bugs, ...ideas].sort(
     (a, b) => a.actionIndex - b.actionIndex || (a.at < b.at ? -1 : 1),
   );
 }
@@ -270,7 +281,7 @@ export function buildSummary(
   ];
   out.push(`- Games: ${games.length} (${finished} finished)`);
   out.push(
-    `- ${options.all ? "Reports" : "New reports"}: ${count("bad")} Bad Bot!, ${count("good")} Good Bot!, ${count("bug")} Report bug` +
+    `- ${options.all ? "Reports" : "New reports"}: ${count("bad")} Bad Bot!, ${count("good")} Good Bot!, ${count("bug")} Report bug, ${count("idea")} Monster Island Mailbox` +
       (options.all ? "" : ` (${all.length - listed.length} already reviewed)`),
   );
   if (options.bytes) {
@@ -296,9 +307,18 @@ export function buildSummary(
         `| ${r.level} | ${r.games} | ${r.wins} | ${r.losses} | ${r.draws} | ${Math.round((r.wins / r.games) * 100)}% |`,
       );
   }
+  // Suggestions (#107) aren't about a moment of the game: their own heading, newest first.
+  const ideas = listed
+    .filter((r) => r.kind === "idea")
+    .sort((a, b) => (a.at < b.at ? 1 : -1));
+  const reports = listed.filter((r) => r.kind !== "idea");
+  out.push("", "## Monster Island Mailbox", "");
+  if (ideas.length === 0) out.push("No new suggestions.");
+  for (const r of ideas)
+    out.push(`- ${r.reporter}, ${r.at} (\`${r.file}\`): ${r.text}`);
   out.push("", "## Reports", "");
-  if (listed.length === 0) out.push("No new reports.");
-  for (const r of listed) {
+  if (reports.length === 0) out.push("No new reports.");
+  for (const r of reports) {
     const states = statesOf(r.record);
     const before = states?.[r.actionIndex];
     const where = before ? `Turn ${before.turn}` : `action ${r.actionIndex}`;

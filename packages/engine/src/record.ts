@@ -77,6 +77,8 @@ export interface GameRecord {
   botFeedback?: FeedbackEntry[];
   /** Report bug notes (M13b), oldest first. Information only, like `botFeedback`. */
   bugReports?: BugReport[];
+  /** Monster Island Mailbox suggestions (#107), oldest first. Information only. */
+  ideas?: IdeaEntry[];
 }
 
 /**
@@ -114,6 +116,19 @@ export interface BugReport {
   lastAnswer?: { action: Action; label: string; at: string; error?: string };
   /** #105: the last error in the page since the game started (a thrown action, the bot, uncaught). */
   lastError?: { message: string; stack?: string; source: string; at: string };
+}
+
+/**
+ * One Monster Island Mailbox suggestion (#107): an idea or improvement, not a bug. `actionIndex`
+ * is the session position when it was sent; it isn't about that moment of the game.
+ */
+export interface IdeaEntry {
+  kind: "idea";
+  actionIndex: number;
+  text: string;
+  reporter: string;
+  /** ISO time of the suggestion. */
+  at: string;
 }
 
 /** One undo (M5h #10): the action taken back, and where it was in the record. */

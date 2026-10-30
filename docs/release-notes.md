@@ -22,6 +22,108 @@ What each merged PR changed, in plain words, for Paul and the testers. Newest fi
 
 - None known.
 
+## #115 Discord notes for Monarch (2026-10-30)
+
+### What changed
+
+- For the dev team: `pnpm discord-notes` reads the community Discord exports Paul drops in `discord-exports/` and writes only the messages that are new since the last run, each with some earlier messages for context, plus a summary with every image link. Monarch reads them for rulings and feedback.
+
+### Fixed
+
+- Nothing.
+
+### Testing notes
+
+- New tests with made-up messages in both export formats: new messages come with up to 20 earlier ones marked as seen; replies show what they answer; links, mentions and emoji read as plain words; a second run finds nothing new.
+- Nothing to try in the game.
+
+### Known issues
+
+- None known.
+
+## #114 Showa Poster: the board's panels and controls fit like the other themes (2026-10-30)
+
+### What changed
+
+- In Showa Poster, the board's buttons, menus and file picker are the same size as in the other themes, and panel text uses the same line spacing. The left column now fits: the Test Site panel shows on screen at 1440×900 instead of below the window. Showa keeps its header bar, fight card, colors and look; the new-game screen keeps its larger controls.
+- The "Illegal deck" badge on a mat now shows how many reasons there are ("2 reasons"); hover it to read them. It fits inside its space in every theme.
+
+### Fixed
+
+- Showa Poster: Pass, Undo and Concede were oversized, and Undo dropped to its own row.
+- Showa Poster: the Theme and Animation speed menus and the Mat image file picker were much taller than their rows.
+- Every theme: the Mat image box's border ran past the left column's edge.
+- Every theme: the Illegal deck badge ran over the gap into the other mat.
+
+### Testing notes
+
+- New tests at 1440×900 and 1920×1080: Showa's left column panels, Test Site panel and battle log line up with Grey's within a few pixels; in every theme the badge stays inside its mat and nothing in the left column overflows; Showa's board passes the contrast check.
+- Try it: switch to Showa Poster and open Settings during a game: the Test Site panel should still be visible at the bottom of the left column.
+
+### Known issues
+
+- Showa's cards stay a little smaller than the other themes', since its header bar takes 56 px of height (unchanged).
+
+## #113 Gigan (1972) and M.O.G.U.E.R.A. count an invading monster in the zones (2026-10-30)
+
+### What changed
+
+- Nothing new.
+
+### Fixed
+
+- Gigan (1972) (EBP02-064) now gains its +3,000 counter power when your invading monster is a King Ghidorah or Megalon card, not only with such a battle card in your zones.
+- M.O.G.U.E.R.A. (EBP02-067) now gains its +5,000 counter power when your opponent's invading monster is a Godzilla card, not only with a Godzilla battle card in their zones. Against a Godzilla deck that is nearly every game.
+- Both follow Paul's provisional ruling of Oct 29, 2026 (Q45), the same basis as Space Beam's (#103).
+
+### Testing notes
+
+- New tests for each card: a monster with the trait (bonus applies), a battle card with it (applies), neither (doesn't); and your own Godzilla monster doesn't turn on M.O.G.U.E.R.A.
+- Try it: play M.O.G.U.E.R.A. against a Godzilla deck and check its counter power reads 15,000.
+
+### Known issues
+
+- None known.
+
+## #112 Card sounds for 14 much-played cards (2026-10-30)
+
+### What changed
+
+- Fourteen of the most-discussed cards now have their own sound in place of the generic one, picked by Paul: Heat Ray, Space Beam (both cards), Gravity Beam, Oxygen Destroyer, Godzilla Landing, Final Showdown, Entangling Fear and Godzilla Attacks when activated; Monster X, Varan and Zilla when played; SpaceGodzilla and Ghidorah (2001) when they become the monster (Burst plays and the next monster after a counter included); and a Crystals token when it's made. Every print of a card plays the same sound.
+
+### Fixed
+
+- Nothing.
+
+### Testing notes
+
+- New tests: each card's event plays its sound, every print included; both Space Beams share one; Evolution keeps its own sound; card sounds throttle on their own; every file is listed in the licenses and they total 156 KB.
+- Try it: activate Heat Ray or play Varan with Sound on and listen for the new sound instead of the usual card thud.
+
+### Known issues
+
+- None known.
+
+## #111 Monster Island Mailbox: send us your ideas (2026-10-30)
+
+### What changed
+
+- A new button in the Test Site panel, **Monster Island Mailbox**, for ideas and improvements (not bugs). Write your idea and press Send: it goes to us with the game right away. It works at any time the panel shows, including during the First / Second pick and after the game ends. "Which button?" explains it.
+- `pnpm feedback` lists the suggestions under their own heading.
+
+### Fixed
+
+- Nothing.
+
+### Testing notes
+
+- New tests: the button sits on its own row; the popup needs a name and a text, Esc cancels, and Send uploads the idea with the game; it works during the First / Second pick and after the game; with sharing off it says nothing can be sent; the suggestion is kept when a saved game is loaded; `pnpm feedback` lists suggestions newest first under their own heading.
+- Try it: press Monster Island Mailbox, write an idea and Send. The panel should say "Thanks, sent."
+
+### Known issues
+
+- None known.
+
 ## #110 Fix: the game froze after putting a strategy card under Godzilla (2016) Frozen (2026-10-29)
 
 ### What changed

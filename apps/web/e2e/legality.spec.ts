@@ -76,8 +76,10 @@ test("Casual: an illegal deck plays, with a warning on its mat for the whole gam
   await startGame(page);
   const warning = page.getByTestId("deck-warning-P1");
   await expect(warning).toContainText("Illegal deck");
-  // M13b: plain reasons, not rule numbers.
-  await expect(warning).toContainText("Main deck: 47 cards, needs exactly 50");
+  // #108: the badge counts the reasons; M13b's plain reasons are its tooltip.
+  await expect(warning.getByTestId("deck-warning-count")).toHaveText(
+    "1 reason",
+  );
   await expect(warning).toHaveAttribute(
     "title",
     "Main deck: 47 cards, needs exactly 50",
@@ -124,6 +126,8 @@ test("the badges name a restricted card, its limit and the date (Gravity Beam, b
   await page.getByTestId("seat-P1").selectOption("bot");
   await startGame(page);
   const warning = page.getByTestId("deck-warning-P1");
-  await expect(warning.getByTestId("deck-warning-reason")).toHaveText([reason]);
+  await expect(warning.getByTestId("deck-warning-count")).toHaveText(
+    "1 reason",
+  );
   await expect(warning).toHaveAttribute("title", reason);
 });

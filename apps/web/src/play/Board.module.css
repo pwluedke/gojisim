@@ -1408,6 +1408,14 @@
 }
 
 /* The expanded hand (H): full-size cards over most of the board, read-only. */
+/*
+ * The expanded hand (H) covers the Test Site panel (32) as well: it's a view to close with H or
+ * Esc, not a choice, and with the panel on screen at 1440×900 the first cards sit over it (#108).
+ */
+.expandedBackdrop {
+  z-index: 33;
+}
+
 .expandedHand {
   display: flex;
   flex-wrap: wrap;
@@ -1560,10 +1568,17 @@
 
 /* The mat image setting (M5f). */
 .matSettings {
+  /* #108: a fieldset is at least as wide as its content (the file picker); this keeps it, and
+     its border, inside the left column in every theme. */
+  min-width: 0;
   margin: var(--space-2) 0 0;
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
+}
+
+.matSettings input[type="file"] {
+  max-width: 100%;
 }
 
 .matSettings label {
@@ -1705,6 +1720,10 @@
   color: var(--color-illegal);
   font-size: var(--font-size-sm);
   cursor: help;
+  /* #108: it stays inside its one-card cell. */
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 /*
