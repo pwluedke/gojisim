@@ -2,7 +2,28 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #102 Weekly dependency updates (not merged yet)
+## #110 Fix: the game froze after putting a strategy card under Godzilla (2016) Frozen (not merged yet)
+
+### What changed
+
+- The battle log and the bot's announcement now name the card for Frozen's question: "applies Godzilla (2016) Frozen's replacement to Despair" instead of "uses a card's ability".
+
+### Fixed
+
+- With Godzilla (2016) Frozen (EBP02-012) in your zone 8, answering Yes at your start phase to put a strategy card under it stopped the game with "not implemented: a replacement effect that needs a choice". Yes now puts the card under Frozen and the turn goes on; No sends it to the discard pile as before.
+- Godzilla Emerges (ESD01-014): when you confirm one-option choices (the default for you in the app), the pick to play the found Godzilla (2023) let the bot see which card in your deck it was before it was played. That pick is now private, like the search.
+
+### Testing notes
+
+- New tests: Frozen with two strategy cards leaving at the start phase, answered Yes/Yes and No/Yes, with one-option choices confirmed as in the app; the log and announcement wording.
+- The stress test now plays every game with one side confirming one-option choices, as a human does in the app. With that, the old code crashed in 15 of 300 games; the fixed code crashed in none of 600, and a further 1,600 games across all decks found nothing else. The same change found the Godzilla Emerges leak above.
+- Try it: put Frozen in your zone 8, activate a strategy card, and at your next start phase answer Yes. The strategy card should go under Frozen.
+
+### Known issues
+
+- None known.
+
+## #102 Weekly dependency updates (2026-10-29)
 
 ### What changed
 

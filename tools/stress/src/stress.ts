@@ -168,6 +168,10 @@ export function playGame(
     decks,
     actions: [],
     deckLegality: deckLegalityFor(decks, new Date()),
+    // P1 confirms single options as a human seat in /play does (decision 311), so choices that
+    // pause only for a human, such as a one-place `placeUnder` inside a step's replacement
+    // (#104), are played too; P2 decides them alone as a bot does.
+    confirmSingleOption: ["P1"],
   };
   const pick = picker(seed);
   const outcome = (
