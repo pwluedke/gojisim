@@ -44,6 +44,12 @@ import {
   withIdea,
   withOpponentHandShown,
 } from "../game/collection";
+import {
+  clearCapture,
+  getLastAnswer,
+  getLastError,
+  installErrorCapture,
+} from "../game/errors";
 import { ReportModal } from "./ReportModal";
 import { TestSitePanel } from "./TestSitePanel";
 import styles from "./Board.module.css";
@@ -228,6 +234,8 @@ export function PlayScreen() {
       live = false;
     };
   }, []);
+  // #105: the page's uncaught errors, for Report bug.
+  useEffect(() => installErrorCapture(), []);
   const testSite = testSiteEnabled(config);
   const [searches, setSearches] = useState<SearchResult[]>([]);
   // Log entries already checked for searches (a loaded record's searches are history).
@@ -253,6 +261,7 @@ export function PlayScreen() {
     autoPlay: "always",
     onStart: (next: Session) => {
       const start = next.states[next.position] as GameState;
+      clearCapture();
       setHistoryAt(null);
       setSearches([]);
       setNote(null);
@@ -930,11 +939,34 @@ export function PlayScreen() {
   const sendBugReport = async (reporter: string, text: string) => {
     remember(reporter);
     setReporting(null);
+    // #105: the open choice as shown, the last answer (even one that threw) and the last error.
+    const shown = session.states[session.position] as GameState;
+    const choice = shown.pendingChoice;
+    const answer = getLastAnswer();
+    const error = getLastError();
     const entry = {
       actionIndex: session.position,
       text,
       reporter,
       at: new Date().toISOString(),
+      ...(choice
+        ? {
+            choice: {
+              kind: choice.kind,
+              heading: choiceHeading(shown, name),
+              options: choice.options.map((o) =>
+                actionLabel(shown, {
+                  type: "choose",
+                  player: choice.player,
+                  choiceId: choice.id,
+                  optionId: o.id,
+                }),
+              ),
+            },
+          }
+        : {}),
+      ...(answer ? { lastAnswer: answer } : {}),
+      ...(error ? { lastError: error } : {}),
     };
     const next = withBugReport(session, entry);
     game.setSession((s) => (s ? withBugReport(s, entry) : s));

@@ -107,6 +107,15 @@ export interface BugReport {
   reporter: string;
   /** ISO time of the report. */
   at: string;
+  /** #105: the choice open when the report was made, as the player saw it. */
+  choice?: { kind: string; heading: string; options: string[] };
+  /**
+   * #105: the reporter's last answer, kept even when applying it threw (that action is never in
+   * `actions`), with the error then.
+   */
+  lastAnswer?: { action: Action; label: string; at: string; error?: string };
+  /** #105: the last error in the page since the game started (a thrown action, the bot, uncaught). */
+  lastError?: { message: string; stack?: string; source: string; at: string };
 }
 
 /**
