@@ -18,3 +18,9 @@ loop-reports/
 apps/web/e2e-records/
 apps/web/test-results/prod-records/
 bot-reports/
+
+# #99 sound candidates and their listening page (local only)
+/sound-candidates/
+
+# Discrub exports and the notes made from them (#84): players' messages, never committed
+/discord-exports/

@@ -104,10 +104,13 @@ const audio = (page: Page) =>
       ).__audio,
   );
 
-/** A harmless click (on the header bar) unlocks audio; then all 16 files load. */
+/**
+ * A harmless click (on the header bar) unlocks audio; then all 30 files load: the 16 event sounds
+ * and the 14 card sounds (#99; both Space Beams share one file, fetched once).
+ */
 async function unlock(page: Page) {
   await page.mouse.click(400, 20);
-  await expect.poll(async () => (await audio(page)).decoded).toBe(16);
+  await expect.poll(async () => (await audio(page)).decoded).toBe(30);
 }
 
 /** The saved Sound setting. */

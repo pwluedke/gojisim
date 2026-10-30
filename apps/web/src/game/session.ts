@@ -265,6 +265,7 @@ export function sessionFromRecord(text: string): Session {
       gameId: record.gameId ?? crypto.randomUUID(),
       ...(record.botFeedback ? { botFeedback: record.botFeedback } : {}),
       ...(record.bugReports ? { bugReports: record.bugReports } : {}),
+      ...(record.ideas ? { ideas: record.ideas } : {}),
       ...(record.firstPickPeeked ? { firstPickPeeked: true } : {}),
       ...(record.undos ? { undos: record.undos } : {}),
       ...(record.undoCount ? { undoCount: record.undoCount } : {}),

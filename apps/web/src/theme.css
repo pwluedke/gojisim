@@ -687,3 +687,56 @@ body {
   font-weight: 400;
   box-shadow: 3px 3px 0 var(--color-ink);
 }
+
+/*
+ * Issue 108 (Paul, Oct 29, 2026; amends decision 453): inside /play's board (`data-play-board`: the
+ * Prompt, Settings, Test Site and zone banner columns and the mats), Showa's controls take the
+ * other themes' sizes: the browser's height, padding and font size, and a 1 px border. Showa keeps
+ * its colors, radius, ink borders and marigold primary; the 44 px minimum stays on the new-game
+ * screen.
+ */
+:where(:root[data-theme="showa"])
+  :where([data-play-board])
+  :where(
+    select,
+    textarea,
+    input:not([type]),
+    input[type="text"],
+    input[type="search"],
+    input[type="number"],
+    button:not([class]),
+    button[data-control]
+  ) {
+  min-height: 0;
+  padding: revert;
+  border-width: 1px;
+  font-size: revert;
+}
+
+:where(:root[data-theme="showa"])
+  :where([data-play-board])
+  ::file-selector-button {
+  min-height: 0;
+  margin-right: revert;
+  padding: revert;
+  border-width: 1px;
+  font-size: revert;
+}
+
+:root[data-theme="showa"] [data-play-board] {
+  --button-border: 1px solid var(--color-ink);
+  --button-shadow: 2px 2px 0 var(--color-ink);
+  --concede-border: 1px solid var(--color-ink);
+  --concede-padding: 0 4px;
+  --button-font: var(--font-body);
+  --button-weight: 700;
+  /* Zen Kaku Gothic New's normal line height is about 1.45; system-ui's is about 1.2. */
+  line-height: 1.2;
+}
+
+/* Buttons and selects don't inherit the line height, so they get it too. */
+:where(:root[data-theme="showa"])
+  :where([data-play-board])
+  :where(button, select) {
+  line-height: 1.2;
+}
