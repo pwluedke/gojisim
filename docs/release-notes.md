@@ -2,7 +2,27 @@
 
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
-## #110 Fix: the game froze after putting a strategy card under Godzilla (2016) Frozen (not merged yet)
+## #116 Report bug sends what was on screen and what went wrong (not merged yet)
+
+### What changed
+
+- Report bug now also sends the choice that was open when you pressed it (as you saw it), the last answer you gave, even one that crashed the game, and the last error the page hit. You no longer need to write down the cards or the error text yourself.
+- For the dev team: `pnpm feedback` prints those under each bug report, with both deck names and the bot level.
+
+### Fixed
+
+- Nothing.
+
+### Testing notes
+
+- New tests: a report with a choice open records its heading and options; an error in the page and an answer that crashes are recorded; a new game starts clean; `pnpm feedback` prints all of it.
+- Try it: open a choice, press Report bug, and send. The game file now includes the choice.
+
+### Known issues
+
+- None known.
+
+## #110 Fix: the game froze after putting a strategy card under Godzilla (2016) Frozen (2026-10-29)
 
 ### What changed
 

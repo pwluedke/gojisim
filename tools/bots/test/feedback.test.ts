@@ -170,6 +170,72 @@ describe("pnpm feedback", () => {
     actions: [...game(6).actions, { type: "concede", player: "P2" }],
   });
 
+  it("#105: a Report bug lists the decks, the bot level, the open choice, the last answer (one that threw included) and the last error", () => {
+    const record: GameRecord = {
+      ...full,
+      gameId: "crash",
+      deckNames: { P1: "Made-up Deck", P2: "ESD02 official" },
+      seats: {
+        P1: { kind: "human" },
+        P2: { kind: "bot", bot: "ismcts", settings: { difficulty: 55 } },
+      },
+      bugReports: [
+        {
+          actionIndex: 12,
+          text: "it froze",
+          reporter: "Bo",
+          at: "2026-10-29T21:30:00.000Z",
+          choice: {
+            kind: "confirm",
+            heading:
+              "You are deciding whether Godzilla (2016) Frozen's replacement applies to Despair",
+            options: ["Yes", "No"],
+          },
+          lastAnswer: {
+            action: {
+              type: "choose",
+              player: "P1",
+              choiceId: 3,
+              optionId: "yes",
+            },
+            label: "Yes",
+            at: "2026-10-29T21:29:50.000Z",
+            error: "not implemented: a replacement effect that needs a choice",
+          },
+          lastError: {
+            message:
+              "not implemented: a replacement effect that needs a choice",
+            stack:
+              "Error: not implemented\n    at applyReplacement (interpreter.ts:3631:15)",
+            source: "action",
+            at: "2026-10-29T21:29:50.000Z",
+          },
+        },
+      ],
+    };
+    const { markdown } = buildSummary(
+      [{ file: "2026-10-30/crash.json", record }],
+      options,
+    );
+    expect(markdown).toContain("- Decks: P1 Made-up Deck, P2 ESD02 official");
+    expect(markdown).toContain("- Bot: P2 Medium");
+    expect(markdown).toContain(
+      "- Open choice (confirm): You are deciding whether Godzilla (2016) Frozen's replacement applies to Despair; options: Yes | No",
+    );
+    expect(markdown).toContain(
+      "- Last answer: Yes (2026-10-29T21:29:50.000Z), which threw: not implemented: a replacement effect that needs a choice",
+    );
+    expect(markdown).toContain(
+      '  - action: `{"type":"choose","player":"P1","choiceId":3,"optionId":"yes"}`',
+    );
+    expect(markdown).toContain(
+      "- Last error (action, 2026-10-29T21:29:50.000Z): not implemented: a replacement effect that needs a choice",
+    );
+    expect(markdown).toContain(
+      "    at applyReplacement (interpreter.ts:3631:15)",
+    );
+  });
+
   it("dedupes to the latest file per game and lists all three kinds, with the bot's search and the log tail", () => {
     const files = [
       {

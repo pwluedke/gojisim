@@ -1,4 +1,4 @@
-import type { GameRecord, GameState } from "@gojisim/engine";
+import type { BugReport, GameRecord, GameState } from "@gojisim/engine";
 import { replayAll } from "@gojisim/engine";
 import { announce } from "../../../apps/web/src/game/announce";
 import {
@@ -35,6 +35,8 @@ export interface Report {
   text: string;
   /** Bad Bot! / Good Bot!: the stored battle-log label. */
   label?: string;
+  /** Report bug (#105): the open choice, the last answer and the last error, when recorded. */
+  bug?: BugReport;
 }
 
 const HEADING: Record<ReportKind, string> = {
@@ -81,10 +83,56 @@ export function reportsOf({ file, record }: RecordFile): Report[] {
     reporter: e.reporter,
     at: e.at,
     text: e.text,
+    bug: e,
   }));
   return [...bot, ...bugs].sort(
     (a, b) => a.actionIndex - b.actionIndex || (a.at < b.at ? -1 : 1),
   );
+}
+
+/**
+ * A Report bug's context lines (#105): the game's decks and bot level, the choice open then, the
+ * reporter's last answer (an answer that threw is not in the record's actions) and the last error.
+ */
+export function bugContext(r: Report): string[] {
+  const out: string[] = [];
+  const names = r.record.deckNames;
+  if (names)
+    out.push(
+      `- Decks: ${Object.entries(names)
+        .map(([seat, deck]) => `${seat} ${deck}`)
+        .join(", ")}`,
+    );
+  const bots = Object.entries(r.record.seats ?? {})
+    .map(([seat, config]) => [seat, seatFromRecord(config)] as const)
+    .filter(([, seat]) => seat?.kind === "bot");
+  if (bots.length > 0)
+    out.push(
+      `- Bot: ${bots
+        .map(
+          ([seat, s]) =>
+            `${seat} ${s?.kind === "bot" ? difficultyName(s.difficulty) : "?"}`,
+        )
+        .join(", ")}`,
+    );
+  const bug = r.bug;
+  if (bug?.choice)
+    out.push(
+      `- Open choice (${bug.choice.kind}): ${bug.choice.heading}; options: ${bug.choice.options.join(" | ")}`,
+    );
+  if (bug?.lastAnswer)
+    out.push(
+      `- Last answer: ${bug.lastAnswer.label} (${bug.lastAnswer.at})${bug.lastAnswer.error ? `, which threw: ${bug.lastAnswer.error}` : ""}`,
+      `  - action: \`${JSON.stringify(bug.lastAnswer.action)}\``,
+    );
+  if (bug?.lastError) {
+    out.push(
+      `- Last error (${bug.lastError.source}, ${bug.lastError.at}): ${bug.lastError.message}`,
+    );
+    const stack = bug.lastError.stack?.split("\n").slice(0, 6) ?? [];
+    if (stack.length > 0) out.push("", "```", ...stack, "```");
+  }
+  return out;
 }
 
 /** The human's games, wins and losses against one bot level. */
@@ -258,7 +306,9 @@ export function buildSummary(
     out.push(`- File: \`${r.file}\`, \`--at ${r.actionIndex}\``);
     out.push(`- Reported: ${r.at}`);
     if (r.kind === "bug") {
-      out.push(`- Note: ${r.text}`, "", "Last battle log lines:", "", "```");
+      out.push(`- Note: ${r.text}`);
+      out.push(...bugContext(r));
+      out.push("", "Last battle log lines:", "", "```");
       out.push(
         ...(states
           ? logTail(r.record, states, r.actionIndex)

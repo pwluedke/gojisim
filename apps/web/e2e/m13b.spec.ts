@@ -148,6 +148,42 @@ test("Report bug: a popup needs a name and a text, Esc cancels, and Send uploads
   await expect(page.getByTestId("report-name")).toHaveValue("Dr. Serizawa");
 });
 
+test("Report bug (#105) records the open choice as shown, the last uncaught error, and the last answer", async ({
+  page,
+}) => {
+  await loadFixture(page, "target");
+  await expect(page.getByTestId("choice-modal")).toBeVisible();
+  // A made-up uncaught error in the page.
+  await page.evaluate(() =>
+    setTimeout(() => {
+      throw new Error("made-up crash for #105");
+    }),
+  );
+  const first = await reportBug(page, marker("choice open"));
+  const [report] = first["bugReports"] as Record<string, unknown>[];
+  expect(report?.["choice"]).toMatchObject({ kind: "target" });
+  const choice = report?.["choice"] as { heading: string; options: string[] };
+  expect(choice.heading).toMatch(/^You are /);
+  expect(choice.options.length).toBeGreaterThan(0);
+  expect(report?.["lastError"]).toMatchObject({
+    source: "window",
+    message: "made-up crash for #105",
+  });
+  // Nothing answered yet in this game (a loaded record starts clean).
+  expect(report?.["lastAnswer"]).toBeUndefined();
+  // Answer the choice, then report again: the answer is there, in battle-log wording.
+  await page.getByTestId("choice-option").first().click();
+  await expect(page.getByTestId("choice-modal")).toHaveCount(0);
+  const second = await reportBug(page, marker("after the answer"));
+  const reports = second["bugReports"] as Record<string, unknown>[];
+  expect(reports.at(-1)?.["lastAnswer"]).toMatchObject({
+    action: { type: "choose", player: "P1" },
+  });
+  expect((reports.at(-1)?.["lastAnswer"] as { label: string }).label).not.toBe(
+    "",
+  );
+});
+
 test("Report bug and Bad Bot! wait during the First / Second pick", async ({
   page,
 }) => {
