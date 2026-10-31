@@ -164,9 +164,10 @@ export function bugContext(r: Report): string[] {
 
 /** A crash's first stack frame with a URL: where in the app it was thrown (#95). */
 export function firstAppFrame(stack: string | undefined): string | null {
+  // Frames in V8's `at fn (url)` form or Firefox's and Safari's `fn@url`; not a message line.
   const line = (stack ?? "")
     .split("\n")
-    .slice(1)
+    .filter((l) => /^\s*at\s/.test(l) || /^[^\s@]*@\S+:\d+:\d+$/.test(l.trim()))
     .find((l) => /https?:\/\//.test(l));
   return line ? line.trim() : null;
 }
