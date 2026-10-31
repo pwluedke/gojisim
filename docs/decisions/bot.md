@@ -56,7 +56,7 @@ Accepted by Monarch in the hidden decklists review (PR #70).
 600. The m5g e2e test's seed changes from 3 to 1, because its old seed depended on the bot's play.
 601. The bot worker bundles the full card list (`@gojisim/cards/all-cards`) for the deck guess. From `pnpm build`, the worker chunk grows from 381 KB to 973 KB (82 KB to 134 KB gzipped). In the built app (Chromium, the new-game default bot, seed 7, the bot moving first, 6 runs each), the first decision's median goes from 282 ms to 288 ms (+6 ms). The worker starts about 0.7 s before its first request, and its start-up (module load to first reply, 8 runs) goes from a 12.5 to a 15 ms median. That's well under the 100 ms line, so the cards stay bundled.
 
-Accepted by Monarch in the M13c review (PR #NNN).
+Accepted by Monarch in the M13c review (PR #144).
 
 651. Fixed-search trials: each bot plays `iterations=<mean>` with `--deterministic`. The mean comes from `pnpm search-rate` (10 timed games at 1 s, 5 shards, alone on the machine), and the candidate is paired with Hard's count from the same run, since Hard's mean varies between runs (593 to 694). Fixed-search trials can share the machine; only a winner's 800-game timed run runs alone, overnight. The bar is 55%. About 30% of Hard's decisions hit its 811-iteration cap.
 652. A `pnpm bots` run journals each finished game under `bot-reports/runs/<seed>-<key>/` (the key hashes everything that decides the games, not the worker count); the same command resumes it, and the folder is removed once the report is written.
