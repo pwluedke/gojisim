@@ -795,6 +795,11 @@
   cursor: pointer;
 }
 
+.settingsWhatsNew {
+  float: right;
+  color: var(--color-text);
+}
+
 .settingsPanel {
   margin-top: var(--space-1);
   padding: var(--space-2);

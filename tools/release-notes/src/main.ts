@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+import { postRelease } from "./announce";
 import {
   newestArchivedPr,
   nextTag,
@@ -17,7 +18,8 @@ import {
  * to `release`. The release workflow runs it; `--dry-run` prints the tag and text instead (needs
  * `gh` signed in). The release covers the PRs merged into main after the previous `release-*` tag
  * (before the first one: after the newest PR in `docs/release-notes.md`, the archive), or after
- * PR N with `--since-pr`.
+ * PR N with `--since-pr`. After the release, it posts it to Slack and Discord when their webhook
+ * secrets are set (#134, `announce.ts`).
  */
 const { values } = parseArgs({
   options: {
@@ -98,16 +100,19 @@ if (values["dry-run"]) {
 const file = join(mkdtempSync(join(tmpdir(), "release-")), "notes.md");
 writeFileSync(file, body);
 const sha = git("rev-parse", values.ref);
-console.log(
-  run("gh", [
-    "release",
-    "create",
-    tag,
-    "--target",
-    sha,
-    "--title",
-    title,
-    "--notes-file",
-    file,
-  ]),
-);
+// `gh release create` prints the release's address.
+const url = run("gh", [
+  "release",
+  "create",
+  tag,
+  "--target",
+  sha,
+  "--title",
+  title,
+  "--notes-file",
+  file,
+]);
+console.log(url);
+// #134: Slack #gojisim-release-notes and the Discord server; a failed post only warns.
+const posted = await postRelease({ title, url, notes: body }, process.env);
+if (posted.length > 0) console.log(`Posted to ${posted.join(" and ")}.`);

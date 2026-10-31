@@ -10,7 +10,7 @@ export const PRESETS = { easy: 20, medium: 55, hard: 90 } as const;
 /**
  * The difficulty slider, 0 to 100 (M6c), as ISMCTS settings. Lower difficulty means fewer
  * iterations, a higher temperature (a looser pick among visited actions) and a higher chance to
- * blunder (play a uniformly random legal action). 0 is close to random play; 100 is the full
+ * blunder (play a plausible move without searching, #132). 0 is close to random play; 100 is the full
  * search. M13a: from Medium up, dead strategy activations are pruned at the root (`prune.ts`).
  */
 export function difficultySettings(difficulty: number): {

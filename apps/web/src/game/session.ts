@@ -266,6 +266,7 @@ export function sessionFromRecord(text: string): Session {
       ...(record.botFeedback ? { botFeedback: record.botFeedback } : {}),
       ...(record.bugReports ? { bugReports: record.bugReports } : {}),
       ...(record.ideas ? { ideas: record.ideas } : {}),
+      ...(record.crash ? { crash: record.crash } : {}),
       ...(record.firstPickPeeked ? { firstPickPeeked: true } : {}),
       ...(record.undos ? { undos: record.undos } : {}),
       ...(record.undoCount ? { undoCount: record.undoCount } : {}),

@@ -37,13 +37,14 @@ The repo's `.railway/railway.ts` (Railway's Infrastructure as Code) holds the se
 
 **Variables → New Variable** for each:
 
-| Variable            | Value                            | Why                                                                                                                                                                                                                                |
-| ------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GOJISIM_PASSWORD`  | the testers' password            | The one shared password. Testers type it once per browser.                                                                                                                                                                         |
-| `SESSION_SECRET`    | 64 random characters (see below) | Signs the login cookie. The server won't start with a password and a missing or short secret.                                                                                                                                      |
-| `CARDS_DIR`         | `/data/cards`                    | Where the server finds the card images (the volume, step 3).                                                                                                                                                                       |
-| `RECORDS_DIR`       | `/data/records`                  | Where uploaded game records go (the volume, step 3). This is the default; set it to be sure. Capped at 1 GB: past it, uploads answer 507 and the log says "the records folder is full" (download and clear old days to make room). |
-| `GOJISIM_TEST_SITE` | `on` or `off`                    | The Test Site panel (Bad Bot!, Report bug, Test settings) and game uploads. Default `on`.                                                                                                                                          |
+| Variable                  | Value                            | Why                                                                                                                                                                                                                                                |
+| ------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GOJISIM_PASSWORD`        | the testers' password            | The one shared password. Testers type it once per browser.                                                                                                                                                                                         |
+| `SESSION_SECRET`          | 64 random characters (see below) | Signs the login cookie. The server won't start with a password and a missing or short secret.                                                                                                                                                      |
+| `CARDS_DIR`               | `/data/cards`                    | Where the server finds the card images (the volume, step 3).                                                                                                                                                                                       |
+| `RECORDS_DIR`             | `/data/records`                  | Where uploaded game records go (the volume, step 3). This is the default; set it to be sure. Capped at 1 GB: past it, uploads answer 507 and the log says "the records folder is full" (download and clear old days to make room).                 |
+| `GOJISIM_TEST_SITE`       | `on` or `off`                    | The Test Site panel (Bad Bot!, Report bug, Test settings) and game uploads. Default `on`.                                                                                                                                                          |
+| `DISCORD_REPORTS_WEBHOOK` | the staff #reports webhook URL   | Optional (#136): each new Report bug, Bad Bot!, Good Bot!, Mailbox note and crash is posted to the Discord staff #reports channel. Unset, nothing is posted and the log says so once. See [Tester reports in Discord](#tester-reports-in-discord). |
 
 Make the secret on your Mac with `openssl rand -hex 32` and paste the output. Railway sets `PORT` itself; don't add it.
 
@@ -56,6 +57,17 @@ GojiSim server listening on http://localhost:<port> (password gate on)
 ```
 
 If it doesn't, the site is open to anyone: the variables weren't applied. On Railway, a server without `GOJISIM_PASSWORD` also logs `WARNING: no password gate, the site is open to anyone`. Apply the variables and check again.
+
+### Tester reports in Discord
+
+One time, Paul's step (#136). Until it's done, uploads work as before and the deploy log says once that `DISCORD_REPORTS_WEBHOOK` isn't set.
+
+1. In the GojiSim Discord server, open the staff **#reports** channel's settings (the gear) → **Integrations → Webhooks → New Webhook**. Name it (for example "GojiSim reports") and **Copy Webhook URL**.
+2. In Railway: the `gojisim` service → **Variables → New Variable**. Name: `DISCORD_REPORTS_WEBHOOK`. Value: the URL. Click **Apply changes** (Railway restarts the server).
+
+Each new entry is one message: its kind, the reporter, the turn and phase, the bots and deck names, the note, and the file with `--at` for `pnpm feedback`. A crash shows its error and first frame. No decklist and no game file goes to Discord, and mentions are off, so a tester's note can't ping anyone. An entry is posted once, even when the same game uploads again. Five entries at most per upload; past that, one "…and N more" line. A slow (over 5 s) or failed post is a line in the deploy log, and the upload itself never waits for Discord.
+
+Treat the URL like a password: anyone with it can post to #reports. If it leaks, delete the webhook in the channel's settings, make a new one, and replace the variable.
 
 ## 3. Attach a volume for the card images
 
@@ -112,7 +124,26 @@ Merging into `main` doesn't deploy. To put main's current state in front of test
 2. In Railway, open the `gojisim` service → **Deployments**. The new deploy appears for that commit, builds, passes the `/healthz` check and becomes **Active**. That takes a few minutes. A deploy marked **Skipped: No changes to watched files** means Watch Paths are limiting it: clear them under **Settings → Source → Watch Paths** (the repo's `watchPatterns` covers everything), then push again or redeploy.
 3. Open `https://gojisim.somanygames.app` and check the change.
 
-The same push also publishes a GitHub Release (the Release workflow, `.github/workflows/release.yml`), tagged `release-<date>-<n>`, from the "Release notes" sections of the PRs merged since the last one: nothing to do by hand. If the workflow fails, the deploy is unaffected; re-run it from GitHub → Actions.
+The same push also publishes a GitHub Release (the Release workflow, `.github/workflows/release.yml`), tagged `release-<date>-<n>`, from the "Release notes" sections of the PRs merged since the last one: nothing to do by hand. If the workflow fails, the deploy is unaffected; re-run it from GitHub → Actions. It then posts the release (title, link and notes, cut to fit with the link last) to Slack #gojisim-release-notes and the GojiSim Discord server's release notes channel, once their webhooks are set up ([Release posts](#release-posts-to-slack-and-discord)). A missing webhook or a failed post is a warning in the workflow's log; the release still stands. The site's "What's new" link (the menu and `/play`'s Settings) opens the latest release, with a "New" dot for players who haven't opened it yet.
+
+### Release posts to Slack and Discord
+
+One time, Paul's steps. Until they're done, releases are published as before and the workflow logs a warning for each missing webhook.
+
+**Slack**
+
+1. Go to api.slack.com/apps and open the existing GojiSim Slack app → **Incoming Webhooks**. Turn them on if they're off.
+2. **Add New Webhook to Workspace**, pick **#gojisim-release-notes**, and allow it. Copy the webhook URL (`https://hooks.slack.com/services/…`).
+3. On GitHub: the `gojisim` repo → **Settings → Secrets and variables → Actions → New repository secret**. Name: `SLACK_RELEASE_WEBHOOK`. Secret: the URL.
+
+**Discord**
+
+1. In the GojiSim Discord server, open the release notes channel's settings (the gear) → **Integrations → Webhooks → New Webhook**. Name it (for example "GojiSim releases") and **Copy Webhook URL** (`https://discord.com/api/webhooks/…`).
+2. On GitHub, add a second repository secret the same way. Name: `DISCORD_RELEASE_WEBHOOK`. Secret: the URL.
+
+Treat both URLs like passwords: anyone with one can post to that channel. Don't paste them into Slack, issues or PRs. If one leaks, delete the webhook (Slack: the app's Incoming Webhooks page; Discord: the channel's Webhooks), make a new one, and replace the secret. Discord posts have mentions turned off, so nothing in the notes can ping anyone.
+
+The next push to `release` posts its release; the workflow's log says "Posted to Slack and Discord." when both worked.
 
 **Roll back:** Railway → `gojisim` → **Deployments** → pick an older, working deploy → **⋯ → Redeploy**. The site goes back to that build at once. The `release` branch still points at the newer commit, so the next `git push origin main:release` deploys main again as usual.
 

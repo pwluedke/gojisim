@@ -7,7 +7,13 @@ import {
   getLegalActions,
   type PlayerId,
 } from "@gojisim/engine";
-import { pickWith, stateBoard, tacticalPick, weightedPick } from "./baseline";
+import {
+  pickWith,
+  plausiblePick,
+  stateBoard,
+  tacticalPick,
+  weightedPick,
+} from "./baseline";
 import { determinize } from "./determinize";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
 import { deadKeys } from "./prune";
@@ -35,8 +41,10 @@ export interface IsmctsSettings {
   rolloutDecisions: number;
   /** 0: play the most visited action; above 0, sample from visits ^ (1 / temperature). */
   temperature: number;
-  /** Chance to play a uniformly random legal action instead of searching. */
+  /** Chance to blunder instead of searching: a plausible pick (`plausiblePick`, #132). */
   blunder: number;
+  /** 1: a blunder is a uniformly random legal action, as before #132 (for comparisons). */
+  uniformBlunder: number;
   /** M13a: 1 leaves dead strategy activations (`prune.ts`) out of the root's actions. */
   prune: number;
   /**
@@ -55,6 +63,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   rolloutDecisions: 60,
   temperature: 0,
   blunder: 0,
+  uniformBlunder: 0,
   prune: 0,
   priorVisits: 0,
 };
@@ -308,7 +317,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
 /** One decision with its search, for the explain tool (M13a): what was picked and why. */
 export interface Decision {
   action: Action;
-  /** The pick was a blunder roll (a uniformly random legal action, no search). */
+  /** The pick was a blunder roll (a plausible pick with no search, #132). */
   blundered: boolean;
   /** The root's children by action key, and the legal actions' keys in `legalActions` order. */
   search: ReturnType<typeof search> | null;
@@ -326,7 +335,10 @@ export function decide(input: BotInput): Decision {
   const settings = ismctsSettings(input.settings);
   if (settings.blunder > 0 && rng() < settings.blunder)
     return {
-      action: legalActions[Math.floor(rng() * legalActions.length)] as Action,
+      action:
+        settings.uniformBlunder > 0
+          ? (legalActions[Math.floor(rng() * legalActions.length)] as Action)
+          : plausiblePick(input.view, [...legalActions], pickWith(rng)),
       blundered: true,
       search: null,
     };

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { clientIp } from "./gate.js";
 
 /**
@@ -39,6 +39,19 @@ export const MAX_RECORD_BYTES = 2 * 1024 * 1024;
 export const MAX_RECORDS_DIR_BYTES = 1024 ** 3;
 /** Uploads per IP per minute. */
 export const UPLOADS_PER_MINUTE = 30;
+
+/**
+ * The upload limit from `GOJISIM_UPLOADS_PER_MINUTE` (#123): only Playwright sets it, since every
+ * e2e worker uploads from one IP to one server; anything else, or a value that isn't a positive
+ * whole number, keeps `UPLOADS_PER_MINUTE`.
+ */
+export function uploadsPerMinuteFrom(
+  env: Record<string, string | undefined>,
+): number {
+  const raw = env["GOJISIM_UPLOADS_PER_MINUTE"]?.trim() ?? "";
+  const n = Number(raw);
+  return /^\d+$/.test(raw) && n > 0 ? n : UPLOADS_PER_MINUTE;
+}
 const MINUTE = 60_000;
 
 /** Whether `value` has a game record's shape: `version`, `seed`, `decks` and `actions`. */
@@ -94,6 +107,15 @@ export function gameIdOf(record: object): string | null | undefined {
 }
 
 /** The stored file of game `id` in any day folder, with its size, or `null`. */
+/** A stored file's JSON, or `null` when it can't be read. */
+async function readJson(path: string): Promise<unknown> {
+  try {
+    return JSON.parse(await readFile(path, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
 async function storedGame(
   recordsDir: string,
   id: string,
@@ -150,6 +172,18 @@ export interface GamesOptions {
   recordsDir: string;
   /** The records folder's size cap, in bytes (default `MAX_RECORDS_DIR_BYTES`). */
   maxRecordsBytes?: number;
+  /** Uploads per IP per minute (default `UPLOADS_PER_MINUTE`; Playwright raises it, #123). */
+  uploadsPerMinute?: number;
+  /**
+   * Called after a game is stored, with the record, the game's earlier upload (or `null`) and the
+   * file under `recordsDir` (`<day>/<id>.json`). The answer doesn't wait for it (#136's Discord
+   * posts, `reports.ts`).
+   */
+  onStored?: (
+    record: unknown,
+    earlier: unknown,
+    file: string,
+  ) => Promise<unknown>;
   now?: () => number;
   /** Where the "records folder full" line goes (default `console.error`). */
   log?: (line: string) => void;
@@ -166,6 +200,8 @@ export function gamesMiddleware({
   config,
   recordsDir,
   maxRecordsBytes = MAX_RECORDS_DIR_BYTES,
+  uploadsPerMinute = UPLOADS_PER_MINUTE,
+  onStored,
   now = Date.now,
   log = (line) => console.error(line),
 }: GamesOptions) {
@@ -205,7 +241,7 @@ export function gamesMiddleware({
     }
     const ip = clientIp(req);
     if (uploads.size > 1000) prune();
-    if (recent(ip).length >= UPLOADS_PER_MINUTE) {
+    if (recent(ip).length >= uploadsPerMinute) {
       sendJson(res, 429, { error: "rate-limited" });
       return;
     }
@@ -250,12 +286,22 @@ export function gamesMiddleware({
     full = false;
     folderSize = Promise.resolve(total + size);
     const id = gameId ?? randomUUID();
-    if (earlier) await writeFile(earlier.path, text);
-    else {
+    // The earlier upload, read before it is replaced, so its reports aren't posted again (#136).
+    const before = onStored && earlier ? await readJson(earlier.path) : null;
+    let stored: string;
+    if (earlier) {
+      stored = earlier.path;
+      await writeFile(stored, text);
+    } else {
       const day = new Date(now()).toISOString().slice(0, 10);
       await mkdir(join(recordsDir, day), { recursive: true });
-      await writeFile(join(recordsDir, day, `${id}.json`), text);
+      stored = join(recordsDir, day, `${id}.json`);
+      await writeFile(stored, text);
     }
     sendJson(res, 201, { id });
+    if (onStored)
+      void onStored(record, before, relative(recordsDir, stored)).catch(() => {
+        // The poster logs its own failures; nothing reaches the upload.
+      });
   };
 }

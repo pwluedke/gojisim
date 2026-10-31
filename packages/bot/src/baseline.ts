@@ -149,6 +149,33 @@ export function weightedChoice(
   return weightedPick(viewBoard(view), options, pick);
 }
 
+/**
+ * A blunder's pick (#132): a beginner's move rather than any legal one. A choice that can be
+ * declined ("done" for an optional pick, "no" for an optional ability) declines half the time,
+ * so an optional move isn't made just because it has more options; anything else is the weighted
+ * policy's pick.
+ */
+export function plausiblePick(
+  view: PlayerView,
+  options: Action[],
+  pick: (n: number) => number,
+): Action {
+  const allChoices =
+    options.length > 1 && options.every((a) => a.type === "choose");
+  const decline = allChoices
+    ? options.find(
+        (a) =>
+          a.type === "choose" && (a.optionId === "done" || a.optionId === "no"),
+      )
+    : undefined;
+  if (decline) {
+    if (pick(2) === 0) return decline;
+    const others = options.filter((a) => a !== decline);
+    return others[pick(others.length)] as Action;
+  }
+  return weightedChoice(view, options, pick);
+}
+
 /** Uniform over the legal actions: the stress test's `uniform` policy. */
 export const randomBot: Bot = {
   name: "random",

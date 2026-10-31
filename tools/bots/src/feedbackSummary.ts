@@ -20,7 +20,7 @@ export interface RecordFile {
   record: GameRecord;
 }
 
-export type ReportKind = "bad" | "good" | "bug" | "idea";
+export type ReportKind = "bad" | "good" | "bug" | "idea" | "crash";
 
 /** A report in a game, from its latest file. */
 export interface Report {
@@ -44,6 +44,7 @@ const HEADING: Record<ReportKind, string> = {
   good: "Good Bot!",
   bug: "Report bug",
   idea: "Monster Island Mailbox",
+  crash: "Crash",
 };
 
 /** The latest file of each game (the one with the most actions), in file order. */
@@ -96,7 +97,22 @@ export function reportsOf({ file, record }: RecordFile): Report[] {
     at: e.at,
     text: e.text,
   }));
-  return [...bot, ...bugs, ...ideas].sort(
+  // #95: the game's crash, uploaded at once (no reporter: the page sent it).
+  const crash: Report[] = record.crash
+    ? [
+        {
+          key: `${game}|crash|${record.crash.at}`,
+          kind: "crash" as const,
+          file,
+          record,
+          actionIndex: record.crash.actionIndex,
+          reporter: "",
+          at: record.crash.at,
+          text: record.crash.message,
+        },
+      ]
+    : [];
+  return [...bot, ...bugs, ...ideas, ...crash].sort(
     (a, b) => a.actionIndex - b.actionIndex || (a.at < b.at ? -1 : 1),
   );
 }
@@ -144,6 +160,16 @@ export function bugContext(r: Report): string[] {
     if (stack.length > 0) out.push("", "```", ...stack, "```");
   }
   return out;
+}
+
+/** A crash's first stack frame with a URL: where in the app it was thrown (#95). */
+export function firstAppFrame(stack: string | undefined): string | null {
+  // Frames in V8's `at fn (url)` form or Firefox's and Safari's `fn@url`; not a message line.
+  const line = (stack ?? "")
+    .split("\n")
+    .filter((l) => /^\s*at\s/.test(l) || /^[^@]*@\S+:\d+:\d+$/.test(l.trim()))
+    .find((l) => /https?:\/\//.test(l));
+  return line ? line.trim() : null;
 }
 
 /** The human's games, wins and losses against one bot level. */
@@ -281,7 +307,7 @@ export function buildSummary(
   ];
   out.push(`- Games: ${games.length} (${finished} finished)`);
   out.push(
-    `- ${options.all ? "Reports" : "New reports"}: ${count("bad")} Bad Bot!, ${count("good")} Good Bot!, ${count("bug")} Report bug, ${count("idea")} Monster Island Mailbox` +
+    `- ${options.all ? "Reports" : "New reports"}: ${count("bad")} Bad Bot!, ${count("good")} Good Bot!, ${count("bug")} Report bug, ${count("idea")} Monster Island Mailbox, ${count("crash")} crash` +
       (options.all ? "" : ` (${all.length - listed.length} already reviewed)`),
   );
   if (options.bytes) {
@@ -311,7 +337,23 @@ export function buildSummary(
   const ideas = listed
     .filter((r) => r.kind === "idea")
     .sort((a, b) => (a.at < b.at ? 1 : -1));
-  const reports = listed.filter((r) => r.kind !== "idea");
+  const reports = listed.filter((r) => r.kind !== "idea" && r.kind !== "crash");
+  // Crashes (#95): the error, where in the app it was thrown, and what the player had just done.
+  const crashes = listed.filter((r) => r.kind === "crash");
+  out.push("", "## Crashes", "");
+  if (crashes.length === 0) out.push("No new crashes.");
+  for (const r of crashes) {
+    const c = r.record.crash;
+    out.push(`### ${r.at} (\`${r.file}\`, \`--at ${r.actionIndex}\`)`, "");
+    out.push(`- Error (${c?.source ?? "?"}): ${r.text}`);
+    out.push(
+      `- First app frame: ${firstAppFrame(c?.stack) ?? "(none in the stack)"}`,
+    );
+    out.push(
+      `- Last answer: ${c?.lastAnswer ? `${c.lastAnswer.label} (${c.lastAnswer.at})${c.lastAnswer.error ? `, which threw: ${c.lastAnswer.error}` : ""}` : "none"}`,
+    );
+    out.push("");
+  }
   out.push("", "## Monster Island Mailbox", "");
   if (ideas.length === 0) out.push("No new suggestions.");
   for (const r of ideas)
