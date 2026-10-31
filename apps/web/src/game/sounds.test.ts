@@ -190,9 +190,10 @@ describe("sound effects", () => {
         "strategy",
       ],
       [
-        "EBP03-027",
-        (id) => entry("place", { to: "invadingMonsterZone", cardId: id }),
-        "monster",
+        // #139: alien_05 is Mecha-King Ghidorah's (rank 23), not Ghidorah (2001)'s.
+        "EBP02-068",
+        (id) => entry("place", { to: "zone 5", cardId: id, played: true }),
+        "card",
       ],
     ];
 
@@ -215,6 +216,17 @@ describe("sound effects", () => {
       expect(CARD_SOUNDS["EBP01-031"]?.file).toBe(
         CARD_SOUNDS["EBP03-069"]?.file,
       );
+    });
+
+    it("#139: Ghidorah (2001) (EBP03-027) plays the generic monster sound again", () => {
+      for (const id of idsOf("EBP03-027"))
+        expect(
+          stepSounds(
+            [entry("place", { to: "invadingMonsterZone", cardId: id })],
+            prints("EBP03-027"),
+            "normal",
+          ),
+        ).toEqual([{ kind: "monster", at: 450 }]);
     });
 
     it("monster plays include a Burst play and the next monster after a counter; Evolution keeps its own sound", () => {
