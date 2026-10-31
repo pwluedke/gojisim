@@ -150,9 +150,9 @@
       "volume": 0.8,
       "cooldownMs": 80
     },
-    "EBP03-027": {
-      "file": "cards/ghidorah-2001.mp3",
-      "volume": 0.9,
+    "EBP02-068": {
+      "file": "cards/mecha-king-ghidorah.mp3",
+      "volume": 0.8,
       "cooldownMs": 80
     }
   }
