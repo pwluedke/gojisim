@@ -170,6 +170,119 @@ describe("pnpm feedback", () => {
     actions: [...game(6).actions, { type: "concede", player: "P2" }],
   });
 
+  it("#105: a Report bug lists the decks, the bot level, the open choice, the last answer (one that threw included) and the last error", () => {
+    const record: GameRecord = {
+      ...full,
+      gameId: "crash",
+      deckNames: { P1: "Made-up Deck", P2: "ESD02 official" },
+      seats: {
+        P1: { kind: "human" },
+        P2: { kind: "bot", bot: "ismcts", settings: { difficulty: 55 } },
+      },
+      bugReports: [
+        {
+          actionIndex: 12,
+          text: "it froze",
+          reporter: "Bo",
+          at: "2026-10-29T21:30:00.000Z",
+          choice: {
+            kind: "confirm",
+            heading:
+              "You are deciding whether Godzilla (2016) Frozen's replacement applies to Despair",
+            options: ["Yes", "No"],
+          },
+          lastAnswer: {
+            action: {
+              type: "choose",
+              player: "P1",
+              choiceId: 3,
+              optionId: "yes",
+            },
+            label: "Yes",
+            at: "2026-10-29T21:29:50.000Z",
+            error: "not implemented: a replacement effect that needs a choice",
+          },
+          lastError: {
+            message:
+              "not implemented: a replacement effect that needs a choice",
+            stack:
+              "Error: not implemented\n    at applyReplacement (interpreter.ts:3631:15)",
+            source: "action",
+            at: "2026-10-29T21:29:50.000Z",
+          },
+        },
+      ],
+    };
+    const { markdown } = buildSummary(
+      [{ file: "2026-10-30/crash.json", record }],
+      options,
+    );
+    expect(markdown).toContain("- Decks: P1 Made-up Deck, P2 ESD02 official");
+    expect(markdown).toContain("- Bot: P2 Medium");
+    expect(markdown).toContain(
+      "- Open choice (confirm): You are deciding whether Godzilla (2016) Frozen's replacement applies to Despair; options: Yes | No",
+    );
+    expect(markdown).toContain(
+      "- Last answer: Yes (2026-10-29T21:29:50.000Z), which threw: not implemented: a replacement effect that needs a choice",
+    );
+    expect(markdown).toContain(
+      '  - action: `{"type":"choose","player":"P1","choiceId":3,"optionId":"yes"}`',
+    );
+    expect(markdown).toContain(
+      "- Last error (action, 2026-10-29T21:29:50.000Z): not implemented: a replacement effect that needs a choice",
+    );
+    expect(markdown).toContain(
+      "    at applyReplacement (interpreter.ts:3631:15)",
+    );
+  });
+
+  it("Monster Island Mailbox suggestions (#107) get their own heading, newest first, and are marked reviewed like reports", () => {
+    const idea = (n: number, at: string) => ({
+      kind: "idea" as const,
+      actionIndex: 3,
+      text: `idea ${n}`,
+      reporter: "Cy",
+      at,
+    });
+    const files = [
+      {
+        file: "2026-10-29/b.json",
+        record: {
+          ...game(6),
+          gameId: "b",
+          ideas: [
+            idea(1, "2026-10-29T10:00:00.000Z"),
+            idea(2, "2026-10-29T11:00:00.000Z"),
+          ],
+        },
+      },
+    ];
+    const { markdown, listed } = buildSummary(files, options);
+    expect(markdown).toContain(
+      "- New reports: 0 Bad Bot!, 0 Good Bot!, 0 Report bug, 2 Monster Island Mailbox (0 already reviewed)",
+    );
+    const section = markdown
+      .split("## Monster Island Mailbox\n")[1]
+      ?.split("## ")[0];
+    expect(section?.trim().split("\n")).toEqual([
+      "- Cy, 2026-10-29T11:00:00.000Z (`2026-10-29/b.json`): idea 2",
+      "- Cy, 2026-10-29T10:00:00.000Z (`2026-10-29/b.json`): idea 1",
+    ]);
+    // Not listed as reports.
+    expect(markdown).toContain("## Reports\n\nNo new reports.");
+    expect(listed).toEqual([
+      "b|idea|2026-10-29T10:00:00.000Z",
+      "b|idea|2026-10-29T11:00:00.000Z",
+    ]);
+    const again = buildSummary(files, {
+      ...options,
+      reviewed: new Set(listed),
+    });
+    expect(again.markdown).toContain(
+      "## Monster Island Mailbox\n\nNo new suggestions.",
+    );
+  });
+
   it("dedupes to the latest file per game and lists all three kinds, with the bot's search and the log tail", () => {
     const files = [
       {
@@ -185,7 +298,7 @@ describe("pnpm feedback", () => {
     const { markdown, listed } = buildSummary(files, options);
     expect(markdown).toContain("- Games: 1 (0 finished)");
     expect(markdown).toContain(
-      "- New reports: 1 Bad Bot!, 1 Good Bot!, 1 Report bug (0 already reviewed)",
+      "- New reports: 1 Bad Bot!, 1 Good Bot!, 1 Report bug, 0 Monster Island Mailbox (0 already reviewed)",
     );
     expect(markdown).toContain("### [Bad Bot!] Ann, Turn");
     expect(markdown).toContain("### [Good Bot!] Ann, Turn");

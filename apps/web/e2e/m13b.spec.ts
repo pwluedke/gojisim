@@ -148,6 +148,42 @@ test("Report bug: a popup needs a name and a text, Esc cancels, and Send uploads
   await expect(page.getByTestId("report-name")).toHaveValue("Dr. Serizawa");
 });
 
+test("Report bug (#105) records the open choice as shown, the last uncaught error, and the last answer", async ({
+  page,
+}) => {
+  await loadFixture(page, "target");
+  await expect(page.getByTestId("choice-modal")).toBeVisible();
+  // A made-up uncaught error in the page.
+  await page.evaluate(() =>
+    setTimeout(() => {
+      throw new Error("made-up crash for #105");
+    }),
+  );
+  const first = await reportBug(page, marker("choice open"));
+  const [report] = first["bugReports"] as Record<string, unknown>[];
+  expect(report?.["choice"]).toMatchObject({ kind: "target" });
+  const choice = report?.["choice"] as { heading: string; options: string[] };
+  expect(choice.heading).toMatch(/^You are /);
+  expect(choice.options.length).toBeGreaterThan(0);
+  expect(report?.["lastError"]).toMatchObject({
+    source: "window",
+    message: "made-up crash for #105",
+  });
+  // Nothing answered yet in this game (a loaded record starts clean).
+  expect(report?.["lastAnswer"]).toBeUndefined();
+  // Answer the choice, then report again: the answer is there, in battle-log wording.
+  await page.getByTestId("choice-option").first().click();
+  await expect(page.getByTestId("choice-modal")).toHaveCount(0);
+  const second = await reportBug(page, marker("after the answer"));
+  const reports = second["bugReports"] as Record<string, unknown>[];
+  expect(reports.at(-1)?.["lastAnswer"]).toMatchObject({
+    action: { type: "choose", player: "P1" },
+  });
+  expect((reports.at(-1)?.["lastAnswer"] as { label: string }).label).not.toBe(
+    "",
+  );
+});
+
 test("Report bug and Bad Bot! wait during the First / Second pick", async ({
   page,
 }) => {
@@ -263,7 +299,7 @@ test("Good Bot!: Report bug on top, then Good Bot! and Bad Bot!; the popup names
     "Dr. Serizawa? Put your name here",
   );
   // The move in announcement wording ("Bot (Medium): plays …"), with turn and phase.
-  await expect(page.getByTestId("bad-bot-move")).toContainText(
+  await expect(page.getByTestId("bad-bot-move-option").first()).toContainText(
     /^Bot \([^)]+\): [a-z]/,
   );
   await expect(page.getByTestId("bad-bot-move")).toContainText(/Turn \d+, /);
@@ -299,7 +335,117 @@ test("Good Bot!: Report bug on top, then Good Bot! and Bad Bot!; the popup names
     "which-button-report-bug",
     "which-button-good-bot",
     "which-button-bad-bot",
+    "which-button-idea",
   ]);
+});
+
+test("Bad Bot! (#106): the popup lists the bot's recent moves, newest first with the latest picked; sending an earlier one uploads its action index", async ({
+  page,
+}) => {
+  await loadFixture(page, "hand-five");
+  await page.getByTestId("bad-bot").click();
+  const options = page.getByTestId("bad-bot-move-option");
+  // hand-five's bot turn: several plays and a search, then a Pass (the latest).
+  expect(await options.count()).toBeGreaterThan(1);
+  const indices = (await options.evaluateAll((els) =>
+    els.map((e) => Number(e.getAttribute("data-action-index"))),
+  )) as number[];
+  expect([...indices].sort((x, y) => y - x)).toEqual(indices);
+  await expect(options.first().locator("input")).toBeChecked();
+  await expect(options.first()).toContainText("passes");
+  await options.nth(1).click();
+  await expect(options.nth(1).locator("input")).toBeChecked();
+  const text = marker("the second Mechagodzilla play was the bad one");
+  await fill(page, "Dr. Serizawa", text);
+  await page.getByTestId("report-submit").click();
+  await expect(page.getByTestId("test-site-note")).toHaveText("Thanks, sent.");
+  await expect.poll(() => uploadsWith(text).length).toBe(1);
+  const feedback = uploadsWith(text)[0]?.["botFeedback"] as Record<
+    string,
+    unknown
+  >[];
+  expect(feedback.at(-1)).toMatchObject({
+    kind: "bad",
+    actionIndex: indices[1],
+    text,
+  });
+});
+
+test("Monster Island Mailbox (#107): its own row under Good Bot! and Bad Bot!; the popup needs a name and a text, Esc cancels, and Send uploads an idea at once", async ({
+  page,
+}) => {
+  await loadFixture(page, "hand-five");
+  const good = await page.getByTestId("good-bot").boundingBox();
+  const idea = await page.getByTestId("idea").boundingBox();
+  if (!good || !idea) throw new Error("no box");
+  expect(idea.y).toBeGreaterThan(good.y + good.height - 1);
+  await expect(page.getByTestId("idea")).toHaveText("Monster Island Mailbox");
+  await page.getByTestId("idea").click();
+  const modal = page.getByTestId("idea-modal");
+  await expect(modal).toContainText("Monster Island Mailbox");
+  await expect(modal).toContainText("What would make GojiSim better?");
+  await expect(page.getByTestId("bad-bot-move")).toHaveCount(0);
+  await expect(page.getByTestId("report-submit")).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(modal).toHaveCount(0);
+
+  const text = marker("a deck builder would be great");
+  await page.getByTestId("idea").click();
+  await fill(page, "Dr. Serizawa", text);
+  await page.getByTestId("report-submit").click();
+  await expect(page.getByTestId("test-site-note")).toHaveText("Thanks, sent.");
+  await expect.poll(() => uploadsWith(text).length).toBe(1);
+  const ideas = uploadsWith(text)[0]?.["ideas"] as Record<string, unknown>[];
+  expect(ideas).toEqual([
+    expect.objectContaining({
+      kind: "idea",
+      text,
+      reporter: "Dr. Serizawa",
+    }),
+  ]);
+  // Not a bug report or a bot report.
+  expect(uploadsWith(text)[0]?.["bugReports"]).toBeUndefined();
+  expect(uploadsWith(text)[0]?.["botFeedback"]).toBeUndefined();
+  await page.getByTestId("test-settings").click();
+  await page.getByTestId("which-button").click();
+  await expect(page.getByTestId("which-button-idea")).toHaveText(
+    "Monster Island Mailbox: an idea or an improvement for GojiSim, anything that isn't a bug. Your note is sent to us with the game.",
+  );
+});
+
+test("Monster Island Mailbox works during the First / Second pick and after the game; with sharing off it says nothing can be sent", async ({
+  page,
+}) => {
+  await page.goto("/play?mode=bot");
+  await page.getByTestId("seed-input").fill("2");
+  await page.getByTestId("start-game").click();
+  await expect(page.getByTestId("first-pick")).toBeVisible();
+  await expect(page.getByTestId("idea")).toBeEnabled();
+  const during = marker("idea during the pick");
+  await page.getByTestId("idea").click();
+  await fill(page, "Dr. Serizawa", during);
+  await page.getByTestId("report-submit").click();
+  await expect(page.getByTestId("test-site-note")).toHaveText("Thanks, sent.");
+  await expect.poll(() => uploadsWith(during).length).toBe(1);
+  // The pick is still open, then the game goes on.
+  await page.getByTestId("first-pick-card-0").click();
+  await page.getByTestId("first-pick-continue").click();
+  await concede(page);
+  const after = marker("idea after the game");
+  await page.getByTestId("idea").click();
+  await fill(page, "Dr. Serizawa", after);
+  await page.getByTestId("report-submit").click();
+  await expect.poll(() => uploadsWith(after).length).toBe(1);
+
+  await page.getByTestId("test-settings").click();
+  await page.getByTestId("setting-share-games").uncheck();
+  await page.getByTestId("idea").click();
+  await expect(page.getByTestId("idea-sharing-off")).toContainText(
+    "nothing can be sent",
+  );
+  await expect(page.getByTestId("report-submit")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("idea-modal")).toHaveCount(0);
 });
 
 test("Good Bot! with sharing off says nothing can be sent, with no download", async ({

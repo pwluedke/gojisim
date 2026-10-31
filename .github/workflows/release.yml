@@ -1,0 +1,32 @@
+name: Release
+
+# #89: Paul's deploy (`git push origin main:release`) also publishes a GitHub Release, tagged
+# `release-YYYY-MM-DD-N`, whose text is the "Release notes" section of every PR merged into main
+# since the previous release (`pnpm release-notes`). Nothing to run by hand; the deploy itself is
+# Railway's and doesn't wait for this.
+on:
+  push:
+    branches: [release]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Every commit and tag: the previous release tag and the merges since it.
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: pnpm release-notes

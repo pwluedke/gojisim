@@ -1,20 +1,28 @@
 import { useEffect, useRef, useState } from "react";
-import { MAX_REPORT_LENGTH } from "../game/collection";
+import {
+  type BotMoveRef,
+  MAILBOX_NAME,
+  MAX_REPORT_LENGTH,
+} from "../game/collection";
 import styles from "./Board.module.css";
 
 export interface ReportModalProps {
-  kind: "badBot" | "goodBot" | "bug";
-  /** Bad Bot! and Good Bot!: the marked move in announcement wording, and when it was played. */
-  move?: { plain: string; when: string };
+  kind: "badBot" | "goodBot" | "bug" | "idea";
+  /**
+   * Bad Bot! and Good Bot! (#106): the bot's recent moves, newest first, in announcement wording
+   * with when each was played; the latest is preselected.
+   */
+  moves?: readonly BotMoveRef[];
   /** The name last used, pre-filled. */
   name: string;
   /**
    * Sharing finished games is off. Bad Bot!: nothing can be sent, so it points to Report bug.
-   * Good Bot!: nothing can be sent, and there is no download. Report bug: its button reads
-   * Download instead of Send.
+   * Good Bot! and Monster Island Mailbox: nothing can be sent, and there is no download. Report
+   * bug: its button reads Download instead of Send.
    */
   sharingOff?: boolean;
-  onSubmit: (name: string, text: string) => void;
+  /** The picked move (Bad Bot! and Good Bot!), or `null` for Report bug and the Mailbox. */
+  onSubmit: (name: string, text: string, move: BotMoveRef | null) => void;
   onCancel: () => void;
   /** Bad Bot! with sharing off: open Report bug instead. */
   onReportBug?: () => void;
@@ -36,16 +44,22 @@ const COPY = {
     label: "What happened, and what did you expect?",
     submit: "Send",
   },
+  idea: {
+    title: MAILBOX_NAME,
+    label: "What would make GojiSim better? Ideas and improvements, not bugs.",
+    submit: "Send",
+  },
 } as const;
 
 /**
- * The Bad Bot!, Good Bot! and Report bug popups (M13b): a required name (remembered) and a
- * required text of up to 1,000 characters; Esc cancels. While one is open the bot waits. All
- * three send the record to the server; Report bug downloads it when sharing is off.
+ * The Bad Bot!, Good Bot!, Report bug and Monster Island Mailbox popups (M13b, #107): a required
+ * name (remembered) and a required text of up to 1,000 characters; Esc cancels. While one is open
+ * the bot waits. All of them send the record to the server; Report bug downloads it when sharing
+ * is off.
  */
 export function ReportModal({
   kind,
-  move,
+  moves,
   name: savedName,
   sharingOff = false,
   onSubmit,
@@ -54,6 +68,8 @@ export function ReportModal({
 }: ReportModalProps) {
   const [name, setName] = useState(savedName);
   const [text, setText] = useState("");
+  const [picked, setPicked] = useState(0);
+  const move = moves?.[picked] ?? null;
   const first = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const copy = COPY[kind];
   const ready = name.trim() !== "" && text.trim() !== "";
@@ -82,17 +98,37 @@ export function ReportModal({
         aria-labelledby="report-title"
         onSubmit={(e) => {
           e.preventDefault();
-          if (ready && !blocked) onSubmit(name.trim(), text.trim());
+          if (ready && !blocked) onSubmit(name.trim(), text.trim(), move);
         }}
       >
         <div className={styles.modalHeading} id="report-title">
           {copy.title}
         </div>
-        {move && (
-          <div className={styles.reportMove} data-testid="bad-bot-move">
-            <div>{move.plain}</div>
-            <div className={styles.muted}>{move.when}</div>
-          </div>
+        {moves && moves.length > 0 && (
+          <fieldset className={styles.reportMoves} data-testid="bad-bot-move">
+            <legend>
+              {moves.length > 1 ? "Which move?" : "The bot's move"}
+            </legend>
+            {moves.map((m, i) => (
+              <label
+                key={m.actionIndex}
+                className={styles.reportMove}
+                data-testid="bad-bot-move-option"
+                data-action-index={m.actionIndex}
+              >
+                <input
+                  type="radio"
+                  name="bad-bot-move"
+                  checked={i === picked}
+                  onChange={() => setPicked(i)}
+                />
+                <span>
+                  <span>{m.plain}</span>{" "}
+                  <span className={styles.muted}>{m.when}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
         )}
         {sharingOff && kind === "bug" && (
           <p data-testid="report-bug-sharing-off">
@@ -107,7 +143,9 @@ export function ReportModal({
             instead.
           </p>
         ) : blocked ? (
-          <p data-testid="good-bot-sharing-off">
+          <p
+            data-testid={`${kind === "idea" ? "idea" : "good-bot"}-sharing-off`}
+          >
             Sharing finished games is off (Test settings), so nothing can be
             sent.
           </p>

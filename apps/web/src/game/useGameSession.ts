@@ -2,6 +2,8 @@ import { botInput, decklistsOf } from "@gojisim/bot";
 import type { Action, GameState } from "@gojisim/engine";
 import { useEffect, useRef, useState } from "react";
 import { type BotRequest, type BotResponse, botLabel } from "./bots";
+import { answerFailed, recordAnswer, recordError } from "./errors";
+import { actionLabel } from "./labels";
 import {
   PLAYER_IDS,
   type PlayerId,
@@ -131,6 +133,7 @@ export function useGameSession(options: GameSessionOptions = {}) {
           ),
         );
       } catch (err) {
+        recordError(err, "bot");
         setBotError(String(err));
         setPlaying(false);
         return prev;
@@ -164,6 +167,7 @@ export function useGameSession(options: GameSessionOptions = {}) {
       setThinking(null);
       if (!runningRef.current) return;
       if ("error" in reply) {
+        recordError(reply.error, "bot");
         setBotError(reply.error);
         setPlaying(false);
         return;
@@ -243,9 +247,12 @@ export function useGameSession(options: GameSessionOptions = {}) {
       )
     )
       return;
+    // #105: kept before it is applied, so a report has it even when applying throws.
+    recordAnswer(action, actionLabel(state, action));
     try {
       setSession(withAction(session, action));
     } catch (err) {
+      answerFailed(err);
       window.alert(String(err));
     }
   };
@@ -257,9 +264,21 @@ export function useGameSession(options: GameSessionOptions = {}) {
     done: boolean,
   ) => {
     if (!session || !state) return;
+    const choice = state.pendingChoice;
+    if (choice)
+      recordAnswer(
+        {
+          type: "choose",
+          player,
+          choiceId: choice.id,
+          optionId: optionIds[0] ?? "done",
+        },
+        `picks ${[...optionIds, ...(done ? ["done"] : [])].join(", ")}`,
+      );
     try {
       setSession(withChoices(session, player, optionIds, done));
     } catch (err) {
+      answerFailed(err);
       window.alert(String(err));
     }
   };

@@ -35,14 +35,23 @@ import {
 } from "../game/announce";
 import {
   fetchConfig,
+  type BotMoveRef,
   latestBotMove,
+  recentBotMoves,
   type SiteConfig,
   testSiteEnabled,
   uploadRecord,
   withBugReport,
   withFeedback,
+  withIdea,
   withOpponentHandShown,
 } from "../game/collection";
+import {
+  clearCapture,
+  getLastAnswer,
+  getLastError,
+  installErrorCapture,
+} from "../game/errors";
 import { ReportModal } from "./ReportModal";
 import { TestSitePanel } from "./TestSitePanel";
 import styles from "./Board.module.css";
@@ -214,7 +223,7 @@ export function PlayScreen() {
   // shows now (the record keeps its flag even after it is turned off).
   const [config, setConfig] = useState<SiteConfig | null>(null);
   const [reporting, setReporting] = useState<
-    "badBot" | "goodBot" | "bug" | null
+    "badBot" | "goodBot" | "bug" | "idea" | null
   >(null);
   const [note, setNote] = useState<string | null>(null);
   const [showHand, setShowHand] = useState(false);
@@ -227,6 +236,8 @@ export function PlayScreen() {
       live = false;
     };
   }, []);
+  // #105: the page's uncaught errors, for Report bug.
+  useEffect(() => installErrorCapture(), []);
   const testSite = testSiteEnabled(config);
   const [searches, setSearches] = useState<SearchResult[]>([]);
   // Log entries already checked for searches (a loaded record's searches are history).
@@ -252,6 +263,7 @@ export function PlayScreen() {
     autoPlay: "always",
     onStart: (next: Session) => {
       const start = next.states[next.position] as GameState;
+      clearCapture();
       setHistoryAt(null);
       setSearches([]);
       setNote(null);
@@ -898,18 +910,20 @@ export function PlayScreen() {
   const remember = (reporter: string) =>
     reporter !== settings.reporterName &&
     updateSettings({ reporterName: reporter });
+  const botMoves = recentBotMoves(session);
   const sendFeedback = async (
     kind: "bad" | "good",
     reporter: string,
     text: string,
+    move: BotMoveRef | null,
   ) => {
-    if (!badBotMove) return;
+    if (!move) return;
     remember(reporter);
     setReporting(null);
     const entry = {
       kind,
-      actionIndex: badBotMove.actionIndex,
-      label: `${badBotMove.label} (${badBotMove.when})`,
+      actionIndex: move.actionIndex,
+      label: `${move.label} (${move.when})`,
       text,
       reporter,
       at: new Date().toISOString(),
@@ -929,11 +943,34 @@ export function PlayScreen() {
   const sendBugReport = async (reporter: string, text: string) => {
     remember(reporter);
     setReporting(null);
+    // #105: the open choice as shown, the last answer (even one that threw) and the last error.
+    const shown = session.states[session.position] as GameState;
+    const choice = shown.pendingChoice;
+    const answer = getLastAnswer();
+    const error = getLastError();
     const entry = {
       actionIndex: session.position,
       text,
       reporter,
       at: new Date().toISOString(),
+      ...(choice
+        ? {
+            choice: {
+              kind: choice.kind,
+              heading: choiceHeading(shown, name),
+              options: choice.options.map((o) =>
+                actionLabel(shown, {
+                  type: "choose",
+                  player: choice.player,
+                  choiceId: choice.id,
+                  optionId: o.id,
+                }),
+              ),
+            },
+          }
+        : {}),
+      ...(answer ? { lastAnswer: answer } : {}),
+      ...(error ? { lastError: error } : {}),
     };
     const next = withBugReport(session, entry);
     game.setSession((s) => (s ? withBugReport(s, entry) : s));
@@ -951,6 +988,28 @@ export function PlayScreen() {
     }
     downloadRecord(next);
     setNote("Couldn't send. The game file was downloaded; send it to Paul.");
+  };
+  // Monster Island Mailbox (#107) sends the record with the suggestion at once, like Good Bot!;
+  // during the First / Second pick that is the pre-pick board's record. A failed send rides
+  // along with the finished game.
+  const sendIdea = async (reporter: string, text: string) => {
+    remember(reporter);
+    setReporting(null);
+    const entry = {
+      kind: "idea" as const,
+      actionIndex: session.position,
+      text,
+      reporter,
+      at: new Date().toISOString(),
+    };
+    const next = withIdea(session, entry);
+    game.setSession((s) => (s ? withIdea(s, entry) : s));
+    setNote("Sending…");
+    setNote(
+      (await uploadRecord(next))
+        ? "Thanks, sent."
+        : "Couldn't send. It will be sent with the finished game.",
+    );
   };
   const settingsPanel = (
     <>
@@ -1192,6 +1251,7 @@ export function PlayScreen() {
           onGoodBot={() => setReporting("goodBot")}
           reportReady={!pending}
           onReportBug={() => setReporting("bug")}
+          onIdea={() => setReporting("idea")}
           note={note}
           canShowHand={
             PLAYER_IDS.some((id) => session.seats[id].kind === "human") &&
@@ -1301,7 +1361,10 @@ export function PlayScreen() {
       )}
       {overlay === "hand" && (
         // Read-only (Paul's rule): clicking a card here does nothing; H or Esc closes it.
-        <div className={styles.modalBackdrop} data-testid="expanded-hand">
+        <div
+          className={`${styles.modalBackdrop} ${styles.expandedBackdrop}`}
+          data-testid="expanded-hand"
+        >
           <div className={styles.expandedHand}>
             {handCards.map((card) => {
               const data = model.view.cards[card.cardId];
@@ -1450,18 +1513,28 @@ export function PlayScreen() {
         <ReportModal
           key={reporting}
           kind={reporting}
-          move={badBotMove}
+          moves={botMoves}
           name={settings.reporterName}
           sharingOff={!settings.shareGames}
-          onSubmit={(reporter, text) =>
+          onSubmit={(reporter, text, move) =>
             void sendFeedback(
               reporting === "goodBot" ? "good" : "bad",
               reporter,
               text,
+              move,
             )
           }
           onCancel={() => setReporting(null)}
           onReportBug={() => setReporting("bug")}
+        />
+      )}
+      {reporting === "idea" && (
+        <ReportModal
+          kind="idea"
+          name={settings.reporterName}
+          sharingOff={!settings.shareGames}
+          onSubmit={(reporter, text) => void sendIdea(reporter, text)}
+          onCancel={() => setReporting(null)}
         />
       )}
       {reporting === "bug" && (

@@ -8,7 +8,7 @@ GojiSim runs on Railway as one Node service at `https://gojisim.somanygames.app`
 
 It deploys only when Paul says so: Railway watches a branch named `release`, not `main`, so merging a PR never deploys or spends Railway credits. Paul deploys by pushing main's current commit to `release` (see [Deploy](#deploy)). Only Paul deploys; Mecha never pushes to `release` and never runs Railway deploy commands.
 
-The repo's `railway.json` holds the build command, the start command and the health check, so Railway needs no build settings typed in.
+The repo's `.railway/railway.ts` (Railway's Infrastructure as Code) holds the service's settings: the build and start commands, the health check, the `release` branch, the volume, the region and the domain. Paul changes them by planning and applying that file with the Railway CLI ([Railway settings as code](#railway-settings-as-code)). Railway stops reading `railway.json` on 2026-12-01; the repo no longer has one.
 
 ## What you need
 
@@ -25,11 +25,11 @@ The repo's `railway.json` holds the build command, the start command and the hea
 4. **Keep one service.** Railway sees the repo's workspace packages and may make one service for each (web, server, stress, ability-survey, bots, scraper). Delete all but one: open each extra service, then **Settings → Danger → Delete Service**.
 5. Open the one you kept and name it `gojisim` (**Settings → Service Name**).
 6. **Settings → Source:**
-   - **Root Directory:** empty (the repo root), so Railway reads the repo's `railway.json` and builds the whole workspace.
+   - **Root Directory:** empty (the repo root), so Railway builds the whole workspace.
    - **Branch:** `release`.
    - Turn on **Wait for CI**. Railway then deploys a commit only after its GitHub checks pass; the one that matters is `ci`, which needs every other check. A commit pushed from `main` has already passed it, so it deploys right away.
 
-   - **Watch Paths:** leave them empty in the dashboard. `railway.json` sets `watchPatterns` to `**`, so every push to `release` deploys; a web-only change limited by dashboard Watch Paths never would.
+   - **Watch Paths:** leave them empty in the dashboard. `.railway/railway.ts` sets `watchPatterns` to `**`, so every push to `release` deploys; a web-only change limited by dashboard Watch Paths never would.
 
    The first deploy fails until step 2's variables are set; that's expected.
 
@@ -112,7 +112,38 @@ Merging into `main` doesn't deploy. To put main's current state in front of test
 2. In Railway, open the `gojisim` service → **Deployments**. The new deploy appears for that commit, builds, passes the `/healthz` check and becomes **Active**. That takes a few minutes. A deploy marked **Skipped: No changes to watched files** means Watch Paths are limiting it: clear them under **Settings → Source → Watch Paths** (the repo's `watchPatterns` covers everything), then push again or redeploy.
 3. Open `https://gojisim.somanygames.app` and check the change.
 
+The same push also publishes a GitHub Release (the Release workflow, `.github/workflows/release.yml`), tagged `release-<date>-<n>`, from the "Release notes" sections of the PRs merged since the last one: nothing to do by hand. If the workflow fails, the deploy is unaffected; re-run it from GitHub → Actions.
+
 **Roll back:** Railway → `gojisim` → **Deployments** → pick an older, working deploy → **⋯ → Redeploy**. The site goes back to that build at once. The `release` branch still points at the newer commit, so the next `git push origin main:release` deploys main again as usual.
+
+## Railway settings as code
+
+The service's settings live in `.railway/railway.ts`, not in the dashboard. Only Paul plans and applies it; Mecha prepares changes in PRs and never runs `railway config apply`, `railway config migrate cutover` or a deploy. The file is a named partial (`gojisim-server`): it manages only what it declares, so other services in the project are left alone. Variables stay unmanaged: their values live only in the dashboard (step 2), and no plan or apply changes or deletes them.
+
+**The one-time switch from `railway.json` (before 2026-12-01).** Do these in order, before the next push to `release`. Until the apply, the service still builds from the repo's `railway.json` on `release`; a `release` without it would fall back to the dashboard's older build command (`pnpm --filter @gojisim/server build`), which doesn't build the web app.
+
+1. After the PR merges, on your Mac in the `gojisim` folder: `git checkout main`, `git pull`, then `pnpm install` (it installs Railway's TypeScript SDK, the `railway` package, which the file imports).
+2. `railway config plan`. It must show exactly this, and nothing else:
+
+   ```
+   Plan: 0 to add, 2 to change, 0 to destroy
+     ~ Update @gojisim/server build.buildCommand, build.watchPatterns
+       └ build.buildCommand ("pnpm --filter @gojisim/server build" → "pnpm build")
+       └ build.watchPatterns (null → ["**"])
+     ~ Update @gojisim/server deploy.healthcheckPath, deploy.healthcheckTimeout, deploy.startCommand
+       └ deploy.healthcheckPath (null → "/healthz")
+       └ deploy.healthcheckTimeout (null → 100)
+       └ deploy.startCommand (null → "node apps/server/dist/index.js")
+   ```
+
+   These are `railway.json`'s settings moving into the service. If the plan shows anything to destroy, or any change to the volume, the branch, the domain or a variable, stop and ask.
+
+3. `railway config apply`, and confirm.
+4. `railway config migrate cutover`. It switches the service off Config as Code, keeping a snapshot (`railway config migrate undo` restores it). Or clear the config file path in the service's **Settings**. `railway config migrate status` should then show no service reading Config as Code.
+5. `railway config plan` again: `0 to add, 0 to change, 0 to destroy`.
+6. Deploy as usual ([Deploy](#deploy)). The deploy must build, pass `/healthz` and become **Active**. Then check the site: cards show their images (the volume is still mounted), and `pnpm feedback` still downloads the records.
+
+**Changing a setting later.** Edit `.railway/railway.ts` in a PR. After it merges: `git pull`, `railway config plan` (read what it will change), then `railway config apply`. Never remove the volume (`@gojisim/server-volume`) or its `/data` mount from the file: this partial owns them once applied, so removing them would delete the card images and every uploaded record. A plan that shows `1 to destroy` for the volume means stop.
 
 ## Day to day
 

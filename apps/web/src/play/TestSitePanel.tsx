@@ -1,3 +1,4 @@
+import { MAILBOX_NAME } from "../game/collection";
 import type { Settings } from "./settings";
 import styles from "./Board.module.css";
 
@@ -40,6 +41,8 @@ export interface TestSitePanelProps {
   /** Report bug waits while no game record exists (the First / Second pick). */
   reportReady: boolean;
   onReportBug: () => void;
+  /** Monster Island Mailbox (#107): open whenever the panel shows, the First / Second pick too. */
+  onIdea: () => void;
   /** A line under the buttons: the Report bug file note, or the Bad Bot! send result. */
   note: string | null;
   /** Show opponent's hand applies (a human seat plays a bot). */
@@ -51,7 +54,7 @@ export interface TestSitePanelProps {
 
 /**
  * The Test Site panel (M13b), under Settings in the left column: Report bug on its own row, then
- * Good Bot! and Bad Bot! side by side, always shown; "Test settings" (sharing, the opponent's hand, the "Which button?" help) folds away, open
+ * Good Bot! and Bad Bot! side by side, then Monster Island Mailbox on its own row, always shown; "Test settings" (sharing, the opponent's hand, the "Which button?" help) folds away, open
  * or closed as last left. It renders only while the Test Site is on (`testSiteEnabled`).
  */
 export function TestSitePanel({
@@ -62,6 +65,7 @@ export function TestSitePanel({
   onGoodBot,
   reportReady,
   onReportBug,
+  onIdea,
   note,
   canShowHand,
   showHand,
@@ -111,6 +115,15 @@ export function TestSitePanel({
           onClick={onBadBot}
         >
           Bad Bot!
+        </button>
+        <button
+          type="button"
+          className={`${styles.button} ${styles.testSiteWide}`}
+          data-testid="idea"
+          title="Send us an idea or an improvement"
+          onClick={onIdea}
+        >
+          {MAILBOX_NAME}
         </button>
       </div>
       {note && (
@@ -180,6 +193,11 @@ export function TestSitePanel({
               <strong>Bad Bot!</strong> The bot made a bad move. Tell us what it
               did wrong and what you&apos;d have done. Your note and the game
               are sent to us so the bot can learn from it.
+            </p>
+            <p data-testid="which-button-idea">
+              <strong>{MAILBOX_NAME}:</strong> an idea or an improvement for
+              GojiSim, anything that isn&apos;t a bug. Your note is sent to us
+              with the game.
             </p>
           </details>
         </div>
