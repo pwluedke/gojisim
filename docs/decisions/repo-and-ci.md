@@ -28,3 +28,43 @@ Accepted by Monarch in the CI fixes review (PR #55).
 463. The image tag must match the lockfile's Playwright version; `apps/web/src/playwrightImage.test.ts` checks it, so it also runs locally with `pnpm test`.
 464. The nightly stress test runs two jobs side by side: uniform 10,000 games (60 min timeout) and weighted 4,500 games (90 min timeout). The weighted count is sized from the runner's rate (about 78 games a minute) to finish in about 60 min; past 75 min, it is lowered.
 465. Decision 123's single 120-minute nightly timeout is replaced by each job's own timeout.
+
+Accepted by Monarch in the Slack watcher review (PR #101).
+
+602. The watcher reads `.envrc` itself when the variable isn't set, since a background shell may not run direnv.
+603. A thread whose replies call failed has its `latest_reply` left unrecorded, so the next poll reads it again.
+604. Lines print oldest first, Monarch's `[Monarch]` prefix dropped, whitespace collapsed.
+
+Accepted by Monarch in the Dependabot review (PR #102).
+
+605. TypeScript ignores minor updates as well as majors. Decision 1's reason is that typescript-eslint 8.x supports only TS < 6.1, so a bump to 6.1 would break lint just as a major would. Patches (6.0.x) still come.
+606. `pnpm` is ignored, so it stays pinned through `packageManager` (decision 2).
+607. Playwright (`@playwright/test`, `playwright`, `playwright-core`) gets its own minor/patch group. The e2e image tag must match the lockfile's Playwright version (decision 463, checked by `playwrightImage.test.ts`), so a Playwright bump fails CI until the tag in `ci.yml` is changed by hand. Its own PR means that doesn't hold up every other minor update.
+608. The `github-actions` entry lists `/` (the workflows) and `/.github/actions/*`, since Dependabot reads only `.github/workflows` from `/` and would miss the composite setup action's `actions/cache` and `actions/setup-node`.
+
+Accepted by Monarch in the Discord notes review (PR #115).
+
+625. A channel exported in both formats is read from JSON only. The text format has the exporter's local time with no time zone and no ids, so its messages can't be matched to JSON's (the Oct 29 sample is the same channel in both). The summary names the skipped text pages.
+626. Duplicates across overlapping exports are kept once: JSON by message id, text by the hash of channel, author, minute and text.
+627. Context is the 20 messages before a channel's first new message. Seen messages between new ones are shown too, marked `(seen)`.
+628. Zips are read in place (no unzip step for Paul). Zip64 and encrypted zips are refused with a plain message.
+
+Accepted by Monarch in the GitHub Releases review (PR #122).
+
+640. Release notes are GitHub Releases made from PR descriptions at each push to `release`. This retires decision 540's dating and "not merged yet" fix-ups; PRs don't edit `docs/release-notes.md`.
+641. The tag is `release-<YYYY-MM-DD in America/Chicago>-<n>`, and the title is "Release <date>" (plus " (n)" after the first that day).
+642. Before the first tag, the range starts after the archive's newest PR.
+643. PRs without a "## Release notes" section are listed by title, not left out.
+644. The `no-release-notes` label made for #121 was deleted (Monarch).
+
+Accepted by Monarch in the templates review (PR #124).
+
+645. The Done checklist is five lines; the sections are headings only, with one comment under Release notes.
+646. Three issue forms; blank issues stay allowed.
+647. The release workflow ignores HTML comments in a "Release notes" section.
+
+Accepted by Monarch in the decision log review (PR #125).
+
+648. Decisions live in `docs/decisions/` by area, whole review by whole review, numbers unchanged. A review that spans areas goes in its main area's file; the README index lists each review's file.
+649. CLAUDE.md keeps one pointer line per area, so a session reads an area's decisions before working in it.
+650. New accepted decisions go at the end of the area's file, continuing the global numbering.

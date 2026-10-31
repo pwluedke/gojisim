@@ -1,6 +1,6 @@
 # Decisions
 
-Every decision Monarch accepted in a review, numbered 1–601 in the order they were made. They lived in CLAUDE.md until #94; each now sits in one area's file, whole review by whole review, with its number unchanged. Code and docs cite them as "decision N".
+Every decision Monarch accepted in a review, numbered in the order they were made. They lived in CLAUDE.md until #94; each now sits in one area's file, whole review by whole review, with its number unchanged. Code and docs cite them as "decision N".
 
 | Area                                                                                                               | File                                             |
 | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
@@ -85,3 +85,18 @@ Every decision Monarch accepted in a review, numbered 1–601 in the order they 
 | 582–587 | community rulings review (PR #69)                                                                                              | [engine.md](engine.md)                           |
 | 588–595 | sound effects review (PR #71)                                                                                                  | [web.md](web.md)                                 |
 | 596–601 | hidden decklists review (PR #70)                                                                                               | [bot.md](bot.md)                                 |
+| 602–604 | Slack watcher review (PR #101)                                                                                                 | [repo-and-ci.md](repo-and-ci.md)                 |
+| 605–608 | Dependabot review (PR #102)                                                                                                    | [repo-and-ci.md](repo-and-ci.md)                 |
+| 609–610 | Space Beam review (PR #103)                                                                                                    | [engine.md](engine.md)                           |
+| 611–613 | Frozen replacement crash review (PR #110)                                                                                      | [engine.md](engine.md)                           |
+| 614–616 | Monster Island Mailbox review (PR #111)                                                                                        | [server-and-feedback.md](server-and-feedback.md) |
+| 617–618 | card sounds review (PR #112)                                                                                                   | [web.md](web.md)                                 |
+| 619–619 | Q45 monster-in-zones review (PR #113)                                                                                          | [engine.md](engine.md)                           |
+| 620–624 | Showa sizing review (PR #114)                                                                                                  | [web.md](web.md)                                 |
+| 625–628 | Discord notes review (PR #115)                                                                                                 | [repo-and-ci.md](repo-and-ci.md)                 |
+| 629–631 | Report bug context review (PR #116)                                                                                            | [server-and-feedback.md](server-and-feedback.md) |
+| 632–633 | Bad Bot! move pick review (PR #117)                                                                                            | [server-and-feedback.md](server-and-feedback.md) |
+| 634–639 | Railway IaC review (PR #120)                                                                                                   | [server-and-feedback.md](server-and-feedback.md) |
+| 640–644 | GitHub Releases review (PR #122)                                                                                               | [repo-and-ci.md](repo-and-ci.md)                 |
+| 645–647 | templates review (PR #124)                                                                                                     | [repo-and-ci.md](repo-and-ci.md)                 |
+| 648–650 | decision log review (PR #125)                                                                                                  | [repo-and-ci.md](repo-and-ci.md)                 |
