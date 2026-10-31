@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   newestArchivedPr,
@@ -36,6 +37,16 @@ describe("GitHub Releases from PR descriptions (#89)", () => {
     expect(
       notesSection("## Release notes\n\n🤖 Generated with [Claude Code](x)"),
     ).toBeNull();
+    // The PR template's placeholder comment alone isn't notes (#90).
+    const template = readFileSync(
+      new URL("../../../.github/pull_request_template.md", import.meta.url),
+      "utf8",
+    );
+    expect(template).toMatch(/^## Release notes$/m);
+    expect(notesSection(template)).toBeNull();
+    expect(notesSection(template.replace("<!--", "- Card sounds.\n<!--"))).toBe(
+      "- Card sounds.",
+    );
     // A pointer instead of notes still counts as the section's text.
     expect(notesSection("## Release notes\r\n\r\nIn the docs.\r\n")).toBe(
       "In the docs.",

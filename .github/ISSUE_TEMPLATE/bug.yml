@@ -1,0 +1,17 @@
+name: Bug
+description: Something in the game or the tools is wrong.
+labels: [bug, needs-triage]
+body:
+  - type: textarea
+    attributes:
+      label: What happened
+      description: What you saw, with any error text.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What should have happened
+  - type: textarea
+    attributes:
+      label: How to get there
+      description: Steps, or the game record (Report bug's upload or a downloaded file). Never paste a player's deck or record into a public issue; name the upload's file instead.

@@ -1,0 +1,20 @@
+name: Tester report
+description: A bug or idea from a tester (the Test Site, Discord, or a message).
+labels: [source:tester, needs-triage]
+body:
+  - type: input
+    attributes:
+      label: From
+      description: Who reported it and where (for example, "Tuscancow, Bad Bot!").
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What they said
+      description: In their words, shortened if needed.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Game record
+      description: The upload's file name (records/<day>/<game>.json) and action index, if any.

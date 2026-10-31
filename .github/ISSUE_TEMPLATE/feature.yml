@@ -1,0 +1,13 @@
+name: Feature
+description: Something new to build.
+labels: [needs-triage]
+body:
+  - type: textarea
+    attributes:
+      label: What and why
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Done when
+      description: How we know it's finished.

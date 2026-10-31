@@ -31,7 +31,7 @@
 
 ## Git
 
-- Never push to main without Paul's approval. Work on a branch, open a PR.
+- Never push to main without Paul's approval. Work on a branch, open a PR. PR descriptions follow `.github/pull_request_template.md` (What changed, Release notes, Decisions, Tests, the Done checklist, `Closes #N`); issues use the forms in `.github/ISSUE_TEMPLATE/`.
 
 ## Release notes
 
