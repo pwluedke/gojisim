@@ -273,3 +273,18 @@ Accepted by Monarch in the community rulings review (PR #69).
 585. Making the token's catalog entry moved before the zone check, so a token that can't be placed anywhere still joins the catalog (unused).
 586. Battra's ruling is numbered Q43 (Q42 is hidden decklists), as Monarch accepted.
 587. The planner never pairs a card the log put on the deck bottom with a copy that turned up elsewhere in the same step.
+
+Accepted by Monarch in the Space Beam review (PR #103).
+
+609. Q44 (Paul, provisional): Space Beam's (EBP03-069) "a [mechagodzilla] card in zone 8" counts any Mechagodzilla card in your zone 8, your invading monster included; Q40 is unchanged.
+610. The deckGuess `knowsDecklists` test has a 30 s timeout: it takes about 6 s on the CI runner, and main's CI failed on it from #70 to #101.
+
+Accepted by Monarch in the Frozen replacement crash review (PR #110).
+
+611. Stress has P1 confirm single options in every game (P2 never does), so pauses that only a human seat produces are played.
+612. A `play` pick is private when any candidate is in a deck or hand, whatever the `from`.
+613. A step's replacement ask is worded "applies / doesn't apply <card>'s replacement to <card>" in the log and announcements.
+
+Accepted by Monarch in the Q45 monster-in-zones review (PR #113).
+
+619. Q45 (Paul, provisional): Gigan (1972) (EBP02-064) and M.O.G.U.E.R.A. (EBP02-067) count an invading monster with the trait standing in its master's zones, like a battle card. No other "a card ... in your / their zones" condition changes: the rest name cards that exist only as battle cards or tokens.

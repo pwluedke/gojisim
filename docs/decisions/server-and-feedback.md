@@ -58,3 +58,29 @@ Accepted by Monarch in the Good Bot! review (PR #68).
 579. `pnpm feedback` explains each bot report at the record's bot difficulty (Hard when the record has none), keeps the top 5 by visits, and takes `--no-download` and `--dir`.
 580. Report keys are `<game>|<kind>|<action index>`; two reports of one kind at one action share a key.
 581. The cap warning starts at 80% of 1 GB, measured on the local copy.
+
+Accepted by Monarch in the Monster Island Mailbox review (PR #111).
+
+614. Suggestions get their own record field, `ideas`, rather than `bugReports` entries with a kind, so older tools that read `bugReports` never list an idea as a bug.
+615. A suggestion sent during the First / Second pick goes with the pre-pick board's record (no actions yet, its own game id), since the started game's record doesn't exist yet. It isn't carried into the game.
+616. `actionIndex` is the session position when it was sent; the listing doesn't show a turn, since a suggestion isn't about a moment of the game.
+
+Accepted by Monarch in the Report bug context review (PR #116).
+
+629. The answer is recorded before it is applied. When applying throws, the same entry is marked with the error, and the error also becomes the last error (`source: "action"`).
+630. Both are cleared when a game starts (a new game, a loaded record), so a report carries only that game's.
+631. A confirmed multi-card pick is recorded as one answer: its first option as the action, and "picks …" with every option in the label.
+
+Accepted by Monarch in the Bad Bot! move pick review (PR #117).
+
+632. The list is the union of the bot's moves since the human's last action and the bot's latest turn, not a fixed count.
+633. Between two bots (no human action), only the latest turn is listed, so the list never grows to the whole game.
+
+Accepted by Monarch in the Railway IaC review (PR #120).
+
+634. The service moves to Railway Infrastructure as Code (`.railway/railway.ts`, a named partial `gojisim-server`); `railway.json` is removed. This amends decision 496's "(`railway.json`)".
+635. Variables are unmanaged: values stay in the dashboard, and IaC never touches them.
+636. The existing volume and its `/data` mount are declared as they are, rather than left out, so the file states the whole service.
+637. The restart policy isn't set, since railway.json's ON_FAILURE / 10 is Railway's default.
+638. `railway` 3.16.0 (Railway's TypeScript SDK, `railwayapp/railway-ts-sdk`) is a pinned root dev dependency: the CLI's plan and apply load the file through it.
+639. The migrate tool generated the partial name `@gojisim/server`, which Railway rejects (`[a-zA-Z0-9._-]` only); it's `gojisim-server`.

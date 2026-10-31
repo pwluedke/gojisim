@@ -276,3 +276,16 @@ Accepted by Monarch in the sound effects review (PR #71).
 593. A game counts as loaded when its record has actions at start; a loaded record's choice gets no chime and its end no stinger.
 594. The first `pointerdown` anywhere unlocks audio (Start or the First / Second pick in practice); a sound cued at that very moment is lost, since its file is still loading.
 595. The Volume slider is disabled while Sound is off; M toggles the same Sound setting.
+
+Accepted by Monarch in the card sounds review (PR #112).
+
+617. A card sound replaces only the event the issue lists for that card (play, activation, monster placement, token made). Evolution keeps its own sound.
+618. Volume is 0.9 for the two monster cards and 0.8 for the rest, matching the generic monster (0.9), card and strategy (0.8) sounds they replace.
+
+Accepted by Monarch in the Showa sizing review (PR #114).
+
+620. Decision 453 is amended: Showa's 44 px controls are for the new-game screen only. On the board, controls take the other themes' sizes with a 1 px ink border.
+621. On the board, Showa's buttons use the body font in bold (Dela Gothic One stays for headings, the fight card and the new-game screen's primary actions).
+622. The mat's Illegal deck badge shows a reason count. The reasons are its tooltip (decision 349's wording is unchanged in the tooltip and on the new-game screen).
+623. The expanded hand overlay sits above the Test Site panel.
+624. Not changed: Showa's cards stay a little smaller than the other themes', since the header bar takes 56 px (decisions 446 and 447). The parity test compares the mats only for fit, not size.

@@ -43,7 +43,7 @@
 
 ## Decisions
 
-Accepted decisions are in `docs/decisions/`, numbered as before (1–601). Before changing an area, read its file:
+Accepted decisions are in `docs/decisions/`, numbered in the order they were made. Before changing an area, read its file:
 
 - `packages/engine`, ability data and rulings: `docs/decisions/engine.md`
 - `packages/cards`, card data, deck lists, imports and legality: `docs/decisions/cards-and-decks.md`
