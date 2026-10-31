@@ -13,6 +13,7 @@ import {
   type GameState,
   getCounterPower,
   getLegalActions,
+  handPlayRankOver,
   getThreat,
   type PlayerState,
   type ZoneNumber,
@@ -899,6 +900,27 @@ describe("EBP02 King Ghidorah cards", () => {
     expect(canPlay(state, me, card)).toBe(false);
     inDiscard(state, me, kg());
     expect(canPlay(state, me, card)).toBe(true);
+  });
+
+  it("#138 8.2.1: handPlayRankOver is how far EBP02-068's play rank is over the opponent's monster's zone, 0 or less exactly when it can be played", () => {
+    const { state, me, opp } = setup();
+    opp.monsterPosition = 3;
+    const card = inHand(state, me, real("EBP02-068"));
+    // Rank 23 with none in the discard pile: 20 over zone 3.
+    expect(handPlayRankOver(state, me.id, card.instanceId)).toBe(20);
+    for (let i = 0; i < 9; i++) inDiscard(state, me, kg());
+    expect(handPlayRankOver(state, me.id, card.instanceId)).toBe(2);
+    expect(canPlay(state, me, card)).toBe(false);
+    // A rank 23 King Ghidorah card doesn't count.
+    inDiscard(state, me, monsterCard(23, { traits: ["King Ghidorah"] }));
+    expect(handPlayRankOver(state, me.id, card.instanceId)).toBe(2);
+    inDiscard(state, me, kg());
+    expect(handPlayRankOver(state, me.id, card.instanceId)).toBe(0);
+    expect(canPlay(state, me, card)).toBe(true);
+    // The opponent's monster further on: more room.
+    opp.monsterPosition = 7;
+    expect(handPlayRankOver(state, me.id, card.instanceId)).toBe(-4);
+    expect(handPlayRankOver(state, me.id, "no-such-card")).toBeNull();
   });
 
   it("EBP02-068 8.6: in the opponent's monster's column, they can't invade; +3,000", () => {

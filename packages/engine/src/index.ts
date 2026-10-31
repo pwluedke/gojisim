@@ -7,7 +7,7 @@ export const ENGINE_PACKAGE = "@gojisim/engine";
 
 export const ENGINE_DEPENDENCIES: readonly string[] = [CARDS_PACKAGE];
 
-export { applyAction, getLegalActions } from "./actions";
+export { applyAction, getLegalActions, handPlayRankOver } from "./actions";
 // A token counts as a battle card (Q39, 9.1.4.1).
 export { isBattle } from "./rules";
 export {

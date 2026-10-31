@@ -7,6 +7,7 @@ import {
   getPlayerView,
   getRank,
   getThreat,
+  handPlayRankOver,
   type PlayerView,
   ZONE_NUMBERS,
 } from "@gojisim/engine";
@@ -77,6 +78,42 @@ export interface BoardModel {
   changes: Record<string, CardChange[]>;
   /** "Show opponent's hand" is on (M5h #13): the top player's hand is face up and fans out. */
   openHand: boolean;
+  /**
+   * #138 Mecha-Check: for each Mecha-King Ghidorah (EBP02-068) in the bottom player's hand, by
+   * instance id, how many more non-rank 23 King Ghidorah cards its discard pile needs before
+   * the card can be played at the opponent's monster's zone now (`mechaCheckNeeded`).
+   */
+  mechaCheck: Record<string, number>;
+}
+
+/** Mecha-King Ghidorah: 2 ranks lower for each non-rank 23 King Ghidorah card in your discard pile. */
+export const MECHA_KING_GHIDORAH = "EBP02-068";
+const RANKS_PER_KING_GHIDORAH = 2;
+
+/**
+ * #138: the King Ghidorah cards a Mecha-King Ghidorah in `player`'s hand still needs, from the
+ * engine's own play rank check (`handPlayRankOver`, every reduction counted): 0 exactly when its
+ * rank allows the play. `null` for any other card, or when it can't be played at all.
+ */
+export function mechaCheckNeeded(
+  state: GameState,
+  player: PlayerId,
+  instanceId: string,
+): number | null {
+  const card = state.players
+    .find((p) => p.id === player)
+    ?.hand.find((c) => c.instanceId === instanceId);
+  if (state.cards[card?.cardId ?? -1]?.deckCardNumber !== MECHA_KING_GHIDORAH)
+    return null;
+  const over = handPlayRankOver(state, player, instanceId);
+  if (over === null) return null;
+  return Math.max(0, Math.ceil(over / RANKS_PER_KING_GHIDORAH));
+}
+
+/** The Mecha-Check tooltip's text (Paul's wording). */
+export function mechaCheckText(needed: number): string {
+  if (needed === 0) return "Mecha-Check: ready to play.";
+  return `Mecha-Check: ${needed} more King Ghidorah card${needed === 1 ? "" : "s"} needed in your discard pile to play this.`;
 }
 
 /**
@@ -117,6 +154,11 @@ export function boardModel(
     monsterRank[player.id] = monster ? getRank(state, monster) : null;
     if (monster) noteChanges(monster.instanceId);
   }
+  const mechaCheck: Record<string, number> = {};
+  for (const card of state.players.find((p) => p.id === bottom)?.hand ?? []) {
+    const needed = mechaCheckNeeded(state, bottom, card.instanceId);
+    if (needed !== null) mechaCheck[card.instanceId] = needed;
+  }
   return {
     bottom,
     top: bottom === "P1" ? "P2" : "P1",
@@ -127,5 +169,6 @@ export function boardModel(
     monsterRank,
     changes,
     openHand,
+    mechaCheck,
   };
 }

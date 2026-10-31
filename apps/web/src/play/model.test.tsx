@@ -4,13 +4,19 @@ import { getAllCards } from "@gojisim/cards/test-decks";
 import {
   advanceToDecision,
   type GameState,
+  getLegalActions,
   type PlayerSetup,
   startGame,
 } from "@gojisim/engine";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { BoardView } from "./BoardView";
-import { boardModel, bottomPlayer } from "./model";
+import {
+  boardModel,
+  bottomPlayer,
+  mechaCheckNeeded,
+  mechaCheckText,
+} from "./model";
 import { Preview } from "./Preview";
 
 function official(file: string): Omit<PlayerSetup, "id"> {
@@ -301,5 +307,117 @@ describe("strategy zones on the mat (M12c-2)", () => {
       <BoardView model={boardModel(state, "P1")} prompt={null} />,
     );
     expect(html).toMatch(/data-testid="strategy-mark"[^>]*>Base</);
+  });
+});
+
+describe("Mecha-Check (#138)", () => {
+  const card = (number: string) => {
+    const found = getAllCards().find((c) => c.deckCardNumber === number);
+    if (!found) throw new Error(number);
+    return found;
+  };
+  /**
+   * ESD01 for P1 with Mecha-King Ghidorah and King Ghidorah cards added, at P1's first main phase
+   * play timing (the first seed where P1 goes first).
+   */
+  function mechaGame(): GameState {
+    const base = official("esd01-starter.txt");
+    const extra = [
+      card("EBP02-068"),
+      ...Array.from({ length: 12 }, () => card("EBP02-066")),
+      card("EBP02-068"),
+    ];
+    for (let n = 0; n < 50; n++) {
+      const state = advanceToDecision(
+        startGame({
+          seed: `mecha-check-${n}`,
+          decks: [
+            {
+              id: "P1",
+              monsterDeck: base.monsterDeck,
+              mainDeck: [...base.mainDeck, ...extra],
+            },
+            { id: "P2", ...official("esd02-starter.txt") },
+          ],
+        }),
+      );
+      if (state.turnPlayer === "P1" && !state.pendingChoice)
+        return structuredClone(state);
+    }
+    throw new Error("no seed where P1 goes first");
+  }
+  /** Moves P1's first deck or hand card with `number` to `to`. */
+  function move(state: GameState, number: string, to: "hand" | "discard") {
+    const me = state.players.find((p) => p.id === "P1");
+    if (!me) throw new Error("P1");
+    for (const from of [me.deck, me.hand]) {
+      const i = from.findIndex(
+        (c) => state.cards[c.cardId]?.deckCardNumber === number,
+      );
+      if (i < 0 || (from === me.hand && to === "hand")) continue;
+      const [moved] = from.splice(i, 1);
+      if (moved) me[to].push(moved);
+      return moved?.instanceId ?? "";
+    }
+    throw new Error(`no ${number}`);
+  }
+  const setOpponentAt = (state: GameState, zone: number) => {
+    const opp = state.players.find((p) => p.id === "P2");
+    if (opp) opp.monsterPosition = zone as typeof opp.monsterPosition;
+  };
+
+  it("8.2.1: N = ceil((rank − the opponent's monster's zone) / 2) from the engine's check, by position and discard count", () => {
+    const state = mechaGame();
+    const me = state.players.find((p) => p.id === "P1");
+    for (const c of [...(me?.discard ?? [])]) {
+      if (state.cards[c.cardId]?.traits.includes("King Ghidorah"))
+        throw new Error("setup");
+    }
+    const id = move(state, "EBP02-068", "hand");
+    setOpponentAt(state, 3);
+    // Rank 23 at zone 3: 20 over, 10 cards.
+    expect(mechaCheckNeeded(state, "P1", id)).toBe(10);
+    for (let i = 0; i < 7; i++) move(state, "EBP02-066", "discard");
+    expect(mechaCheckNeeded(state, "P1", id)).toBe(3);
+    // Zone 4: 23 − 14 = 9 over zone 4 = 5 → 3 cards (ceil 2.5).
+    setOpponentAt(state, 4);
+    expect(mechaCheckNeeded(state, "P1", id)).toBe(3);
+    setOpponentAt(state, 8);
+    expect(mechaCheckNeeded(state, "P1", id)).toBe(1);
+    expect(boardModel(state, "P1").mechaCheck).toEqual({ [id]: 1 });
+  });
+
+  it("0 exactly when the hand play is legal; the board model lists only Mecha-King Ghidorah, only in your hand", () => {
+    const state = mechaGame();
+    const id = move(state, "EBP02-068", "hand");
+    setOpponentAt(state, 5);
+    for (let i = 0; i < 8; i++) move(state, "EBP02-066", "discard");
+    // 23 − 16 = 7: still 2 over zone 5.
+    expect(mechaCheckNeeded(state, "P1", id)).toBe(1);
+    move(state, "EBP02-066", "discard");
+    expect(mechaCheckNeeded(state, "P1", id)).toBe(0);
+    const legal = (s: GameState) =>
+      getLegalActions(s, "P1").some(
+        (a) => a.type === "playBattle" && a.cardInstanceId === id,
+      );
+    expect(legal(state)).toBe(true);
+    const others =
+      state.players
+        .find((p) => p.id === "P1")
+        ?.hand.filter((c) => c.instanceId !== id) ?? [];
+    for (const c of others)
+      expect(mechaCheckNeeded(state, "P1", c.instanceId)).toBeNull();
+    expect(Object.keys(boardModel(state, "P1").mechaCheck)).toEqual([id]);
+    expect(boardModel(state, "P2").mechaCheck).toEqual({});
+  });
+
+  it("the wording: plural, singular, and ready to play", () => {
+    expect(mechaCheckText(3)).toBe(
+      "Mecha-Check: 3 more King Ghidorah cards needed in your discard pile to play this.",
+    );
+    expect(mechaCheckText(1)).toBe(
+      "Mecha-Check: 1 more King Ghidorah card needed in your discard pile to play this.",
+    );
+    expect(mechaCheckText(0)).toBe("Mecha-Check: ready to play.");
   });
 });

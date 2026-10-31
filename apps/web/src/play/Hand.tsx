@@ -1,10 +1,11 @@
 import { useDraggable } from "@dnd-kit/core";
 import type { CardInstance, PlayerAreasView } from "@gojisim/engine";
-import type { CSSProperties } from "react";
+import { type CSSProperties, useRef, useState } from "react";
 import styles from "./Board.module.css";
 import { CardFace } from "./CardFace";
 import { useInteraction } from "./interaction";
-import type { BoardModel } from "./model";
+import { type BoardModel, mechaCheckText } from "./model";
+import { TipBubble } from "./Tooltip";
 
 /** Each hand card shows this share of its width before the next card covers it. */
 export const HAND_STEP = 0.75;
@@ -32,6 +33,14 @@ function HandCard({
   });
   const usable = playable && !locked;
   const { preview } = useInteraction();
+  // #138 Mecha-Check: the app's tooltip over the raised card while it's hovered or focused.
+  const needed = model.mechaCheck[card.instanceId];
+  const lift = useRef<HTMLDivElement>(null);
+  const [tipAt, setTipAt] = useState<DOMRect | null>(null);
+  const showTip = () => {
+    if (needed !== undefined)
+      setTipAt(lift.current?.getBoundingClientRect() ?? null);
+  };
   const state = selected
     ? styles.selected
     : usable && lit
@@ -59,16 +68,36 @@ function HandCard({
       }
       {...attributes}
       {...listeners}
+      onFocus={showTip}
+      onBlur={() => setTipAt(null)}
     >
       {/* The lifted card: the outer box stays in the row as the card's hit area (Hand). */}
-      <div className={styles.handLift} data-testid="hand-lift">
+      <div
+        className={styles.handLift}
+        data-testid="hand-lift"
+        ref={lift}
+        // The lift is animated: place the tip again once the card is all the way up.
+        onTransitionEnd={() => {
+          if (tipAt) showTip();
+        }}
+      >
         <CardFace card={card} data={model.view.cards[card.cardId]} rotate />
       </div>
+      {tipAt && needed !== undefined && (
+        <TipBubble box={tipAt} tip={mechaCheckText(needed)} />
+      )}
       {/* The card's visible strip in the row: always this card's, even under a raised neighbor. */}
       <div
         className={styles.handStrip}
-        onMouseEnter={() => preview(card.instanceId)}
-        onMouseLeave={() => preview(null)}
+        onMouseEnter={() => {
+          preview(card.instanceId);
+          // After the CSS lift starts, so the tip sits by the raised card.
+          requestAnimationFrame(showTip);
+        }}
+        onMouseLeave={() => {
+          preview(null);
+          setTipAt(null);
+        }}
       />
     </div>
   );
