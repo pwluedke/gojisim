@@ -44,14 +44,33 @@ export async function fetchConfig(
   }
 }
 
-/** Uploads a session's record with its position; `true` when the server stored it. */
+/** #92: the browser key the post-deploy smoke check sets, so its uploads say `smokeCheck`. */
+export const SMOKE_CHECK_KEY = "gojisim.smokeCheck";
+
+/** Whether this browser is the smoke check's (`gojisim.smokeCheck` is "1"); blocked storage isn't. */
+export function isSmokeCheck(
+  storage: Pick<Storage, "getItem"> | undefined = globalThis.localStorage,
+): boolean {
+  try {
+    return storage?.getItem(SMOKE_CHECK_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Uploads a session's record with its position; `true` when the server stored it. The smoke
+ * check's uploads carry `smokeCheck: true` (#92).
+ */
 export async function uploadRecord(
   session: Session,
   fetchImpl: typeof fetch = fetch,
+  smoke: boolean = isSmokeCheck(),
 ): Promise<boolean> {
   const record: ExportedRecord = {
     ...session.record,
     position: session.position,
+    ...(smoke ? { smokeCheck: true } : {}),
   };
   try {
     const res = await fetchImpl("/api/games", {

@@ -37,6 +37,11 @@ export interface AppServerOptions {
   reportsWebhook?: string | undefined;
   /** The Discord posts' `fetch` (tests pass a fake webhook); defaults to `fetchImpl`. */
   reportsFetch?: typeof fetch;
+  /**
+   * #92: the commit `/healthz` reports (Railway's `RAILWAY_GIT_COMMIT_SHA`), or `null` when the
+   * server doesn't know it (local runs).
+   */
+  commit?: string | null;
   /** The Test Site switch (M13b, `GOJISIM_TEST_SITE`); on by default. */
   config?: SiteConfig;
   now?: () => number;
@@ -91,6 +96,7 @@ export function createAppServer({
   reportsWebhook,
   reportsFetch,
   config = { testSite: true },
+  commit = null,
   now,
 }: AppServerOptions = {}): Server {
   if (password && (!secret || secret.length < 32))
@@ -127,7 +133,8 @@ export function createAppServer({
       }
       if (path === "/healthz") {
         res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify({ status: "ok" }));
+        // #92: the deployed commit, so the smoke check knows Railway runs the pushed one.
+        res.end(JSON.stringify({ status: "ok", commit }));
         return;
       }
       // Each step says whether it passed the request on (its `next`), and is awaited, so its
@@ -178,6 +185,7 @@ if (
     recordsDir: resolve(process.env.RECORDS_DIR ?? "/data/records"),
     uploadsPerMinute: uploadsPerMinuteFrom(process.env),
     reportsWebhook: process.env.DISCORD_REPORTS_WEBHOOK,
+    commit: process.env.RAILWAY_GIT_COMMIT_SHA || null,
     config: siteConfig(process.env),
   }).listen(port, () => {
     console.log(

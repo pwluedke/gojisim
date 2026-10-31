@@ -91,7 +91,11 @@ describe("the server without a password (local runs, e2e)", () => {
     expect(await (await get("/robots.txt")).text()).toBe(
       "User-agent: *\nDisallow: /\n",
     );
-    expect(await (await get("/healthz")).json()).toEqual({ status: "ok" });
+    // #92: no commit known locally.
+    expect(await (await get("/healthz")).json()).toEqual({
+      status: "ok",
+      commit: null,
+    });
     // noindex on every response.
     for (const path of ["/", "/robots.txt", "/cards/7-thumb.webp"])
       expect((await get(path)).headers.get("x-robots-tag")).toBe(
@@ -129,6 +133,21 @@ describe("the server without a password (local runs, e2e)", () => {
     ).toBeNull();
     // Locally (and in the e2e tests) no gate is normal.
     expect(openSiteWarning({})).toBeNull();
+  });
+});
+
+describe("/healthz (#92)", () => {
+  it("reports the deployed commit, behind the gate too, so the smoke check can wait for it", async () => {
+    const sha = "0123456789abcdef0123456789abcdef01234567";
+    const get = await serve({
+      password: PASSWORD,
+      secret: SECRET,
+      commit: sha,
+    });
+    expect(await (await get("/healthz")).json()).toEqual({
+      status: "ok",
+      commit: sha,
+    });
   });
 });
 

@@ -65,8 +65,10 @@ test("without the cookie: assets, card images and the API are 401; robots.txt an
   const robots = await request.get("/robots.txt");
   expect(robots.status()).toBe(200);
   expect(await robots.text()).toBe("User-agent: *\nDisallow: /\n");
+  // #92: the commit too (null here, with no Railway commit to report).
   expect(await (await request.get("/healthz")).json()).toEqual({
     status: "ok",
+    commit: null,
   });
 });
 

@@ -17,6 +17,8 @@ loop-reports/
 /records/
 apps/web/e2e-records/
 apps/web/test-results/prod-records/
+# #92: the live smoke check's report and failure screenshot
+apps/web/smoke-results/
 bot-reports/
 
 # #99 sound candidates and their listening page (local only)

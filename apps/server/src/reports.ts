@@ -113,7 +113,8 @@ function entries(record: Json): { key: string; report: NewReport }[] {
 /** The entries in `record` that `earlier` (the game's previous upload, if any) didn't have. */
 export function newReports(record: unknown, earlier: unknown): NewReport[] {
   const now = obj(record);
-  if (!now) return [];
+  // #92: the post-deploy smoke check's game is never a tester's report.
+  if (!now || now["smokeCheck"] === true) return [];
   const before = obj(earlier);
   const seen = new Set(before ? entries(before).map((e) => e.key) : []);
   return entries(now)

@@ -84,6 +84,11 @@ export interface GameRecord {
    * game). Information only.
    */
   crash?: CrashEntry;
+  /**
+   * #92: uploaded by the post-deploy smoke check, not a tester. `pnpm feedback`, the win rates
+   * and the Discord #reports posts leave such games out. Information only.
+   */
+  smokeCheck?: boolean;
 }
 
 /** A crash (#95): the error as `errors.ts` captured it, where the game was, and the last answer. */

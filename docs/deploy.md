@@ -145,7 +145,22 @@ Treat both URLs like passwords: anyone with one can post to that channel. Don't 
 
 The next push to `release` posts its release; the workflow's log says "Posted to Slack and Discord." when both worked.
 
-**Roll back:** Railway → `gojisim` → **Deployments** → pick an older, working deploy → **⋯ → Redeploy**. The site goes back to that build at once. The `release` branch still points at the newer commit, so the next `git push origin main:release` deploys main again as usual.
+**Smoke check (#92).** After the Release workflow, the Smoke check workflow (`.github/workflows/smoke.yml`) checks the live site. It waits up to 15 minutes for `/healthz` to report the pushed commit (Railway's `RAILWAY_GIT_COMMIT_SHA`). Then Playwright logs in, starts a game against Easy, checks card images load, makes the First / Second pick, passes a turn, waits for the bot's turn, and concedes, which must store the game's upload. That upload is marked `smokeCheck`, so `pnpm feedback`, the win rates and the Discord #reports posts leave it out.
+
+- **Pass:** one line in Slack #gojisim-release-notes.
+- **Fail:** a message in #gojisim-dev naming the step that failed, with the run's link and the rollback command. A failure screenshot (taken after the login page) is in the run's artifact.
+- **Never blocks:** the deploy and the release don't wait for it. **Actions → Smoke check → Run workflow** runs it again by hand.
+
+One-time setup (Paul): on GitHub, **Settings → Secrets and variables → Actions → New repository secret**:
+
+- `SITE_PASSWORD`: the testers' password, the same as Railway's `GOJISIM_PASSWORD`.
+- `SLACK_DEV_WEBHOOK`: a webhook for #gojisim-dev (the GojiSim Slack app → **Incoming Webhooks → Add New Webhook** → #gojisim-dev). Without it, a failure goes to #gojisim-release-notes (`SLACK_RELEASE_WEBHOOK`).
+
+The run's log shows step names and the commit only. GitHub masks the secrets, and no trace or video is recorded.
+
+**Roll back:** run `pnpm rollback` in the `gojisim` folder on your Mac. It fetches the tags and shows what's live (`release`) and the previous `release-*` tag. When you type `y`, it pushes that tag's commit to `release`, and Railway deploys it in a few minutes; the smoke check then runs on it. Going back isn't a fast-forward, so the push is forced, but only while `release` is still at the commit it showed (`--force-with-lease`). The next `git push origin main:release` goes forward again as usual. Run it again to go back one more release.
+
+For an instant switch without a build, Railway → `gojisim` → **Deployments** → pick an older, working deploy → **⋯ → Redeploy**. The site goes back to that build at once. The `release` branch still points at the newer commit, so the next `git push origin main:release` deploys main again as usual.
 
 ## Railway settings as code
 
