@@ -1,5 +1,7 @@
 # Release notes
 
+**From #89 on, release notes are on [GitHub Releases](https://github.com/pwluedke/gojisim/releases):** each push to `release` publishes one, made from the "Release notes" sections of the PRs it ships. This file is the archive up to #120, and PRs no longer edit it.
+
 What each merged PR changed, in plain words, for Paul and the testers. Newest first. Each PR's own description has the same section, and its Tests section has the detail.
 
 ## #120 Railway settings move into the repo as code (not merged yet)
