@@ -88,6 +88,9 @@ test("human vs Easy: the bot takes its turns, and its hidden cards show as card 
 test("bot vs bot (Easy vs Easy, delay 0): Play runs the game to its end", async ({
   page,
 }) => {
+  // A whole game: 18 s on CI before #132, past the 30 s default after (126 actions, not 93), so
+  // the test's own timeout covers the 120 s wait below.
+  test.setTimeout(150_000);
   await start(page, { P1: "easy", P2: "easy" });
   await page.getByTestId("bot-play").click();
   await expect(page.getByTestId("status-result")).not.toHaveText(
