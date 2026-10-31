@@ -64,3 +64,11 @@ Accepted by Monarch in the M13c review (PR #NNN).
 654. The useless-card check (M13a pruning) costs 0.8% of the searches per second and stays.
 655. The Flying Form position is made only where today's Hard takes the copy (`missedByHard`: 2 of 3 seeds at Hard's 811 iterations, no clock); either Perfect Form (ESD02-013 or EBP01-060) counts as the right pick.
 656. `priorVisits` (#75): a new search node starts with that many virtual visits at its static evaluation, from the chooser's side. 20 passes the Flying Form position (19/20 at Hard, 20/20 at 100) with no other position changing; it costs about 9% of the searches (584 vs 645).
+657. `priorVisits=20` is on from Hard up (difficulty 90+), where the trial ran; it stays off at Easy and Medium (Monarch, on #75). The trial: 400 fixed-search games, mixed decks, `priorVisits=20,iterations=584` vs Hard `iterations=645` (each the bot's mean searches at 1 s), 206–194, 51.5% (95% CI 46.6–56.4%): no measurable cost in strength, with Flying Form fixed (19/20). Medium wasn't trialed, and at Easy it made the #132 position worse (below). The m12 comparison bots keep none.
+658. Positions for #130, #131 and #132 are made from random starter games (`makePositions.ts`: a spec takes P2's starter and the reported level) and kept only where that level makes the tester's mistake: `battra-larva-evolves-to-copy` (Medium; the tester named it Mothra Larva over Imago, the record shows Battra), `super-x-after-invade` (Medium) and `godzilla-2023-stays-in-zone-8` (Easy). How often the mistake happens over 100 seeds, no clock, `priorVisits` off → on, with copies cut from the testers' games (not committed) beside them:
+
+     - #130 Battra (Larva) copy, Medium: committed 58% → 66%; tester's game 70% → 65%.
+     - #131 Super-X before the invade, Medium: committed 88% → 86%; tester's game 84% → 54%.
+     - #132 Godzilla (2023) leaves zone 8, Easy: committed 64% → 52%; tester's game 23% → 55%.
+
+     A difference needs about 14 points to be real at 100 seeds: `priorVisits` helps only the tester's Super-X spot and hurts the tester's Easy Godzilla spot, so it isn't a fix for these. #130 and #131 stay open as their own problems.

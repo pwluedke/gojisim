@@ -11,7 +11,12 @@ import {
 import { describe, expect, it } from "vitest";
 import { pickWith, tacticalPick } from "./baseline";
 import { determinize } from "./determinize";
-import { difficultySettings, M12_SETTINGS, PRESETS } from "./difficulty";
+import {
+  difficultySettings,
+  HARD_PRIOR_VISITS,
+  M12_SETTINGS,
+  PRESETS,
+} from "./difficulty";
 import { botInput, decklistsOf, seededRng } from "./input";
 import { actionKey, ismctsBot, ismctsSettings, search } from "./ismcts";
 
@@ -282,7 +287,28 @@ describe("ismcts (M6c)", { timeout: 60_000 }, () => {
     const before = (level: number) =>
       ismctsSettings({ ...difficultySettings(level), ...M12_SETTINGS });
     expect(now(PRESETS.easy)).toEqual(before(PRESETS.easy));
-    for (const level of [PRESETS.medium, PRESETS.hard, 100])
-      expect(now(level)).toEqual({ ...before(level), prune: 1 });
+    expect(now(PRESETS.medium)).toEqual({
+      ...before(PRESETS.medium),
+      prune: 1,
+    });
+    // M13c (#75): from Hard up, also the progressive bias.
+    for (const level of [PRESETS.hard, 100])
+      expect(now(level)).toEqual({
+        ...before(level),
+        prune: 1,
+        priorVisits: HARD_PRIOR_VISITS,
+      });
+  });
+
+  it("M13c (#75): priorVisits is 20 from Hard (90) up and 0 below, as Monarch decided; the m12 bots keep none", () => {
+    expect(HARD_PRIOR_VISITS).toBe(20);
+    for (const level of [0, PRESETS.easy, PRESETS.medium, 89])
+      expect(difficultySettings(level).priorVisits).toBe(0);
+    for (const level of [PRESETS.hard, 95, 100])
+      expect(difficultySettings(level).priorVisits).toBe(20);
+    expect(
+      ismctsSettings({ ...difficultySettings(PRESETS.hard), ...M12_SETTINGS })
+        .priorVisits,
+    ).toBe(0);
   });
 });

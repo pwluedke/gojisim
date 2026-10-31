@@ -4,6 +4,12 @@ import type { Bot, BotSettings } from "./types";
 /** Iterations at difficulty 100 (the full search), tuned so `hard` stays under 1 s per decision. */
 export const FULL_ITERATIONS = 1000;
 
+/**
+ * M13c (#75, Monarch's call): the virtual visits a new node starts with from Hard up. 51.5 % over
+ * Hard at matched search counts and Flying Form fixed; not trialed at Medium, worse at Easy.
+ */
+export const HARD_PRIOR_VISITS = 20;
+
 /** Difficulty presets (M6c). */
 export const PRESETS = { easy: 20, medium: 55, hard: 90 } as const;
 
@@ -12,6 +18,8 @@ export const PRESETS = { easy: 20, medium: 55, hard: 90 } as const;
  * iterations, a higher temperature (a looser pick among visited actions) and a higher chance to
  * blunder (play a plausible move without searching, #132). 0 is close to random play; 100 is the full
  * search. M13a: from Medium up, dead strategy activations are pruned at the root (`prune.ts`).
+ * M13c (#75): from Hard up, new search nodes start with `HARD_PRIOR_VISITS` virtual visits at
+ * their static evaluation; Easy and Medium keep none.
  */
 export function difficultySettings(difficulty: number): {
   iterations: number;
@@ -19,6 +27,7 @@ export function difficultySettings(difficulty: number): {
   blunder: number;
   maxMs: number;
   prune: number;
+  priorVisits: number;
 } {
   const t = Math.max(0, Math.min(100, difficulty)) / 100;
   const round = (x: number) => Math.round(x * 1000) / 1000;
@@ -28,6 +37,7 @@ export function difficultySettings(difficulty: number): {
     blunder: round(0.6 * (1 - t) * (1 - t)),
     maxMs: 1000,
     prune: difficulty >= PRESETS.medium ? 1 : 0,
+    priorVisits: difficulty >= PRESETS.hard ? HARD_PRIOR_VISITS : 0,
   };
 }
 
@@ -58,6 +68,8 @@ export const hardBot = difficultyBot("hard", PRESETS.hard);
 export const M12_SETTINGS: BotSettings = {
   prune: 0,
   rollout: "weighted",
+  // M13c: nor the progressive bias Hard gained (#75).
+  priorVisits: 0,
 };
 export function m12Bot(name: string, difficulty: number): Bot {
   const bot = difficultyBot(name, difficulty);
