@@ -1,7 +1,11 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 import { decklogMiddleware } from "../server/src/decklog.js";
-import { gamesMiddleware, siteConfig } from "../server/src/games.js";
+import {
+  gamesMiddleware,
+  siteConfig,
+  uploadsPerMinuteFrom,
+} from "../server/src/games.js";
 import { localDecksPlugin } from "./localDecksPlugin";
 
 // Development decks: the repository's `local-decks/` in the dev server (Paul's machine only; the
@@ -34,6 +38,7 @@ export default defineConfig({
             recordsDir:
               process.env["RECORDS_DIR"] ??
               new URL("../../records", import.meta.url).pathname,
+            uploadsPerMinute: uploadsPerMinuteFrom(process.env),
           }),
         );
       },

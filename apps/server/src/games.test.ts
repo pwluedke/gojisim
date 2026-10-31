@@ -16,6 +16,7 @@ import {
   siteConfig,
   testSiteEnabled,
   UPLOADS_PER_MINUTE,
+  uploadsPerMinuteFrom,
 } from "./games.js";
 import { createAppServer } from "./index.js";
 
@@ -34,6 +35,7 @@ async function serve(
     testSite?: boolean;
     password?: string;
     maxRecordsBytes?: number;
+    uploadsPerMinute?: number;
   } = {},
 ) {
   const recordsDir = mkdtempSync(join(tmpdir(), "gojisim-records-"));
@@ -45,6 +47,9 @@ async function serve(
     ...(options.maxRecordsBytes === undefined
       ? {}
       : { maxRecordsBytes: options.maxRecordsBytes }),
+    ...(options.uploadsPerMinute === undefined
+      ? {}
+      : { uploadsPerMinute: options.uploadsPerMinute }),
     now: () => NOW,
     ...(options.password ? { password: options.password, secret: SECRET } : {}),
   });
@@ -140,6 +145,28 @@ describe("game collection (M13b)", () => {
       ).toBe(400);
     expect(stored(recordsDir)).toEqual([]);
     expect(isGameRecord(RECORD)).toBe(true);
+  });
+
+  it("#123: the upload limit stays 30 a minute unless GOJISIM_UPLOADS_PER_MINUTE sets a positive whole number", () => {
+    expect(UPLOADS_PER_MINUTE).toBe(30);
+    expect(uploadsPerMinuteFrom({})).toBe(30);
+    expect(uploadsPerMinuteFrom({ GOJISIM_UPLOADS_PER_MINUTE: "1000" })).toBe(
+      1000,
+    );
+    for (const bad of ["", "0", "-5", "2.5", "lots", " "])
+      expect(
+        uploadsPerMinuteFrom({ GOJISIM_UPLOADS_PER_MINUTE: bad }),
+        bad,
+      ).toBe(30);
+  });
+
+  it("#123: the app server passes a raised limit to the upload route", async () => {
+    const { request } = await serve({ uploadsPerMinute: 2 });
+    const body = JSON.stringify(RECORD);
+    const statuses: number[] = [];
+    for (let i = 0; i < 3; i++)
+      statuses.push((await request("/api/games", upload(body))).status);
+    expect(statuses).toEqual([201, 201, 429]);
   });
 
   it(`allows ${UPLOADS_PER_MINUTE} uploads a minute per IP, then 429; another IP still uploads`, async () => {

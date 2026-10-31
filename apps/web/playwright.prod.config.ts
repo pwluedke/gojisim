@@ -26,6 +26,8 @@ export default defineConfig({
       CARDS_DIR: "e2e-prod/cards",
       // Uploads (M13b) go to a throwaway folder, never the volume path.
       RECORDS_DIR: "test-results/prod-records",
+      // #123: every worker uploads from one IP to this one server; production keeps 30 a minute.
+      GOJISIM_UPLOADS_PER_MINUTE: "1000",
     },
   },
 });
