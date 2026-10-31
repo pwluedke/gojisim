@@ -6,9 +6,11 @@ import {
   recentBotMoves,
   testSiteEnabled,
   uploadRecord,
+  crashToReport,
   MAILBOX_NAME,
   withBugReport,
   withFeedback,
+  withCrash,
   withIdea,
   withOpponentHandShown,
 } from "./collection";
@@ -151,6 +153,58 @@ describe("game collection in the browser (M13b)", () => {
       [idea],
     );
     expect(MAILBOX_NAME).toBe("Monster Island Mailbox");
+  });
+
+  it("#95: a crash uploads only for the app's own code, with the Test Site and sharing on, once per game", () => {
+    const session = play(newSession(5, decks(), { P1: human, P2: bot }), 2);
+    const origin = "https://gojisim.example";
+    const error = (stack: string | undefined) => ({
+      message: "boom",
+      source: "window" as const,
+      at: "2026-10-30T22:00:00.000Z",
+      ...(stack ? { stack } : {}),
+    });
+    const app = error(
+      `Error: boom\n    at play (${origin}/assets/index-abc.js:1:2345)`,
+    );
+    const page = { testSite: true, shareGames: true, origin, lastAnswer: null };
+    const crash = crashToReport(session, app, page);
+    expect(crash).toEqual({
+      message: "boom",
+      stack: app.stack,
+      source: "window",
+      at: "2026-10-30T22:00:00.000Z",
+      actionIndex: session.position,
+    });
+    // Not the app's: an extension's script, another site's, or no stack at all.
+    for (const stack of [
+      "Error: boom\n    at x (chrome-extension://abc/content.js:1:1)",
+      "Error: boom\n    at x (https://cdn.example.com/lib.js:1:1)",
+      undefined,
+    ])
+      expect(crashToReport(session, error(stack), page)).toBeNull();
+    // Off with the Test Site or sharing off.
+    expect(
+      crashToReport(session, app, { ...page, testSite: false }),
+    ).toBeNull();
+    expect(
+      crashToReport(session, app, { ...page, shareGames: false }),
+    ).toBeNull();
+    // Once per game: a record that has a crash (loaded or reloaded included) never sends another.
+    const crashed = withCrash(session, crash as NonNullable<typeof crash>);
+    expect(crashToReport(crashed, app, page)).toBeNull();
+    expect(
+      sessionFromRecord(JSON.stringify(crashed.record)).record.crash,
+    ).toEqual(crash);
+    // The last answer rides along.
+    const answer = {
+      action: { type: "pass", player: "P1" } as const,
+      label: "Pass",
+      at: "t",
+    };
+    expect(
+      crashToReport(session, app, { ...page, lastAnswer: answer })?.lastAnswer,
+    ).toEqual(answer);
   });
 
   it("Show opponent's hand flags the record once, at the index it was turned on; a game started with it is flagged at 0", () => {

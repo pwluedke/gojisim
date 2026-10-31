@@ -79,6 +79,24 @@ export interface GameRecord {
   bugReports?: BugReport[];
   /** Monster Island Mailbox suggestions (#107), oldest first. Information only. */
   ideas?: IdeaEntry[];
+  /**
+   * #95: the first error from the app's own code in this game, uploaded at once (at most one per
+   * game). Information only.
+   */
+  crash?: CrashEntry;
+}
+
+/** A crash (#95): the error as `errors.ts` captured it, where the game was, and the last answer. */
+export interface CrashEntry {
+  message: string;
+  stack?: string;
+  /** A human action, the bot, or the page (`error` / `unhandledrejection`). */
+  source: string;
+  /** ISO time of the error. */
+  at: string;
+  /** The session position then. */
+  actionIndex: number;
+  lastAnswer?: { action: Action; label: string; at: string; error?: string };
 }
 
 /**

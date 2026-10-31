@@ -184,6 +184,50 @@ test("Report bug (#105) records the open choice as shown, the last uncaught erro
   );
 });
 
+test("a crash (#95): the first error from the app's own scripts uploads the game once, with one toast; other errors don't", async ({
+  page,
+}) => {
+  let posts = 0;
+  page.on("response", (r) => {
+    if (r.url().endsWith("/api/games") && r.request().method() === "POST")
+      posts++;
+  });
+  await loadFixture(page, "hand-five");
+  // Not the app's: thrown from the test's own evaluate (no script on the site's origin).
+  await page.evaluate(() =>
+    setTimeout(() => {
+      throw new Error("not the app's error");
+    }),
+  );
+  await page.waitForTimeout(500);
+  expect(posts).toBe(0);
+  await expect(page.getByTestId("crash-toast")).toHaveCount(0);
+  // The app's: a made-up error from a script on the site's own origin (served by the test).
+  const message = marker("made-up crash for #95");
+  const serve = (name: string, text: string) =>
+    page.route(`**/${name}`, (route) =>
+      route.fulfill({
+        contentType: "text/javascript",
+        body: `setTimeout(() => { throw new Error(${JSON.stringify(text)}); });`,
+      }),
+    );
+  await serve("made-up-crash.js", message);
+  await page.addScriptTag({ url: "/made-up-crash.js" });
+  await expect(page.getByTestId("crash-toast")).toHaveText(
+    "Something went wrong and was sent to us. Report bug lets you add what you were doing.",
+  );
+  await expect.poll(() => uploadsWith(message).length).toBe(1);
+  const [record] = uploadsWith(message);
+  expect(record?.["crash"]).toMatchObject({ message, source: "window" });
+  // Once per game: a second app error sends nothing more.
+  const sent = posts;
+  await serve("made-up-crash-2.js", "a second crash");
+  await page.addScriptTag({ url: "/made-up-crash-2.js" });
+  await page.waitForTimeout(800);
+  expect(posts).toBe(sent);
+  expect(uploadsWith("a second crash")).toHaveLength(0);
+});
+
 test("Report bug and Bad Bot! wait during the First / Second pick", async ({
   page,
 }) => {
