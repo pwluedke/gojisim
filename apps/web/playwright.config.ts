@@ -26,6 +26,8 @@ export default defineConfig({
       RECORDS_DIR: "e2e-records",
       // #123: every worker uploads from one IP to this one server; production keeps 30 a minute.
       GOJISIM_UPLOADS_PER_MINUTE: "1000",
+      // #134: the What's new tag comes from a path the specs route, never GitHub's API.
+      VITE_RELEASES_API: "/__e2e/releases/latest",
     },
   },
 });

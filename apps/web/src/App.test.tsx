@@ -3,12 +3,16 @@ import { describe, expect, it } from "vitest";
 import { App } from "./App";
 
 describe("@gojisim/web", () => {
-  it("renders the menu: the GojiSim heading, Play vs bot and Debug (no hotseat, M5h)", () => {
+  it("renders the menu: the GojiSim heading, Play vs bot, Debug (no hotseat, M5h) and What's new (#134)", () => {
     const html = renderToStaticMarkup(<App />);
     expect(html).toContain(">GojiSim</h1>");
     expect(html).toContain('href="/play?mode=bot"');
     expect(html).toContain('href="/debug"');
     expect(html).not.toContain("hotseat");
-    expect(html.match(/<a /g)).toHaveLength(2);
+    // Play vs bot, Debug and What's new (#134).
+    expect(html.match(/<a /g)).toHaveLength(3);
+    expect(html).toContain(
+      'href="https://github.com/pwluedke/gojisim/releases/latest"',
+    );
   });
 });

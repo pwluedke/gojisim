@@ -95,6 +95,7 @@ import {
 import { MAT_MAX_BYTES } from "./matStore";
 import { useCustomMat } from "./useCustomMat";
 import { SoundPlayer, slamCues, stepIsHeard, stepSounds } from "../game/sounds";
+import { WhatsNew } from "../WhatsNew";
 
 /** A combo hit's data entry (name, cards, steps, result). */
 const comboOf = (hit: ComboHit): Combo | undefined =>
@@ -1051,7 +1052,11 @@ export function PlayScreen() {
   const settingsPanel = (
     <>
       <details className={styles.settings}>
-        <summary data-testid="settings">Settings</summary>
+        <summary data-testid="settings">
+          Settings
+          {/* #134: on the bar, so the dot shows with Settings closed and the open panel keeps its height. */}
+          <WhatsNew className={styles.settingsWhatsNew} />
+        </summary>
         <div className={styles.settingsPanel}>
           <label>
             Bot delay{" "}
