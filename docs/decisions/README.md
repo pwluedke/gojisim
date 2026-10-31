@@ -100,3 +100,4 @@ Every decision Monarch accepted in a review, numbered in the order they were mad
 | 640–644 | GitHub Releases review (PR #122)                                                                                               | [repo-and-ci.md](repo-and-ci.md)                 |
 | 645–647 | templates review (PR #124)                                                                                                     | [repo-and-ci.md](repo-and-ci.md)                 |
 | 648–650 | decision log review (PR #125)                                                                                                  | [repo-and-ci.md](repo-and-ci.md)                 |
+| 651–658 | M13c review (PR #144)                                                                                                          | [bot.md](bot.md)                                 |

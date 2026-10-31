@@ -9,10 +9,16 @@ import {
   startGame,
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
+import { pickWith, tacticalPick } from "./baseline";
 import { determinize } from "./determinize";
-import { difficultySettings, M12_SETTINGS, PRESETS } from "./difficulty";
+import {
+  difficultySettings,
+  HARD_PRIOR_VISITS,
+  M12_SETTINGS,
+  PRESETS,
+} from "./difficulty";
 import { botInput, decklistsOf, seededRng } from "./input";
-import { actionKey, ismctsBot, ismctsSettings } from "./ismcts";
+import { actionKey, ismctsBot, ismctsSettings, search } from "./ismcts";
 
 function official(file: string): Omit<PlayerSetup, "id"> {
   const url = new URL(`../../cards/data/decks/${file}`, import.meta.url);
@@ -191,6 +197,70 @@ describe("ismcts (M6c)", { timeout: 60_000 }, () => {
     expect(state.result).toBeNull();
   });
 
+  it("M13c tactical play-outs: a winning invasion is taken, and an open zone 8 is blocked", () => {
+    const state = start();
+    const [p1, p2] = state.players;
+    const pick = pickWith(seededRng("tactical"));
+    // In zone 8 with the opponent's zone 8 open: any card's icon wins, so it invades every time.
+    p1.monsterPosition = 8;
+    p2.zones[8] = [];
+    state.turnFlags.invasionUsed = false;
+    const options = getLegalActions(state, "P1").filter(
+      (a) => a.type !== "concede",
+    );
+    for (let i = 0; i < 20; i++)
+      expect(tacticalPick(state, options, pick).type).toBe("invade");
+    // Blocked: a battle card tops the opponent's zone 8, so no invasion wins; the weighted pick
+    // takes other actions too.
+    const blocked = JSON.parse(JSON.stringify(state)) as GameState;
+    const battle = blocked.players[0].hand.find(
+      (c) => blocked.cards[c.cardId]?.type === "Battle",
+    );
+    if (!battle) throw new Error("no battle card in hand");
+    blocked.players[1].zones[8] = [[{ ...battle, instanceId: "x1" }]];
+    const types = new Set(
+      Array.from(
+        { length: 40 },
+        () => tacticalPick(blocked, options, pick).type,
+      ),
+    );
+    expect(types.size).toBeGreaterThan(1);
+    // The opponent in its zone 8 and P1's zone 8 open: a battle card goes there every time.
+    p1.monsterPosition = 5;
+    p1.zones[8] = [];
+    p2.monsterPosition = 8;
+    const defend = getLegalActions(state, "P1").filter(
+      (a) => a.type !== "concede",
+    );
+    for (let i = 0; i < 20; i++)
+      expect(tacticalPick(state, defend, pick)).toMatchObject({
+        type: "playBattle",
+        zone: 8,
+      });
+  });
+
+  it("M13c priorVisits (#75): off by default; on, a new node starts with that many visits at its static value from the chooser's side", () => {
+    expect(ismctsSettings({}).priorVisits).toBe(0);
+    const state = start();
+    // One iteration expands one root child; with no play-out its real visit is the same static
+    // value, from the same seeded determinization.
+    const once = (priorVisits: number) => {
+      const settings = { iterations: 1, maxMs: 1e9, rollout: "none" as const };
+      const result = search(
+        botInput(state, "P1", LISTS, seededRng("prior"), settings),
+        ismctsSettings({ ...settings, priorVisits }),
+      );
+      const [key, child] = [...result.root.children.entries()][0] ?? [];
+      return { key, visits: child?.visits, value: child?.value ?? NaN };
+    };
+    const off = once(0);
+    const on = once(20);
+    expect(on.key).toBe(off.key);
+    expect(off.visits).toBe(1);
+    expect(on.visits).toBe(21);
+    expect(on.value).toBeCloseTo(21 * off.value, 9);
+  });
+
   it("difficulty: 0 is close to random, 100 is the full search; presets 20, 55, 90", () => {
     expect(PRESETS).toEqual({ easy: 20, medium: 55, hard: 90 });
     expect(difficultySettings(0)).toMatchObject({
@@ -217,7 +287,28 @@ describe("ismcts (M6c)", { timeout: 60_000 }, () => {
     const before = (level: number) =>
       ismctsSettings({ ...difficultySettings(level), ...M12_SETTINGS });
     expect(now(PRESETS.easy)).toEqual(before(PRESETS.easy));
-    for (const level of [PRESETS.medium, PRESETS.hard, 100])
-      expect(now(level)).toEqual({ ...before(level), prune: 1 });
+    expect(now(PRESETS.medium)).toEqual({
+      ...before(PRESETS.medium),
+      prune: 1,
+    });
+    // M13c (#75): from Hard up, also the progressive bias.
+    for (const level of [PRESETS.hard, 100])
+      expect(now(level)).toEqual({
+        ...before(level),
+        prune: 1,
+        priorVisits: HARD_PRIOR_VISITS,
+      });
+  });
+
+  it("M13c (#75): priorVisits is 20 from Hard (90) up and 0 below, as Monarch decided; the m12 bots keep none", () => {
+    expect(HARD_PRIOR_VISITS).toBe(20);
+    for (const level of [0, PRESETS.easy, PRESETS.medium, 89])
+      expect(difficultySettings(level).priorVisits).toBe(0);
+    for (const level of [PRESETS.hard, 95, 100])
+      expect(difficultySettings(level).priorVisits).toBe(20);
+    expect(
+      ismctsSettings({ ...difficultySettings(PRESETS.hard), ...M12_SETTINGS })
+        .priorVisits,
+    ).toBe(0);
   });
 });

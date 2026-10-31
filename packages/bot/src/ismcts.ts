@@ -7,7 +7,13 @@ import {
   getLegalActions,
   type PlayerId,
 } from "@gojisim/engine";
-import { pickWith, plausiblePick, stateBoard, weightedPick } from "./baseline";
+import {
+  pickWith,
+  plausiblePick,
+  stateBoard,
+  tacticalPick,
+  weightedPick,
+} from "./baseline";
 import { determinize } from "./determinize";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
 import { deadKeys } from "./prune";
@@ -28,7 +34,7 @@ export interface IsmctsSettings {
   maxMs: number;
   /** UCB1 exploration constant (values are in [-1, 1]). */
   exploration: number;
-  rollout: "none" | "weighted" | "greedy";
+  rollout: "none" | "weighted" | "greedy" | "tactical";
   /** Opponent turns a rollout plays to the end of (1: until the end of the opponent's next turn). */
   rolloutTurns: number;
   /** Decisions a rollout may take before it stops. */
@@ -41,6 +47,11 @@ export interface IsmctsSettings {
   uniformBlunder: number;
   /** M13a: 1 leaves dead strategy activations (`prune.ts`) out of the root's actions. */
   prune: number;
+  /**
+   * M13c (#75): virtual visits a new node starts with at its static evaluation (progressive
+   * bias), so a clear static preference isn't erased by play-out noise. 0 is off.
+   */
+  priorVisits: number;
 }
 
 export const ISMCTS_DEFAULTS: IsmctsSettings = {
@@ -54,6 +65,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   blunder: 0,
   uniformBlunder: 0,
   prune: 0,
+  priorVisits: 0,
 };
 
 /** Reads ISMCTS settings from a bot's settings, with defaults. */
@@ -187,7 +199,9 @@ function rollout(
       );
       const best = Math.max(...scores);
       action = options[scores.indexOf(best)] as Action;
-    } else action = weightedPick(stateBoard(state), options, pick);
+    } else if (settings.rollout === "tactical")
+      action = tacticalPick(state, options, pick);
+    else action = weightedPick(stateBoard(state), options, pick);
     const turnBefore = state.turn;
     const turnPlayerBefore = state.turnPlayer;
     state = advanceToDecision(applyAction(state, action));
@@ -264,6 +278,12 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         child.available = 1;
         node.children.set(next.key, child);
         state = advanceToDecision(applyAction(state, next.action));
+        if (settings.priorVisits > 0) {
+          // Its static value from the side of the player who chose it, as visits store it.
+          const v = evaluate(state, me, weightsOf(settings));
+          child.visits = settings.priorVisits;
+          child.value = settings.priorVisits * (who === me ? v : -v);
+        }
         node = child;
         path.push(child);
         break;

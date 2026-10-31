@@ -102,6 +102,44 @@ export function weightedPick(
   return pool[pick(pool.length)] as Action;
 }
 
+/**
+ * The `tactical` play-out policy (M13c): the weighted pick, plus two card-aware rules read from
+ * the full simulated state. An invasion that wins now is taken: the paying card's invasion icon
+ * (8.6.1.1) carries the monster past zone 8 while the opponent's zone 8 holds no battle card
+ * (5.13.1.1). And while the opponent's monster stands in its zone 8 with yours open, a battle card
+ * goes into your zone 8 (5.13.1.1.1). Advance-stopping effects aren't read, so a "winning"
+ * invasion can still fall short; the rules only steer play-outs.
+ */
+export function tacticalPick(
+  state: GameState,
+  options: Action[],
+  pick: (n: number) => number,
+): Action {
+  const playerId = options[0]?.player;
+  const me = state.players.find((p) => p.id === playerId);
+  const opponent = state.players.find((p) => p.id !== playerId);
+  if (!me || !opponent || state.pendingChoice)
+    return weightedPick(stateBoard(state), options, pick);
+  const board = stateBoard(state);
+  const position = me.monsterPosition ?? 0;
+  if (!board.battleAt(opponent.id, 8)) {
+    const wins = options.filter((a) => {
+      if (a.type !== "invade") return false;
+      const card = me.hand.find((c) => c.instanceId === a.cardInstanceId);
+      const icon = (card && state.cards[card.cardId]?.invadeZones) ?? 0;
+      return position + icon > 8;
+    });
+    if (wins.length > 0) return wins[pick(wins.length)] as Action;
+  }
+  if (opponent.monsterPosition === 8 && !board.battleAt(me.id, 8)) {
+    const blocks = options.filter(
+      (a) => a.type === "playBattle" && a.zone === 8,
+    );
+    if (blocks.length > 0) return blocks[pick(blocks.length)] as Action;
+  }
+  return weightedPick(board, options, pick);
+}
+
 /** The `weighted` policy's pick, from the bot's view only. */
 export function weightedChoice(
   view: PlayerView,

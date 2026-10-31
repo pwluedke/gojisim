@@ -55,3 +55,20 @@ Accepted by Monarch in the hidden decklists review (PR #70).
 599. `hard-open` is registered for comparisons alongside `hard-m12`; neither is offered in the web app.
 600. The m5g e2e test's seed changes from 3 to 1, because its old seed depended on the bot's play.
 601. The bot worker bundles the full card list (`@gojisim/cards/all-cards`) for the deck guess. From `pnpm build`, the worker chunk grows from 381 KB to 973 KB (82 KB to 134 KB gzipped). In the built app (Chromium, the new-game default bot, seed 7, the bot moving first, 6 runs each), the first decision's median goes from 282 ms to 288 ms (+6 ms). The worker starts about 0.7 s before its first request, and its start-up (module load to first reply, 8 runs) goes from a 12.5 to a 15 ms median. That's well under the 100 ms line, so the cards stay bundled.
+
+Accepted by Monarch in the M13c review (PR #144).
+
+651. Fixed-search trials: each bot plays `iterations=<mean>` with `--deterministic`. The mean comes from `pnpm search-rate` (10 timed games at 1 s, 5 shards, alone on the machine), and the candidate is paired with Hard's count from the same run, since Hard's mean varies between runs (593 to 694). Fixed-search trials can share the machine; only a winner's 800-game timed run runs alone, overnight. The bar is 55%. About 30% of Hard's decisions hit its 811-iteration cap.
+652. A `pnpm bots` run journals each finished game under `bot-reports/runs/<seed>-<key>/` (the key hashes everything that decides the games, not the worker count); the same command resumes it, and the folder is removed once the report is written.
+653. Results that changed nothing: `w.position=0.8` (800 timed games, 52.9%), greedy play-outs (400 timed, 48.0%), tactical play-outs (stopped at 183-190, 49.1%), exploration 0.5 and 1.0 (400 fixed-search, 48.7% and 50.2%), `rolloutTurns=2` (400 fixed-search at 386 vs 606 searches, 31.3%). The weights, exploration 0.7 and one play-out turn stay; `rollout=tactical` stays a setting.
+654. The useless-card check (M13a pruning) costs 0.8% of the searches per second and stays.
+655. The Flying Form position is made only where today's Hard takes the copy (`missedByHard`: 2 of 3 seeds at Hard's 811 iterations, no clock); either Perfect Form (ESD02-013 or EBP01-060) counts as the right pick.
+656. `priorVisits` (#75): a new search node starts with that many virtual visits at its static evaluation, from the chooser's side. 20 passes the Flying Form position (19/20 at Hard, 20/20 at 100) with no other position changing; it costs about 9% of the searches (584 vs 645).
+657. `priorVisits=20` is on from Hard up (difficulty 90+), where the trial ran; it stays off at Easy and Medium (Monarch, on #75). The trial: 400 fixed-search games, mixed decks, `priorVisits=20,iterations=584` vs Hard `iterations=645` (each the bot's mean searches at 1 s), 206–194, 51.5% (95% CI 46.6–56.4%): no measurable cost in strength, with Flying Form fixed (19/20). Medium wasn't trialed, and at Easy it made the #132 position worse (below). The m12 comparison bots keep none.
+658. Positions for #130, #131 and #132 are made from random starter games (`makePositions.ts`: a spec takes P2's starter and the reported level) and kept only where that level makes the tester's mistake: `battra-larva-evolves-to-copy` (Medium; the tester named it Mothra Larva over Imago, the record shows Battra), `super-x-after-invade` (Medium) and `godzilla-2023-stays-in-zone-8` (Easy). How often the mistake happens over 100 seeds, no clock, `priorVisits` off → on, with copies cut from the testers' games (not committed) beside them:
+
+     - #130 Battra (Larva) copy, Medium: committed 58% → 66%; tester's game 70% → 65%.
+     - #131 Super-X before the invade, Medium: committed 88% → 86%; tester's game 84% → 54%.
+     - #132 Godzilla (2023) leaves zone 8, Easy: committed 64% → 52%; tester's game 23% → 55%.
+
+     A difference needs about 14 points to be real at 100 seeds: `priorVisits` helps only the tester's Super-X spot and hurts the tester's Easy Godzilla spot, so it isn't a fix for these. #130 and #131 stay open as their own problems.
