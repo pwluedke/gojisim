@@ -112,7 +112,26 @@ Merging into `main` doesn't deploy. To put main's current state in front of test
 2. In Railway, open the `gojisim` service → **Deployments**. The new deploy appears for that commit, builds, passes the `/healthz` check and becomes **Active**. That takes a few minutes. A deploy marked **Skipped: No changes to watched files** means Watch Paths are limiting it: clear them under **Settings → Source → Watch Paths** (the repo's `watchPatterns` covers everything), then push again or redeploy.
 3. Open `https://gojisim.somanygames.app` and check the change.
 
-The same push also publishes a GitHub Release (the Release workflow, `.github/workflows/release.yml`), tagged `release-<date>-<n>`, from the "Release notes" sections of the PRs merged since the last one: nothing to do by hand. If the workflow fails, the deploy is unaffected; re-run it from GitHub → Actions.
+The same push also publishes a GitHub Release (the Release workflow, `.github/workflows/release.yml`), tagged `release-<date>-<n>`, from the "Release notes" sections of the PRs merged since the last one: nothing to do by hand. If the workflow fails, the deploy is unaffected; re-run it from GitHub → Actions. It then posts the release (title, link and notes, cut to fit with the link last) to Slack #gojisim-release-notes and the GojiSim Discord server's release notes channel, once their webhooks are set up ([Release posts](#release-posts-to-slack-and-discord)). A missing webhook or a failed post is a warning in the workflow's log; the release still stands. The site's "What's new" link (the menu and `/play`'s Settings) opens the latest release, with a "New" dot for players who haven't opened it yet.
+
+### Release posts to Slack and Discord
+
+One time, Paul's steps. Until they're done, releases are published as before and the workflow logs a warning for each missing webhook.
+
+**Slack**
+
+1. Go to api.slack.com/apps and open the existing GojiSim Slack app → **Incoming Webhooks**. Turn them on if they're off.
+2. **Add New Webhook to Workspace**, pick **#gojisim-release-notes**, and allow it. Copy the webhook URL (`https://hooks.slack.com/services/…`).
+3. On GitHub: the `gojisim` repo → **Settings → Secrets and variables → Actions → New repository secret**. Name: `SLACK_RELEASE_WEBHOOK`. Secret: the URL.
+
+**Discord**
+
+1. In the GojiSim Discord server, open the release notes channel's settings (the gear) → **Integrations → Webhooks → New Webhook**. Name it (for example "GojiSim releases") and **Copy Webhook URL** (`https://discord.com/api/webhooks/…`).
+2. On GitHub, add a second repository secret the same way. Name: `DISCORD_RELEASE_WEBHOOK`. Secret: the URL.
+
+Treat both URLs like passwords: anyone with one can post to that channel. Don't paste them into Slack, issues or PRs. If one leaks, delete the webhook (Slack: the app's Incoming Webhooks page; Discord: the channel's Webhooks), make a new one, and replace the secret. Discord posts have mentions turned off, so nothing in the notes can ping anyone.
+
+The next push to `release` posts its release; the workflow's log says "Posted to Slack and Discord." when both worked.
 
 **Roll back:** Railway → `gojisim` → **Deployments** → pick an older, working deploy → **⋯ → Redeploy**. The site goes back to that build at once. The `release` branch still points at the newer commit, so the next `git push origin main:release` deploys main again as usual.
 

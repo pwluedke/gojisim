@@ -1,8 +1,9 @@
 import "./theme.css";
 import styles from "./Menu.module.css";
 import { ThemeHeader } from "./ThemeHeader";
+import { WhatsNew } from "./WhatsNew";
 
-/** The `/` menu (M5a): Play vs bot and Debug (hotseat was removed in M5h). */
+/** The `/` menu (M5a): Play vs bot, Debug (hotseat was removed in M5h) and What's new (#134). */
 export function App() {
   return (
     <div className="gojisim">
@@ -19,6 +20,7 @@ export function App() {
         <a className={styles.debug} href="/debug" data-testid="menu-debug">
           Debug
         </a>
+        <WhatsNew className={styles.whatsNew} />
       </main>
     </div>
   );
