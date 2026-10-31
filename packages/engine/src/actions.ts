@@ -111,6 +111,50 @@ export function getLegalActions(
   return [...mainPhaseActions(state, playerId), concede];
 }
 
+/**
+ * A hand card's rank for a plain play (8.2.1): its rank through the 10.8.1 layers, less its play
+ * rule's reduction (M2), or `null` when it has no rank or the play is forbidden. The legal-action
+ * check and `handPlayRankOver` both read it, so they never disagree.
+ */
+function handPlayRank(
+  state: GameState,
+  card: CardInstance,
+  playerId: PlayerId,
+): {
+  rule: { reduction: number; forbidden: boolean };
+  printed: number | null;
+  rank: number | null;
+} {
+  const data = cardOf(state, card);
+  const rule =
+    data.type === "Monster"
+      ? { reduction: 0, forbidden: false }
+      : playRuleOf(state, card, playerId);
+  const printed = data.type === "Monster" ? data.rank : getRank(state, card);
+  const rank =
+    printed === null || rule.forbidden ? null : printed - rule.reduction;
+  return { rule, printed, rank };
+}
+
+/**
+ * #138: how far a hand battle card's play rank is over the zone number of the opponent's monster
+ * (8.2.1), with every play rank reduction counted (its own and others', M2): 0 or less when its
+ * rank allows a plain play, `null` when it has no rank or the play is forbidden.
+ */
+export function handPlayRankOver(
+  state: GameState,
+  playerId: PlayerId,
+  instanceId: string,
+): number | null {
+  const card = getPlayer(state, playerId).hand.find(
+    (c) => c.instanceId === instanceId,
+  );
+  if (!card) return null;
+  const { rank } = handPlayRank(state, card, playerId);
+  if (rank === null) return null;
+  return rank - (getOpponent(state, playerId).monsterPosition ?? 0);
+}
+
 /** The turn player's actions at the main phase play timing (8.2 to 8.6, 10.4.4.3). */
 function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
   const player = getPlayer(state, playerId);
@@ -128,13 +172,7 @@ function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
     // 8.2.1: rank at most the zone number of the opponent's monster, read through the 10.8.1
     // layers; 10.5.2.1.2: a zone the player's own monster does not occupy.
     // M2: a play rule can reduce the rank for this play, or forbid it.
-    const rule =
-      data.type === "Monster"
-        ? { reduction: 0, forbidden: false }
-        : playRuleOf(state, card, playerId);
-    const printed = data.type === "Monster" ? data.rank : getRank(state, card);
-    const rank =
-      printed === null || rule.forbidden ? null : printed - rule.reduction;
+    const { rule, printed, rank } = handPlayRank(state, card, playerId);
     if (data.type === "Battle" && rank !== null && rank <= opponentZone) {
       for (const zone of ZONE_NUMBERS) {
         // M1: "cannot play battle cards in zones ..." (EBP02-055).
