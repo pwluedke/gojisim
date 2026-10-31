@@ -167,7 +167,7 @@ export function firstAppFrame(stack: string | undefined): string | null {
   // Frames in V8's `at fn (url)` form or Firefox's and Safari's `fn@url`; not a message line.
   const line = (stack ?? "")
     .split("\n")
-    .filter((l) => /^\s*at\s/.test(l) || /^[^\s@]*@\S+:\d+:\d+$/.test(l.trim()))
+    .filter((l) => /^\s*at\s/.test(l) || /^[^@]*@\S+:\d+:\d+$/.test(l.trim()))
     .find((l) => /https?:\/\//.test(l));
   return line ? line.trim() : null;
 }

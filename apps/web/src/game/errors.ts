@@ -52,14 +52,14 @@ export function isAppError(
 
 /**
  * The lines of a stack that are frames: V8's `    at fn (url:line:col)` and Firefox's and
- * Safari's `fn@url:line:col`. A message line (V8's first line, which may quote a URL) isn't one.
+ * Safari's `fn@url:line:col` (Safari's top level is `global code@url…`). A message line (V8's first line, which may quote a URL) isn't one.
  */
 export function stackFrames(stack: string | undefined): string[] {
   return (stack ?? "")
     .split("\n")
     .filter(
       (line) =>
-        /^\s*at\s/.test(line) || /^[^\s@]*@\S+:\d+:\d+$/.test(line.trim()),
+        /^\s*at\s/.test(line) || /^[^@]*@\S+:\d+:\d+$/.test(line.trim()),
     );
 }
 
