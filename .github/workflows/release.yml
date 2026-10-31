@@ -2,8 +2,8 @@ name: Release
 
 # #89: Paul's deploy (`git push origin main:release`) also publishes a GitHub Release, tagged
 # `release-YYYY-MM-DD-N`, whose text is the "Release notes" section of every PR merged into main
-# since the previous release (`pnpm release-notes`). Nothing to run by hand; the deploy itself is
-# Railway's and doesn't wait for this.
+# since the previous release (`pnpm release-notes`), then posts it to Slack and Discord (#134).
+# Nothing to run by hand; the deploy itself is Railway's and doesn't wait for this.
 on:
   push:
     branches: [release]
@@ -29,4 +29,8 @@ jobs:
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
+          # #134: posts to Slack #gojisim-release-notes and the Discord server; either one missing
+          # or failing is a warning, never a failed release (docs/deploy.md has the setup).
+          SLACK_RELEASE_WEBHOOK: ${{ secrets.SLACK_RELEASE_WEBHOOK }}
+          DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
         run: pnpm release-notes
