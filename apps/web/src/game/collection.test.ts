@@ -175,6 +175,8 @@ describe("game collection in the browser (M13b)", () => {
       source: "window",
       at: "2026-10-30T22:00:00.000Z",
       actionIndex: session.position,
+      // #136: the turn and phase, for the staff channel's post.
+      when: "Turn 1, Main phase",
     });
     // Firefox and Safari stacks have no message line: the first line can be the app's frame.
     expect(

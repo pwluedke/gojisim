@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { clientIp } from "./gate.js";
 
 /**
@@ -107,6 +107,15 @@ export function gameIdOf(record: object): string | null | undefined {
 }
 
 /** The stored file of game `id` in any day folder, with its size, or `null`. */
+/** A stored file's JSON, or `null` when it can't be read. */
+async function readJson(path: string): Promise<unknown> {
+  try {
+    return JSON.parse(await readFile(path, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
 async function storedGame(
   recordsDir: string,
   id: string,
@@ -165,6 +174,16 @@ export interface GamesOptions {
   maxRecordsBytes?: number;
   /** Uploads per IP per minute (default `UPLOADS_PER_MINUTE`; Playwright raises it, #123). */
   uploadsPerMinute?: number;
+  /**
+   * Called after a game is stored, with the record, the game's earlier upload (or `null`) and the
+   * file under `recordsDir` (`<day>/<id>.json`). The answer doesn't wait for it (#136's Discord
+   * posts, `reports.ts`).
+   */
+  onStored?: (
+    record: unknown,
+    earlier: unknown,
+    file: string,
+  ) => Promise<unknown>;
   now?: () => number;
   /** Where the "records folder full" line goes (default `console.error`). */
   log?: (line: string) => void;
@@ -182,6 +201,7 @@ export function gamesMiddleware({
   recordsDir,
   maxRecordsBytes = MAX_RECORDS_DIR_BYTES,
   uploadsPerMinute = UPLOADS_PER_MINUTE,
+  onStored,
   now = Date.now,
   log = (line) => console.error(line),
 }: GamesOptions) {
@@ -266,12 +286,22 @@ export function gamesMiddleware({
     full = false;
     folderSize = Promise.resolve(total + size);
     const id = gameId ?? randomUUID();
-    if (earlier) await writeFile(earlier.path, text);
-    else {
+    // The earlier upload, read before it is replaced, so its reports aren't posted again (#136).
+    const before = onStored && earlier ? await readJson(earlier.path) : null;
+    let stored: string;
+    if (earlier) {
+      stored = earlier.path;
+      await writeFile(stored, text);
+    } else {
       const day = new Date(now()).toISOString().slice(0, 10);
       await mkdir(join(recordsDir, day), { recursive: true });
-      await writeFile(join(recordsDir, day, `${id}.json`), text);
+      stored = join(recordsDir, day, `${id}.json`);
+      await writeFile(stored, text);
     }
     sendJson(res, 201, { id });
+    if (onStored)
+      void onStored(record, before, relative(recordsDir, stored)).catch(() => {
+        // The poster logs its own failures; nothing reaches the upload.
+      });
   };
 }

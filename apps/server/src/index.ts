@@ -14,6 +14,7 @@ import {
   siteConfig,
   uploadsPerMinuteFrom,
 } from "./games.js";
+import { reportPoster } from "./reports.js";
 import { cardImages, webApp } from "./static.js";
 
 export interface AppServerOptions {
@@ -32,6 +33,10 @@ export interface AppServerOptions {
   maxRecordsBytes?: number;
   /** Uploads per IP per minute (default 30; Playwright raises it, #123). */
   uploadsPerMinute?: number;
+  /** #136: the Discord staff #reports webhook (`DISCORD_REPORTS_WEBHOOK`); unset posts nothing. */
+  reportsWebhook?: string | undefined;
+  /** The Discord posts' `fetch` (tests pass a fake webhook); defaults to `fetchImpl`. */
+  reportsFetch?: typeof fetch;
   /** The Test Site switch (M13b, `GOJISIM_TEST_SITE`); on by default. */
   config?: SiteConfig;
   now?: () => number;
@@ -83,6 +88,8 @@ export function createAppServer({
   recordsDir = "/data/records",
   maxRecordsBytes,
   uploadsPerMinute,
+  reportsWebhook,
+  reportsFetch,
   config = { testSite: true },
   now,
 }: AppServerOptions = {}): Server {
@@ -100,6 +107,10 @@ export function createAppServer({
     recordsDir,
     ...(maxRecordsBytes === undefined ? {} : { maxRecordsBytes }),
     ...(uploadsPerMinute === undefined ? {} : { uploadsPerMinute }),
+    onStored: reportPoster({
+      webhook: reportsWebhook,
+      fetchImpl: reportsFetch ?? fetchImpl,
+    }),
     ...(now ? { now } : {}),
   });
   const cards = cardImages(cardsDir);
@@ -166,6 +177,7 @@ if (
       : {}),
     recordsDir: resolve(process.env.RECORDS_DIR ?? "/data/records"),
     uploadsPerMinute: uploadsPerMinuteFrom(process.env),
+    reportsWebhook: process.env.DISCORD_REPORTS_WEBHOOK,
     config: siteConfig(process.env),
   }).listen(port, () => {
     console.log(

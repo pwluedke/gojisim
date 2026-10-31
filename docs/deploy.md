@@ -37,13 +37,14 @@ The repo's `.railway/railway.ts` (Railway's Infrastructure as Code) holds the se
 
 **Variables → New Variable** for each:
 
-| Variable            | Value                            | Why                                                                                                                                                                                                                                |
-| ------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GOJISIM_PASSWORD`  | the testers' password            | The one shared password. Testers type it once per browser.                                                                                                                                                                         |
-| `SESSION_SECRET`    | 64 random characters (see below) | Signs the login cookie. The server won't start with a password and a missing or short secret.                                                                                                                                      |
-| `CARDS_DIR`         | `/data/cards`                    | Where the server finds the card images (the volume, step 3).                                                                                                                                                                       |
-| `RECORDS_DIR`       | `/data/records`                  | Where uploaded game records go (the volume, step 3). This is the default; set it to be sure. Capped at 1 GB: past it, uploads answer 507 and the log says "the records folder is full" (download and clear old days to make room). |
-| `GOJISIM_TEST_SITE` | `on` or `off`                    | The Test Site panel (Bad Bot!, Report bug, Test settings) and game uploads. Default `on`.                                                                                                                                          |
+| Variable                  | Value                            | Why                                                                                                                                                                                                                                                |
+| ------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GOJISIM_PASSWORD`        | the testers' password            | The one shared password. Testers type it once per browser.                                                                                                                                                                                         |
+| `SESSION_SECRET`          | 64 random characters (see below) | Signs the login cookie. The server won't start with a password and a missing or short secret.                                                                                                                                                      |
+| `CARDS_DIR`               | `/data/cards`                    | Where the server finds the card images (the volume, step 3).                                                                                                                                                                                       |
+| `RECORDS_DIR`             | `/data/records`                  | Where uploaded game records go (the volume, step 3). This is the default; set it to be sure. Capped at 1 GB: past it, uploads answer 507 and the log says "the records folder is full" (download and clear old days to make room).                 |
+| `GOJISIM_TEST_SITE`       | `on` or `off`                    | The Test Site panel (Bad Bot!, Report bug, Test settings) and game uploads. Default `on`.                                                                                                                                                          |
+| `DISCORD_REPORTS_WEBHOOK` | the staff #reports webhook URL   | Optional (#136): each new Report bug, Bad Bot!, Good Bot!, Mailbox note and crash is posted to the Discord staff #reports channel. Unset, nothing is posted and the log says so once. See [Tester reports in Discord](#tester-reports-in-discord). |
 
 Make the secret on your Mac with `openssl rand -hex 32` and paste the output. Railway sets `PORT` itself; don't add it.
 
@@ -56,6 +57,17 @@ GojiSim server listening on http://localhost:<port> (password gate on)
 ```
 
 If it doesn't, the site is open to anyone: the variables weren't applied. On Railway, a server without `GOJISIM_PASSWORD` also logs `WARNING: no password gate, the site is open to anyone`. Apply the variables and check again.
+
+### Tester reports in Discord
+
+One time, Paul's step (#136). Until it's done, uploads work as before and the deploy log says once that `DISCORD_REPORTS_WEBHOOK` isn't set.
+
+1. In the GojiSim Discord server, open the staff **#reports** channel's settings (the gear) → **Integrations → Webhooks → New Webhook**. Name it (for example "GojiSim reports") and **Copy Webhook URL**.
+2. In Railway: the `gojisim` service → **Variables → New Variable**. Name: `DISCORD_REPORTS_WEBHOOK`. Value: the URL. Click **Apply changes** (Railway restarts the server).
+
+Each new entry is one message: its kind, the reporter, the turn and phase, the bots and deck names, the note, and the file with `--at` for `pnpm feedback`. A crash shows its error and first frame. No decklist and no game file goes to Discord, and mentions are off, so a tester's note can't ping anyone. An entry is posted once, even when the same game uploads again. Five entries at most per upload; past that, one "…and N more" line. A slow (over 5 s) or failed post is a line in the deploy log, and the upload itself never waits for Discord.
+
+Treat the URL like a password: anyone with it can post to #reports. If it leaks, delete the webhook in the channel's settings, make a new one, and replace the variable.
 
 ## 3. Attach a volume for the card images
 

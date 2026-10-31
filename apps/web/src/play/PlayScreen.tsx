@@ -45,6 +45,7 @@ import {
   crashToReport,
   withBugReport,
   withCrash,
+  whenAt,
   withFeedback,
   withIdea,
   withOpponentHandShown,
@@ -982,8 +983,10 @@ export function PlayScreen() {
     const choice = shown.pendingChoice;
     const answer = getLastAnswer();
     const error = getLastError();
+    const at = session.states[session.position];
     const entry = {
       actionIndex: session.position,
+      ...(at ? { when: whenAt(at) } : {}),
       text,
       reporter,
       at: new Date().toISOString(),
