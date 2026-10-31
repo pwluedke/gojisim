@@ -35,8 +35,8 @@ export function prsInLog(log: string): number[] {
 
 /**
  * A PR description's "## Release notes" section: the lines after that heading, up to the next
- * `## ` heading or the "Generated with Claude Code" footer, trimmed. `null` when it has none, or
- * the section is empty.
+ * `## ` heading or the "Generated with Claude Code" footer, without HTML comments, trimmed. `null`
+ * when it has none, or the section is empty.
  */
 export function notesSection(body: string): string | null {
   const lines = body.replace(/\r\n/g, "\n").split("\n");
@@ -47,7 +47,11 @@ export function notesSection(body: string): string | null {
     if (/^#{1,2}\s/.test(line) || line.startsWith("🤖 Generated with")) break;
     out.push(line);
   }
-  const text = out.join("\n").trim();
+  // The PR template's placeholder comment isn't notes (#90).
+  const text = out
+    .join("\n")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .trim();
   return text === "" ? null : text;
 }
 
