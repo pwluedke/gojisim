@@ -5,7 +5,7 @@ Once a day, a GitHub Action (`.github/workflows/discord-digest.yml`, #140) reads
 - **What it reads:** every text, announcement and forum channel in the COMMUNITY category, and their threads (active ones, plus public threads archived in the window). Never a STAFF or INFO channel; the bot only ever sends GET requests, so it never posts to Discord.
 - **What it posts:** one section per channel, each message with its author, time (UTC) and text. A reply sits under its parent's author and first 80 characters, and attachments are links. Mentions and custom emoji show as names (`tools/discord-notes`' cleaning). Long days are split across several Slack messages. A day with nothing new posts nothing.
 - **What the log shows:** the repo is public, so the run's log has counts only (channels, threads, messages, Slack messages sent), never message text, names, the token or the webhook.
-- **When:** daily at 13:00 UTC (8:00 CDT, 7:00 CST). **Actions → Discord digest → Run workflow** runs it now, with `hours` to read further back (up to 336, two weeks).
+- **When:** daily at 11:00 UTC (6:00 CDT, 5:00 CST), so it's there before Monarch's 7:23 am Central summary. **Actions → Discord digest → Run workflow** runs it now, with `hours` to read further back (up to 336, two weeks).
 
 ## One-time setup (Paul)
 
