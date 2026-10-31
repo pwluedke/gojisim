@@ -8,7 +8,7 @@ import { buildTestDeck } from "@gojisim/cards/test-decks";
 import { describe, expect, it } from "vitest";
 import { downloadCommand, downloadRecords } from "../src/feedbackCmd";
 import { feedbackLines } from "../src/feedbackList";
-import { buildSummary } from "../src/feedbackSummary";
+import { buildSummary, firstAppFrame } from "../src/feedbackSummary";
 
 /** A real game (ESD01 vs ESD02, P2 a Hard bot) played `n` actions with the first legal action. */
 function game(n: number): GameRecord {
@@ -326,6 +326,15 @@ describe("pnpm feedback", () => {
     );
     expect(markdown).toContain("## Reports\n\nNo new reports.");
     expect(listed).toEqual(["c|crash|2026-10-30T22:00:00.000Z"]);
+    // Firefox's form: no message line, so the first line is the frame.
+    expect(
+      firstAppFrame("play@https://gojisim.somanygames.app/assets/a.js:1:2"),
+    ).toBe("play@https://gojisim.somanygames.app/assets/a.js:1:2");
+    expect(
+      firstAppFrame(
+        "Error: see https://example.com\n    at f (https://x.app/a.js:1:2)",
+      ),
+    ).toBe("at f (https://x.app/a.js:1:2)");
   });
 
   it("dedupes to the latest file per game and lists all three kinds, with the bot's search and the log tail", () => {

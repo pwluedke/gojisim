@@ -39,18 +39,28 @@ export function onError(listener: (error: CapturedError) => void): () => void {
 }
 
 /**
- * #95: whether an error came from the app's own code: its stack names a script on the site's
- * origin. Errors from browser extensions, third-party scripts or with no stack (a cross-origin
+ * #95: whether an error came from the app's own code: a frame of its stack names a script on the
+ * site's origin. Errors from browser extensions, third-party scripts or with no stack (a cross-origin
  * "Script error.") are left out.
  */
 export function isAppError(
   error: Pick<CapturedError, "stack">,
   origin: string,
 ): boolean {
-  return (error.stack ?? "")
+  return stackFrames(error.stack).some((line) => line.includes(`${origin}/`));
+}
+
+/**
+ * The lines of a stack that are frames: V8's `    at fn (url:line:col)` and Firefox's and
+ * Safari's `fn@url:line:col` (Safari's top level is `global code@url…`). A message line (V8's first line, which may quote a URL) isn't one.
+ */
+export function stackFrames(stack: string | undefined): string[] {
+  return (stack ?? "")
     .split("\n")
-    .slice(1)
-    .some((line) => line.includes(`${origin}/`));
+    .filter(
+      (line) =>
+        /^\s*at\s/.test(line) || /^[^@]*@\S+:\d+:\d+$/.test(line.trim()),
+    );
 }
 
 function describe(err: unknown): { message: string; stack?: string } {

@@ -176,6 +176,26 @@ describe("game collection in the browser (M13b)", () => {
       at: "2026-10-30T22:00:00.000Z",
       actionIndex: session.position,
     });
+    // Firefox and Safari stacks have no message line: the first line can be the app's frame.
+    expect(
+      crashToReport(
+        session,
+        error(
+          `play@${origin}/assets/index-abc.js:1:2345\n@${origin}/assets/index-abc.js:1:99`,
+        ),
+        page,
+      ),
+    ).not.toBeNull();
+    // A message that quotes the site's URL isn't a frame.
+    expect(
+      crashToReport(
+        session,
+        error(
+          `Error: fetch ${origin}/api/games failed\n    at x (chrome-extension://abc/content.js:1:1)`,
+        ),
+        page,
+      ),
+    ).toBeNull();
     // Not the app's: an extension's script, another site's, or no stack at all.
     for (const stack of [
       "Error: boom\n    at x (chrome-extension://abc/content.js:1:1)",
