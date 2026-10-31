@@ -113,6 +113,6 @@ describe("GET /api/decklog/<code> on the app server", () => {
     const bad = await fetch(`http://localhost:${port}/api/decklog/%E0%A4%A`);
     expect(bad.status).toBe(400);
     const ok = await fetch(`http://localhost:${port}/healthz`);
-    expect(await ok.json()).toEqual({ status: "ok" });
+    expect(await ok.json()).toMatchObject({ status: "ok" });
   });
 });

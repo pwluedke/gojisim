@@ -170,6 +170,26 @@ describe("pnpm feedback", () => {
     actions: [...game(6).actions, { type: "concede", player: "P2" }],
   });
 
+  it("#92: the smoke check's games are left out: no reports, not in the game count or the win rates", () => {
+    const tester = { file: "2026-10-31/t.json", record: won("t") };
+    const smoke = {
+      file: "2026-10-31/s.json",
+      record: won("s", {
+        smokeCheck: true,
+        bugReports: reported.bugReports ?? [],
+      }),
+    };
+    const { markdown, listed } = buildSummary([tester, smoke], options);
+    expect(markdown).toContain("- Games: 1 (1 finished)");
+    expect(listed).toEqual([]);
+    expect(markdown).not.toContain("a card vanished");
+    expect(
+      feedbackLines([
+        { file: "s.json", record: { ...reported, smokeCheck: true } },
+      ]),
+    ).toEqual(["No reports in 0 games."]);
+  });
+
   it("#105: a Report bug lists the decks, the bot level, the open choice, the last answer (one that threw included) and the last error", () => {
     const record: GameRecord = {
       ...full,

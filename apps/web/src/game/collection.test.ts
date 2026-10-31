@@ -6,6 +6,8 @@ import {
   recentBotMoves,
   testSiteEnabled,
   uploadRecord,
+  isSmokeCheck,
+  SMOKE_CHECK_KEY,
   crashToReport,
   MAILBOX_NAME,
   withBugReport,
@@ -317,5 +319,30 @@ describe("game collection in the browser (M13b)", () => {
       throw new Error("offline");
     }) as unknown as typeof fetch;
     expect(await uploadRecord(session, down)).toBe(false);
+  });
+
+  it("#92: the smoke check's browser marks its uploads smokeCheck; others never carry it", async () => {
+    const session = play(newSession(5, decks(), { P1: human, P2: bot }), 2);
+    const bodies: Record<string, unknown>[] = [];
+    const server = (async (_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+      return { ok: true };
+    }) as unknown as typeof fetch;
+    await uploadRecord(session, server, true);
+    await uploadRecord(session, server, false);
+    expect(bodies[0]?.["smokeCheck"]).toBe(true);
+    expect("smokeCheck" in (bodies[1] ?? {})).toBe(false);
+    const store = (value: string | null) => ({ getItem: () => value });
+    expect(isSmokeCheck(store("1"))).toBe(true);
+    expect(isSmokeCheck(store(null))).toBe(false);
+    expect(isSmokeCheck(store("0"))).toBe(false);
+    expect(
+      isSmokeCheck({
+        getItem: () => {
+          throw new Error("SecurityError");
+        },
+      }),
+    ).toBe(false);
+    expect(SMOKE_CHECK_KEY).toBe("gojisim.smokeCheck");
   });
 });

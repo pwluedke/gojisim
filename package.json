@@ -26,6 +26,8 @@
     "feedback": "pnpm --filter @gojisim/bots feedback",
     "survey": "pnpm --filter @gojisim/ability-survey survey",
     "discord-notes": "pnpm --filter @gojisim/discord-notes discord-notes",
+    "rollback": "pnpm --filter @gojisim/release-notes rollback",
+    "smoke": "pnpm --filter @gojisim/release-notes smoke",
     "discord-digest": "pnpm --filter @gojisim/discord-notes discord-digest",
     "release-notes": "pnpm --filter @gojisim/release-notes release-notes",
     "slack-watch": "pnpm --filter @gojisim/slack-watch slack-watch",

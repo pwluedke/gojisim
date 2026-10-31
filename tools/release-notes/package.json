@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "release-notes": "tsx src/main.ts",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "rollback": "tsx src/rollbackMain.ts",
+    "smoke": "tsx src/smokeMain.ts"
   },
   "devDependencies": {
     "tsx": "^4.23.15"

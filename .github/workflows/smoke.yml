@@ -1,0 +1,73 @@
+name: Smoke check
+
+# #92: after Paul's deploy (a push to `release`) and its Release workflow, check the live site.
+# It waits until /healthz reports the pushed commit, then a Playwright run logs in, starts a game
+# against Easy, plays a turn each and checks the game's upload is stored (marked `smokeCheck`, so
+# feedback and #reports skip it). Pass: one line in #gojisim-release-notes. Fail: #gojisim-dev,
+# naming the step, with the rollback command. It never blocks the deploy or the release.
+# Public repo: the password and webhooks stay in secrets; no traces or videos; a failure
+# screenshot (taken after the login page) is only in the run's artifact.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: smoke-check
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Smoke check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The image's browsers match the lockfile's Playwright (apps/web/src/playwrightImage.test.ts).
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --user 1001
+    env:
+      SMOKE_URL: https://gojisim.somanygames.app
+      # The commit Paul pushed to `release` (a manual run checks the branch's current commit).
+      COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.COMMIT }}
+      - uses: ./.github/actions/setup
+
+      - name: Wait for the deploy
+        id: wait
+        run: pnpm smoke wait --url "$SMOKE_URL" --commit "$COMMIT" --minutes 15
+
+      - name: Check the live site
+        id: check
+        if: steps.wait.outcome == 'success'
+        env:
+          SMOKE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+        run: pnpm --filter @gojisim/web e2e:smoke
+
+      - name: Report to Slack
+        if: always()
+        env:
+          SLACK_RELEASE_WEBHOOK: ${{ secrets.SLACK_RELEASE_WEBHOOK }}
+          SLACK_DEV_WEBHOOK: ${{ secrets.SLACK_DEV_WEBHOOK }}
+          DEPLOY_TIMEOUT: ${{ steps.wait.outcome != 'success' }}
+        run: |
+          if [ "$DEPLOY_TIMEOUT" = "true" ]; then
+            pnpm smoke report --url "$SMOKE_URL" --commit "$COMMIT" --deploy-timeout
+          else
+            pnpm smoke report --url "$SMOKE_URL" --commit "$COMMIT" --results apps/web/smoke-results/results.json
+          fi
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: smoke-failure
+          # The screenshot only (taken past the login page), never the report or error context.
+          path: apps/web/smoke-results/output/**/failure.png
+          retention-days: 7
+          if-no-files-found: ignore

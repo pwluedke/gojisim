@@ -100,6 +100,8 @@ describe("Discord staff reports (#136)", () => {
       "Bad Bot!",
     );
     expect(newReports("junk", null)).toEqual([]);
+    // #92: the post-deploy smoke check's game never posts.
+    expect(newReports({ ...record, smokeCheck: true }, null)).toEqual([]);
   });
 
   it("a post names the kind, reporter, turn and phase, bots, decks, note and file, and never a decklist", () => {

@@ -278,7 +278,8 @@ export function buildSummary(
   files: readonly RecordFile[],
   options: SummaryOptions,
 ): Summary {
-  const games = latestPerGame(files);
+  // #92: the post-deploy smoke check's games are no tester's: no reports, no win rates.
+  const games = latestPerGame(files.filter((f) => !f.record.smokeCheck));
   const finals = new Map<GameRecord, GameState[] | null>();
   const statesOf = (record: GameRecord) => {
     if (!finals.has(record))

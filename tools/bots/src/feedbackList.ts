@@ -58,7 +58,8 @@ export function feedbackLines(
   records: readonly { file: string; record: GameRecord }[],
   kind?: FeedbackKind,
 ): string[] {
-  const latest = [...records].sort(
+  // #92: the post-deploy smoke check's games are left out.
+  const latest = [...records.filter((r) => !r.record.smokeCheck)].sort(
     (a, b) => b.record.actions.length - a.record.actions.length,
   );
   const seen = new Set<string>();
