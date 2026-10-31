@@ -104,6 +104,8 @@ Release notes are [GitHub Releases](https://github.com/pwluedke/gojisim/releases
 
 Lines read `Author (time) [reply to Author: "first 80 characters"]: text [attached: file names]`, with custom emoji as `:name:`, mentions as `@name`, links as `[link]` and line breaks as " / ". Bare links and empty messages are left out. A channel exported in both formats is read from its JSON pages only (the text format has local times and no ids, so its messages can't be matched to JSON's); text-only channels key each message by author, time and text. Thread folders (`threads/<name>`) become their own files.
 
+**Daily digest (#140).** A GitHub Action reads the COMMUNITY channels with Paul's bot once a day and posts the last 24 hours to Slack #gojisim-discord-digest (`pnpm discord-digest`, the same cleaning, links kept). Setup, what it reads and what the public log shows: [docs/discord.md](docs/discord.md).
+
 ## Layout
 
 | Path                   | Package                   | Purpose                                                            |
