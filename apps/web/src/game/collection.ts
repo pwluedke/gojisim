@@ -105,8 +105,13 @@ function botMoveAt(session: Session, i: number): BotMoveRef | null {
     // Private choices stay private, as in the battle log.
     label: botLabel(before, action, seat.difficulty, true),
     plain: words.replace(/^Bot /, `Bot (${difficultyName(seat.difficulty)}): `),
-    when: `Turn ${before.turn}, ${PHASES[stepPhase(before.currentStep)]}`,
+    when: whenAt(before),
   };
+}
+
+/** Where a state is, as reports read it: "Turn 6, Main phase". */
+export function whenAt(state: GameState): string {
+  return `Turn ${state.turn}, ${PHASES[stepPhase(state.currentStep)]}`;
 }
 
 /**
@@ -207,6 +212,9 @@ export function crashToReport(
     source: error.source,
     at: error.at,
     actionIndex: session.position,
+    ...(session.states[session.position]
+      ? { when: whenAt(session.states[session.position] as GameState) }
+      : {}),
     ...(page.lastAnswer ? { lastAnswer: page.lastAnswer } : {}),
   };
 }

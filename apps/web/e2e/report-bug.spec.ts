@@ -95,7 +95,12 @@ test("a failed send downloads the file instead, and says so", async ({
     readFileSync(await download.path(), "utf8"),
   ) as Record<string, unknown>;
   expect(record["bugReports"]).toMatchObject([
-    { text: "something looked wrong", reporter: "Dr. Serizawa" },
+    {
+      text: "something looked wrong",
+      reporter: "Dr. Serizawa",
+      // #136: the turn and phase, for the staff channel's post.
+      when: expect.stringMatching(/^Turn \d+, \w+/),
+    },
   ]);
   await expect(page.getByTestId("test-site-note")).toHaveText(
     "Couldn't send. The game file was downloaded; send it to Paul.",

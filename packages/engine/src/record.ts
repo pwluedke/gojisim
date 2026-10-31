@@ -96,6 +96,8 @@ export interface CrashEntry {
   at: string;
   /** The session position then. */
   actionIndex: number;
+  /** #136: the turn and phase then ("Turn 6, Main phase"), for the staff channel's post. */
+  when?: string;
   lastAnswer?: { action: Action; label: string; at: string; error?: string };
 }
 
@@ -121,6 +123,8 @@ export interface FeedbackEntry {
 export interface BugReport {
   /** The session position when the report was made. */
   actionIndex: number;
+  /** #136: the turn and phase then ("Turn 6, Main phase"), for the staff channel's post. */
+  when?: string;
   text: string;
   reporter: string;
   /** ISO time of the report. */
