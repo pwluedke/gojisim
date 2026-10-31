@@ -259,7 +259,7 @@ describe("pnpm feedback", () => {
     ];
     const { markdown, listed } = buildSummary(files, options);
     expect(markdown).toContain(
-      "- New reports: 0 Bad Bot!, 0 Good Bot!, 0 Report bug, 2 Monster Island Mailbox (0 already reviewed)",
+      "- New reports: 0 Bad Bot!, 0 Good Bot!, 0 Report bug, 2 Monster Island Mailbox, 0 crash (0 already reviewed)",
     );
     const section = markdown
       .split("## Monster Island Mailbox\n")[1]
@@ -283,6 +283,51 @@ describe("pnpm feedback", () => {
     );
   });
 
+  it("#95: crashes get their own section: the error, the first app frame and the last answer", () => {
+    const record: GameRecord = {
+      ...game(6),
+      gameId: "c",
+      crash: {
+        message: "not implemented: a replacement effect that needs a choice",
+        stack:
+          "Error: not implemented\n    at applyReplacement (https://gojisim.somanygames.app/assets/index-abc.js:1:2345)\n    at more (https://gojisim.somanygames.app/assets/index-abc.js:1:99)",
+        source: "action",
+        at: "2026-10-30T22:00:00.000Z",
+        actionIndex: 4,
+        lastAnswer: {
+          action: {
+            type: "choose",
+            player: "P1",
+            choiceId: 3,
+            optionId: "yes",
+          },
+          label: "Yes",
+          at: "2026-10-30T21:59:59.000Z",
+          error: "not implemented: a replacement effect that needs a choice",
+        },
+      },
+    };
+    const { markdown, listed } = buildSummary(
+      [{ file: "2026-10-30/c.json", record }],
+      options,
+    );
+    expect(markdown).toContain(", 1 crash (0 already reviewed)");
+    expect(markdown).toContain(
+      "## Crashes\n\n### 2026-10-30T22:00:00.000Z (`2026-10-30/c.json`, `--at 4`)",
+    );
+    expect(markdown).toContain(
+      "- Error (action): not implemented: a replacement effect that needs a choice",
+    );
+    expect(markdown).toContain(
+      "- First app frame: at applyReplacement (https://gojisim.somanygames.app/assets/index-abc.js:1:2345)",
+    );
+    expect(markdown).toContain(
+      "- Last answer: Yes (2026-10-30T21:59:59.000Z), which threw:",
+    );
+    expect(markdown).toContain("## Reports\n\nNo new reports.");
+    expect(listed).toEqual(["c|crash|2026-10-30T22:00:00.000Z"]);
+  });
+
   it("dedupes to the latest file per game and lists all three kinds, with the bot's search and the log tail", () => {
     const files = [
       {
@@ -298,7 +343,7 @@ describe("pnpm feedback", () => {
     const { markdown, listed } = buildSummary(files, options);
     expect(markdown).toContain("- Games: 1 (0 finished)");
     expect(markdown).toContain(
-      "- New reports: 1 Bad Bot!, 1 Good Bot!, 1 Report bug, 0 Monster Island Mailbox (0 already reviewed)",
+      "- New reports: 1 Bad Bot!, 1 Good Bot!, 1 Report bug, 0 Monster Island Mailbox, 0 crash (0 already reviewed)",
     );
     expect(markdown).toContain("### [Bad Bot!] Ann, Turn");
     expect(markdown).toContain("### [Good Bot!] Ann, Turn");

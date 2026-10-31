@@ -1,11 +1,13 @@
 import {
   type BugReport,
+  type CrashEntry,
   type FeedbackEntry,
   type GameState,
   type IdeaEntry,
   stepPhase,
 } from "@gojisim/engine";
 import { announce } from "./announce";
+import { type CapturedError, isAppError, type LastAnswer } from "./errors";
 import { botLabel, difficultyName } from "./bots";
 import type { ExportedRecord, PlayerId, Session } from "./session";
 
@@ -176,6 +178,47 @@ export function withBugReport(session: Session, entry: BugReport): Session {
     },
   };
 }
+
+/** What the crash upload needs to know about the page (#95). */
+export interface CrashContext {
+  testSite: boolean;
+  shareGames: boolean;
+  /** `location.origin`: only errors whose stack names a script there are the app's. */
+  origin: string;
+  lastAnswer: LastAnswer | null;
+}
+
+/**
+ * The crash entry to upload for `error` (#95), or `null`: only with the Test Site and sharing on,
+ * only for an error from the app's own code, and only once per game (a record that already has a
+ * crash never sends another, a reloaded one included).
+ */
+export function crashToReport(
+  session: Session,
+  error: CapturedError,
+  page: CrashContext,
+): CrashEntry | null {
+  if (!page.testSite || !page.shareGames) return null;
+  if (session.record.crash) return null;
+  if (!isAppError(error, page.origin)) return null;
+  return {
+    message: error.message,
+    ...(error.stack ? { stack: error.stack } : {}),
+    source: error.source,
+    at: error.at,
+    actionIndex: session.position,
+    ...(page.lastAnswer ? { lastAnswer: page.lastAnswer } : {}),
+  };
+}
+
+/** The session with its crash added to the record. */
+export function withCrash(session: Session, crash: CrashEntry): Session {
+  return { ...session, record: { ...session.record, crash } };
+}
+
+/** The toast after a crash upload (Monarch's wording). */
+export const CRASH_TOAST =
+  "Something went wrong and was sent to us. Report bug lets you add what you were doing.";
 
 /** The session with a Monster Island Mailbox suggestion added to the record. */
 export function withIdea(session: Session, entry: IdeaEntry): Session {

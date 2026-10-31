@@ -41,7 +41,10 @@ import {
   type SiteConfig,
   testSiteEnabled,
   uploadRecord,
+  CRASH_TOAST,
+  crashToReport,
   withBugReport,
+  withCrash,
   withFeedback,
   withIdea,
   withOpponentHandShown,
@@ -51,6 +54,7 @@ import {
   getLastAnswer,
   getLastError,
   installErrorCapture,
+  onError,
 } from "../game/errors";
 import { ReportModal } from "./ReportModal";
 import { TestSitePanel } from "./TestSitePanel";
@@ -304,6 +308,36 @@ export function PlayScreen() {
   });
   const { session, state } = game;
   const { setDelay } = game;
+  // #95: the first error from the app's own code in a game uploads the record with it (Test Site
+  // and sharing on), once per game, and one toast says so. The ref keeps the listener current.
+  const [crashToast, setCrashToast] = useState(false);
+  const crashPage = useRef({ session, testSite, share: settings.shareGames });
+  crashPage.current = { session, testSite, share: settings.shareGames };
+  const setGameSession = game.setSession;
+  useEffect(
+    () =>
+      onError((error) => {
+        const page = crashPage.current;
+        if (!page.session) return;
+        const crash = crashToReport(page.session, error, {
+          testSite: page.testSite,
+          shareGames: page.share,
+          origin: window.location.origin,
+          lastAnswer: getLastAnswer(),
+        });
+        if (!crash) return;
+        const next = withCrash(page.session, crash);
+        // Before the re-render, so a second error right after doesn't send again.
+        crashPage.current = { ...page, session: next };
+        setGameSession((s) => (s ? withCrash(s, crash) : s));
+        void uploadRecord(next).then((sent) => {
+          if (!sent) return;
+          setCrashToast(true);
+          window.setTimeout(() => setCrashToast(false), 8000);
+        });
+      }),
+    [setGameSession],
+  );
   useEffect(() => setDelay(settings.botDelay), [setDelay, settings.botDelay]);
 
   const name = (id: string) =>
@@ -1547,6 +1581,11 @@ export function PlayScreen() {
         />
       )}
       {rulesAt && <RulesPanel at={rulesAt} onClose={() => setRulesAt(null)} />}
+      {crashToast && (
+        <div className={styles.toast} data-testid="crash-toast" role="status">
+          {CRASH_TOAST}
+        </div>
+      )}
       {botMove && !settings.announceBotPlays && (
         <div className={styles.toast} data-testid="bot-toast">
           {botMove.text}
