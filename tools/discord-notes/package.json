@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "discord-notes": "tsx src/main.ts",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "discord-digest": "tsx src/digestMain.ts"
   },
   "devDependencies": {
     "tsx": "^4.23.15"

@@ -1,0 +1,39 @@
+name: Discord digest
+
+# #140: once a day, the GojiSim Discord server's COMMUNITY channels (and their threads) from the
+# last 24 hours go to Slack #gojisim-discord-digest, read with Paul's bot. Never STAFF or INFO,
+# never a post to Discord. The repo is public: the log shows counts only (docs/discord.md).
+on:
+  schedule:
+    # 13:00 UTC: 8:00 in Paul's time zone (CDT), 7:00 in winter.
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: "Hours back to read (1 to 336)"
+        required: false
+        default: "24"
+
+concurrency:
+  group: discord-digest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  digest:
+    name: Discord digest
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+
+      - name: Post the digest
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_GUILD_ID: ${{ vars.DISCORD_GUILD_ID }}
+          SLACK_DIGEST_WEBHOOK: ${{ secrets.SLACK_DIGEST_WEBHOOK }}
+          HOURS: ${{ inputs.hours || '24' }}
+        run: pnpm discord-digest --hours "$HOURS"
