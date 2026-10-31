@@ -39,6 +39,19 @@ export const MAX_RECORD_BYTES = 2 * 1024 * 1024;
 export const MAX_RECORDS_DIR_BYTES = 1024 ** 3;
 /** Uploads per IP per minute. */
 export const UPLOADS_PER_MINUTE = 30;
+
+/**
+ * The upload limit from `GOJISIM_UPLOADS_PER_MINUTE` (#123): only Playwright sets it, since every
+ * e2e worker uploads from one IP to one server; anything else, or a value that isn't a positive
+ * whole number, keeps `UPLOADS_PER_MINUTE`.
+ */
+export function uploadsPerMinuteFrom(
+  env: Record<string, string | undefined>,
+): number {
+  const raw = env["GOJISIM_UPLOADS_PER_MINUTE"]?.trim() ?? "";
+  const n = Number(raw);
+  return /^\d+$/.test(raw) && n > 0 ? n : UPLOADS_PER_MINUTE;
+}
 const MINUTE = 60_000;
 
 /** Whether `value` has a game record's shape: `version`, `seed`, `decks` and `actions`. */
@@ -150,6 +163,8 @@ export interface GamesOptions {
   recordsDir: string;
   /** The records folder's size cap, in bytes (default `MAX_RECORDS_DIR_BYTES`). */
   maxRecordsBytes?: number;
+  /** Uploads per IP per minute (default `UPLOADS_PER_MINUTE`; Playwright raises it, #123). */
+  uploadsPerMinute?: number;
   now?: () => number;
   /** Where the "records folder full" line goes (default `console.error`). */
   log?: (line: string) => void;
@@ -166,6 +181,7 @@ export function gamesMiddleware({
   config,
   recordsDir,
   maxRecordsBytes = MAX_RECORDS_DIR_BYTES,
+  uploadsPerMinute = UPLOADS_PER_MINUTE,
   now = Date.now,
   log = (line) => console.error(line),
 }: GamesOptions) {
@@ -205,7 +221,7 @@ export function gamesMiddleware({
     }
     const ip = clientIp(req);
     if (uploads.size > 1000) prune();
-    if (recent(ip).length >= UPLOADS_PER_MINUTE) {
+    if (recent(ip).length >= uploadsPerMinute) {
       sendJson(res, 429, { error: "rate-limited" });
       return;
     }

@@ -24,6 +24,8 @@ export default defineConfig({
     env: {
       GOJISIM_LOCAL_DECKS: "e2e/fixtures/local-decks",
       RECORDS_DIR: "e2e-records",
+      // #123: every worker uploads from one IP to this one server; production keeps 30 a minute.
+      GOJISIM_UPLOADS_PER_MINUTE: "1000",
     },
   },
 });
