@@ -1,18 +1,20 @@
 name: Discord digest
 
-# #140: once a day, the GojiSim Discord server's COMMUNITY channels (and their threads) from the
-# last 24 hours go to Slack #gojisim-discord-digest, read with Paul's bot. Never STAFF or INFO,
-# never a post to Discord. The repo is public: the log shows counts only (docs/discord.md).
+# #140, #148: every 3 hours, the GojiSim Discord server's COMMUNITY channels (and their threads)
+# go to Slack #gojisim-discord-digest, read with Paul's bot. The window is the last 3 hours plus a
+# 10-minute overlap, and the Discord message ids already posted (kept in the Actions cache, no
+# commits) are never posted twice. Never STAFF or INFO, never a post to Discord. The repo is
+# public: the log shows counts only (docs/discord.md).
 on:
   schedule:
-    # 11:00 UTC: 6:00 in Paul's time zone (CDT), 5:00 in winter, ahead of Monarch's 7:23 summary.
-    - cron: "0 11 * * *"
+    # Every 3 hours on the hour, UTC (00:00, 03:00 … 21:00).
+    - cron: "0 */3 * * *"
   workflow_dispatch:
     inputs:
       hours:
-        description: "Hours back to read (1 to 336)"
+        description: "Hours back to read (1 to 336); already-posted messages are skipped"
         required: false
-        default: "24"
+        default: "3"
 
 concurrency:
   group: discord-digest
@@ -30,10 +32,26 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
 
+      # The ids the last run posted: the newest cache whose key starts with the prefix.
+      - name: Restore the posted ids
+        uses: actions/cache/restore@v6
+        with:
+          path: .digest-seen.json
+          key: discord-digest-seen-${{ github.run_id }}
+          restore-keys: discord-digest-seen-
+
       - name: Post the digest
         env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           DISCORD_GUILD_ID: ${{ vars.DISCORD_GUILD_ID }}
           SLACK_DIGEST_WEBHOOK: ${{ secrets.SLACK_DIGEST_WEBHOOK }}
-          HOURS: ${{ inputs.hours || '24' }}
-        run: pnpm discord-digest --hours "$HOURS"
+          HOURS: ${{ inputs.hours || '3' }}
+        run: pnpm discord-digest --hours "$HOURS" --overlap-minutes 10 --seen .digest-seen.json
+
+      # Saved even after a failed post, so ids from digests that went out stay seen.
+      - name: Save the posted ids
+        if: always() && hashFiles('.digest-seen.json') != ''
+        uses: actions/cache/save@v6
+        with:
+          path: .digest-seen.json
+          key: discord-digest-seen-${{ github.run_id }}

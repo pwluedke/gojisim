@@ -5,6 +5,7 @@ import {
   newState,
   poll,
   POLL_MS,
+  REMIND_MS,
   type SlackMessage,
   slackApi,
   tokenFrom,
@@ -64,6 +65,58 @@ describe("slack watcher (#85)", () => {
     );
     // The same messages, still unchecked, don't print again in this run.
     expect((await poll(api, state)).lines).toEqual([]);
+  });
+
+  it("#148: a message still unchecked after 15 minutes prints again, marked; a checked one doesn't", async () => {
+    const message: SlackMessage = {
+      ts: "200.000001",
+      text: "[Monarch] Answer me",
+    };
+    const history = [message];
+    const { api } = mockApi(history);
+    const state = newState();
+    const t0 = 1_000_000;
+    expect((await poll(api, state, undefined, t0)).lines).toHaveLength(1);
+    expect(
+      (await poll(api, state, undefined, t0 + REMIND_MS - 1)).lines,
+    ).toEqual([]);
+    const again = (await poll(api, state, undefined, t0 + REMIND_MS)).lines;
+    expect(again).toHaveLength(1);
+    expect(again[0]).toMatch(/ Answer me ts=200\.000001 \(still unchecked\)$/);
+    // Checked: no more reminders.
+    message.reactions = checked;
+    expect(
+      (await poll(api, state, undefined, t0 + 3 * REMIND_MS)).lines,
+    ).toEqual([]);
+  });
+
+  it("#148: an unchecked reply in a thread is reminded too, though the thread has no new reply", async () => {
+    const parent: SlackMessage = {
+      ts: "300.000001",
+      text: "[Mecha] PR open",
+      reply_count: 1,
+      latest_reply: "300.000002",
+    };
+    const reply: SlackMessage = {
+      ts: "300.000002",
+      text: "[Monarch] Changes requested",
+    };
+    const { api, calls } = mockApi([parent], { "300.000001": [parent, reply] });
+    const state = newState();
+    const t0 = 5_000_000;
+    expect((await poll(api, state, undefined, t0)).lines).toHaveLength(1);
+    expect((await poll(api, state, undefined, t0 + 60_000)).lines).toEqual([]);
+    // The thread isn't read again before a reminder is due.
+    expect(calls.filter((c) => c.startsWith("replies"))).toHaveLength(1);
+    const due = (await poll(api, state, undefined, t0 + REMIND_MS)).lines;
+    expect(due[0]).toMatch(
+      /Changes requested ts=300\.000002 \(still unchecked\)$/,
+    );
+    reply.reactions = checked;
+    await poll(api, state, undefined, t0 + 2 * REMIND_MS);
+    expect(
+      (await poll(api, state, undefined, t0 + 4 * REMIND_MS)).lines,
+    ).toEqual([]);
   });
 
   it("cuts the text at 80 characters", async () => {
