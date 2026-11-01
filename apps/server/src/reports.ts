@@ -1,7 +1,8 @@
 /**
- * Tester reports to the Discord staff #reports channel (#136): when a stored upload adds a Report
- * bug, Bad Bot!, Good Bot!, Monster Island Mailbox note or crash, the server posts one message per
- * new entry to the webhook in `DISCORD_REPORTS_WEBHOOK`. No decklists and no record go with it,
+ * Tester reports to the Discord staff #reports channel (#136) and Slack #gojisim-reports (#146):
+ * when a stored upload adds a Report bug, Bad Bot!, Good Bot!, Monster Island Mailbox note or
+ * crash, the server posts one message per new entry to the webhooks in `DISCORD_REPORTS_WEBHOOK`
+ * and `SLACK_REPORTS_WEBHOOK`. No decklists and no record go with it,
  * mentions are off, and the upload's answer never waits for it. An entry already in the game's
  * earlier upload isn't posted again. The record is read as plain JSON: the server doesn't depend
  * on the engine.
@@ -201,24 +202,63 @@ export const discordBody = (content: string) => ({
   allowed_mentions: { parse: [] as never[] },
 });
 
+/** A tester-report post as Slack mrkdwn (#146): `&<>` escaped, so no note makes a mention or link; `**bold**` as `*bold*`. */
+export function slackText(content: string): string {
+  return (
+    content
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      // The quote marker each note line starts with stays a quote.
+      .replace(/^&gt; /gm, "> ")
+      .replace(/\*\*(.+?)\*\*/g, "*$1*")
+  );
+}
+
+/** The Slack webhook body (#146): the same message, Slack's format, no link previews. */
+export const slackBody = (content: string) => ({
+  text: slackText(content),
+  unfurl_links: false,
+  unfurl_media: false,
+});
+
 export interface ReportsOptions {
-  /** The webhook (`DISCORD_REPORTS_WEBHOOK`); without it nothing is posted. */
+  /** The Discord staff #reports webhook (`DISCORD_REPORTS_WEBHOOK`). */
   webhook: string | undefined;
+  /** #146: the Slack #gojisim-reports webhook (`SLACK_REPORTS_WEBHOOK`). Either works without the other. */
+  slackWebhook?: string | undefined;
   fetchImpl?: typeof fetch;
   log?: (line: string) => void;
 }
 
 /**
  * The poster the upload route calls after storing a game: it never throws and the caller doesn't
- * wait. A missing webhook is logged once per server start; a failed or timed-out post once per
- * post, without the webhook's address.
+ * wait. Each new entry goes to Discord #reports and Slack #gojisim-reports (#146), whichever
+ * webhooks are set. A missing webhook is logged once per server start; a failed or timed-out post
+ * once per post, without the webhook's address. Returns the posts that went through.
  */
 export function reportPoster({
   webhook,
+  slackWebhook,
   fetchImpl = fetch,
   log = (line) => console.warn(line),
 }: ReportsOptions) {
-  let warnedMissing = false;
+  const targets = [
+    {
+      name: "Discord",
+      variable: "DISCORD_REPORTS_WEBHOOK",
+      url: webhook?.trim(),
+      body: discordBody,
+      warned: false,
+    },
+    {
+      name: "Slack",
+      variable: "SLACK_REPORTS_WEBHOOK",
+      url: slackWebhook?.trim(),
+      body: slackBody,
+      warned: false,
+    },
+  ];
   return async (
     record: unknown,
     earlier: unknown,
@@ -226,15 +266,6 @@ export function reportPoster({
   ): Promise<number> => {
     const reports = newReports(record, earlier);
     if (reports.length === 0) return 0;
-    const url = webhook?.trim();
-    if (!url) {
-      if (!warnedMissing)
-        log(
-          "GojiSim: DISCORD_REPORTS_WEBHOOK isn't set; tester reports aren't posted to Discord.",
-        );
-      warnedMissing = true;
-      return 0;
-    }
     const game = gameContext(record);
     const messages = reports
       .slice(0, POSTS_PER_UPLOAD)
@@ -244,21 +275,34 @@ export function reportPoster({
         `…and ${reports.length - POSTS_PER_UPLOAD} more new entries in ${code(file)} (\`pnpm feedback\`).`,
       );
     let posted = 0;
-    // One at a time, in order, within Discord's per-webhook rate limit.
-    for (const content of messages) {
-      try {
-        const res = await fetchImpl(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(discordBody(content)),
-          signal: AbortSignal.timeout(POST_TIMEOUT_MS),
-        });
-        if (res.ok) posted++;
-        else log(`GojiSim: a Discord report post failed (HTTP ${res.status}).`);
-      } catch (err) {
-        log(
-          `GojiSim: a Discord report post failed (${err instanceof Error ? err.name : "error"}).`,
-        );
+    for (const target of targets) {
+      if (!target.url) {
+        if (!target.warned)
+          log(
+            `GojiSim: ${target.variable} isn't set; tester reports aren't posted to ${target.name}.`,
+          );
+        target.warned = true;
+        continue;
+      }
+      // One at a time, in order, within each webhook's rate limit.
+      for (const content of messages) {
+        try {
+          const res = await fetchImpl(target.url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(target.body(content)),
+            signal: AbortSignal.timeout(POST_TIMEOUT_MS),
+          });
+          if (res.ok) posted++;
+          else
+            log(
+              `GojiSim: a ${target.name} report post failed (HTTP ${res.status}).`,
+            );
+        } catch (err) {
+          log(
+            `GojiSim: a ${target.name} report post failed (${err instanceof Error ? err.name : "error"}).`,
+          );
+        }
       }
     }
     return posted;

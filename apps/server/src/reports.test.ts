@@ -12,6 +12,8 @@ import {
   POSTS_PER_UPLOAD,
   reportMessage,
   reportPoster,
+  slackBody,
+  slackText,
 } from "./reports.js";
 
 const GAME = "11111111-2222-4333-8444-555555555555";
@@ -197,7 +199,9 @@ describe("Discord staff reports (#136)", () => {
     expect((bodies.at(-1) as { content: string }).content).toBe(
       "…and 7 more new entries in `f.json` (`pnpm feedback`).",
     );
-    expect(logs).toEqual([]);
+    // This test is Discord's alone: Slack's webhook isn't set (its own test is below).
+    const own = () => logs.filter((l) => !l.includes("SLACK_REPORTS_WEBHOOK"));
+    expect(own()).toEqual([]);
 
     const down = reportPoster({
       webhook: "https://discord.com/api/webhooks/1/secret",
@@ -222,12 +226,123 @@ describe("Discord staff reports (#136)", () => {
     });
     await missing({ ...base, bugReports: [bug] }, null, "f.json");
     await missing({ ...base, bugReports: [bug] }, null, "f.json");
-    expect(logs).toEqual([
+    expect(own()).toEqual([
       "GojiSim: a Discord report post failed (TimeoutError).",
       "GojiSim: a Discord report post failed (HTTP 429).",
       "GojiSim: DISCORD_REPORTS_WEBHOOK isn't set; tester reports aren't posted to Discord.",
     ]);
     expect(logs.join("\n")).not.toContain("secret");
+  });
+});
+
+describe("Slack #gojisim-reports (#146)", () => {
+  const SLACK = "https://hooks.slack.com/services/T0/B0/slacksecret";
+  const DISCORD = "https://discord.com/api/webhooks/1/discordsecret";
+
+  it("the same message in Slack's format: &<> escaped so nothing mentions or links, bold as *bold*, the quote kept", () => {
+    const note = {
+      ...bug,
+      text: "Godzilla left <!everyone> & <@U123> > zone 8\n> my quote",
+    };
+    const [r] = newReports({ ...base, bugReports: [note] }, null);
+    const text = slackText(
+      reportMessage(r!, gameContext(base), "2026-10-30/g.json"),
+    );
+    expect(text.split("\n")).toEqual([
+      "*Report bug* · from Tester · Turn 6, Main phase",
+      "human vs Easy · ESD01 official vs Kaiju Rush",
+      "> Godzilla left &lt;!everyone&gt; &amp; &lt;@U123&gt; &gt; zone 8",
+      "> &gt; my quote",
+      "`2026-10-30/g.json` --at 35",
+    ]);
+    expect(slackBody("x")).toEqual({
+      text: "x",
+      unfurl_links: false,
+      unfurl_media: false,
+    });
+  });
+
+  it("each new entry goes to both webhooks, Slack's body to Slack; either works alone; missing ones warn once each, never with the address", async () => {
+    const calls: { url: string; body: Record<string, unknown> }[] = [];
+    const fake = (async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({
+        url: String(url),
+        body: JSON.parse(String(init?.body)) as Record<string, unknown>,
+      });
+      return new Response("ok");
+    }) as typeof fetch;
+    const logs: string[] = [];
+    const both = reportPoster({
+      webhook: DISCORD,
+      slackWebhook: SLACK,
+      fetchImpl: fake,
+      log: (l) => logs.push(l),
+    });
+    expect(await both({ ...base, bugReports: [bug] }, null, "f.json")).toBe(2);
+    expect(calls.map((c) => c.url)).toEqual([DISCORD, SLACK]);
+    expect(calls[0]?.body).toMatchObject({ allowed_mentions: { parse: [] } });
+    expect(calls[1]?.body["text"]).toContain("*Report bug*");
+    expect("allowed_mentions" in (calls[1]?.body ?? {})).toBe(false);
+    // Once per entry: the same upload again posts nothing.
+    expect(
+      await both(
+        { ...base, bugReports: [bug] },
+        { ...base, bugReports: [bug] },
+        "f.json",
+      ),
+    ).toBe(0);
+    // A flood: 5 and an "…and N more" line, on Slack too.
+    calls.length = 0;
+    const many = Array.from({ length: 8 }, (_, i) => ({
+      ...bug,
+      at: AT(30 + i),
+    }));
+    await both({ ...base, bugReports: many }, null, "f.json");
+    expect(calls.filter((c) => c.url === SLACK)).toHaveLength(
+      POSTS_PER_UPLOAD + 1,
+    );
+    // The smoke check's game posts nowhere.
+    calls.length = 0;
+    expect(
+      await both(
+        { ...base, smokeCheck: true, bugReports: [bug] },
+        null,
+        "f.json",
+      ),
+    ).toBe(0);
+    expect(calls).toEqual([]);
+    expect(logs).toEqual([]);
+
+    const slackOnly = reportPoster({
+      webhook: undefined,
+      slackWebhook: SLACK,
+      fetchImpl: fake,
+      log: (l) => logs.push(l),
+    });
+    expect(
+      await slackOnly({ ...base, bugReports: [bug] }, null, "f.json"),
+    ).toBe(1);
+    await slackOnly(
+      { ...base, bugReports: [{ ...bug, at: AT(50) }] },
+      null,
+      "f.json",
+    );
+    const failing = reportPoster({
+      webhook: undefined,
+      slackWebhook: SLACK,
+      fetchImpl: (async () =>
+        new Response("no", { status: 403 })) as typeof fetch,
+      log: (l) => logs.push(l),
+    });
+    expect(await failing({ ...base, bugReports: [bug] }, null, "f.json")).toBe(
+      0,
+    );
+    expect(logs).toEqual([
+      "GojiSim: DISCORD_REPORTS_WEBHOOK isn't set; tester reports aren't posted to Discord.",
+      "GojiSim: DISCORD_REPORTS_WEBHOOK isn't set; tester reports aren't posted to Discord.",
+      "GojiSim: a Slack report post failed (HTTP 403).",
+    ]);
+    expect(logs.join("\n")).not.toMatch(/secret/);
   });
 });
 
@@ -237,13 +352,14 @@ describe("the upload route posts to a fake webhook (#136)", () => {
     for (const s of servers) s.close();
     servers = [];
   });
-  async function serve(reportsFetch: typeof fetch) {
+  async function serve(reportsFetch: typeof fetch, slack?: string) {
     const recordsDir = mkdtempSync(join(tmpdir(), "gojisim-reports-"));
     const server = createAppServer({
       distDir: recordsDir,
       cardsDir: recordsDir,
       recordsDir,
       reportsWebhook: "https://discord.com/api/webhooks/1/secret",
+      ...(slack ? { slackReportsWebhook: slack } : {}),
       reportsFetch,
       now: () => Date.UTC(2026, 9, 30, 12),
     });
@@ -285,6 +401,20 @@ describe("the upload route posts to a fake webhook (#136)", () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(contents).toHaveLength(5);
     expect(contents.join("\n")).not.toContain("SECRET");
+  });
+
+  it("#146: the app server posts to SLACK_REPORTS_WEBHOOK too", async () => {
+    const urls: string[] = [];
+    const send = await serve(
+      (async (url: string | URL | Request) => {
+        urls.push(String(url));
+        return new Response("ok");
+      }) as typeof fetch,
+      "https://hooks.slack.com/services/T/B/x",
+    );
+    expect((await send({ ...base, bugReports: [bug] })).status).toBe(201);
+    await vi.waitFor(() => expect(urls).toHaveLength(2));
+    expect(urls[1]).toBe("https://hooks.slack.com/services/T/B/x");
   });
 
   it("a webhook that hangs or fails never holds up or changes the upload's answer", async () => {
