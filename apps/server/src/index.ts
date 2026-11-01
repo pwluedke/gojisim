@@ -35,6 +35,8 @@ export interface AppServerOptions {
   uploadsPerMinute?: number;
   /** #136: the Discord staff #reports webhook (`DISCORD_REPORTS_WEBHOOK`); unset posts nothing. */
   reportsWebhook?: string | undefined;
+  /** #146: the Slack #gojisim-reports webhook (`SLACK_REPORTS_WEBHOOK`); unset posts nothing there. */
+  slackReportsWebhook?: string | undefined;
   /** The Discord posts' `fetch` (tests pass a fake webhook); defaults to `fetchImpl`. */
   reportsFetch?: typeof fetch;
   /**
@@ -94,6 +96,7 @@ export function createAppServer({
   maxRecordsBytes,
   uploadsPerMinute,
   reportsWebhook,
+  slackReportsWebhook,
   reportsFetch,
   config = { testSite: true },
   commit = null,
@@ -115,6 +118,7 @@ export function createAppServer({
     ...(uploadsPerMinute === undefined ? {} : { uploadsPerMinute }),
     onStored: reportPoster({
       webhook: reportsWebhook,
+      slackWebhook: slackReportsWebhook,
       fetchImpl: reportsFetch ?? fetchImpl,
     }),
     ...(now ? { now } : {}),
@@ -185,6 +189,7 @@ if (
     recordsDir: resolve(process.env.RECORDS_DIR ?? "/data/records"),
     uploadsPerMinute: uploadsPerMinuteFrom(process.env),
     reportsWebhook: process.env.DISCORD_REPORTS_WEBHOOK,
+    slackReportsWebhook: process.env.SLACK_REPORTS_WEBHOOK,
     commit: process.env.RAILWAY_GIT_COMMIT_SHA || null,
     config: siteConfig(process.env),
   }).listen(port, () => {

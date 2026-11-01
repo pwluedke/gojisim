@@ -90,6 +90,10 @@ Token setup (once, by Paul):
 
 The watcher reads `SLACK_WATCH_TOKEN` from the environment, or from `.envrc` directly when direnv hasn't loaded it (a background shell). It never prints the token; it sends it only in the request's `Authorization` header.
 
+## Feedback flow
+
+How tester reports, crashes, Discord discussion, releases and deploy checks reach Monarch and Paul, who reads what, and every secret and variable involved: [docs/feedback-flow.md](docs/feedback-flow.md).
+
 ## Release notes
 
 Release notes are [GitHub Releases](https://github.com/pwluedke/gojisim/releases). Each PR description has a "## Release notes" section in plain words; when Paul pushes `release`, the Release workflow runs `pnpm release-notes`, which publishes a release tagged `release-<date>-<n>` (Paul's time zone) with the section of every PR merged into main since the previous release tag, newest first, each under `#<PR> <title>`; PRs without one are listed by title. Before the first tag, it starts after the newest PR in `docs/release-notes.md`, the archive up to #120. `pnpm release-notes --dry-run` prints the next release (`--since-pr N` to start after PR N; it reads PRs with `gh`). After the release, the Smoke check workflow checks the live site (`pnpm smoke`, `e2e-prod/smoke.spec.ts`), and `pnpm rollback` (Paul's) puts the previous release back (docs/deploy.md).

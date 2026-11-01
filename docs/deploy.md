@@ -45,6 +45,7 @@ The repo's `.railway/railway.ts` (Railway's Infrastructure as Code) holds the se
 | `RECORDS_DIR`             | `/data/records`                  | Where uploaded game records go (the volume, step 3). This is the default; set it to be sure. Capped at 1 GB: past it, uploads answer 507 and the log says "the records folder is full" (download and clear old days to make room).                 |
 | `GOJISIM_TEST_SITE`       | `on` or `off`                    | The Test Site panel (Bad Bot!, Report bug, Test settings) and game uploads. Default `on`.                                                                                                                                                          |
 | `DISCORD_REPORTS_WEBHOOK` | the staff #reports webhook URL   | Optional (#136): each new Report bug, Bad Bot!, Good Bot!, Mailbox note and crash is posted to the Discord staff #reports channel. Unset, nothing is posted and the log says so once. See [Tester reports in Discord](#tester-reports-in-discord). |
+| `SLACK_REPORTS_WEBHOOK`   | the #gojisim-reports webhook URL | Optional (#146): the same posts to Slack #gojisim-reports, where Monarch reads them. Either webhook works without the other. See [Tester reports in Slack](#tester-reports-in-slack).                                                              |
 
 Make the secret on your Mac with `openssl rand -hex 32` and paste the output. Railway sets `PORT` itself; don't add it.
 
@@ -68,6 +69,15 @@ One time, Paul's step (#136). Until it's done, uploads work as before and the de
 Each new entry is one message: its kind, the reporter, the turn and phase, the bots and deck names, the note, and the file with `--at` for `pnpm feedback`. A crash shows its error and first frame. No decklist and no game file goes to Discord, and mentions are off, so a tester's note can't ping anyone. An entry is posted once, even when the same game uploads again. Five entries at most per upload; past that, one "…and N more" line. A slow (over 5 s) or failed post is a line in the deploy log, and the upload itself never waits for Discord.
 
 Treat the URL like a password: anyone with it can post to #reports. If it leaks, delete the webhook in the channel's settings, make a new one, and replace the variable.
+
+### Tester reports in Slack
+
+One time, Paul's step (#146). The same posts go to Slack #gojisim-reports, so Monarch reads every report with no manual step. Either webhook works without the other; until this one is set, the deploy log says once that `SLACK_REPORTS_WEBHOOK` isn't set.
+
+1. api.slack.com/apps → the existing GojiSim Slack app → **Incoming Webhooks → Add New Webhook to Workspace** → pick **#gojisim-reports** → **Allow**, then copy the URL.
+2. In Railway: the `gojisim` service → **Variables → New Variable**. Name: `SLACK_REPORTS_WEBHOOK`. Value: the URL. Click **Apply changes**.
+
+The Slack message is the Discord one in Slack's format: `&`, `<` and `>` are escaped, so a tester's note can't mention anyone or make a link. The same rules apply as for Discord: once per entry, the smoke check's games skipped, at most five per upload, and the upload never waits. The whole flow is in [docs/feedback-flow.md](feedback-flow.md).
 
 ## 3. Attach a volume for the card images
 
@@ -196,7 +206,7 @@ The service's settings live in `.railway/railway.ts`, not in the dashboard. Only
 - **Deploys:** only by hand, with [Deploy](#deploy) above. Merges into `main` never deploy.
 - **Change the password:** edit `GOJISIM_PASSWORD` in **Variables**; Railway redeploys. People already signed in stay signed in.
 - **Sign everyone out:** change `SESSION_SECRET` (a new `openssl rand -hex 32`). Every old login cookie stops working, and everyone types the password again.
-- **Health:** `https://gojisim.somanygames.app/healthz` answers `{"status":"ok"}` without a password; Railway checks it on each deploy.
+- **Health:** `https://gojisim.somanygames.app/healthz` answers `{"status":"ok","commit":"<the deployed commit>"}` without a password; Railway checks it on each deploy, and the smoke check waits for the commit (#92).
 - **Bug reports:** testers press **Report bug** (the Test Site panel, left column), write what went wrong, and Send uploads the game to the records folder with their note in its `bugReports`. When the send fails, or Share finished games is off, the game downloads as a JSON file for them to send you instead. Open it with **Load a game record** on the new-game screen, or in `/debug`.
 - **Finished games and reports:** with the Test Site on and "Share finished games" on (testers can turn it off in Test settings), each finished game uploads to `/data/records/<YYYY-MM-DD>/<gameId>.json`, and **Report bug**, **Good Bot!** and **Bad Bot!** upload at once. Every upload of a game replaces that game's one file (in the day folder where it started), so a game is one file however many reports it has; uploads from older pages with no `gameId` get a random name. There's no route to read them back. To pull the feedback, run from the repo root:
 
