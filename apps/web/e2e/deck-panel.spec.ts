@@ -7,11 +7,19 @@ test.use({ viewport: { width: 1280, height: 800 } });
  * decks, edit it, copy it, load decks and duplicate them, and be asked before unsaved changes go.
  */
 const panel = (page: Page) => page.getByTestId("db-panel");
-/** A main deck row (a monster card can be in both zones). */
-const row = (page: Page, cardNumber: string) =>
+/** #165: a main deck slot (one per copy) holding the print `cardNumber`. */
+const slot = (page: Page, cardNumber: string) =>
   page
     .getByTestId("db-zone-main")
-    .locator(`[data-testid="db-row"][data-card-number="${cardNumber}"]`);
+    .locator(`[data-testid="db-main-slot"][data-card-number="${cardNumber}"]`);
+/** #165: opens the first main deck slot's card in the detail panel; returns its print number. */
+async function openFirstSlot(page: Page) {
+  const first = panel(page).getByTestId("db-main-slot").first();
+  const number = (await first.getAttribute("data-card-number")) ?? "";
+  await first.click();
+  await expect(page.getByTestId("db-card-panel")).toBeVisible();
+  return number;
+}
 
 async function loadStarter(page: Page, index = 0) {
   await page.getByTestId("db-my-decks").click();
@@ -23,12 +31,12 @@ async function loadStarter(page: Page, index = 0) {
   await expect(page.getByTestId("db-decks-window")).toHaveCount(0);
 }
 
-test("#158: clicks and drags build the deck, counts and limits show, and legality updates live", async ({
+test("#158: + and drags build the deck, counts and limits show, and legality updates live", async ({
   page,
 }) => {
   await page.goto("/decks?type=Monster&set=ESD01");
   const monsters = page.getByTestId("db-card");
-  await monsters.first().click();
+  await monsters.first().getByTestId("db-card-plus").click();
   await expect(page.getByTestId("db-count-monster")).toHaveText("1/4");
   await expect(page.getByTestId("db-legality")).toHaveAttribute(
     "data-legal",
@@ -38,21 +46,24 @@ test("#158: clicks and drags build the deck, counts and limits show, and legalit
     "Monster deck: 1 card",
   );
   // The same card again: its rank is taken, so it goes to the main deck.
-  await monsters.first().click();
+  await monsters.first().getByTestId("db-card-plus").click();
   await expect(page.getByTestId("db-count-main")).toHaveText("1/50");
   // A drag onto the monster deck puts it there.
-  await monsters.nth(1).dragTo(page.getByTestId("db-zone-monster"));
+  await monsters
+    .nth(1)
+    .getByTestId("db-card-image")
+    .dragTo(page.getByTestId("db-zone-monster"));
   await expect(page.getByTestId("db-count-monster")).toHaveText("2/4");
-  // - and + change a row's count.
-  const first = panel(page)
-    .getByTestId("db-zone-main")
-    .getByTestId("db-row")
-    .first();
-  await first.getByTestId("db-plus").click();
-  await expect(first).toContainText("2×");
-  await first.getByTestId("db-minus").click();
-  await first.getByTestId("db-minus").click();
+  // #165: each card shows its copies against the limit (6.1.1.4); − takes from the main deck
+  // first.
+  const first = monsters.first();
+  await first.getByTestId("db-card-plus").click();
+  await expect(first.getByTestId("db-card-copies")).toHaveText("3 / 4");
+  await first.getByTestId("db-card-minus").click();
+  await first.getByTestId("db-card-minus").click();
   await expect(page.getByTestId("db-count-main")).toHaveText("0/50");
+  await expect(first.getByTestId("db-card-copies")).toHaveText("1 / 4");
+  await expect(page.getByTestId("db-count-monster")).toHaveText("2/4");
 });
 
 test("#158: a starter loads legal; a banned card is marked with its reason; the deck saves, edits and copies through My decks", async ({
@@ -68,13 +79,12 @@ test("#158: a starter loads legal; a banned card is marked with its reason; the 
     "true",
   );
 
-  // A 51st card breaks 6.1.1.2, and a fifth copy breaks the copy limit, marking that row.
-  const anyRow = panel(page)
-    .getByTestId("db-zone-main")
-    .getByTestId("db-row")
-    .first();
-  const number = await anyRow.getAttribute("data-card-number");
-  for (let i = 0; i < 4; i++) await anyRow.getByTestId("db-plus").click();
+  // A 51st card breaks 6.1.1.2, and a fifth copy breaks the copy limit (6.1.1.4), marking its
+  // slots.
+  const number = await openFirstSlot(page);
+  const plus = page.getByTestId("db-card-panel-plus");
+  const minus = page.getByTestId("db-card-panel-minus");
+  for (let i = 0; i < 4; i++) await plus.click();
   await expect(page.getByTestId("db-legality")).toHaveAttribute(
     "data-legal",
     "false",
@@ -82,7 +92,10 @@ test("#158: a starter loads legal; a banned card is marked with its reason; the 
   await expect(page.getByTestId("db-reason")).toContainText([
     /needs exactly 50/,
   ]);
-  await expect(row(page, number ?? "")).toHaveAttribute("data-broken", "true");
+  await expect(slot(page, number).first()).toHaveAttribute(
+    "data-broken",
+    "true",
+  );
 
   // Saved (illegal is allowed), it's in My decks; edited and saved again, the same deck changes.
   await page.getByTestId("db-deck-name").fill("Red Variant");
@@ -91,7 +104,7 @@ test("#158: a starter loads legal; a banned card is marked with its reason; the 
     "Saved Red Variant.",
   );
   await expect(page.getByTestId("db-my-decks")).toHaveText("My decks (1)");
-  for (let i = 0; i < 4; i++) await anyRow.getByTestId("db-minus").click();
+  for (let i = 0; i < 4; i++) await minus.click();
   await page.getByTestId("db-save").click();
   await expect(page.getByTestId("db-my-decks")).toHaveText("My decks (1)");
   await expect(page.getByTestId("db-legality")).toHaveAttribute(
@@ -138,12 +151,8 @@ test("#158: leaving with unsaved changes asks first; Cancel keeps the deck", asy
 }) => {
   await page.goto("/decks");
   await loadStarter(page);
-  await page
-    .getByTestId("db-zone-main")
-    .getByTestId("db-row")
-    .first()
-    .getByTestId("db-plus")
-    .click();
+  await openFirstSlot(page);
+  await page.getByTestId("db-card-panel-plus").click();
   // New deck asks; Cancel keeps the changes.
   page.once("dialog", (d) => {
     expect(d.message()).toBe(

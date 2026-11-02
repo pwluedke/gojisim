@@ -48,7 +48,7 @@
 
 .body {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 320px;
+  grid-template-columns: 200px minmax(0, 1fr) 560px;
   gap: var(--space-3);
   flex: 1;
   min-height: 0;
@@ -125,7 +125,7 @@
 
 .thumb {
   position: relative;
-  height: 172px;
+  height: 100%;
   overflow: hidden;
   border-radius: var(--radius);
   background: var(--color-panel-alt);
@@ -146,13 +146,6 @@
   font-size: var(--font-size-sm);
 }
 
-.cellName {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--font-size-sm);
-}
-
 .art {
   display: flex;
   align-items: center;
@@ -162,10 +155,6 @@
 
 .art button {
   padding: 0 var(--space-2);
-}
-
-.hint {
-  margin: 0;
 }
 
 .full {
@@ -260,14 +249,23 @@
   z-index: 5;
 }
 
-.cell {
+.cellImage {
+  flex: 1;
+  min-height: 0;
+  border-radius: var(--radius);
   cursor: pointer;
+  outline-offset: 2px;
+}
+
+/* #165: the card in the detail panel. */
+.cell[data-selected] .cellImage {
+  outline: 3px solid var(--color-highlight);
 }
 
 .panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 6px;
 }
 
 .panel button {
@@ -281,7 +279,7 @@
 }
 
 .zone {
-  padding: var(--space-2);
+  padding: 6px var(--space-2);
   border: 1px dashed var(--color-border);
   border-radius: var(--radius);
 }
@@ -289,36 +287,6 @@
 .zoneTitle {
   margin: 0 0 var(--space-1);
   font-size: var(--font-size-md, 14px);
-}
-
-.deckRows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.deckRows li {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 1px 0;
-}
-
-.rowCount {
-  min-width: 2.5ch;
-  font-weight: bold;
-}
-
-.rowName {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.broken .rowName {
-  color: var(--color-danger, #c0392b);
-  font-weight: bold;
 }
 
 .legality ul {
@@ -336,10 +304,228 @@
   gap: var(--space-1);
 }
 
-/* Several cards share a name (the Godzilla (2023) monsters): the number tells them apart. */
-.rowNumber {
+/* #165: − / "N / 4" / + under each card image. */
+.cellControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 26px;
   font-size: var(--font-size-sm);
-  opacity: 0.75;
+}
+
+.cellControls button,
+.viewToggle button {
+  min-width: 26px;
+  padding: 0 var(--space-2);
+  border: var(--button-border);
+  border-radius: var(--radius);
+  background: var(--color-button);
+  color: var(--color-button-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.cellControls button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cellControls [data-over] {
+  color: var(--color-illegal);
+  font-weight: bold;
+}
+
+/* #165: the card detail panel opens over the right part of the card list, on ink. */
+.cardPanel {
+  position: absolute;
+  top: 28px;
+  right: 0;
+  bottom: 0;
+  width: min(380px, 100%);
+  overflow-y: auto;
+  padding: var(--space-3);
+  background: var(--color-ink, #1a1410);
+  color: #f6edd9;
+  border-radius: var(--radius);
+  box-shadow: var(--panel-shadow);
+  font-size: var(--font-size-sm);
+  z-index: 6;
+}
+
+.cardPanel button {
+  padding: var(--space-1) var(--space-3);
+  border: 2px solid #f6edd9;
+  border-radius: var(--radius);
+  background: transparent;
+  color: #f6edd9;
+  font: inherit;
+  cursor: pointer;
+}
+
+.cardPanel button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.close {
+  float: right;
+}
+
+.bigImage {
+  width: min(100%, 280px);
+  aspect-ratio: 63 / 88;
+  margin: 0 auto var(--space-2);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--space-3);
+  margin: 0 0 var(--space-2);
+}
+
+.facts dt {
+  font-weight: bold;
+}
+
+.facts dd {
+  margin: 0;
+}
+
+.inDeck {
+  margin: var(--space-2) 0;
+  font-weight: bold;
+}
+
+.cardPanelActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.keysHint {
+  margin: var(--space-2) 0 0;
+  opacity: 0.8;
+}
+
+.nameField input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px var(--space-2);
+  font-size: var(--font-size-md, 15px);
+  font-weight: bold;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.zoneTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.viewToggle {
+  display: flex;
+  gap: 2px;
+  font-size: var(--font-size-sm);
+  font-weight: normal;
+}
+
+.viewToggle button[aria-pressed="true"] {
+  background: var(--color-highlight);
+  color: var(--color-highlight-text);
+}
+
+/* #165: image slots; a missing card is a dashed empty slot. */
+.monsterSlots {
+  display: grid;
+  grid-template-columns: repeat(4, 56px);
+  gap: var(--space-2);
+}
+
+.mainSlots {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.slot,
+.slotEmpty {
+  aspect-ratio: 63 / 88;
+  border-radius: 4px;
+}
+
+/* Higher than `.panel button`: a slot is the card image alone. */
+.panel .slot {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.slotEmpty {
+  border: 1.5px dashed var(--color-border-strong, var(--color-border));
+}
+
+.slot[data-broken],
+.stacked[data-broken] {
+  outline: 2px solid var(--color-illegal);
+}
+
+.slot .fallback {
+  padding: 2px;
+  font-size: 9px;
+}
+
+/* #165 Rank columns: R1 to R8, each card's name showing. */
+.rankColumns {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.rankHead {
+  font-size: var(--font-size-sm);
+  font-weight: bold;
+  text-align: center;
+}
+
+.rankColumn ul {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+}
+
+.panel .stacked {
+  display: block;
+  width: 100%;
+  margin-bottom: 2px;
+  padding: 2px 3px;
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong, var(--color-border));
+  border-radius: 3px;
+  background: var(--color-panel-alt);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 10px;
+  line-height: 1.25;
+  text-align: left;
+  /* Two lines at most: the name's distinguishing part ("(2023)") shows. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  cursor: pointer;
+}
+
+.counts {
+  font-size: var(--font-size-sm);
 }
 
 .offer {
