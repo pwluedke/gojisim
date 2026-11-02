@@ -84,8 +84,16 @@ export function legality(draft: DeckDraft, asOf: Date = new Date()): Legality {
     { monsterDeck: draft.monsterDeck, mainDeck: draft.mainDeck },
     asOf,
   );
+  const short = MAIN_DECK_SIZE - draft.mainDeck.length;
   const reasons = failures.flatMap((f) =>
-    f.reasons.map((text) => ({ rule: f.rule, text })),
+    f.reasons.map((text) => ({
+      rule: f.rule,
+      // #165: a short main deck reads as its empty slots (6.1.1.2).
+      text:
+        f.rule === "6.1.1.2" && short > 0 && text.startsWith("Main deck:")
+          ? `${short} main deck ${short === 1 ? "slot is" : "slots are"} empty`
+          : text,
+    })),
   );
   const marked = new Set<string>();
   for (const { text } of reasons)
@@ -119,4 +127,73 @@ export function copyName(name: string, taken: readonly string[]): string {
     const candidate = n === 1 ? `${name} (copy)` : `${name} (copy ${n})`;
     if (!used.has(candidate.toLowerCase())) return candidate;
   }
+}
+
+/** Copies of a card (any print of `deckCardNumber`) in the whole deck, the count 6.1.1.4 limits. */
+export const copiesOf = (draft: DeckDraft, deckCardNumber: string): number =>
+  [...draft.monsterDeck, ...draft.mainDeck].filter(
+    (c) => c.deckCardNumber === deckCardNumber,
+  ).length;
+
+/**
+ * #165: the draft with one copy of a card (any print) taken out: the last one added to the main
+ * deck, else from the monster deck.
+ */
+export function removeCopy(
+  draft: DeckDraft,
+  deckCardNumber: string,
+): DeckDraft {
+  for (const zone of ["main", "monster"] as const) {
+    const list = zone === "main" ? draft.mainDeck : draft.monsterDeck;
+    const at = list.map((c) => c.deckCardNumber).lastIndexOf(deckCardNumber);
+    if (at >= 0) return removeCard(draft, zone, list[at]?.cardNumber ?? "");
+  }
+  return draft;
+}
+
+/** #165 Add 4: copies of `card` added until the deck holds `limit` of it (none past the limit). */
+export function fillTo(draft: DeckDraft, card: Card, limit: number): DeckDraft {
+  let next = draft;
+  while (copiesOf(next, card.deckCardNumber) < limit)
+    next = addCard(next, card);
+  return next;
+}
+
+/** #165 Slots: one entry per copy, by rank (no rank last), then name, then card number. */
+export function slotOrder(cards: readonly Card[]): Card[] {
+  return [...cards].sort(
+    (a, b) =>
+      (a.rank ?? 99) - (b.rank ?? 99) ||
+      a.name.localeCompare(b.name) ||
+      a.cardNumber.localeCompare(b.cardNumber),
+  );
+}
+
+export const RANK_COLUMNS = 8;
+
+/** #165 Rank columns: ranks 1 to 8, each copy in its rank's column (a rank past 8 goes in 8). */
+export function rankColumns(cards: readonly Card[]): Card[][] {
+  const columns: Card[][] = Array.from({ length: RANK_COLUMNS }, () => []);
+  for (const card of slotOrder(cards)) {
+    const rank = Math.min(Math.max(card.rank ?? 1, 1), RANK_COLUMNS);
+    columns[rank - 1]?.push(card);
+  }
+  return columns;
+}
+
+/** #165: the main deck's Battle and Strategy counts, and each color's card count. */
+export function deckCounts(draft: DeckDraft): {
+  battle: number;
+  strategy: number;
+  colors: [string, number][];
+} {
+  const colors = new Map<string, number>();
+  for (const card of draft.mainDeck)
+    for (const color of card.colors)
+      colors.set(color, (colors.get(color) ?? 0) + 1);
+  return {
+    battle: draft.mainDeck.filter((c) => c.type === "Battle").length,
+    strategy: draft.mainDeck.filter((c) => c.type === "Strategy").length,
+    colors: [...colors].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])),
+  };
 }

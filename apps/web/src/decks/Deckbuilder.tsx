@@ -1,5 +1,10 @@
 import "../theme.css";
-import { type Card, getCardText, getCardTraits } from "@gojisim/cards";
+import {
+  type Card,
+  getCardText,
+  getCardTraits,
+  getMaxCopies,
+} from "@gojisim/cards";
 import { getAllCards } from "@gojisim/cards/all-cards";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { backupJson, deckOf, readBackup, savedDeck } from "../game/deckStore";
@@ -18,30 +23,59 @@ import {
   facets,
   filterFromQuery,
   filterToQuery,
+  movieOf,
   NO_FILTER,
   type PoolEntry,
+  setOf,
 } from "./cardPool";
 import styles from "./Deckbuilder.module.css";
 import {
   addCard,
   asDeck,
+  copiesOf,
   copyName,
   type DeckDraft,
+  deckCounts,
   type DeckZone,
   draftOf,
   draftText,
   emptyDraft,
+  fillTo,
   legality,
   MAIN_DECK_SIZE,
   MONSTER_DECK_SIZE,
-  removeCard,
+  rankColumns,
+  removeCopy,
   rows,
+  slotOrder,
 } from "./deckDraft";
 
-/** A card cell's size in the grid, image and art row included (px). */
-const CELL_W = 132;
-const CELL_H = 212;
+/** #165: the card grid has 5 or 6 columns (6 once each card gets this wide, px). */
+const SIX_COLUMNS_FROM = 120;
+/** A card image's height for its width (63 × 88 mm). */
+const CARD_RATIO = 88 / 63;
+/** The − / N / 4 / + row under each card image (px). */
+const CONTROLS_H = 30;
 const GAP = 8;
+/** #165: the main deck's view, Slots or Rank columns, remembered per browser. */
+const VIEW_KEY = "gojisim.deckbuilder.mainView";
+type MainView = "slots" | "ranks";
+function loadView(): MainView {
+  try {
+    return window.localStorage.getItem(VIEW_KEY) === "ranks"
+      ? "ranks"
+      : "slots";
+  } catch {
+    return "slots";
+  }
+}
+function saveView(view: MainView) {
+  try {
+    window.localStorage.setItem(VIEW_KEY, view);
+  } catch {
+    // Storage blocked: the choice lasts for this page view.
+  }
+}
 /** The drag data: a print's id, dropped onto the deck panel's monster or main deck. */
 const DRAG_TYPE = "application/x-gojisim-card";
 /** Rows drawn above and below the visible ones, so a fast scroll doesn't show gaps. */
@@ -61,7 +95,13 @@ export function Deckbuilder() {
     filterFromQuery(window.location.search),
   );
   const shown = useMemo(() => applyFilter(pool, filter), [pool, filter]);
-  const [hovered, setHovered] = useState<PoolEntry | null>(null);
+  // The hovered card (a grid card or a deck slot), previewed while no card detail is open.
+  const [hovered, setHovered] = useState<{
+    entry: PoolEntry;
+    print: Card;
+  } | null>(null);
+  // #165: the card in the detail panel, by its deck card number.
+  const [selected, setSelected] = useState<string | null>(null);
   // The chosen print of each card (its index in `prints`); #158 puts its number in the deck.
   const [art, setArt] = useState<Record<string, number>>({});
   const [importing, setImporting] = useState(false);
@@ -128,6 +168,47 @@ export function Deckbuilder() {
     setSavedText(draftText(named));
     setPanelNote(`Saved a copy as ${name}.`);
   };
+  const entryOf = useMemo(
+    () => new Map(pool.map((e) => [e.deckCardNumber, e])),
+    [pool],
+  );
+  const limitOf = (deckCardNumber: string) =>
+    getMaxCopies(deckCardNumber, new Date());
+  const selectedEntry = selected ? entryOf.get(selected) : undefined;
+  /** Opens a deck slot's card in the detail panel, showing the print in the deck. */
+  const openCard = (card: Card) => {
+    const entry = entryOf.get(card.deckCardNumber);
+    if (!entry) return;
+    const at = entry.prints.findIndex((p) => p.id === card.id);
+    if (at >= 0) setArt((a) => ({ ...a, [entry.deckCardNumber]: at }));
+    setSelected(entry.deckCardNumber);
+  };
+  // #165: Esc closes the detail panel; the arrow keys move through the filtered list.
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, select, textarea")) return;
+      if (e.key === "Escape") {
+        setSelected(null);
+        return;
+      }
+      const step =
+        e.key === "ArrowRight" || e.key === "ArrowDown"
+          ? 1
+          : e.key === "ArrowLeft" || e.key === "ArrowUp"
+            ? -1
+            : 0;
+      if (!step || shown.length === 0) return;
+      e.preventDefault();
+      const at = shown.findIndex((x) => x.deckCardNumber === selected);
+      const next =
+        at < 0 ? 0 : Math.min(Math.max(at + step, 0), shown.length - 1);
+      setSelected(shown[next]?.deckCardNumber ?? null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected, shown]);
   /** A print by its id, for drops onto the deck panel. */
   const printsById = useMemo(() => {
     const m = new Map<string, Card>();
@@ -148,6 +229,16 @@ export function Deckbuilder() {
 
   const printOf = (e: PoolEntry) =>
     e.prints[art[e.deckCardNumber] ?? 0] ?? e.card;
+  const flipArt = (e: PoolEntry, step: number) =>
+    setArt((a) => ({
+      ...a,
+      [e.deckCardNumber]:
+        ((a[e.deckCardNumber] ?? 0) + step + e.prints.length) % e.prints.length,
+    }));
+  const hoverCard = (card: Card | null) => {
+    const entry = card ? entryOf.get(card.deckCardNumber) : undefined;
+    setHovered(card && entry ? { entry, print: card } : null);
+  };
 
   return (
     <div className={`gojisim ${styles.page}`}>
@@ -329,26 +420,47 @@ export function Deckbuilder() {
           <CardGrid
             entries={shown}
             printOf={printOf}
+            copies={(e) => copiesOf(draft, e.deckCardNumber)}
+            limit={(e) => limitOf(e.deckCardNumber)}
+            selected={selected}
+            onOpen={(e) => setSelected(e.deckCardNumber)}
             onAdd={(e) => setDraft((d) => addCard(d, printOf(e)))}
-            onHover={setHovered}
-            onArt={(e, step) =>
-              setArt((a) => ({
-                ...a,
-                [e.deckCardNumber]:
-                  ((a[e.deckCardNumber] ?? 0) + step + e.prints.length) %
-                  e.prints.length,
-              }))
-            }
-            artIndex={(e) => art[e.deckCardNumber] ?? 0}
+            onRemove={(e) => setDraft((d) => removeCopy(d, e.deckCardNumber))}
+            onHover={(e) => hoverCard(e ? printOf(e) : null)}
           />
-          {hovered && (
-            <aside
-              className={styles.detail}
-              data-testid="db-detail"
-              aria-live="polite"
-            >
-              <CardDetail card={printOf(hovered)} base={hovered.card} />
-            </aside>
+          {selectedEntry ? (
+            <DetailPanel
+              entry={selectedEntry}
+              print={printOf(selectedEntry)}
+              artIndex={art[selectedEntry.deckCardNumber] ?? 0}
+              copies={copiesOf(draft, selectedEntry.deckCardNumber)}
+              limit={limitOf(selectedEntry.deckCardNumber)}
+              onArt={(step) => flipArt(selectedEntry, step)}
+              onAdd={() => setDraft((d) => addCard(d, printOf(selectedEntry)))}
+              onRemove={() =>
+                setDraft((d) => removeCopy(d, selectedEntry.deckCardNumber))
+              }
+              onFill={() =>
+                setDraft((d) =>
+                  fillTo(
+                    d,
+                    printOf(selectedEntry),
+                    limitOf(selectedEntry.deckCardNumber),
+                  ),
+                )
+              }
+              onClose={() => setSelected(null)}
+            />
+          ) : (
+            hovered && (
+              <aside
+                className={styles.detail}
+                data-testid="db-detail"
+                aria-live="polite"
+              >
+                <CardDetail card={hovered.print} base={hovered.entry.card} />
+              </aside>
+            )
           )}
         </section>
 
@@ -364,6 +476,8 @@ export function Deckbuilder() {
           onSave={save}
           onSaveCopy={saveCopy}
           onNew={() => openDraft(emptyDraft(), null)}
+          onOpen={openCard}
+          onHover={hoverCard}
         />
       </div>
 
@@ -399,24 +513,57 @@ export function Deckbuilder() {
   );
 }
 
+/** A card image with its name showing when the image is missing (as on CI). */
+function CardImage({
+  card,
+  name,
+  size,
+}: {
+  card: Card;
+  name: string;
+  size: "thumb" | "full";
+}) {
+  return (
+    <div className={styles.thumb}>
+      <span className={styles.fallback}>{name}</span>
+      <img
+        src={`/cards/${card.id}-${size}.webp`}
+        alt={name}
+        loading="lazy"
+        onError={(e) => {
+          e.currentTarget.style.visibility = "hidden";
+          e.currentTarget.parentElement?.setAttribute("data-missing", "true");
+        }}
+      />
+    </div>
+  );
+}
+
 /**
  * The card grid, virtualized: only the rows in view (and a couple each side) are drawn, so the
- * whole pool scrolls smoothly.
+ * whole pool scrolls smoothly. #165: 5 or 6 columns of card images, each with − / "N / 4" / +
+ * under it; a click on the image opens the card detail, and the selected card has a gold outline.
  */
 function CardGrid({
   entries,
   printOf,
+  copies,
+  limit,
+  selected,
+  onOpen,
   onAdd,
+  onRemove,
   onHover,
-  onArt,
-  artIndex,
 }: {
   entries: readonly PoolEntry[];
   printOf: (e: PoolEntry) => Card;
+  copies: (e: PoolEntry) => number;
+  limit: (e: PoolEntry) => number;
+  selected: string | null;
+  onOpen: (e: PoolEntry) => void;
   onAdd: (e: PoolEntry) => void;
+  onRemove: (e: PoolEntry) => void;
   onHover: (e: PoolEntry | null) => void;
-  onArt: (e: PoolEntry, step: number) => void;
-  artIndex: (e: PoolEntry) => number;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [view, setView] = useState({ top: 0, height: 800, width: 800 });
@@ -438,12 +585,24 @@ function CardGrid({
   useEffect(() => {
     if (box.current) box.current.scrollTop = 0;
   }, [entries]);
-  const columns = Math.max(1, Math.floor((view.width + GAP) / (CELL_W + GAP)));
-  const rows = Math.ceil(entries.length / columns);
-  const first = Math.max(0, Math.floor(view.top / (CELL_H + GAP)) - OVERSCAN);
+  const columns = (view.width - 5 * GAP) / 6 >= SIX_COLUMNS_FROM ? 6 : 5;
+  const cellW = Math.max(40, (view.width - (columns - 1) * GAP) / columns);
+  const cellH = Math.round(cellW * CARD_RATIO) + CONTROLS_H;
+  const rowCount = Math.ceil(entries.length / columns);
+  // The arrow keys can move the selection out of view: scroll its row back in.
+  useEffect(() => {
+    const el = box.current;
+    const at = entries.findIndex((e) => e.deckCardNumber === selected);
+    if (!el || at < 0) return;
+    const top = Math.floor(at / columns) * (cellH + GAP);
+    if (top < el.scrollTop) el.scrollTop = top;
+    else if (top + cellH > el.scrollTop + el.clientHeight)
+      el.scrollTop = top + cellH - el.clientHeight;
+  }, [selected, entries, columns, cellH]);
+  const first = Math.max(0, Math.floor(view.top / (cellH + GAP)) - OVERSCAN);
   const last = Math.min(
-    rows,
-    Math.ceil((view.top + view.height) / (CELL_H + GAP)) + OVERSCAN,
+    rowCount,
+    Math.ceil((view.top + view.height) / (cellH + GAP)) + OVERSCAN,
   );
   const visible = entries.slice(first * columns, last * columns);
   return (
@@ -451,99 +610,215 @@ function CardGrid({
       ref={box}
       className={styles.grid}
       data-testid="db-grid"
-      onScroll={(e) =>
-        setView((v) => ({
-          ...v,
-          top: (e.currentTarget as HTMLDivElement).scrollTop,
-        }))
-      }
+      data-columns={columns}
+      onScroll={(e) => {
+        // Read now: React clears currentTarget before a state updater runs.
+        const top = e.currentTarget.scrollTop;
+        setView((v) => ({ ...v, top }));
+      }}
     >
-      <div style={{ height: rows * (CELL_H + GAP), position: "relative" }}>
+      <div style={{ height: rowCount * (cellH + GAP), position: "relative" }}>
         {visible.map((entry, i) => {
           const index = first * columns + i;
           const card = printOf(entry);
+          const n = copies(entry);
+          const max = limit(entry);
           return (
             <div
               key={entry.deckCardNumber}
               className={styles.cell}
               data-testid="db-card"
               data-card-number={entry.deckCardNumber}
-              style={{
-                left: (index % columns) * (CELL_W + GAP),
-                top: Math.floor(index / columns) * (CELL_H + GAP),
-                width: CELL_W,
-                height: CELL_H,
-              }}
-              tabIndex={0}
-              role="button"
-              aria-label={`Add ${entry.card.name}`}
-              draggable
-              onDragStart={(e) =>
-                e.dataTransfer.setData(DRAG_TYPE, String(card.id))
+              data-selected={
+                entry.deckCardNumber === selected ? "true" : undefined
               }
-              onClick={() => onAdd(entry)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onAdd(entry);
-                }
+              style={{
+                left: (index % columns) * (cellW + GAP),
+                top: Math.floor(index / columns) * (cellH + GAP),
+                width: cellW,
+                height: cellH,
               }}
               onMouseEnter={() => onHover(entry)}
               onMouseLeave={() => onHover(null)}
-              onFocus={() => onHover(entry)}
             >
-              <div className={styles.thumb}>
-                <span className={styles.fallback}>{entry.card.name}</span>
-                <img
-                  src={`/cards/${card.id}-thumb.webp`}
-                  alt={entry.card.name}
-                  loading="lazy"
-                  onError={(e) => {
-                    // No image (as on CI): the card's name shows instead.
-                    e.currentTarget.style.visibility = "hidden";
-                    e.currentTarget.parentElement?.setAttribute(
-                      "data-missing",
-                      "true",
-                    );
-                  }}
-                />
+              <div
+                className={styles.cellImage}
+                data-testid="db-card-image"
+                tabIndex={0}
+                role="button"
+                aria-label={`Open ${entry.card.name}`}
+                draggable
+                onDragStart={(e) =>
+                  e.dataTransfer.setData(DRAG_TYPE, String(card.id))
+                }
+                onClick={() => onOpen(entry)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onOpen(entry);
+                  }
+                }}
+                onFocus={() => onHover(entry)}
+              >
+                <CardImage card={card} name={entry.card.name} size="thumb" />
               </div>
-              <div className={styles.cellName} title={entry.card.name}>
-                {entry.card.name}
+              <div className={styles.cellControls}>
+                <button
+                  type="button"
+                  data-testid="db-card-minus"
+                  aria-label={`One fewer ${entry.card.name}`}
+                  disabled={n === 0}
+                  onClick={() => onRemove(entry)}
+                >
+                  −
+                </button>
+                <span
+                  data-testid="db-card-copies"
+                  data-over={n > max ? "true" : undefined}
+                  title={`${n} in the deck; up to ${max}`}
+                >
+                  {n} / {max}
+                </span>
+                <button
+                  type="button"
+                  data-testid="db-card-plus"
+                  aria-label={`One more ${entry.card.name}`}
+                  onClick={() => onAdd(entry)}
+                >
+                  +
+                </button>
               </div>
-              {entry.prints.length > 1 && (
-                <div className={styles.art} data-testid="db-art">
-                  <button
-                    type="button"
-                    aria-label="Previous art"
-                    onClick={(e) => {
-                      // Flipping the art doesn't add the card.
-                      e.stopPropagation();
-                      onArt(entry, -1);
-                    }}
-                  >
-                    ‹
-                  </button>
-                  <span data-testid="db-art-index">
-                    Art {artIndex(entry) + 1}/{entry.prints.length}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label="Next art"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onArt(entry, 1);
-                    }}
-                  >
-                    ›
-                  </button>
-                </div>
-              )}
             </div>
           );
         })}
       </div>
     </div>
+  );
+}
+
+/**
+ * #165: the card detail panel over the right part of the card list: the large image with its
+ * art choice, what the card is and says, its copies in the deck, and − 1 / + 1 / Add 4.
+ */
+function DetailPanel({
+  entry,
+  print,
+  artIndex,
+  copies,
+  limit,
+  onArt,
+  onAdd,
+  onRemove,
+  onFill,
+  onClose,
+}: {
+  entry: PoolEntry;
+  print: Card;
+  artIndex: number;
+  copies: number;
+  limit: number;
+  onArt: (step: number) => void;
+  onAdd: () => void;
+  onRemove: () => void;
+  onFill: () => void;
+  onClose: () => void;
+}) {
+  const base = entry.card;
+  const traits = getCardTraits(base);
+  const text = getCardText(base);
+  return (
+    <aside
+      className={styles.cardPanel}
+      data-testid="db-card-panel"
+      data-card-number={entry.deckCardNumber}
+      aria-label={`${base.name} details`}
+    >
+      <button
+        type="button"
+        className={styles.close}
+        data-testid="db-card-panel-close"
+        aria-label="Close [Esc]"
+        title="Close [Esc]"
+        onClick={onClose}
+      >
+        ×
+      </button>
+      <div className={styles.bigImage}>
+        <CardImage card={print} name={base.name} size="full" />
+      </div>
+      {entry.prints.length > 1 && (
+        <div className={styles.art} data-testid="db-art">
+          <button
+            type="button"
+            aria-label="Previous art"
+            onClick={() => onArt(-1)}
+          >
+            ‹
+          </button>
+          <span data-testid="db-art-index">
+            Art {artIndex + 1}/{entry.prints.length} · {print.cardNumber}
+          </span>
+          <button type="button" aria-label="Next art" onClick={() => onArt(1)}>
+            ›
+          </button>
+        </div>
+      )}
+      <h2 className={styles.detailName} data-testid="db-card-panel-name">
+        {base.name}
+      </h2>
+      <dl className={styles.facts}>
+        <dt>Type</dt>
+        <dd>{base.type}</dd>
+        <dt>Color</dt>
+        <dd>{base.colors.join(", ") || "None"}</dd>
+        {base.rank !== null && (
+          <>
+            <dt>Rank</dt>
+            <dd>{base.rank}</dd>
+          </>
+        )}
+        {traits.length > 0 && (
+          <>
+            <dt>Traits</dt>
+            <dd>{traits.join(", ")}</dd>
+          </>
+        )}
+        <dt>Movie</dt>
+        <dd>{movieOf(entry)}</dd>
+        <dt>Set</dt>
+        <dd>{setOf(entry)}</dd>
+      </dl>
+      {text.hasErrata && (
+        <div className={styles.detailMeta}>Errata: the corrected wording.</div>
+      )}
+      <p className={styles.detailText}>{text.text}</p>
+      <div className={styles.inDeck} data-testid="db-card-panel-copies">
+        In deck: {copies} / {limit}
+      </div>
+      <div className={styles.cardPanelActions}>
+        <button
+          type="button"
+          data-testid="db-card-panel-minus"
+          disabled={copies === 0}
+          onClick={onRemove}
+        >
+          − 1
+        </button>
+        <button type="button" data-testid="db-card-panel-plus" onClick={onAdd}>
+          + 1
+        </button>
+        <button
+          type="button"
+          data-testid="db-card-panel-fill"
+          title={`Fill to the limit (${limit})`}
+          disabled={copies >= limit}
+          onClick={onFill}
+        >
+          Add {limit}
+        </button>
+      </div>
+      <p className={styles.keysHint}>← → next and previous card · Esc closes</p>
+    </aside>
   );
 }
 
@@ -736,11 +1011,51 @@ function DecksWindow({
   );
 }
 
+/** A deck slot: the card's image, or a dashed empty slot. */
+function Slot({
+  card,
+  broken,
+  testId,
+  onOpen,
+  onHover,
+}: {
+  card: Card | undefined;
+  broken?: boolean;
+  testId: string;
+  onOpen: (card: Card) => void;
+  onHover: (card: Card | null) => void;
+}) {
+  if (!card)
+    return (
+      <div
+        className={styles.slotEmpty}
+        data-testid={`${testId}-empty`}
+        aria-hidden
+      />
+    );
+  return (
+    <button
+      type="button"
+      className={styles.slot}
+      data-testid={testId}
+      data-card-number={card.cardNumber}
+      data-broken={broken ? "true" : undefined}
+      aria-label={card.name}
+      title={card.name}
+      onClick={() => onOpen(card)}
+      onMouseEnter={() => onHover(card)}
+      onMouseLeave={() => onHover(null)}
+      onFocus={() => onHover(card)}
+      onBlur={() => onHover(null)}
+    >
+      <CardImage card={card} name={card.name} size="thumb" />
+    </button>
+  );
+}
+
 /**
- * The deck panel (#158): the deck's name, its monster deck and main deck with counts and limits
- * (a click or a drop adds, - and + change a print's count), live legality from `validateDeck`
- * with each reason in plain words and the cards it names marked, then Save, Save as copy, Export
- * as GojiSim text and New deck. An illegal deck can still be saved (Casual allows it).
+ * #165: the deck panel. The name, the legality banner, the monster deck's 4 image slots, the main
+ * deck as 50 slots or 8 rank columns, the counts, then Save, Save as copy and Export.
  */
 function DeckPanel({
   draft,
@@ -751,6 +1066,8 @@ function DeckPanel({
   onSave,
   onSaveCopy,
   onNew,
+  onOpen,
+  onHover,
 }: {
   draft: DeckDraft;
   dirty: boolean;
@@ -760,94 +1077,45 @@ function DeckPanel({
   onSave: () => void;
   onSaveCopy: () => void;
   onNew: () => void;
+  onOpen: (card: Card) => void;
+  onHover: (card: Card | null) => void;
 }) {
   const check = useMemo(() => legality(draft), [draft]);
-  const zone = (
-    which: DeckZone,
-    title: string,
-    cards: readonly Card[],
-    limit: number,
-  ) => (
-    <section
-      className={styles.zone}
-      data-testid={`db-zone-${which}`}
-      onDragOver={(e) => {
-        if (e.dataTransfer.types.includes(DRAG_TYPE)) e.preventDefault();
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        const id = e.dataTransfer.getData(DRAG_TYPE);
-        if (id) onDrop(id, which);
-      }}
+  const counts = useMemo(() => deckCounts(draft), [draft]);
+  const [view, setView] = useState<MainView>(loadView);
+  const broken = (card: Card) => check.marked.has(card.deckCardNumber);
+  const dropZone = (which: DeckZone) => ({
+    "data-testid": `db-zone-${which}`,
+    onDragOver: (e: React.DragEvent) => {
+      if (e.dataTransfer.types.includes(DRAG_TYPE)) e.preventDefault();
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      const id = e.dataTransfer.getData(DRAG_TYPE);
+      if (id) onDrop(id, which);
+    },
+  });
+  const count = (which: DeckZone, n: number, limit: number) => (
+    <span
+      data-testid={`db-count-${which}`}
+      data-full={n === limit ? "true" : "false"}
     >
-      <h3 className={styles.zoneTitle}>
-        {title}{" "}
-        <span
-          data-testid={`db-count-${which}`}
-          data-full={cards.length === limit ? "true" : "false"}
-        >
-          {cards.length}/{limit}
-        </span>
-      </h3>
-      {cards.length === 0 ? (
-        <p className={styles.hint}>Click a card, or drag it here.</p>
-      ) : (
-        <ul className={styles.deckRows}>
-          {rows(cards).map(({ card, count }) => (
-            <li
-              key={card.cardNumber}
-              data-testid="db-row"
-              data-card-number={card.cardNumber}
-              data-broken={
-                check.marked.has(card.deckCardNumber) ? "true" : undefined
-              }
-              className={
-                check.marked.has(card.deckCardNumber)
-                  ? styles.broken
-                  : undefined
-              }
-            >
-              <span className={styles.rowCount}>{count}×</span>
-              <span className={styles.rowName} title={card.cardNumber}>
-                {card.name}{" "}
-                <span className={styles.rowNumber}>{card.cardNumber}</span>
-              </span>
-              <button
-                type="button"
-                aria-label={`One fewer ${card.name}`}
-                data-testid="db-minus"
-                onClick={() =>
-                  onChange(removeCard(draft, which, card.cardNumber))
-                }
-              >
-                −
-              </button>
-              <button
-                type="button"
-                aria-label={`One more ${card.name}`}
-                data-testid="db-plus"
-                onClick={() => onChange(addCard(draft, card, which))}
-              >
-                +
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+      {n}/{limit}
+    </span>
   );
+  const monsters = slotOrder(draft.monsterDeck);
+  const main = slotOrder(draft.mainDeck);
   return (
     <aside className={styles.panel} data-testid="db-panel" aria-label="Deck">
-      <label className={styles.field}>
-        Deck name
+      <label className={styles.nameField}>
+        <span className={styles.visuallyHidden}>Deck name</span>
         <input
           data-testid="db-deck-name"
+          aria-label="Deck name"
           value={draft.name}
           onChange={(e) => onChange({ ...draft, name: e.target.value })}
         />
       </label>
-      {zone("monster", "Monster deck", draft.monsterDeck, MONSTER_DECK_SIZE)}
-      {zone("main", "Main deck", draft.mainDeck, MAIN_DECK_SIZE)}
       <section
         className={styles.legality}
         data-testid="db-legality"
@@ -868,6 +1136,115 @@ function DeckPanel({
           </>
         )}
       </section>
+      <section className={styles.zone} {...dropZone("monster")}>
+        <h3 className={styles.zoneTitle}>
+          Monster deck{" "}
+          {count("monster", draft.monsterDeck.length, MONSTER_DECK_SIZE)}
+        </h3>
+        <div className={styles.monsterSlots}>
+          {Array.from(
+            { length: Math.max(MONSTER_DECK_SIZE, monsters.length) },
+            (_, i) => (
+              <Slot
+                key={i}
+                card={monsters[i]}
+                broken={monsters[i] ? broken(monsters[i]) : false}
+                testId="db-monster-slot"
+                onOpen={onOpen}
+                onHover={onHover}
+              />
+            ),
+          )}
+        </div>
+      </section>
+      <section className={styles.zone} {...dropZone("main")}>
+        <h3 className={styles.zoneTitle}>
+          Main deck {count("main", draft.mainDeck.length, MAIN_DECK_SIZE)}
+          <span className={styles.spacer} />
+          <span
+            className={styles.viewToggle}
+            role="group"
+            aria-label="Main deck view"
+          >
+            {(
+              [
+                ["slots", "Slots"],
+                ["ranks", "Rank columns"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                data-testid={`db-view-${value}`}
+                aria-pressed={view === value}
+                onClick={() => {
+                  setView(value);
+                  saveView(value);
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </span>
+        </h3>
+        {view === "slots" ? (
+          <div className={styles.mainSlots} data-testid="db-main-slots">
+            {Array.from(
+              { length: Math.max(MAIN_DECK_SIZE, main.length) },
+              (_, i) => (
+                <Slot
+                  key={i}
+                  card={main[i]}
+                  broken={main[i] ? broken(main[i]) : false}
+                  testId="db-main-slot"
+                  onOpen={onOpen}
+                  onHover={onHover}
+                />
+              ),
+            )}
+          </div>
+        ) : (
+          <div className={styles.rankColumns} data-testid="db-rank-columns">
+            {rankColumns(draft.mainDeck).map((cards, i) => (
+              <div
+                key={i}
+                className={styles.rankColumn}
+                data-testid="db-rank-column"
+                data-rank={i + 1}
+              >
+                <div className={styles.rankHead}>
+                  R{i + 1} · {cards.length}
+                </div>
+                <ul>
+                  {/* Copies of a print stack into one entry with its count, so each name shows. */}
+                  {rows(cards).map(({ card, count: n }) => (
+                    <li key={card.cardNumber}>
+                      <button
+                        type="button"
+                        className={styles.stacked}
+                        data-testid="db-rank-card"
+                        data-card-number={card.cardNumber}
+                        data-copies={n}
+                        data-broken={broken(card) ? "true" : undefined}
+                        title={`${n} × ${card.name} (${card.cardNumber})`}
+                        onClick={() => onOpen(card)}
+                        onMouseEnter={() => onHover(card)}
+                        onMouseLeave={() => onHover(null)}
+                      >
+                        <b>{n}×</b> {card.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+      <div className={styles.counts} data-testid="db-counts">
+        Battle {counts.battle} · Strategy {counts.strategy}
+        {counts.colors.map(([color, n]) => ` · ${color} ${n}`).join("")}
+      </div>
       <div className={styles.panelActions}>
         <button type="button" data-testid="db-save" onClick={onSave}>
           Save{dirty ? " *" : ""}

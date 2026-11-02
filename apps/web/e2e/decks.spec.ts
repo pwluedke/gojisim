@@ -62,7 +62,7 @@ test("#158: the Movie filter narrows the grid and lives in the URL", async ({
   await expect(page).toHaveURL(/movie=Godzilla\+%281954%29/);
 });
 
-test("#157: hovering a card shows it in full; a card with parallel prints has an art choice", async ({
+test("#157: hovering a card shows it in full; #165: the card detail has the art choice", async ({
   page,
 }) => {
   await page.goto("/decks?q=godzilla");
@@ -73,16 +73,20 @@ test("#157: hovering a card shows it in full; a card with parallel prints has an
   await expect(preview.locator("h2")).toHaveText(
     (await first.locator("img").getAttribute("alt")) ?? "",
   );
-  const withArt = page
-    .getByTestId("db-card")
-    .filter({ has: page.getByTestId("db-art") })
-    .first();
-  await withArt.scrollIntoViewIfNeeded();
-  const index = withArt.getByTestId("db-art-index");
-  await expect(index).toHaveText(/^Art 1\/\d+$/);
+  // Godzilla (1954), EBP01-003, has a parallel print.
+  const withArt = page.locator(
+    '[data-testid="db-card"][data-card-number="EBP01-003"]',
+  );
+  await withArt.getByTestId("db-card-image").click();
+  const index = page.getByTestId("db-card-panel").getByTestId("db-art-index");
+  await expect(index).toHaveText(/^Art 1\/\d+ · EBP01-003$/);
   const before = await withArt.locator("img").getAttribute("src");
-  await withArt.getByRole("button", { name: "Next art" }).click();
-  await expect(index).toHaveText(/^Art 2\/\d+$/);
+  await page
+    .getByTestId("db-card-panel")
+    .getByRole("button", { name: "Next art" })
+    .click();
+  await expect(index).toHaveText(/^Art 2\/\d+/);
+  // The grid shows the chosen print too.
   expect(await withArt.locator("img").getAttribute("src")).not.toBe(before);
 });
 
