@@ -19,6 +19,9 @@ export function App() {
         >
           Play vs bot
         </a>
+        <a className={styles.item} href="/decks" data-testid="menu-decks">
+          Deckbuilder
+        </a>
         <a className={styles.debug} href="/debug" data-testid="menu-debug">
           Debug
         </a>
