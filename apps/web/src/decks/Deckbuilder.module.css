@@ -1,0 +1,242 @@
+/* The Deckbuilder (#157): a header, then filters, the card grid and the card preview. */
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-panel);
+  border-bottom: var(--panel-border-width) solid var(--color-panel-border);
+}
+
+.header button,
+.filters button,
+.window button,
+.art button {
+  padding: var(--space-1) var(--space-3);
+  border: var(--button-border);
+  border-radius: var(--radius);
+  background: var(--color-button);
+  color: var(--color-button-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.home {
+  color: var(--color-text);
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: var(--font-size-lg);
+  font-weight: var(--heading-weight);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.body {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 300px;
+  gap: var(--space-3);
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-3);
+}
+
+.filters,
+.detail {
+  overflow-y: auto;
+  padding: var(--space-3);
+  background: var(--color-panel);
+  border: var(--panel-border-width) solid var(--color-panel-border);
+  border-radius: var(--radius);
+  font-size: var(--font-size-sm);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.sets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.range {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.range input {
+  width: 4em;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.count {
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.cell {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: var(--radius);
+  outline-offset: 2px;
+}
+
+.thumb {
+  position: relative;
+  height: 172px;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--color-panel-alt);
+}
+
+.thumb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.fallback {
+  display: block;
+  visibility: hidden;
+  padding: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.cellName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+}
+
+.art {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-sm);
+}
+
+.art button {
+  padding: 0 var(--space-2);
+}
+
+.hint {
+  margin: 0;
+}
+
+.full {
+  width: 100%;
+  border-radius: var(--radius);
+}
+
+.detailName {
+  margin: var(--space-2) 0 var(--space-1);
+  font-size: var(--font-size-lg);
+}
+
+.detailMeta,
+.detailTraits {
+  margin-bottom: var(--space-1);
+}
+
+.detailText {
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-backdrop);
+  z-index: 50;
+}
+
+.window {
+  width: min(520px, 92vw);
+  max-height: 86vh;
+  overflow-y: auto;
+  padding: var(--space-4);
+  background: var(--color-panel);
+  border: var(--panel-border-width) solid var(--color-panel-border);
+  border-radius: var(--radius);
+  box-shadow: var(--panel-shadow);
+}
+
+.window h2,
+.window h3 {
+  margin: 0 0 var(--space-2);
+}
+
+.deckList {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+}
+
+.deckList li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.deckName {
+  flex: 1;
+}
+
+.windowActions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.thumb[data-missing] .fallback {
+  visibility: visible;
+}

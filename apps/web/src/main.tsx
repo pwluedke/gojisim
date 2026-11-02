@@ -14,6 +14,9 @@ const DebugViewer = lazy(() =>
 const PlayScreen = lazy(() =>
   import("./play/PlayScreen").then((m) => ({ default: m.PlayScreen })),
 );
+const Deckbuilder = lazy(() =>
+  import("./decks/Deckbuilder").then((m) => ({ default: m.Deckbuilder })),
+);
 
 const root = document.getElementById("root");
 if (!root) {
@@ -30,6 +33,10 @@ createRoot(root).render(
     {path.startsWith("/debug") ? (
       <Suspense fallback={<p>Loading debug viewer…</p>}>
         <DebugViewer />
+      </Suspense>
+    ) : path.startsWith("/decks") ? (
+      <Suspense fallback={<p>Loading the cards…</p>}>
+        <Deckbuilder />
       </Suspense>
     ) : path.startsWith("/history") ? (
       <History />

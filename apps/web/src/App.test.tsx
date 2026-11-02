@@ -10,7 +10,9 @@ describe("@gojisim/web", () => {
     expect(html).toContain('href="/debug"');
     expect(html).not.toContain("hotseat");
     // Play vs bot, Debug and What's new (#134).
-    expect(html.match(/<a /g)).toHaveLength(3);
+    expect(html.match(/<a /g)).toHaveLength(4);
+    // #157: the Deckbuilder.
+    expect(html).toContain('href="/decks"');
     expect(html).toContain(
       'href="https://github.com/pwluedke/gojisim/releases/latest"',
     );
