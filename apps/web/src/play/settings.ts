@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { fetchMe } from "../account";
+import { type AccountApi, accountApi } from "../game/accountSync";
 
 /** Card movement animation speed (M5f). */
 export type AnimationSpeed = "off" | "normal" | "fast";
@@ -95,20 +97,65 @@ export function applyTheme(theme: Theme): void {
 
 const STORAGE_KEY = "gojisim.settings";
 
+/** Settings from stored JSON: only known keys, over the defaults. */
+export function settingsFrom(saved: Record<string, unknown>): Settings {
+  // Only known keys: removed settings (M5h: `hotseatCover`, `confirmPass`) drop quietly and
+  // are gone after the next save.
+  const known = Object.fromEntries(
+    Object.entries(saved).filter(([key]) => key in DEFAULT_SETTINGS),
+  ) as Partial<Settings>;
+  return { ...DEFAULT_SETTINGS, ...known };
+}
+
 export function loadSettings(): Settings {
   try {
     const text = window.localStorage.getItem(STORAGE_KEY);
-    const saved = text ? (JSON.parse(text) as Record<string, unknown>) : {};
-    // Only known keys: removed settings (M5h: `hotseatCover`, `confirmPass`) drop quietly and
-    // are gone after the next save.
-    const known = Object.fromEntries(
-      Object.entries(saved).filter(([key]) => key in DEFAULT_SETTINGS),
-    ) as Partial<Settings>;
-    return { ...DEFAULT_SETTINGS, ...known };
+    return settingsFrom(
+      text ? (JSON.parse(text) as Record<string, unknown>) : {},
+    );
   } catch {
     return DEFAULT_SETTINGS;
   }
 }
+
+/** #152: when this browser last changed its settings (ISO), for the newest-wins rule. */
+const EDITED_KEY = "gojisim.settings.updatedAt";
+
+function readEditedAt(): string | null {
+  try {
+    return window.localStorage.getItem(EDITED_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeEditedAt(at: string): void {
+  try {
+    window.localStorage.setItem(EDITED_KEY, at);
+  } catch {
+    // Blocked storage: the account's copy then wins at the next sign-in.
+  }
+}
+
+/**
+ * #152: which copy of the settings wins at sign-in: the account's, unless this browser changed
+ * its own later (or the account has none yet, when this browser's become the account's).
+ */
+export function settingsWinner(
+  remote: {
+    settings: Record<string, unknown> | null;
+    updatedAt: string | null;
+  },
+  localEditedAt: string | null,
+): "account" | "browser" {
+  if (!remote.settings || !remote.updatedAt) return "browser";
+  if (localEditedAt && Date.parse(localEditedAt) > Date.parse(remote.updatedAt))
+    return "browser";
+  return "account";
+}
+
+/** How long a settings change waits before it goes to the account (a slider sends many). */
+export const SETTINGS_SYNC_MS = 800;
 
 function saveSettings(settings: Settings): void {
   try {
@@ -118,15 +165,63 @@ function saveSettings(settings: Settings): void {
   }
 }
 
-export function useSettings(): [Settings, (change: Partial<Settings>) => void] {
+/**
+ * The settings, saved in this browser. #152: signed in with Discord, they follow the player: at
+ * sign-in the account's copy wins (`settingsWinner`), and each change goes to the account too.
+ */
+export function useSettings(
+  api: AccountApi = accountApi(),
+  me: () => Promise<{ id: string } | null> = fetchMe,
+): [Settings, (change: Partial<Settings>) => void] {
   const [settings, setSettings] = useState(loadSettings);
+  const apiRef = useRef(api);
+  const signedIn = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latest = useRef(settings);
+  latest.current = settings;
+
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      if (!(await me())) return;
+      const remote = await apiRef.current.settings();
+      if (!live || !remote) return;
+      signedIn.current = true;
+      if (
+        settingsWinner(remote, readEditedAt()) === "account" &&
+        remote.settings
+      ) {
+        const next = settingsFrom(remote.settings);
+        applyTheme(next.theme);
+        saveSettings(next);
+        writeEditedAt(remote.updatedAt ?? new Date().toISOString());
+        setSettings(next);
+      } else {
+        const at = readEditedAt() ?? new Date().toISOString();
+        void apiRef.current.putSettings({ ...latest.current }, at);
+      }
+    })();
+    return () => {
+      live = false;
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, [me]);
+
   const update = (change: Partial<Settings>) => {
     if (change.theme) applyTheme(change.theme);
+    const at = new Date().toISOString();
+    writeEditedAt(at);
     setSettings((current) => {
       const next = { ...current, ...change };
       saveSettings(next);
       return next;
     });
+    if (signedIn.current) {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => {
+        void apiRef.current.putSettings({ ...latest.current }, at);
+      }, SETTINGS_SYNC_MS);
+    }
   };
   return [settings, update];
 }
