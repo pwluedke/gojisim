@@ -78,7 +78,7 @@ See [docs/deploy.md](docs/deploy.md) for the setup steps, deploying and rolling 
 
 ## Slack watcher
 
-`pnpm slack-watch` (`tools/slack-watch`) polls #gojisim-dev every 30 s and prints one line for each Monarch message (text starting with "[Monarch]") that has no :white_check_mark: reaction yet, once per run: `[slack] Monarch <time> <first 80 characters> ts=<ts>`. Thread replies count too. Mecha starts it as a monitored background command at the start of each session, so a printed line wakes the session to check Slack. An API error prints one line and polling goes on; a rate limit (429) waits the `Retry-After` time.
+`pnpm slack-watch` (`tools/slack-watch`) polls #gojisim-dev every 30 s and prints one line for each Monarch message (text starting with "[Monarch]") that has no :white_check_mark: reaction yet: `[slack] Monarch <time> <first 80 characters> ts=<ts>`, and again every 15 minutes, marked `(still unchecked)`, until it gets one (#148). Thread replies count too. Mecha starts it by itself as a monitored background command at the start of every session and whenever it has stopped (CLAUDE.md), and says so in #gojisim-dev; a printed line wakes the session to read Slack and act, so Paul doesn't type "check slack". No error stops it: an API error or an unexpected one prints one line and polling goes on; a rate limit (429) waits the `Retry-After` time.
 
 Token setup (once, by Paul):
 
@@ -108,7 +108,7 @@ Release notes are [GitHub Releases](https://github.com/pwluedke/gojisim/releases
 
 Lines read `Author (time) [reply to Author: "first 80 characters"]: text [attached: file names]`, with custom emoji as `:name:`, mentions as `@name`, links as `[link]` and line breaks as " / ". Bare links and empty messages are left out. A channel exported in both formats is read from its JSON pages only (the text format has local times and no ids, so its messages can't be matched to JSON's); text-only channels key each message by author, time and text. Thread folders (`threads/<name>`) become their own files.
 
-**Daily digest (#140).** A GitHub Action reads the COMMUNITY channels with Paul's bot once a day and posts the last 24 hours to Slack #gojisim-discord-digest (`pnpm discord-digest`, the same cleaning, links kept). Setup, what it reads and what the public log shows: [docs/discord.md](docs/discord.md).
+**Digest every 3 hours (#140, #148).** A GitHub Action reads the COMMUNITY channels with Paul's bot every 3 hours and posts what's new to Slack #gojisim-discord-digest (`pnpm discord-digest`, the same cleaning, links kept). Setup, what it reads and what the public log shows: [docs/discord.md](docs/discord.md).
 
 ## Layout
 

@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
-import { newState, poll, slackApi, tokenFrom } from "./watch";
+import { newState, POLL_MS, poll, slackApi, tokenFrom } from "./watch";
 
 /**
  * `pnpm slack-watch` (#85): polls #gojisim-dev every 30 s and prints a line for each unchecked
- * Monarch message, once per run. Run it as a monitored background command; a line means "check
- * slack". The token comes from `SLACK_WATCH_TOKEN` or the repo's `.envrc` (README).
+ * Monarch message, again every 15 minutes while it stays unchecked (#148). Mecha starts it at the
+ * start of every session as a monitored background command (CLAUDE.md); a line means "check
+ * slack". An error never stops it. The token comes from `SLACK_WATCH_TOKEN` or the repo's `.envrc` (README).
  */
 // pnpm runs this inside tools/slack-watch; .envrc is at the repo root.
 const root = new URL("../../../", import.meta.url);
@@ -25,7 +26,16 @@ const api = slackApi(token);
 const state = newState();
 console.log("[slack] watching #gojisim-dev every 30 s");
 for (;;) {
-  const { lines, waitMs } = await poll(api, state);
-  for (const line of lines) console.log(line);
+  // #148: nothing stops the loop; an unexpected error is one line and the next poll tries again.
+  let waitMs = POLL_MS;
+  try {
+    const result = await poll(api, state);
+    for (const line of result.lines) console.log(line);
+    waitMs = result.waitMs;
+  } catch (err) {
+    console.log(
+      `[slack] error poll: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
   await new Promise((resolve) => setTimeout(resolve, waitMs));
 }

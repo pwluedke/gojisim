@@ -192,7 +192,7 @@ describe("Discord digest (#140)", () => {
     expect(text).not.toContain(OLD.content ?? "x");
     // The log: counts only.
     expect(logs).toEqual([
-      "2 COMMUNITY channels, 1 threads, 3 new messages in the last 24 h.",
+      "2 COMMUNITY channels, 1 threads, 3 new messages in the last 24 h (0 already posted).",
       "Posted 1 of 1 Slack messages.",
     ]);
     for (const secretish of [
@@ -204,6 +204,54 @@ describe("Discord digest (#140)", () => {
       "example.com",
     ])
       expect(logs.join("\n")).not.toContain(secretish);
+  });
+
+  it("#148: every 3 hours with a 10-minute overlap; a message an earlier run posted is never posted twice", async () => {
+    const after = snowflakeAt(NOW - 3 * HOUR - 10 * 60_000);
+    const inOverlap = msg({
+      id: id(NOW - 3 * HOUR - 5 * 60_000),
+      author: user("Late"),
+      content: "posted last run",
+    });
+    const answers = {
+      "/guilds/g1/channels": CHANNELS,
+      "/guilds/g1/threads/active": { threads: [] },
+      "/channels/general/threads/archived": { threads: [] },
+      "/channels/bugs/threads/archived": { threads: [] },
+      [`/channels/general/messages?after=${after}`]: [HELLO, inOverlap],
+    };
+    const old = id(NOW - 50 * HOUR);
+    const seen = new Set([inOverlap.id, old]);
+    const posts: string[] = [];
+    const logs: string[] = [];
+    const run = (s: Set<string>, status = 200) =>
+      runDigest({
+        get: fakeDiscord(answers).get,
+        guildId: "g1",
+        hours: 3,
+        overlapMinutes: 10,
+        seen: s,
+        now: NOW,
+        post: async (t) => (posts.push(t), status),
+        log: (l) => logs.push(l),
+      });
+    expect(await run(seen)).toBe(1);
+    expect(posts.join("\n")).toContain("Mothra Fan");
+    expect(posts.join("\n")).not.toContain("posted last run");
+    expect(logs[0]).toBe(
+      "2 COMMUNITY channels, 0 threads, 1 new messages in the last 3 h (1 already posted).",
+    );
+    // HELLO is now seen; the 50-hour-old id is dropped.
+    expect([...seen].sort()).toEqual([HELLO.id, inOverlap.id].sort());
+    // The next run over the same window posts nothing.
+    posts.length = 0;
+    expect(await run(seen)).toBe(0);
+    expect(posts).toEqual([]);
+    // A failed post marks nothing, so the next run tries again.
+    const fresh = new Set<string>();
+    expect(await run(fresh, 500)).toBe(0);
+    expect(fresh.size).toBe(0);
+    process.exitCode = 0;
   });
 
   it("an empty day posts nothing", async () => {

@@ -28,6 +28,7 @@
 ## Communication
 
 - Slack: post status and questions in #gojisim-dev. Start every Slack message with "[Mecha]".
+- Watch Slack yourself (#148): at the start of every session, and again whenever it isn't running, start `pnpm slack-watch` as a monitored background command, and post "[Mecha] Watching #gojisim-dev." when it starts. Each line it prints is a cue to read #gojisim-dev and act on the unchecked Monarch messages; don't wait for Paul to say "check slack".
 
 ## Git
 

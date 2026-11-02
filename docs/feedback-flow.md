@@ -20,7 +20,7 @@ flowchart LR
   subgraph GitHubActions["GitHub Actions"]
     REL["Release workflow"]
     SMOKE["Smoke check workflow"]
-    DIG["Discord digest<br/>daily 11:00 UTC"]
+    DIG["Discord digest<br/>every 3 hours"]
   end
 
   BTN --> REC
@@ -56,23 +56,23 @@ flowchart LR
 
 ## Where each one goes
 
-| Input                      | Goes to                                                                              | How                                                                                                                    |
-| -------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| Button reports and crashes | `/data/records` on the server's volume                                               | `POST /api/games`, one file per game, replaced on each upload                                                          |
-| Each new report or crash   | Discord staff **#reports** and Slack **#gojisim-reports**                            | The server posts once per entry, at most 5 per upload; the upload never waits; no decklists; mentions off (#137, #146) |
-| Finished games             | `/data/records`                                                                      | The same upload; nothing is posted                                                                                     |
-| Discord COMMUNITY messages | Slack **#gojisim-discord-digest**                                                    | A daily GitHub Action at 11:00 UTC with Paul's bot, read-only (#140); STAFF and INFO are never read                    |
-| A release                  | GitHub Releases, Slack **#gojisim-release-notes**, the Discord release notes channel | The Release workflow, from each PR's "Release notes" section (#122, #135)                                              |
-| The deploy                 | Slack **#gojisim-release-notes** (pass) or **#gojisim-dev** (fail)                   | The smoke check plays a short game on the live site (#92)                                                              |
-| The latest release         | The app's "What's new" link                                                          | Read from GitHub's API, with a "New" dot until opened (#135)                                                           |
+| Input                      | Goes to                                                                              | How                                                                                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Button reports and crashes | `/data/records` on the server's volume                                               | `POST /api/games`, one file per game, replaced on each upload                                                                         |
+| Each new report or crash   | Discord staff **#reports** and Slack **#gojisim-reports**                            | The server posts once per entry, at most 5 per upload; the upload never waits; no decklists; mentions off (#137, #146)                |
+| Finished games             | `/data/records`                                                                      | The same upload; nothing is posted                                                                                                    |
+| Discord COMMUNITY messages | Slack **#gojisim-discord-digest**                                                    | A GitHub Action every 3 hours with Paul's bot, read-only (#140, #148); a message is never posted twice; STAFF and INFO are never read |
+| A release                  | GitHub Releases, Slack **#gojisim-release-notes**, the Discord release notes channel | The Release workflow, from each PR's "Release notes" section (#122, #135)                                                             |
+| The deploy                 | Slack **#gojisim-release-notes** (pass) or **#gojisim-dev** (fail)                   | The smoke check plays a short game on the live site (#92)                                                                             |
+| The latest release         | The app's "What's new" link                                                          | Read from GitHub's API, with a "New" dot until opened (#135)                                                                          |
 
 The smoke check's own game is marked `smokeCheck`, so it's never posted as a report and never counts in the win rates.
 
 ## Who reads what, and when
 
-- **Monarch** reads Slack when Paul prompts it: "check slack", and its check-ins. Its summary at 7:23 am Central in #gojisim-dev covers #gojisim-reports, #gojisim-discord-digest (posted at 6:00 CDT, before it) and the release and smoke results.
+- **Monarch** reads Slack when Paul prompts it: "check slack", and its check-ins. Its summary at 7:23 am Central in #gojisim-dev covers #gojisim-reports, #gojisim-discord-digest (posted every 3 hours) and the release and smoke results.
 - **Paul** reads Discord: #reports, and the community channels directly. He decides what becomes work.
-- **Mecha** reads #gojisim-dev and works from GitHub issues.
+- **Mecha** watches #gojisim-dev by itself (`pnpm slack-watch`, started every session; an unchecked Monarch message comes back every 15 minutes until read, #148), acts on Monarch's messages without Paul relaying, and works from GitHub issues.
 
 **From report to issue:** Monarch and Paul triage the reports together. A report worth acting on becomes a GitHub issue (the issue forms), with labels: `source:tester`, an `area:` label, and `owner:mecha` when Mecha takes it. It gets a milestone, and the issue names the record file and the `--at` index from the report's post, so the game can be replayed. The PR that fixes it says `Closes #N`.
 

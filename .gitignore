@@ -19,6 +19,8 @@ apps/web/e2e-records/
 apps/web/test-results/prod-records/
 # #92: the live smoke check's report and failure screenshot
 apps/web/smoke-results/
+# #148: the Discord digest's posted ids (the workflow keeps them in the Actions cache)
+.digest-seen.json
 bot-reports/
 
 # #99 sound candidates and their listening page (local only)

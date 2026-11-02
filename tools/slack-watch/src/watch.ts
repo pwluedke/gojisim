@@ -6,6 +6,8 @@
 
 export const CHANNEL = "C0CAKK9QHL3";
 export const POLL_MS = 30_000;
+/** #148: an unchecked Monarch message prints again after this long, so a busy session can't miss it. */
+export const REMIND_MS = 15 * 60_000;
 /** The read-receipt reaction. */
 const CHECK = "white_check_mark";
 
@@ -28,14 +30,17 @@ export type Api = (
   params: Record<string, string>,
 ) => Promise<ApiResult>;
 
-/** What one run remembers: the messages already printed and each thread's last reply seen. */
+/** What one run remembers: when each message last printed, and each thread's last reply seen. */
 export interface WatchState {
-  printed: Set<string>;
+  printed: Map<string, number>;
+  /** #148: the thread each printed reply is in, so a due reminder reads that thread again. */
+  replyThread: Map<string, string>;
   threads: Map<string, string>;
 }
 
 export const newState = (): WatchState => ({
-  printed: new Set(),
+  printed: new Map(),
+  replyThread: new Map(),
   threads: new Map(),
 });
 
@@ -74,18 +79,34 @@ export function lineFor(message: SlackMessage): string {
  * One poll: the channel's latest page, then the replies of every thread whose latest reply is
  * new to this run. A rate limit stops the poll and waits `Retry-After`; any other error prints
  * one line and the next poll tries again (a thread whose replies failed is read again then).
+ * #148: a message still unchecked `REMIND_MS` after it printed prints again, marked "(still
+ * unchecked)"; replies are read for that too, since a thread's unchecked reply needs no new reply.
  */
 export async function poll(
   api: Api,
   state: WatchState,
   channel = CHANNEL,
+  now = Date.now(),
 ): Promise<PollResult> {
   const lines: string[] = [];
   const report = (message: SlackMessage) => {
-    if (!needsCheck(message) || state.printed.has(message.ts)) return;
-    state.printed.add(message.ts);
-    lines.push(lineFor(message));
+    if (!needsCheck(message)) return;
+    const last = state.printed.get(message.ts);
+    if (last !== undefined && now - last < REMIND_MS) return;
+    state.printed.set(message.ts, now);
+    lines.push(
+      last === undefined
+        ? lineFor(message)
+        : `${lineFor(message)} (still unchecked)`,
+    );
   };
+  // A thread holding a printed reply that is due a reminder is read again.
+  const due = (thread: string) =>
+    [...state.replyThread].some(
+      ([reply, parent]) =>
+        parent === thread &&
+        now - (state.printed.get(reply) ?? now) >= REMIND_MS,
+    );
   const history = await api("conversations.history", {
     channel,
     limit: "200",
@@ -102,7 +123,11 @@ export async function poll(
   for (const message of [...messages].reverse()) {
     report(message);
     if (!message.reply_count || !message.latest_reply) continue;
-    if (state.threads.get(message.ts) === message.latest_reply) continue;
+    if (
+      state.threads.get(message.ts) === message.latest_reply &&
+      !due(message.ts)
+    )
+      continue;
     const replies = await api("conversations.replies", {
       channel,
       ts: message.ts,
@@ -117,8 +142,11 @@ export async function poll(
     // The first entry is the parent, already checked above.
     for (const reply of (
       (replies.body["messages"] ?? []) as SlackMessage[]
-    ).filter((r) => r.ts !== message.ts))
+    ).filter((r) => r.ts !== message.ts)) {
+      if (needsCheck(reply)) state.replyThread.set(reply.ts, message.ts);
+      else state.replyThread.delete(reply.ts);
       report(reply);
+    }
     state.threads.set(message.ts, message.latest_reply);
   }
   return { lines, waitMs: POLL_MS };
