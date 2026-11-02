@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BOTS } from "@gojisim/bot";
@@ -6,7 +6,13 @@ import { replayAll } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
 import { loadDeck } from "../src/decks";
 import { playMatchGame } from "../src/match";
-import { matchupArgs, type Plan } from "../src/plan";
+import {
+  matchupArgs,
+  type Plan,
+  planStatus,
+  readCurrentRun,
+  writeCurrentRun,
+} from "../src/plan";
 
 /** The official starters as one deck list file (made-up names; no player's decks). */
 function deckFile(): string {
@@ -93,5 +99,54 @@ describe("#170 deck-vs-deck", () => {
       join("bot-reports", "plans", "study", "records", "A01"),
     );
     expect(args).toContain("--deterministic");
+  });
+});
+
+describe("#177 the current run", () => {
+  it("bots-plan writes its folder and plan file to the current-run file, which the shell commands read", () => {
+    const dir = mkdtempSync(join(tmpdir(), "bots-run-"));
+    process.env["GOJISIM_CURRENT_RUN"] = join(dir, "current-run");
+    try {
+      expect(readCurrentRun()).toBeNull();
+      writeCurrentRun(dir, "bot-reports/plan.json");
+      expect(readFileSync(join(dir, "current-run"), "utf8")).toBe(
+        `${dir}\n${join(dir, "bot-reports/plan.json")}\n`,
+      );
+      expect(readCurrentRun()).toEqual({
+        dir,
+        plan: join(dir, "bot-reports/plan.json"),
+      });
+    } finally {
+      delete process.env["GOJISIM_CURRENT_RUN"];
+    }
+  });
+
+  it("bots-status counts a finished matchup from its report and one in progress from its journal", () => {
+    const out = mkdtempSync(join(tmpdir(), "bots-status-"));
+    const plan: Plan = {
+      name: "night",
+      defaults: { games: 60, seed: "night" },
+      matchups: [
+        { id: "A01", aDeck: "x#A", bDeck: "y#B" },
+        { id: "A02", aDeck: "x#A", bDeck: "y#C", games: 12 },
+        { id: "A03", aDeck: "x#A", bDeck: "y#D" },
+      ],
+    };
+    mkdirSync(join(out, "bot-reports", "plans", "night"), { recursive: true });
+    writeFileSync(
+      join(out, "bot-reports", "plans", "night", "A01.json"),
+      JSON.stringify({
+        games: Array.from({ length: 60 }, (_, i) => ({ game: i })),
+      }),
+    );
+    const journal = join(out, "bot-reports", "runs", "night-A02-0123456789ab");
+    mkdirSync(journal, { recursive: true });
+    writeFileSync(join(journal, "shard-0.jsonl"), '{"game":0}\n{"game":2}\n');
+    writeFileSync(join(journal, "shard-1.jsonl"), '{"game":1}\n');
+    expect(planStatus(plan, out)).toEqual([
+      { id: "A01", played: 60, total: 60, done: true },
+      { id: "A02", played: 3, total: 12, done: false },
+      { id: "A03", played: 0, total: 60, done: false },
+    ]);
   });
 });
