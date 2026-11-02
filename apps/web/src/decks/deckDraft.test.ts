@@ -5,14 +5,20 @@ import { getAllCards } from "@gojisim/cards/test-decks";
 import { describe, expect, it } from "vitest";
 import {
   addCard,
+  copiesOf,
   copyName,
   type DeckDraft,
+  deckCounts,
   draftOf,
   draftText,
   emptyDraft,
+  fillTo,
   legality,
+  rankColumns,
   removeCard,
+  removeCopy,
   rows,
+  slotOrder,
   zoneFor,
 } from "./deckDraft";
 
@@ -97,12 +103,24 @@ describe("live legality, as validateDeck reports it (#158)", () => {
     );
   });
 
-  it("6.1.1.2: the main deck needs exactly 50 cards", () => {
+  it("6.1.1.2: the main deck needs exactly 50 cards; #165: a short one reads as its empty slots", () => {
     const d = starter();
-    const l = legality({ ...d, mainDeck: d.mainDeck.slice(1) }, ASOF);
-    expect(l.legal).toBe(false);
-    expect(l.reasons.find((r) => r.rule === "6.1.1.2")?.text).toBe(
-      "Main deck: 49 cards, needs exactly 50",
+    const short = legality({ ...d, mainDeck: d.mainDeck.slice(1) }, ASOF);
+    expect(short.legal).toBe(false);
+    expect(short.reasons.find((r) => r.rule === "6.1.1.2")?.text).toBe(
+      "1 main deck slot is empty",
+    );
+    const empty = legality({ ...d, mainDeck: [] }, ASOF);
+    expect(empty.reasons.find((r) => r.rule === "6.1.1.2")?.text).toBe(
+      "50 main deck slots are empty",
+    );
+    // Too many keeps the rule's own words.
+    const long = legality(
+      { ...d, mainDeck: [...d.mainDeck, d.mainDeck[0] as Card] },
+      ASOF,
+    );
+    expect(long.reasons.find((r) => r.rule === "6.1.1.2")?.text).toBe(
+      "Main deck: 51 cards, needs exactly 50",
     );
   });
 
@@ -201,5 +219,62 @@ describe("live legality, as validateDeck reports it (#158)", () => {
           r.rule.startsWith("12.8"),
       ),
     ).toBe(true);
+  });
+});
+
+describe("#165 deck panel helpers", () => {
+  it("6.1.1.4: copies count every print of a card in both decks", () => {
+    const d = starter();
+    const monster = d.monsterDeck[0] as Card;
+    const withMain = addCard(d, monster, "main");
+    expect(copiesOf(withMain, monster.deckCardNumber)).toBe(2);
+  });
+
+  it("− takes a copy from the main deck first, then the monster deck", () => {
+    const d = starter();
+    const monster = d.monsterDeck[0] as Card;
+    const both = addCard(d, monster, "main");
+    const once = removeCopy(both, monster.deckCardNumber);
+    expect(once.mainDeck).toHaveLength(50);
+    expect(once.monsterDeck).toHaveLength(4);
+    const twice = removeCopy(once, monster.deckCardNumber);
+    expect(twice.monsterDeck).toHaveLength(3);
+    // Nothing left to take: unchanged.
+    expect(removeCopy(twice, monster.deckCardNumber)).toBe(twice);
+  });
+
+  it("Add 4 fills to the limit and never past it (6.1.1.4)", () => {
+    const battle = card("ESD01-016");
+    const d = addCard(emptyDraft(), battle);
+    const filled = fillTo(d, battle, 4);
+    expect(copiesOf(filled, battle.deckCardNumber)).toBe(4);
+    expect(fillTo(filled, battle, 4)).toBe(filled);
+    // A restricted card fills to its own limit.
+    expect(
+      copiesOf(fillTo(emptyDraft(), battle, 1), battle.deckCardNumber),
+    ).toBe(1);
+  });
+
+  it("Slots sort by rank, then name; Rank columns put each copy under ranks 1 to 8", () => {
+    const d = starter();
+    const slots = slotOrder(d.mainDeck);
+    expect(slots).toHaveLength(50);
+    const ranks = slots.map((c) => c.rank ?? 99);
+    expect([...ranks].sort((a, b) => a - b)).toEqual(ranks);
+    const columns = rankColumns(d.mainDeck);
+    expect(columns).toHaveLength(8);
+    expect(columns.flat()).toHaveLength(50);
+    columns.forEach((col, i) =>
+      col.forEach((c) => expect(Math.min(c.rank ?? 1, 8)).toBe(i + 1)),
+    );
+  });
+
+  it("the counts line: Battle, Strategy and each color in the main deck", () => {
+    const counts = deckCounts(starter());
+    expect(counts.battle + counts.strategy).toBeLessThanOrEqual(50);
+    expect(counts.colors[0]?.[0]).toBe("Red");
+    expect(counts.colors.reduce((n, [, k]) => n + k, 0)).toBeGreaterThanOrEqual(
+      50,
+    );
   });
 });
