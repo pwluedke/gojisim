@@ -528,10 +528,27 @@
   position: relative;
   /* Raised cards go over the mats. */
   z-index: 5;
-  /* Pushed to the window's bottom edge, whatever height the mats leave. */
-  flex: none;
-  margin-top: auto;
-  height: calc(var(--card-h) * var(--hand-peek));
+  /*
+   * #163: the row takes every height the mats leave, down to the window's bottom edge, so its
+   * top sits right under your mat; at least the top 40 % of a card 1.3 times the board's. A size
+   * container: the hand cards are sized from its height (`--hand-card-h`).
+   */
+  flex: 1 0 auto;
+  min-height: calc(var(--card-h) * var(--hand-scale) * var(--hand-peek));
+  container-type: size;
+}
+
+/*
+ * #163: the hand's own card size: the row's height is the top 40 % of a card, up to twice the
+ * board card. A raised card is 2.75 times the board card, capped by the window's height.
+ */
+.handCards {
+  --hand-card-h: min(100cqh / var(--hand-peek), var(--card-h) * 2);
+  --hand-card-w: calc(var(--hand-card-h) * 63 / 88);
+  --raised-h: min(
+    var(--card-h) * var(--raised-scale),
+    100vh - var(--header-h) - 8px
+  );
 }
 
 /* The hand's count, over its top-left corner. */
@@ -559,32 +576,46 @@
 .handCard {
   /* No z-index: the lifted card and the strip stack against the other hand cards. */
   position: relative;
-  width: var(--card-w);
-  height: var(--card-h);
+  width: var(--hand-card-w);
+  height: var(--hand-card-h);
   touch-action: none;
 }
 
 /* The card itself, which lifts; a raised card grows from its bottom edge, at the window's. */
 .handLift {
-  position: relative;
+  position: absolute;
+  bottom: 0;
+  left: 50%;
   width: 100%;
   height: 100%;
   border-radius: var(--radius);
   background: var(--color-panel);
-  transform-origin: 50% 100%;
-  transition: transform 0.12s ease-out;
+  transform: translateX(-50%);
+  transition:
+    width 0.12s ease-out,
+    height 0.12s ease-out,
+    bottom 0.12s ease-out;
 }
 
 /*
- * Hovering, keyboard focus or a selection raises a card straight up, whole and 1.5 times the board
- * card size, over the board and the other hand cards. A transform, so nothing else moves. Its
- * bottom edge lands on the row's bottom (the window's).
+ * Hovering, keyboard focus or a selection raises a card straight up, whole, over the board and
+ * the other hand cards. #163: 2.75 times the board card (was 1.5), never taller than the window.
+ * The lift is out of the row's flow, so nothing else moves. Its bottom edge lands on the row's
+ * bottom (the window's, decision 477), centered over the card's place.
  */
 .handCard:hover .handLift,
 .handCard:focus-visible .handLift,
 .handCard.selected .handLift {
   z-index: 10;
-  transform: translateY(calc(var(--card-h) * (var(--hand-peek) - 1))) scale(1.5);
+  bottom: calc(var(--hand-card-h) * (1 - var(--hand-peek)));
+  width: calc(var(--raised-h) * 63 / 88);
+  height: var(--raised-h);
+}
+
+/* #163: the card face fills its lift, at rest (the hand's size) and raised. */
+.handLift > * {
+  width: 100%;
+  height: 100%;
 }
 
 /* A selected card stays up until the action or Esc, and lets clicks through to the zones. */
@@ -602,7 +633,7 @@
   top: 0;
   left: 0;
   width: 100%;
-  height: calc(var(--card-h) * var(--hand-peek));
+  height: calc(var(--hand-card-h) * var(--hand-peek));
 }
 
 .playable {

@@ -553,6 +553,13 @@ body {
   --hand-gap: 4px;
   /* Your hand shows the top 40 % of each card at the window's bottom edge (Paul). */
   --hand-peek: 0.4;
+  /*
+   * #163: your hand's cards are at least this many times the board card (the board leaves room
+   * for them), and the row takes any height the mats leave, so it starts right under your mat.
+   */
+  --hand-scale: 1.3;
+  /* #163: a raised hand card is this many times the board card, never taller than the window. */
+  --raised-scale: 2.75;
   --left-column-width: 260px;
   --board-chrome: calc(
     40px + 4 * var(--mat-gap) + 4 * var(--mat-pad) + 4 * var(--mat-frame) +
@@ -560,7 +567,7 @@ body {
   );
   /* The mat is 5 portrait columns plus 2 landscape ones (M5f): 5w + 2h wide, w = 63h/88. */
   --card-h: min(
-    (100vh - var(--board-chrome)) / (6 + var(--hand-peek)),
+    (100vh - var(--board-chrome)) / (6 + var(--hand-scale) * var(--hand-peek)),
     (
       (
           100vw - var(--left-column-width) - var(--right-column-width) - 2 *
