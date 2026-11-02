@@ -68,6 +68,8 @@ flowchart LR
 
 The smoke check's own game is marked `smokeCheck`, so it's never posted as a report and never counts in the win rates.
 
+**Who sent it (#151):** with Discord sign-in on, the server writes the signed-in player into each upload (`playerId`, `playerName`, from the session, never from the app), and indexes the game for that player (SQLite). The report posts and `pnpm feedback` show the player's Discord name; the name typed in the report box only shows for records from before accounts. Each player can see their own games under **My games** and load one to replay it.
+
 ## Who reads what, and when
 
 - **Monarch** reads Slack when Paul prompts it: "check slack", and its check-ins. Its summary at 7:23 am Central in #gojisim-dev covers #gojisim-reports, #gojisim-discord-digest (posted every 3 hours) and the release and smoke results.

@@ -170,6 +170,25 @@ describe("pnpm feedback", () => {
     actions: [...game(6).actions, { type: "concede", player: "P2" }],
   });
 
+  it("#151: a report from a signed-in player shows the player's name, not the typed one", () => {
+    const record = {
+      ...reported,
+      gameId: "acct",
+      playerId: "p1",
+      playerName: "Kiryu",
+    };
+    const { markdown } = buildSummary(
+      [{ file: "2026-11-01/acct.json", record }],
+      options,
+    );
+    expect(markdown).toContain("Kiryu");
+    expect(markdown).not.toContain("Ann,");
+    expect(markdown).not.toContain("Bo,");
+    const lines = feedbackLines([{ file: "acct.json", record }]);
+    expect(lines.some((l) => l.startsWith("  Kiryu ("))).toBe(true);
+    expect(lines.some((l) => l.startsWith("  Ann ("))).toBe(false);
+  });
+
   it("#92: the smoke check's games are left out: no reports, not in the game count or the win rates", () => {
     const tester = { file: "2026-10-31/t.json", record: won("t") };
     const smoke = {

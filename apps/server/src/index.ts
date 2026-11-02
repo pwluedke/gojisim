@@ -8,7 +8,11 @@ import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { decklogMiddleware } from "./decklog.js";
 import { openDb } from "./db/db.js";
-import { createDiscordGate, type DiscordAuthOptions } from "./discordAuth.js";
+import {
+  createDiscordGate,
+  type DiscordAuthOptions,
+  requestPlayer,
+} from "./discordAuth.js";
 import { createGate } from "./gate.js";
 import {
   gamesMiddleware,
@@ -134,6 +138,8 @@ export function createAppServer({
     recordsDir,
     ...(maxRecordsBytes === undefined ? {} : { maxRecordsBytes }),
     ...(uploadsPerMinute === undefined ? {} : { uploadsPerMinute }),
+    // #151: with Discord sign-in, uploads carry the player and are indexed per player.
+    ...(discord ? { playerOf: requestPlayer, db: discord.db } : {}),
     onStored: reportPoster({
       webhook: reportsWebhook,
       slackWebhook: slackReportsWebhook,

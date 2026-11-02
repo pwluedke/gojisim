@@ -33,6 +33,10 @@ export function PlayerBadge({ className }: { className?: string | undefined }) {
       <span className={styles.name} data-testid="player-name">
         {player.name}
       </span>
+      {/* #151: the player's own games. */}
+      <a className={styles.games} href="/history" data-testid="my-games">
+        My games
+      </a>
       <form className={styles.signOut} method="post" action="/auth/logout">
         <button type="submit" data-testid="sign-out">
           Sign out

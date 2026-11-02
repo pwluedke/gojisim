@@ -89,6 +89,18 @@ export interface GameRecord {
    * and the Discord #reports posts leave such games out. Information only.
    */
   smokeCheck?: boolean;
+  /**
+   * #151: the signed-in player who uploaded it (Discord sign-in), written by the server from the
+   * session, never by the app. Reports show `playerName`; the typed reporter name is only for
+   * records from before accounts. Information only.
+   */
+  playerId?: string;
+  playerName?: string;
+  /**
+   * #151: the finished game's result, as the app saw it when uploading (the server indexes each
+   * player's games from it without running the engine). Information only.
+   */
+  outcome?: { winner: PlayerId | null; reason: string };
 }
 
 /** A crash (#95): the error as `errors.ts` captured it, where the game was, and the last answer. */

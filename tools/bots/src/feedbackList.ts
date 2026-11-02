@@ -104,7 +104,7 @@ export function feedbackLines(
           index: entry.actionIndex,
           lines: [
             `[${entryKind === "good" ? "Good Bot!" : "Bad Bot!"}] ${file} --at ${entry.actionIndex}`,
-            `  ${entry.reporter} (${entry.at.slice(0, 10)}): ${move ?? entry.label}${move && when ? ` (${when})` : ""}`,
+            `  ${record.playerName ?? entry.reporter} (${entry.at.slice(0, 10)}): ${move ?? entry.label}${move && when ? ` (${when})` : ""}`,
             `    label: ${entry.label}`,
             `  "${entry.text}"`,
           ],
@@ -122,7 +122,7 @@ export function feedbackLines(
           index: entry.actionIndex,
           lines: [
             `[Report bug] ${file} --at ${entry.actionIndex}`,
-            `  ${entry.reporter} (${entry.at.slice(0, 10)}), after ${entry.actionIndex} of ${record.actions.length} actions`,
+            `  ${record.playerName ?? entry.reporter} (${entry.at.slice(0, 10)}), after ${entry.actionIndex} of ${record.actions.length} actions`,
             `  "${entry.text}"`,
           ],
         });

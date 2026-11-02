@@ -61,8 +61,10 @@ const whenInLabel = (label: string | null) =>
 /** Every feedback entry in a record, with the key that tells a repeat upload's copy apart. */
 function entries(record: Json): { key: string; report: NewReport }[] {
   const out: { key: string; report: NewReport }[] = [];
+  // #151: the signed-in player's display name; the typed name only for records from before accounts.
+  const player = str(record["playerName"]);
   const base = (e: Json) => ({
-    reporter: str(e["reporter"]),
+    reporter: player ?? str(e["reporter"]),
     text: str(e["text"]) ?? "",
     actionIndex: num(e["actionIndex"]),
     move: null,
@@ -99,7 +101,7 @@ function entries(record: Json): { key: string; report: NewReport }[] {
       key: `crash|${str(crash["at"])}`,
       report: {
         kind: "Crash",
-        reporter: null,
+        reporter: player,
         text: str(crash["message"]) ?? "",
         when: str(crash["when"]),
         actionIndex: num(crash["actionIndex"]),

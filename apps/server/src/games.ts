@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import type { DatabaseSync } from "node:sqlite";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { join, relative } from "node:path";
 import { clientIp } from "./gate.js";
+import { indexGame, playerGame, playerGames } from "./playerGames.js";
 
 /**
  * Game collection (M13b): `GET /api/config` tells the web app whether the Test Site panel exists,
@@ -184,14 +186,24 @@ export interface GamesOptions {
     earlier: unknown,
     file: string,
   ) => Promise<unknown>;
+  /**
+   * #151: the request's signed-in player (Discord sign-in), recorded in the upload by the server
+   * (`playerId`, `playerName`); the client's own copies of those fields are dropped.
+   */
+  playerOf?: (
+    req: IncomingMessage,
+  ) => { id: string; displayName: string } | null;
+  /** #151: the database for each player's games index and history (Discord sign-in only). */
+  db?: DatabaseSync | undefined;
   now?: () => number;
   /** Where the "records folder full" line goes (default `console.error`). */
   log?: (line: string) => void;
 }
 
 /**
- * The config and upload routes as middleware. An upload is stored as the client sent it (the
- * server adds nothing, so no IP address or user agent reaches the file); with the Test Site off
+ * The config and upload routes as middleware. An upload is stored as the client sent it, except
+ * that with Discord sign-in the server records the player (#151); no IP address or user agent
+ * reaches the file; with the Test Site off
  * the upload route answers 404. Once the records folder would pass `maxRecordsBytes`, uploads
  * answer 507 and the server logs it (once until an upload fits again), so a looping client can't
  * fill the volume.
@@ -202,6 +214,8 @@ export function gamesMiddleware({
   maxRecordsBytes = MAX_RECORDS_DIR_BYTES,
   uploadsPerMinute = UPLOADS_PER_MINUTE,
   onStored,
+  playerOf,
+  db,
   now = Date.now,
   log = (line) => console.error(line),
 }: GamesOptions) {
@@ -229,6 +243,37 @@ export function gamesMiddleware({
     const path = (req.url ?? "").split("?")[0] ?? "";
     if (path === "/api/config" && req.method === "GET") {
       sendJson(res, 200, config);
+      return;
+    }
+    // #151: the signed-in player's own games: the list, and one record to load.
+    if (req.method === "GET" && path.startsWith("/api/games/")) {
+      const player = playerOf?.(req) ?? null;
+      if (!db || !player) {
+        sendJson(res, 404, { error: "no-accounts" });
+        return;
+      }
+      const which = decodeURIComponent(path.slice("/api/games/".length));
+      if (which === "mine") {
+        sendJson(res, 200, {
+          games: playerGames(db, player.id).map(
+            ({ file: _file, ...game }) => game,
+          ),
+        });
+        return;
+      }
+      const game = playerGame(db, player.id, which);
+      const text = game
+        ? await readFile(join(recordsDir, game.file), "utf8").catch(() => null)
+        : null;
+      if (!text) {
+        sendJson(res, 404, { error: "not-found" });
+        return;
+      }
+      res.writeHead(200, {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+      });
+      res.end(text);
       return;
     }
     if (path !== "/api/games" || req.method !== "POST") {
@@ -262,6 +307,17 @@ export function gamesMiddleware({
       sendJson(res, 400, { error: "not-a-record" });
       return;
     }
+    // #151: the player is the server's to record, from the session; never the client's word.
+    const player = playerOf?.(req) ?? null;
+    const fields = record as Record<string, unknown>;
+    const claimed = "playerId" in fields || "playerName" in fields;
+    delete fields["playerId"];
+    delete fields["playerName"];
+    if (player) {
+      fields["playerId"] = player.id;
+      fields["playerName"] = player.displayName;
+    }
+    const body = player || claimed ? JSON.stringify(fields) : text;
     // One file per game: a record with a game id replaces that game's earlier upload, in whichever
     // day folder it went to (a game may cross midnight). Without one (older clients), a new file.
     const gameId = gameIdOf(record as object);
@@ -269,9 +325,19 @@ export function gamesMiddleware({
       sendJson(res, 400, { error: "bad-game-id" });
       return;
     }
+    // #151: a game id that is another player's game can't be overwritten.
+    if (db && gameId && player) {
+      const owner = db
+        .prepare("SELECT player_id FROM games WHERE game_id = ?")
+        .get(gameId) as { player_id: string } | undefined;
+      if (owner && owner.player_id !== player.id) {
+        sendJson(res, 403, { error: "not-yours" });
+        return;
+      }
+    }
     const earlier = gameId ? await storedGame(recordsDir, gameId) : null;
     folderSize ??= folderBytes(recordsDir);
-    const size = Buffer.byteLength(text);
+    const size = Buffer.byteLength(body);
     // The replaced file's size is freed.
     const total = (await folderSize) - (earlier?.size ?? 0);
     if (total + size > maxRecordsBytes) {
@@ -291,13 +357,24 @@ export function gamesMiddleware({
     let stored: string;
     if (earlier) {
       stored = earlier.path;
-      await writeFile(stored, text);
+      await writeFile(stored, body);
     } else {
       const day = new Date(now()).toISOString().slice(0, 10);
       await mkdir(join(recordsDir, day), { recursive: true });
       stored = join(recordsDir, day, `${id}.json`);
-      await writeFile(stored, text);
+      await writeFile(stored, body);
     }
+    if (db && player && gameId)
+      indexGame(
+        db,
+        {
+          gameId,
+          playerId: player.id,
+          file: relative(recordsDir, stored),
+          record: fields,
+        },
+        now(),
+      );
     sendJson(res, 201, { id });
     if (onStored)
       void onStored(record, before, relative(recordsDir, stored)).catch(() => {

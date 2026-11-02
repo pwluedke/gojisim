@@ -46,6 +46,14 @@ import {
  */
 
 export const OAUTH_COOKIE = "gojisim_oauth";
+
+/** #151: the signed-in player of each request the gate let through, for the routes after it. */
+const players = new WeakMap<IncomingMessage, Player>();
+
+/** The request's signed-in player (Discord sign-in only), or `null`. */
+export function requestPlayer(req: IncomingMessage): Player | null {
+  return players.get(req) ?? null;
+}
 export const ROLE_CHECK_MS = 24 * 60 * 60_000;
 const OAUTH_MINUTES = 10;
 const MINUTE = 60_000;
@@ -457,6 +465,7 @@ export function createDiscordGate({
         );
         return;
       }
+      players.set(req, player);
       next();
       return;
     }

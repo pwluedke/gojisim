@@ -254,6 +254,7 @@ The site can let testers in with their Discord account instead of the shared pas
 - **Roles:** checked at each sign-in, and again when a page loads more than 24 hours later (a quick, silent trip through Discord). Removing someone's Tester role takes effect within a day.
 - **Session:** the session cookie names the player and lasts 30 days. Sign out (on the menu, in the Showa header, and in Settings) ends it.
 - **Database updates:** they run at start. Before any update, the server copies the database to `/data/backups/gojisim-<version>-<time>.db` and keeps the last 5. A failed update stops the start (Railway keeps the old deploy). To undo one, stop the service, copy the backup back over `/data/gojisim.db` (`railway ssh`), and deploy the older code.
+- **Games and reports (#151):** each upload from a signed-in tester carries their player id and name, written by the server, and the game is indexed for them in the database (result, date, bot level, decks). The report posts and `pnpm feedback` name the player. Testers see their own games under **My games** (`/history`) and can load one to replay it. Nobody can see, load or overwrite another player's games.
 - **Smoke check:** it signs in with `SMOKE_LOGIN_TOKEN` as the `smoke` player. The token is compared in constant time and limited to 10 wrong tries a minute per IP, and it works only with `GOJISIM_AUTH=discord`.
 - **Locally:** `pnpm dev` has a dev sign-in (`/auth/dev`) for trying the player badge. The built server has no such route.
 

@@ -35,3 +35,43 @@ export function fetchMe(fetchImpl: typeof fetch = fetch): Promise<Me | null> {
 export function resetMe(): void {
   me = null;
 }
+
+/** One of the player's games in their history (#151), as `GET /api/games/mine` lists it. */
+export interface MyGame {
+  gameId: string;
+  startedAt: number;
+  updatedAt: number;
+  endedAt: number | null;
+  result: "win" | "loss" | "draw" | null;
+  botLevel: string | null;
+  deckNames: string | null;
+}
+
+/** The player's games, newest first; `null` without accounts (or when the list can't be read). */
+export async function fetchMyGames(
+  fetchImpl: typeof fetch = fetch,
+): Promise<MyGame[] | null> {
+  try {
+    const res = await fetchImpl("/api/games/mine", {
+      headers: { accept: "application/json" },
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { games?: unknown };
+    return Array.isArray(body.games) ? (body.games as MyGame[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** One of the player's games' record (JSON text) to load, or `null`. */
+export async function fetchMyGame(
+  gameId: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string | null> {
+  try {
+    const res = await fetchImpl(`/api/games/${encodeURIComponent(gameId)}`);
+    return res.ok ? await res.text() : null;
+  } catch {
+    return null;
+  }
+}
