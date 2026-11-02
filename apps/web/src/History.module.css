@@ -53,3 +53,10 @@
   margin-top: var(--space-4);
   color: var(--color-text);
 }
+
+/* #153: the beta season's note. */
+.beta {
+  margin: var(--space-2) 0;
+  font-size: var(--font-size-sm);
+  font-style: italic;
+}

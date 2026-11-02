@@ -259,6 +259,33 @@ The site can let testers in with their Discord account instead of the shared pas
 - **Smoke check:** it signs in with `SMOKE_LOGIN_TOKEN` as the `smoke` player. The token is compared in constant time and limited to 10 wrong tries a minute per IP, and it works only with `GOJISIM_AUTH=discord`.
 - **Locally:** `pnpm dev` has a dev sign-in (`/auth/dev`) for trying the player badge. The built server has no such route.
 
+## Public launch: reset players' history (#153)
+
+During testing every game is a **beta** game: it's recorded for our metrics, and the app labels it ("Beta games don't count toward your record", a Beta tag next to your name and on My games). At public launch, start a new season, so players' history and statistics show only games from then on. Nothing is deleted: beta games stay in the database and the record files stay on the volume.
+
+**When:** once, right after the launch deploy (the season starts the moment you run it).
+
+**How (Paul):**
+
+1. Open a shell on the service: `railway ssh` from the `gojisim` folder on your Mac.
+2. Dry run, which changes nothing:
+
+   ```
+   cd /app && node apps/server/dist/resetHistory.js
+   ```
+
+   It prints the current season, the number of players, and how many games this season has. (`pnpm accounts:reset-history` runs the same thing where pnpm is installed.)
+
+3. The real run, with the new season's name (lowercase letters, digits and dashes, for example `launch`):
+
+   ```
+   node apps/server/dist/resetHistory.js --apply --season launch
+   ```
+
+   It asks you to type the name again. Then it backs up the database to `/data/backups/gojisim-before-launch-<time>.db` and starts the season. The running server picks it up on its next request: no restart, no deploy.
+
+To undo, copy that backup back over `/data/gojisim.db` and restart the service. Games played since the reset would be lost from the database (their record files stay).
+
 ## How the gate works
 
 - **Every route needs the login cookie:** pages, scripts, styles, card images and `/api/*`.

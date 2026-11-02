@@ -210,6 +210,8 @@ describe("Discord sign-in (#150)", () => {
       id,
       name: "Kiryu",
       avatarUrl: "https://cdn.discordapp.com/avatars/111/abc.png?size=64",
+      // #153: the current season.
+      season: "beta",
     });
     // Signing in again keeps the same player, with the newer name and avatar.
     account.global_name = null;

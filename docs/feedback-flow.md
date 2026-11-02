@@ -68,7 +68,7 @@ flowchart LR
 
 The smoke check's own game is marked `smokeCheck`, so it's never posted as a report and never counts in the win rates.
 
-**Who sent it (#151):** with Discord sign-in on, the server writes the signed-in player into each upload (`playerId`, `playerName`, from the session, never from the app), and indexes the game for that player (SQLite). The report posts and `pnpm feedback` show the player's Discord name; the name typed in the report box only shows for records from before accounts. Each player can see their own games under **My games** and load one to replay it.
+**Who sent it (#151):** with Discord sign-in on, the server writes the signed-in player into each upload (`playerId`, `playerName`, from the session, never from the app), and indexes the game for that player (SQLite). The report posts and `pnpm feedback` show the player's Discord name; the name typed in the report box only shows for records from before accounts. Each player can see their own games under **My games** and load one to replay it. During testing those are **beta** games: they count for our metrics but not for players, and at public launch Paul starts a new season (`pnpm accounts:reset-history`, #153), after which history shows only the new season.
 
 ## Who reads what, and when
 

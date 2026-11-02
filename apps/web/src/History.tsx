@@ -1,6 +1,6 @@
 import "./theme.css";
 import { useEffect, useState } from "react";
-import { fetchMyGames, type MyGame } from "./account";
+import { BETA_NOTE, fetchMyGames, type MyGame } from "./account";
 import styles from "./History.module.css";
 import { PlayerBadge } from "./PlayerBadge";
 import { ThemeHeader } from "./ThemeHeader";
@@ -24,8 +24,12 @@ const when = (ms: number) =>
  */
 export function History() {
   const [games, setGames] = useState<MyGame[] | null | undefined>(undefined);
+  const [season, setSeason] = useState<string | null>(null);
   useEffect(() => {
-    void fetchMyGames().then(setGames);
+    void fetchMyGames().then((mine) => {
+      setGames(mine ? mine.games : null);
+      setSeason(mine?.season ?? null);
+    });
   }, []);
   return (
     <div className="gojisim">
@@ -33,6 +37,11 @@ export function History() {
       <main className={styles.history}>
         <h1 className={styles.title}>My games</h1>
         <PlayerBadge />
+        {season === "beta" && (
+          <p className={styles.beta} data-testid="beta-note">
+            {BETA_NOTE}
+          </p>
+        )}
         {games === undefined ? (
           <p>Loading…</p>
         ) : games === null ? (

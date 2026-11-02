@@ -81,7 +81,10 @@ export function putDeck(
   if (!stored) {
     const count = (
       db
-        .prepare("SELECT COUNT(*) AS n FROM player_decks WHERE player_id = ?")
+        // Only live decks count: tombstones don't fill the limit (Monarch's #156 note).
+        .prepare(
+          "SELECT COUNT(*) AS n FROM player_decks WHERE player_id = ? AND deleted = 0",
+        )
         .get(playerId) as {
         n: number;
       }

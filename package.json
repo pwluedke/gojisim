@@ -27,6 +27,7 @@
     "survey": "pnpm --filter @gojisim/ability-survey survey",
     "discord-notes": "pnpm --filter @gojisim/discord-notes discord-notes",
     "rollback": "pnpm --filter @gojisim/release-notes rollback",
+    "accounts:reset-history": "node apps/server/dist/resetHistory.js",
     "smoke": "pnpm --filter @gojisim/release-notes smoke",
     "discord-digest": "pnpm --filter @gojisim/discord-notes discord-digest",
     "release-notes": "pnpm --filter @gojisim/release-notes release-notes",

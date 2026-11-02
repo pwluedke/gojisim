@@ -19,6 +19,7 @@ import {
   sendHtml,
   TRIES_PER_MINUTE,
 } from "./gate.js";
+import { currentSeason } from "./seasons.js";
 import {
   type Player,
   playerById,
@@ -461,6 +462,8 @@ export function createDiscordGate({
             id: player.id,
             name: player.displayName,
             avatarUrl: player.avatarUrl,
+            // #153: the current season ("beta" until the launch reset).
+            season: currentSeason(db),
           }),
         );
         return;

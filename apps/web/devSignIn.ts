@@ -11,7 +11,13 @@ import type { IncomingMessage, ServerResponse } from "node:http";
  * - `POST /auth/logout` signs out.
  */
 export const DEV_COOKIE = "gojisim_dev_player";
-export const DEV_PLAYER = { id: "dev", name: "Dev Tester", avatarUrl: null };
+export const DEV_PLAYER = {
+  id: "dev",
+  name: "Dev Tester",
+  avatarUrl: null,
+  // #153: as the server says until the launch reset.
+  season: "beta",
+};
 
 const signedIn = (req: IncomingMessage) =>
   (req.headers.cookie ?? "")

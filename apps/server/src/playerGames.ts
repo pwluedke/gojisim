@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { levelName } from "./reports.js";
+import { currentSeason } from "./seasons.js";
 
 /**
  * Each player's games in SQLite (#151), so their history and statistics don't scan the record
@@ -67,8 +68,8 @@ export function indexGame(
 ): void {
   const { result, botLevel, deckNames } = gameFacts(game.record);
   db.prepare(
-    `INSERT INTO games (game_id, player_id, file, started_at, updated_at, ended_at, result, bot_level, deck_names)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO games (game_id, player_id, file, started_at, updated_at, ended_at, result, bot_level, deck_names, season)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(game_id) DO UPDATE SET
        file = excluded.file,
        updated_at = excluded.updated_at,
@@ -87,6 +88,8 @@ export function indexGame(
     result,
     botLevel,
     deckNames,
+    // #153: a game stays in the season it started in (the update keeps it).
+    currentSeason(db),
   );
 }
 
@@ -112,7 +115,7 @@ const fromRow = (r: Row): GameRow => ({
   deckNames: r.deck_names,
 });
 
-/** A player's games, newest first (at most `limit`). */
+/** A player's games in the current season (#153), newest first (at most `limit`). */
 export function playerGames(
   db: DatabaseSync,
   playerId: string,
@@ -121,9 +124,9 @@ export function playerGames(
   return (
     db
       .prepare(
-        "SELECT * FROM games WHERE player_id = ? ORDER BY started_at DESC LIMIT ?",
+        "SELECT * FROM games WHERE player_id = ? AND season = ? ORDER BY started_at DESC LIMIT ?",
       )
-      .all(playerId, limit) as unknown as Row[]
+      .all(playerId, currentSeason(db), limit) as unknown as Row[]
   ).map(fromRow);
 }
 

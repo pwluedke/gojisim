@@ -68,6 +68,23 @@ export const MIGRATIONS: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 4,
+    name: "seasons",
+    // #153: every game belongs to a season. Testing is "beta"; at public launch Paul starts a
+    // new season (`pnpm accounts:reset-history`), and history shows only the current one. Beta
+    // rows stay for the metrics. The current season is the one started last.
+    sql: `
+      CREATE TABLE seasons (
+        name TEXT PRIMARY KEY,
+        started_at INTEGER NOT NULL
+      ) STRICT;
+      INSERT INTO seasons (name, started_at) VALUES ('beta', 0);
+      ALTER TABLE games ADD COLUMN season TEXT NOT NULL DEFAULT 'beta';
+      DROP INDEX games_by_player;
+      CREATE INDEX games_by_player_season ON games (player_id, season, started_at DESC);
+    `,
+  },
 ];
 
 /** The schema version this code expects: the last migration's. */

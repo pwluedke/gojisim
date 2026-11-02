@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchMe, type Me } from "./account";
+import { BETA_NOTE, fetchMe, type Me } from "./account";
 import styles from "./PlayerBadge.module.css";
 
 /**
@@ -33,6 +33,12 @@ export function PlayerBadge({ className }: { className?: string | undefined }) {
       <span className={styles.name} data-testid="player-name">
         {player.name}
       </span>
+      {player.season === "beta" && (
+        // #153: until the launch reset, games are beta games.
+        <span className={styles.beta} data-testid="beta-tag" title={BETA_NOTE}>
+          Beta
+        </span>
+      )}
       {/* #151: the player's own games. */}
       <a className={styles.games} href="/history" data-testid="my-games">
         My games

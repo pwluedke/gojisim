@@ -5,6 +5,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { join, relative } from "node:path";
 import { clientIp } from "./gate.js";
 import { indexGame, playerGame, playerGames } from "./playerGames.js";
+import { currentSeason } from "./seasons.js";
 
 /**
  * Game collection (M13b): `GET /api/config` tells the web app whether the Test Site panel exists,
@@ -255,6 +256,7 @@ export function gamesMiddleware({
       const which = decodeURIComponent(path.slice("/api/games/".length));
       if (which === "mine") {
         sendJson(res, 200, {
+          season: currentSeason(db),
           games: playerGames(db, player.id).map(
             ({ file: _file, ...game }) => game,
           ),
