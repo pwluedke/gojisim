@@ -1,3 +1,4 @@
+import { PlayerBadge } from "./PlayerBadge";
 import styles from "./ThemeHeader.module.css";
 
 /**
@@ -12,6 +13,8 @@ export function ThemeHeader() {
       <span className={styles.wordmarkJa} lang="ja">
         ゴジシム！
       </span>
+      {/* #150: the signed-in player, at the bar's right end. */}
+      <PlayerBadge className={styles.player} />
     </header>
   );
 }

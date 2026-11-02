@@ -218,6 +218,45 @@ The service's settings live in `.railway/railway.ts`, not in the dashboard. Only
 
 - **Turn the Test Site off:** set `GOJISIM_TEST_SITE` to `off`. The panel disappears, nothing uploads (`POST /api/games` answers 404) and Show opponent's hand is off; records still load and replay.
 
+## Discord sign-in (player accounts, #150)
+
+The site can let testers in with their Discord account instead of the shared password. Only members of the GojiSim Discord server with the **Tester** role get in; anyone else sees a page asking them to ask Paul for the role. The password gate stays the default until you switch.
+
+**One time, Paul's steps:**
+
+1. **The OAuth app.** discord.com/developers/applications → your app (the digest bot's application works, or **New Application**) → **OAuth2**.
+   - Copy the **Client ID**, and **Reset Secret** to copy the **Client Secret**.
+   - **Redirects → Add Redirect:** `https://gojisim.somanygames.app/auth/discord/callback`, then **Save Changes**.
+2. **The Tester role's id.** In Discord (Developer Mode on: **User Settings → Advanced**), Server Settings → **Roles** → right-click **Tester** → **Copy Role ID**. Right-click the server's icon → **Copy Server ID** for the guild id (the digest's `DISCORD_GUILD_ID` is the same value).
+3. **A smoke-check token.** Make one on your Mac with `openssl rand -hex 32`.
+4. **Railway → `gojisim` → Variables:**
+
+   | Variable                 | Value                          |
+   | ------------------------ | ------------------------------ |
+   | `DISCORD_CLIENT_ID`      | the Client ID                  |
+   | `DISCORD_CLIENT_SECRET`  | the Client Secret              |
+   | `DISCORD_GUILD_ID`       | the server id                  |
+   | `DISCORD_TESTER_ROLE_ID` | the Tester role id             |
+   | `SMOKE_LOGIN_TOKEN`      | the token from step 3          |
+   | `GOJISIM_AUTH`           | `discord` (this is the switch) |
+
+   `SESSION_SECRET` stays as it is: it signs the new sessions too. `DISCORD_REDIRECT_URI` is only needed if the site moves (default: the address above). `GOJISIM_DB` is only needed to move the database (default `/data/gojisim.db`, on the volume).
+
+5. **GitHub → Settings → Secrets → Actions:** add `SMOKE_LOGIN_TOKEN` with the same token, so the smoke check can sign in.
+6. **Apply changes.** The deploy log ends with `GojiSim server listening on … (Discord sign-in on)`. With any of the four Discord variables missing, the server refuses to start and names it, and Railway keeps the previous deploy.
+
+**To switch back:** set `GOJISIM_AUTH` to `password` (or delete it). The password gate works as before, and the players stay in the database for next time.
+
+**How it works:**
+
+- **Sign-in:** Discord OAuth2 with PKCE, asking only for `identify` and `guilds.members.read`. No email is read or stored.
+- **What's stored:** each player in `/data/gojisim.db` (SQLite on the volume) with their Discord id, display name, avatar and times.
+- **Roles:** checked at each sign-in, and again when a page loads more than 24 hours later (a quick, silent trip through Discord). Removing someone's Tester role takes effect within a day.
+- **Session:** the session cookie names the player and lasts 30 days. Sign out (on the menu, in the Showa header, and in Settings) ends it.
+- **Database updates:** they run at start. Before any update, the server copies the database to `/data/backups/gojisim-<version>-<time>.db` and keeps the last 5. A failed update stops the start (Railway keeps the old deploy). To undo one, stop the service, copy the backup back over `/data/gojisim.db` (`railway ssh`), and deploy the older code.
+- **Smoke check:** it signs in with `SMOKE_LOGIN_TOKEN` as the `smoke` player. The token is compared in constant time and limited to 10 wrong tries a minute per IP, and it works only with `GOJISIM_AUTH=discord`.
+- **Locally:** `pnpm dev` has a dev sign-in (`/auth/dev`) for trying the player badge. The built server has no such route.
+
 ## How the gate works
 
 - **Every route needs the login cookie:** pages, scripts, styles, card images and `/api/*`.

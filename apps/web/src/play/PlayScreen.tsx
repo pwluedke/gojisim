@@ -95,6 +95,7 @@ import {
 import { MAT_MAX_BYTES } from "./matStore";
 import { useCustomMat } from "./useCustomMat";
 import { SoundPlayer, slamCues, stepIsHeard, stepSounds } from "../game/sounds";
+import { PlayerBadge } from "../PlayerBadge";
 import { WhatsNew } from "../WhatsNew";
 
 /** A combo hit's data entry (name, cards, steps, result). */
@@ -1058,6 +1059,8 @@ export function PlayScreen() {
           <WhatsNew className={styles.settingsWhatsNew} />
         </summary>
         <div className={styles.settingsPanel}>
+          {/* #150: who's signed in, and Sign out (nothing without accounts). */}
+          <PlayerBadge className={styles.settingsPlayer} />
           <label>
             Bot delay{" "}
             <input

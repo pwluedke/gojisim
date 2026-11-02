@@ -1,5 +1,6 @@
 import "./theme.css";
 import styles from "./Menu.module.css";
+import { PlayerBadge } from "./PlayerBadge";
 import { ThemeHeader } from "./ThemeHeader";
 import { WhatsNew } from "./WhatsNew";
 
@@ -10,6 +11,7 @@ export function App() {
       <ThemeHeader />
       <main className={styles.menu}>
         <h1 className={styles.title}>GojiSim</h1>
+        <PlayerBadge className={styles.player} />
         <a
           className={styles.item}
           href="/play?mode=bot"

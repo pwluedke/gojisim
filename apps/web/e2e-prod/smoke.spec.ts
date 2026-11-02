@@ -13,6 +13,8 @@ import { expect, type Page, test } from "@playwright/test";
 
 const LIVE = !!process.env["SMOKE_URL"];
 const PASSWORD = process.env["SMOKE_PASSWORD"] || "e2e testers only";
+/** #150: with Discord sign-in (`GOJISIM_AUTH=discord`), the smoke login token instead. */
+const TOKEN = process.env["SMOKE_LOGIN_TOKEN"] || "";
 
 /** The turn number on the board. */
 const turnNumber = async (page: Page) =>
@@ -51,10 +53,20 @@ test("smoke: log in, start a game against Easy, play a turn, and the game's uplo
   }
 
   await test.step("Log in", async () => {
-    await page.goto("/play?mode=bot");
-    await expect(page).toHaveURL(/\/login/);
-    await page.getByLabel("Password").fill(PASSWORD);
-    await page.getByRole("button", { name: "Enter" }).click();
+    if (TOKEN) {
+      // Discord can't be automated: the server's smoke login signs in the `smoke` player.
+      const res = await page.request.post("/auth/smoke", {
+        form: { token: TOKEN, next: "/play?mode=bot" },
+        maxRedirects: 0,
+      });
+      expect(res.status()).toBe(303);
+      await page.goto("/play?mode=bot");
+    } else {
+      await page.goto("/play?mode=bot");
+      await expect(page).toHaveURL(/\/login/);
+      await page.getByLabel("Password").fill(PASSWORD);
+      await page.getByRole("button", { name: "Enter" }).click();
+    }
     await expect(page).toHaveURL(/\/play/);
   });
 
