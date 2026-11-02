@@ -6,7 +6,9 @@ import {
   facets,
   filterFromQuery,
   filterToQuery,
+  movieOf,
   NO_FILTER,
+  NO_MOVIE,
   setOf,
 } from "./cardPool";
 
@@ -81,6 +83,28 @@ describe("the Deckbuilder's card pool (#157)", () => {
     expect(all.length).toBeLessThan(set.length);
   });
 
+  it("#158: the Movie filter: a title, case-insensitive, or 'No movie' for cards without one", () => {
+    const movies = facets(pool).movies;
+    expect(movies.length).toBeGreaterThan(5);
+    const title = movies.find((m) => m !== NO_MOVIE) as string;
+    const of = applyFilter(pool, { ...NO_FILTER, movie: title.toUpperCase() });
+    expect(of.length).toBeGreaterThan(0);
+    expect(of.every((e) => movieOf(e) === title)).toBe(true);
+    if (movies.includes(NO_MOVIE)) {
+      const none = applyFilter(pool, { ...NO_FILTER, movie: NO_MOVIE });
+      expect(none.every((e) => e.card.movie === null)).toBe(true);
+    }
+    // It combines with the others.
+    const both = applyFilter(pool, {
+      ...NO_FILTER,
+      movie: title,
+      types: ["Monster"],
+    });
+    expect(
+      both.every((e) => movieOf(e) === title && e.card.type === "Monster"),
+    ).toBe(true);
+  });
+
   it("the facets list each filter's values", () => {
     const f = facets(pool);
     expect(f.sets).toEqual(expect.arrayContaining(["ESD01", "ESD02", "EBP01"]));
@@ -100,6 +124,7 @@ describe("the Deckbuilder's card pool (#157)", () => {
       rankMax: 6,
       trait: "Godzilla",
       keyword: "burst",
+      movie: "Godzilla (1954)",
     };
     expect(filterFromQuery(filterToQuery(f))).toEqual(f);
     expect(filterToQuery(NO_FILTER)).toBe("");

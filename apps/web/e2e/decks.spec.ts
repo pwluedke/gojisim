@@ -50,6 +50,18 @@ test("#157: search and filters narrow the grid, combine, live in the URL, and Cl
     expect(n).toMatch(/^ESD01-/);
 });
 
+test("#158: the Movie filter narrows the grid and lives in the URL", async ({
+  page,
+}) => {
+  await page.goto("/decks");
+  await expect(page.getByTestId("db-card").first()).toBeVisible();
+  const all = await count(page);
+  await page.getByTestId("db-movie").fill("Godzilla (1954)");
+  await expect.poll(() => count(page)).toBeLessThan(all);
+  expect(await count(page)).toBeGreaterThan(0);
+  await expect(page).toHaveURL(/movie=Godzilla\+%281954%29/);
+});
+
 test("#157: hovering a card shows it in full; a card with parallel prints has an art choice", async ({
   page,
 }) => {
@@ -87,8 +99,8 @@ test("#157: the header opens Import and My decks (starters, your decks, Export a
   await page.getByTestId("db-my-decks").click();
   const win = page.getByTestId("db-decks-window");
   await expect(win.getByTestId("db-starter")).toHaveText([
-    "ESD01 official",
-    "ESD02 official",
+    /^ESD01 official/,
+    /^ESD02 official/,
   ]);
   await expect(win.getByTestId("db-export-all")).toBeDisabled();
   await expect(win.getByTestId("db-import-backup")).toBeVisible();

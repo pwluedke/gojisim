@@ -2,10 +2,11 @@ import "../theme.css";
 import { type Card, getCardText, getCardTraits } from "@gojisim/cards";
 import { getAllCards } from "@gojisim/cards/all-cards";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { backupJson, readBackup, savedDeck } from "../game/deckStore";
+import { backupJson, deckOf, readBackup, savedDeck } from "../game/deckStore";
 import { deckOptions } from "../game/decks";
 import { downloadText } from "../game/session";
 import { useMyDecks } from "../game/useMyDecks";
+import type { NamedDeck } from "@gojisim/cards/deck-lists";
 import { ImportDeck } from "../play/ImportDeck";
 import { applyTheme, loadSettings } from "../play/settings";
 import { PlayerBadge } from "../PlayerBadge";
@@ -21,18 +22,36 @@ import {
   type PoolEntry,
 } from "./cardPool";
 import styles from "./Deckbuilder.module.css";
+import {
+  addCard,
+  asDeck,
+  copyName,
+  type DeckDraft,
+  type DeckZone,
+  draftOf,
+  draftText,
+  emptyDraft,
+  legality,
+  MAIN_DECK_SIZE,
+  MONSTER_DECK_SIZE,
+  removeCard,
+  rows,
+} from "./deckDraft";
 
 /** A card cell's size in the grid, image and art row included (px). */
 const CELL_W = 132;
 const CELL_H = 212;
 const GAP = 8;
+/** The drag data: a print's id, dropped onto the deck panel's monster or main deck. */
+const DRAG_TYPE = "application/x-gojisim-card";
 /** Rows drawn above and below the visible ones, so a fast scroll doesn't show gaps. */
 const OVERSCAN = 2;
 
 /**
  * The Deckbuilder (#157): every supported card in a searchable, filterable grid, with the full
  * preview on hover and an art choice for cards with parallel prints. The header has Import and My
- * decks. The deck panel (#158) comes next.
+ * decks. #158: a click (or a drag onto the deck panel) adds the shown print to the deck, which is
+ * checked live with `validateDeck`, saved to My decks, edited, copied and exported.
  */
 export function Deckbuilder() {
   useEffect(() => applyTheme(loadSettings().theme), []);
@@ -48,6 +67,74 @@ export function Deckbuilder() {
   const [importing, setImporting] = useState(false);
   const [decksOpen, setDecksOpen] = useState(false);
   const my = useMyDecks();
+  // #158: the deck being built, the saved deck it edits (if any), and its text when last saved,
+  // so leaving with changes asks first.
+  const [draft, setDraft] = useState<DeckDraft>(() => emptyDraft());
+  const [editing, setEditing] = useState<string | null>(null);
+  const [savedText, setSavedText] = useState(() => draftText(emptyDraft()));
+  const [panelNote, setPanelNote] = useState<string | null>(null);
+  const dirty = draftText(draft) !== savedText;
+  useEffect(() => {
+    if (!dirty) return;
+    const ask = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", ask);
+    return () => window.removeEventListener("beforeunload", ask);
+  }, [dirty]);
+  /** Whether unsaved changes may be dropped (asks only when there are some). */
+  const mayLeave = () =>
+    !dirty || window.confirm(`Discard the unsaved changes to "${draft.name}"?`);
+  const openDraft = (next: DeckDraft, id: string | null) => {
+    if (!mayLeave()) return false;
+    setDraft(next);
+    setEditing(id);
+    setSavedText(draftText(next));
+    setPanelNote(null);
+    return true;
+  };
+  const save = () => {
+    const deck = asDeck(draft);
+    const named = { ...draft, name: deck.name };
+    const existing = editing
+      ? my.decks.find((d) => d.id === editing)
+      : undefined;
+    if (existing) {
+      my.update({
+        ...existing,
+        name: deck.name,
+        list: savedDeck(deck, deck.name).list,
+      });
+    } else {
+      const saved = savedDeck(deck, deck.name);
+      my.add(saved);
+      setEditing(saved.id);
+    }
+    setDraft(named);
+    setSavedText(draftText(named));
+    setPanelNote(`Saved ${deck.name}.`);
+  };
+  const saveCopy = () => {
+    const name = copyName(
+      draft.name.trim() || "New deck",
+      my.decks.map((d) => d.name),
+    );
+    const named = { ...draft, name };
+    const saved = savedDeck(asDeck(named), name);
+    my.add(saved);
+    setDraft(named);
+    setEditing(saved.id);
+    setSavedText(draftText(named));
+    setPanelNote(`Saved a copy as ${name}.`);
+  };
+  /** A print by its id, for drops onto the deck panel. */
+  const printsById = useMemo(() => {
+    const m = new Map<string, Card>();
+    for (const e of pool)
+      for (const print of e.prints) m.set(String(print.id), print);
+    return m;
+  }, [pool]);
 
   // The filters live in the URL, so a filtered view can be shared.
   useEffect(() => {
@@ -196,6 +283,21 @@ export function Deckbuilder() {
             </datalist>
           </label>
           <label className={styles.field}>
+            Movie
+            <input
+              list="db-movies"
+              data-testid="db-movie"
+              placeholder="Any"
+              value={filter.movie}
+              onChange={(e) => set({ movie: e.target.value })}
+            />
+            <datalist id="db-movies">
+              {values.movies.map((m) => (
+                <option key={m} value={m} />
+              ))}
+            </datalist>
+          </label>
+          <label className={styles.field}>
             Keyword
             <select
               data-testid="db-keyword"
@@ -227,6 +329,7 @@ export function Deckbuilder() {
           <CardGrid
             entries={shown}
             printOf={printOf}
+            onAdd={(e) => setDraft((d) => addCard(d, printOf(e)))}
             onHover={setHovered}
             onArt={(e, step) =>
               setArt((a) => ({
@@ -238,19 +341,30 @@ export function Deckbuilder() {
             }
             artIndex={(e) => art[e.deckCardNumber] ?? 0}
           />
+          {hovered && (
+            <aside
+              className={styles.detail}
+              data-testid="db-detail"
+              aria-live="polite"
+            >
+              <CardDetail card={printOf(hovered)} base={hovered.card} />
+            </aside>
+          )}
         </section>
 
-        <aside
-          className={styles.detail}
-          data-testid="db-detail"
-          aria-live="polite"
-        >
-          {hovered ? (
-            <CardDetail card={printOf(hovered)} base={hovered.card} />
-          ) : (
-            <p className={styles.hint}>Hover a card to see it in full.</p>
-          )}
-        </aside>
+        <DeckPanel
+          draft={draft}
+          dirty={dirty}
+          note={panelNote}
+          onChange={setDraft}
+          onDrop={(id, zone) => {
+            const card = printsById.get(id);
+            if (card) setDraft((d) => addCard(d, card, zone));
+          }}
+          onSave={save}
+          onSaveCopy={saveCopy}
+          onNew={() => openDraft(emptyDraft(), null)}
+        />
       </div>
 
       {importing && (
@@ -272,7 +386,15 @@ export function Deckbuilder() {
           }}
         />
       )}
-      {decksOpen && <DecksWindow my={my} onClose={() => setDecksOpen(false)} />}
+      {decksOpen && (
+        <DecksWindow
+          my={my}
+          onClose={() => setDecksOpen(false)}
+          onLoad={(deck, id) => {
+            if (openDraft(draftOf(deck), id)) setDecksOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -284,12 +406,14 @@ export function Deckbuilder() {
 function CardGrid({
   entries,
   printOf,
+  onAdd,
   onHover,
   onArt,
   artIndex,
 }: {
   entries: readonly PoolEntry[];
   printOf: (e: PoolEntry) => Card;
+  onAdd: (e: PoolEntry) => void;
   onHover: (e: PoolEntry | null) => void;
   onArt: (e: PoolEntry, step: number) => void;
   artIndex: (e: PoolEntry) => number;
@@ -351,7 +475,21 @@ function CardGrid({
                 height: CELL_H,
               }}
               tabIndex={0}
+              role="button"
+              aria-label={`Add ${entry.card.name}`}
+              draggable
+              onDragStart={(e) =>
+                e.dataTransfer.setData(DRAG_TYPE, String(card.id))
+              }
+              onClick={() => onAdd(entry)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onAdd(entry);
+                }
+              }}
               onMouseEnter={() => onHover(entry)}
+              onMouseLeave={() => onHover(null)}
               onFocus={() => onHover(entry)}
             >
               <div className={styles.thumb}>
@@ -378,7 +516,11 @@ function CardGrid({
                   <button
                     type="button"
                     aria-label="Previous art"
-                    onClick={() => onArt(entry, -1)}
+                    onClick={(e) => {
+                      // Flipping the art doesn't add the card.
+                      e.stopPropagation();
+                      onArt(entry, -1);
+                    }}
                   >
                     ‹
                   </button>
@@ -388,7 +530,10 @@ function CardGrid({
                   <button
                     type="button"
                     aria-label="Next art"
-                    onClick={() => onArt(entry, 1)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onArt(entry, 1);
+                    }}
                   >
                     ›
                   </button>
@@ -437,9 +582,12 @@ function CardDetail({ card, base }: { card: Card; base: Card }) {
 function DecksWindow({
   my,
   onClose,
+  onLoad,
 }: {
   my: ReturnType<typeof useMyDecks>;
   onClose: () => void;
+  /** #158: open a deck in the builder (a starter has no id: saving makes it yours). */
+  onLoad: (deck: NamedDeck, id: string | null) => void;
 }) {
   const starters = useMemo(
     () => deckOptions([]).filter((o) => o.kind === "official"),
@@ -461,18 +609,55 @@ function DecksWindow({
         <ul className={styles.deckList}>
           {starters.map((s) => (
             <li key={s.key} data-testid="db-starter">
-              {s.label}
+              <span className={styles.deckName}>{s.label}</span>
+              <button
+                type="button"
+                data-testid="db-load"
+                onClick={() => onLoad({ ...s.build(0), name: s.label }, null)}
+              >
+                Load
+              </button>
             </li>
           ))}
         </ul>
         <h3>Your decks</h3>
         {my.decks.length === 0 ? (
-          <p>No saved decks yet. Import one, or build one (coming next).</p>
+          <p>No saved decks yet. Import one, or build one here.</p>
         ) : (
           <ul className={styles.deckList}>
             {my.decks.map((d) => (
               <li key={d.id} data-testid="db-deck" data-deck-name={d.name}>
                 <span className={styles.deckName}>{d.name}</span>
+                <button
+                  type="button"
+                  data-testid="db-load"
+                  onClick={() => {
+                    const deck = deckOf(d);
+                    if (deck) onLoad(deck, d.id);
+                    else
+                      setNote(
+                        `${d.name} no longer reads cleanly; fix it with Import.`,
+                      );
+                  }}
+                >
+                  Load
+                </button>
+                <button
+                  type="button"
+                  data-testid="db-duplicate"
+                  onClick={() => {
+                    const deck = deckOf(d);
+                    if (!deck) return;
+                    const name = copyName(
+                      d.name,
+                      my.decks.map((x) => x.name),
+                    );
+                    my.add(savedDeck({ ...deck, name }, name));
+                    setNote(`Duplicated as ${name}.`);
+                  }}
+                >
+                  Duplicate
+                </button>
                 {deleting === d.id ? (
                   <>
                     <button
@@ -548,5 +733,162 @@ function DecksWindow({
         {note && <p data-testid="db-decks-note">{note}</p>}
       </div>
     </div>
+  );
+}
+
+/**
+ * The deck panel (#158): the deck's name, its monster deck and main deck with counts and limits
+ * (a click or a drop adds, - and + change a print's count), live legality from `validateDeck`
+ * with each reason in plain words and the cards it names marked, then Save, Save as copy, Export
+ * as GojiSim text and New deck. An illegal deck can still be saved (Casual allows it).
+ */
+function DeckPanel({
+  draft,
+  dirty,
+  note,
+  onChange,
+  onDrop,
+  onSave,
+  onSaveCopy,
+  onNew,
+}: {
+  draft: DeckDraft;
+  dirty: boolean;
+  note: string | null;
+  onChange: (next: DeckDraft) => void;
+  onDrop: (printId: string, zone: DeckZone) => void;
+  onSave: () => void;
+  onSaveCopy: () => void;
+  onNew: () => void;
+}) {
+  const check = useMemo(() => legality(draft), [draft]);
+  const zone = (
+    which: DeckZone,
+    title: string,
+    cards: readonly Card[],
+    limit: number,
+  ) => (
+    <section
+      className={styles.zone}
+      data-testid={`db-zone-${which}`}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes(DRAG_TYPE)) e.preventDefault();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        const id = e.dataTransfer.getData(DRAG_TYPE);
+        if (id) onDrop(id, which);
+      }}
+    >
+      <h3 className={styles.zoneTitle}>
+        {title}{" "}
+        <span
+          data-testid={`db-count-${which}`}
+          data-full={cards.length === limit ? "true" : "false"}
+        >
+          {cards.length}/{limit}
+        </span>
+      </h3>
+      {cards.length === 0 ? (
+        <p className={styles.hint}>Click a card, or drag it here.</p>
+      ) : (
+        <ul className={styles.deckRows}>
+          {rows(cards).map(({ card, count }) => (
+            <li
+              key={card.cardNumber}
+              data-testid="db-row"
+              data-card-number={card.cardNumber}
+              data-broken={
+                check.marked.has(card.deckCardNumber) ? "true" : undefined
+              }
+              className={
+                check.marked.has(card.deckCardNumber)
+                  ? styles.broken
+                  : undefined
+              }
+            >
+              <span className={styles.rowCount}>{count}×</span>
+              <span className={styles.rowName} title={card.cardNumber}>
+                {card.name}{" "}
+                <span className={styles.rowNumber}>{card.cardNumber}</span>
+              </span>
+              <button
+                type="button"
+                aria-label={`One fewer ${card.name}`}
+                data-testid="db-minus"
+                onClick={() =>
+                  onChange(removeCard(draft, which, card.cardNumber))
+                }
+              >
+                −
+              </button>
+              <button
+                type="button"
+                aria-label={`One more ${card.name}`}
+                data-testid="db-plus"
+                onClick={() => onChange(addCard(draft, card, which))}
+              >
+                +
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+  return (
+    <aside className={styles.panel} data-testid="db-panel" aria-label="Deck">
+      <label className={styles.field}>
+        Deck name
+        <input
+          data-testid="db-deck-name"
+          value={draft.name}
+          onChange={(e) => onChange({ ...draft, name: e.target.value })}
+        />
+      </label>
+      {zone("monster", "Monster deck", draft.monsterDeck, MONSTER_DECK_SIZE)}
+      {zone("main", "Main deck", draft.mainDeck, MAIN_DECK_SIZE)}
+      <section
+        className={styles.legality}
+        data-testid="db-legality"
+        data-legal={check.legal ? "true" : "false"}
+      >
+        {check.legal ? (
+          <strong>Legal for Tournament games</strong>
+        ) : (
+          <>
+            <strong>Not legal yet</strong> (Casual games allow it)
+            <ul>
+              {check.reasons.map((r, i) => (
+                <li key={i} data-testid="db-reason">
+                  {r.text}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+      <div className={styles.panelActions}>
+        <button type="button" data-testid="db-save" onClick={onSave}>
+          Save{dirty ? " *" : ""}
+        </button>
+        <button type="button" data-testid="db-save-copy" onClick={onSaveCopy}>
+          Save as copy
+        </button>
+        <button
+          type="button"
+          data-testid="db-export"
+          onClick={() =>
+            downloadText(draftText(draft), `${draft.name.trim() || "deck"}.txt`)
+          }
+        >
+          Export
+        </button>
+        <button type="button" data-testid="db-new" onClick={onNew}>
+          New deck
+        </button>
+      </div>
+      {note && <p data-testid="db-panel-note">{note}</p>}
+    </aside>
   );
 }

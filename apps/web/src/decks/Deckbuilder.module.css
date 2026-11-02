@@ -48,7 +48,7 @@
 
 .body {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr) 300px;
+  grid-template-columns: 220px minmax(0, 1fr) 320px;
   gap: var(--space-3);
   flex: 1;
   min-height: 0;
@@ -56,7 +56,7 @@
 }
 
 .filters,
-.detail {
+.panel {
   overflow-y: auto;
   padding: var(--space-3);
   background: var(--color-panel);
@@ -97,6 +97,7 @@
 }
 
 .results {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -239,4 +240,104 @@
 
 .thumb[data-missing] .fallback {
   visibility: visible;
+}
+
+/* #158: the hover preview floats over the grid's right edge; the deck panel has the column. */
+.detail {
+  position: absolute;
+  top: 28px;
+  right: 8px;
+  width: 260px;
+  max-height: calc(100% - 36px);
+  overflow-y: auto;
+  padding: var(--space-3);
+  background: var(--color-panel);
+  border: var(--panel-border-width) solid var(--color-panel-border);
+  border-radius: var(--radius);
+  box-shadow: var(--panel-shadow);
+  font-size: var(--font-size-sm);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.cell {
+  cursor: pointer;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.panel button {
+  padding: var(--space-1) var(--space-2);
+  border: var(--button-border);
+  border-radius: var(--radius);
+  background: var(--color-button);
+  color: var(--color-button-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.zone {
+  padding: var(--space-2);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+}
+
+.zoneTitle {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-md, 14px);
+}
+
+.deckRows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.deckRows li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 1px 0;
+}
+
+.rowCount {
+  min-width: 2.5ch;
+  font-weight: bold;
+}
+
+.rowName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.broken .rowName {
+  color: var(--color-danger, #c0392b);
+  font-weight: bold;
+}
+
+.legality ul {
+  margin: var(--space-1) 0 0;
+  padding-left: 1.2em;
+}
+
+.legality[data-legal="true"] strong {
+  color: var(--color-success, #2e7d32);
+}
+
+.panelActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+/* Several cards share a name (the Godzilla (2023) monsters): the number tells them apart. */
+.rowNumber {
+  font-size: var(--font-size-sm);
+  opacity: 0.75;
 }
