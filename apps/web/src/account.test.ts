@@ -29,6 +29,15 @@ describe("the signed-in player (#150)", () => {
       expect(meFrom(bad)).toBeNull();
   });
 
+  it("#153: reads the season when the server says", () => {
+    expect(
+      meFrom({ id: "p1", name: "K", avatarUrl: null, season: "beta" })?.season,
+    ).toBe("beta");
+    expect(
+      "season" in (meFrom({ id: "p1", name: "K", avatarUrl: null }) ?? {}),
+    ).toBe(false);
+  });
+
   it("asks once per page load; 404 (no accounts), 401 or offline means no player", async () => {
     const ok = vi.fn(
       async () =>
@@ -74,7 +83,12 @@ describe("my games (#151)", () => {
       new Response(
         JSON.stringify({ games: [game] }),
       )) as unknown as typeof fetch;
-    expect(await fetchMyGames(ok)).toEqual([game]);
+    expect(await fetchMyGames(ok)).toEqual({ season: null, games: [game] });
+    const beta = (async () =>
+      new Response(
+        JSON.stringify({ season: "beta", games: [] }),
+      )) as unknown as typeof fetch;
+    expect(await fetchMyGames(beta)).toEqual({ season: "beta", games: [] });
     expect(
       await fetchMyGames(
         (async () =>

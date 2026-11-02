@@ -44,3 +44,12 @@
 .games {
   color: inherit;
 }
+
+.beta {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius);
+  background: var(--color-highlight);
+  color: var(--color-highlight-text);
+  font-size: var(--font-size-sm);
+  font-weight: bold;
+}

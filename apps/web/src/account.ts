@@ -6,6 +6,8 @@ export interface Me {
   id: string;
   name: string;
   avatarUrl: string | null;
+  /** #153: the current season ("beta" during testing); absent from older servers. */
+  season?: string;
 }
 
 /** The player from `/api/me`'s answer, or `null` for anything else. */
@@ -17,6 +19,7 @@ export function meFrom(body: unknown): Me | null {
     id: b["id"],
     name: b["name"],
     avatarUrl: typeof b["avatarUrl"] === "string" ? b["avatarUrl"] : null,
+    ...(typeof b["season"] === "string" ? { season: b["season"] } : {}),
   };
 }
 
@@ -47,21 +50,28 @@ export interface MyGame {
   deckNames: string | null;
 }
 
-/** The player's games, newest first; `null` without accounts (or when the list can't be read). */
+/** The player's games this season, newest first, and the season; `null` without accounts. */
 export async function fetchMyGames(
   fetchImpl: typeof fetch = fetch,
-): Promise<MyGame[] | null> {
+): Promise<{ season: string | null; games: MyGame[] } | null> {
   try {
     const res = await fetchImpl("/api/games/mine", {
       headers: { accept: "application/json" },
     });
     if (!res.ok) return null;
-    const body = (await res.json()) as { games?: unknown };
-    return Array.isArray(body.games) ? (body.games as MyGame[]) : null;
+    const body = (await res.json()) as { games?: unknown; season?: unknown };
+    if (!Array.isArray(body.games)) return null;
+    return {
+      season: typeof body.season === "string" ? body.season : null,
+      games: body.games as MyGame[],
+    };
   } catch {
     return null;
   }
 }
+
+/** #153: the note the beta season shows until the launch reset. */
+export const BETA_NOTE = "Beta games don't count toward your record.";
 
 /** One of the player's games' record (JSON text) to load, or `null`. */
 export async function fetchMyGame(

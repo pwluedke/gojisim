@@ -19,6 +19,11 @@ test("#150: no player badge until signed in; the dev sign-in shows it on the men
   await expect(page.getByTestId("player-name").first()).toHaveText(
     "Dev Tester",
   );
+  // #153: the beta season's tag, with its note.
+  await expect(page.getByTestId("beta-tag").first()).toHaveAttribute(
+    "title",
+    "Beta games don't count toward your record.",
+  );
 
   await vsBot(page, 1);
   await page.getByTestId("settings").click();

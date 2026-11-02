@@ -25,6 +25,7 @@ test("#151: My games lists the player's games, and Load replays one in /play", a
   await page.route("**/api/games/mine", (route) =>
     route.fulfill({
       json: {
+        season: "beta",
         games: [
           {
             gameId: GAME,
@@ -52,6 +53,10 @@ test("#151: My games lists the player's games, and Load replays one in /play", a
     route.fulfill({ contentType: "application/json", body: record }),
   );
   await page.goto("/history");
+  // #153: the beta season says its games don't count.
+  await expect(page.getByTestId("beta-note")).toHaveText(
+    "Beta games don't count toward your record.",
+  );
   const rows = page.getByTestId("history-game");
   await expect(rows).toHaveCount(2);
   await expect(rows.nth(0)).toContainText("Won");

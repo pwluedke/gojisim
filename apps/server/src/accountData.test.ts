@@ -211,6 +211,13 @@ describe("My decks and Settings per player (#152)", () => {
     expect(
       (await ann.call("PUT", "/api/me/decks/one-more", deck("x", T(2)))).status,
     ).toBe(507);
+    // #153 (Monarch's #156 note): deleted decks don't count toward the limit.
+    db.prepare(
+      "UPDATE player_decks SET deleted = 1 WHERE deck_id = 'x1' AND player_id = ?",
+    ).run(ann.player.id);
+    expect(
+      (await ann.call("PUT", "/api/me/decks/one-more", deck("x", T(2)))).status,
+    ).toBe(200);
     // An existing deck can still change.
     expect(
       (await ann.call("PUT", "/api/me/decks/x0", deck("x", T(2)))).status,

@@ -40,13 +40,17 @@ const stamp = (ms: number) =>
     .replace(/:/g, "-");
 
 /** The time part of a backup's name, which sorts in time order (an ISO stamp). */
-const timeOf = (name: string) => name.replace(/^gojisim-\d+-/, "");
+const timeOf = (name: string) =>
+  /\d{4}-\d{2}-\d{2}T.*$/.exec(name)?.[0] ?? name;
 
-/** Copies the database (a consistent snapshot, WAL included) and keeps the newest few. */
-function backup(
+/**
+ * Copies the database (a consistent snapshot, WAL included) to `<dir>/gojisim-<label>-<time>.db`
+ * and keeps the newest few. Used before migrations and before a season reset (#153).
+ */
+export function backupDb(
   db: DatabaseSync,
   dir: string,
-  version: number,
+  version: number | string,
   now: number,
 ): string {
   mkdirSync(dir, { recursive: true });
@@ -54,7 +58,7 @@ function backup(
   // VACUUM INTO writes a clean copy that includes what's still in the WAL file.
   db.exec(`VACUUM INTO '${target.replace(/'/g, "''")}'`);
   const oldestFirst = readdirSync(dir)
-    .filter((name) => /^gojisim-\d+-.+\.db$/.test(name))
+    .filter((name) => /^gojisim-[a-z0-9-]+?-\d{4}-.+\.db$/.test(name))
     .sort((a, b) => timeOf(a).localeCompare(timeOf(b)));
   for (const old of oldestFirst.slice(
     0,
@@ -91,7 +95,7 @@ export function openDb(
   const pending = migrations.filter((m) => m.version > current);
   if (pending.length === 0) return db;
   if (existed && current > 0) {
-    const copy = backup(db, backupDir, current, now());
+    const copy = backupDb(db, backupDir, current, now());
     log(`GojiSim: backed up the database to ${copy} before migrating.`);
   }
   for (const migration of pending) {
