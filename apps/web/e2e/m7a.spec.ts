@@ -246,37 +246,53 @@ test("a godzilla-sim Export to Clipboard (no name line) saves once it's named", 
   await expect(await myDecks(page)).toHaveText(["From godzilla-sim"]);
 });
 
-test("Import all saves every deck that parses, without folders, and reports the bad one", async ({
+test("Import all keeps folders, skips a deck already saved, asks about a name clash, and reports the bad one (#167)", async ({
   page,
 }) => {
-  await page.goto("/decks");
-  await importDeck(
-    page,
-    cardsFixture("godzilla-sim-export-all.txt"),
-    "Starter Deck - Godzilla Minus One",
+  const all = cardsFixture("godzilla-sim-export-all.txt");
+  const heisei = "Starters/Starter Deck - Heisei Series Godzilla";
+  const minusOne = all.slice(
+    all.indexOf("[deck] Starters/Starter Deck - Godzilla Minus One"),
+    all.indexOf(`[deck] ${heisei}`),
   );
+  await page.goto("/decks");
+  // My decks already has a different "...Heisei Series Godzilla" (the Minus One list).
+  await importDeck(page, minusOne, heisei);
   await page.getByTestId("db-decks-close").click();
-  const text = `${cardsFixture("godzilla-sim-export-all.txt")}\n[deck] Club/Broken\n[main deck]\n4 ZZZ99-999\n`;
+  const text = `${all}\n[deck] Club/Broken\n[main deck]\n4 ZZZ99-999\n`;
   await page.getByTestId("db-import").click();
   await page.getByTestId("import-text").fill(text);
-  // The single deck's suggested name drops its folder.
-  await expect(page.getByTestId("import-name")).toHaveValue(
-    "Starter Deck - Godzilla Minus One",
-  );
   await page.getByTestId("import-all").click();
   await expect(page.getByTestId("import-all-result")).toContainText(
-    "Saved 2 of 3 decks",
+    "Saved 1 of 3 decks: Starters/Starter Deck - Godzilla Minus One",
   );
   await expect(page.getByTestId("import-all-result")).toContainText(
     "Not saved, Club/Broken: Line",
   );
+  const clash = page.getByTestId("import-clash");
+  await expect(clash).toHaveAttribute("data-deck-name", heisei);
+  await clash.getByTestId("import-clash-keep").click();
+  await expect(clash).toContainText(`Kept both: saved as "${heisei} (2)"`);
   // A second click can't save the same decks again.
   await expect(page.getByTestId("import-all")).toBeDisabled();
   await expect(page.getByTestId("import-cancel")).toHaveText("Close [Esc]");
   await page.getByTestId("import-cancel").click();
   await expect(await myDecks(page)).toHaveText([
-    "Starter Deck - Godzilla Minus One",
-    "Starter Deck - Godzilla Minus One (2)",
-    "Starter Deck - Heisei Series Godzilla",
+    heisei,
+    "Starters/Starter Deck - Godzilla Minus One",
+    `${heisei} (2)`,
   ]);
+  await page.getByTestId("db-decks-close").click();
+
+  // The same text again: what's saved is skipped; Replace gives the clash the imported list.
+  await page.getByTestId("db-import").click();
+  await page.getByTestId("import-text").fill(all);
+  await page.getByTestId("import-all").click();
+  await expect(page.getByTestId("import-all-same")).toContainText(
+    "Already in My decks: Starters/Starter Deck - Godzilla Minus One",
+  );
+  await page.getByTestId("import-clash-replace").click();
+  await expect(page.getByTestId("import-clash")).toContainText("Replaced.");
+  await page.getByTestId("import-cancel").click();
+  await expect(await myDecks(page)).toHaveCount(3);
 });

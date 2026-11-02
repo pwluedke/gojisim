@@ -5,12 +5,12 @@ import {
   type DeckOption,
   deckOptions,
   pickerGroups,
-  importsToMove,
   playDeckOptions,
   optionLegality,
   tournamentProblems,
   randomDeckKey,
 } from "./decks";
+import { importsToMove } from "./importDeck";
 import { newSession } from "./session";
 
 const official = (key: string) => {
@@ -155,8 +155,12 @@ describe("one simple picker (#161)", () => {
     const changed = deck("Changed", "ESD01-016");
     const fresh = deck("Fresh", "ESD01-016");
     const saved = [
-      { name: "Same", list: formatDeckList([same]) },
-      { name: "Changed", list: formatDeckList([deck("Changed", "ESD01-017")]) },
+      { id: "s", name: "Same", list: formatDeckList([same]) },
+      {
+        id: "c",
+        name: "Changed",
+        list: formatDeckList([deck("Changed", "ESD01-017")]),
+      },
     ];
     expect(
       importsToMove([same, changed, fresh], saved).map((d) => d.name),

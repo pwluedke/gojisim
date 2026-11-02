@@ -8,7 +8,13 @@ import {
   readBackup,
   savedDeck,
 } from "./deckStore";
-import { deckName, freeName, importAll, importStatus } from "./importDeck";
+import {
+  deckName,
+  freeName,
+  importAll,
+  importStatus,
+  planImport,
+} from "./importDeck";
 
 const cardsFixture = (name: string) =>
   readFileSync(
@@ -136,20 +142,23 @@ describe("deck import (M7a)", () => {
     expect(freeName("Red", new Set(["Red", "Red (2)"]))).toBe("Red (3)");
   });
 
-  it("Import all saves every deck that parses and reports the one that doesn't", () => {
+  it("Import all keeps each deck's full name, folder included, and reports the one that doesn't parse (#167)", () => {
     const body = starter.replace(/^\[deck\].*\n/, "");
     const text = [
       `[deck] Community/Red Rage\n${body}`,
       `[deck] Community/Broken\n${body}4 ZZZ99-999\n`,
       `[deck] Paul/Red Rage\n${body}`,
+      `[deck] Paul/Red Rage\n${body}`,
     ].join("\n");
-    expect(importStatus(text).decks).toHaveLength(3);
-    const result = importAll(text, ["Red Rage"]);
-    // Both good decks are named after the folder; one name in My decks already, and the
-    // second "Red Rage" of the import takes the next free number.
+    expect(importStatus(text).decks).toHaveLength(4);
+    const result = importAll(text, [
+      { id: "a", name: "Red Rage", list: `[deck] Red Rage\n${body}` },
+    ]);
+    // A folder doesn't clash with a plain name; a name repeated in the same import takes (2).
     expect(result.saved.map((d) => d.name)).toEqual([
-      "Red Rage (2)",
-      "Red Rage (3)",
+      "Community/Red Rage",
+      "Paul/Red Rage",
+      "Paul/Red Rage (2)",
     ]);
     expect(result.saved[0]?.deck.mainDeck).toHaveLength(50);
     expect(result.failed).toHaveLength(1);
@@ -158,5 +167,26 @@ describe("deck import (M7a)", () => {
       expect.stringMatching(/^Line \d+: Unknown card number ZZZ99-999$/),
     ]);
     expect(result.stray).toEqual([]);
+  });
+
+  it("a deck saved with the same name and list is skipped; the same name with a different list is a clash (#167)", () => {
+    const body = starter.replace(/^\[deck\].*\n/, "");
+    const other = body.replace(/^4 (ESD01-\d+)$/m, "3 $1");
+    const mine = [
+      { id: "same", name: "Club/Same", list: `[deck] Club/Same\n${body}` },
+      { id: "diff", name: "Club/Diff", list: `[deck] Club/Diff\n${other}` },
+    ];
+    const result = importAll(
+      `[deck] Club/Same\n${body}\n[deck] Club/Diff\n${body}\n[deck] Club/New\n${body}`,
+      mine,
+    );
+    expect(result.same).toEqual(["Club/Same"]);
+    expect(result.clashes.map((c) => [c.name, c.existing.id])).toEqual([
+      ["Club/Diff", "diff"],
+    ]);
+    expect(result.saved.map((d) => d.name)).toEqual(["Club/New"]);
+    // /debug and the old-imports move use the same plan.
+    const decks = importStatus(`[deck] Club/Same\n${body}`).decks;
+    expect(planImport(decks, mine).map((s) => s.kind)).toEqual(["same"]);
   });
 });

@@ -376,8 +376,16 @@ export function Deckbuilder() {
 
       {importing && (
         <ImportDeck
-          existingNames={my.decks.map((d) => d.name)}
+          mine={my.decks}
           onClose={() => setImporting(false)}
+          onReplace={(id, deck) => {
+            const existing = my.decks.find((d) => d.id === id);
+            if (existing)
+              my.update({
+                ...existing,
+                list: savedDeck(deck, existing.name).list,
+              });
+          }}
           onSaveAll={(decks) => {
             const now = Date.now();
             my.add(

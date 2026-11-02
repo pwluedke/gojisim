@@ -1,11 +1,7 @@
 import { type DeckValidation, validateDeck } from "@gojisim/cards";
 import esd01Starter from "@gojisim/cards/data/decks/esd01-starter.txt?raw";
 import esd02Starter from "@gojisim/cards/data/decks/esd02-starter.txt?raw";
-import {
-  formatDeckList,
-  type NamedDeck,
-  parseDeckList,
-} from "@gojisim/cards/deck-lists";
+import { type NamedDeck, parseDeckList } from "@gojisim/cards/deck-lists";
 import { buildTestDeck, TEST_DECK_SETS } from "@gojisim/cards/test-decks";
 
 /** One entry in a deck picker. */
@@ -164,21 +160,6 @@ export function clearImportedDecks(): void {
   } catch {
     // Storage blocked: nothing was stored there.
   }
-}
-
-/**
- * #161: the old `/debug` imports to copy into My decks: every deck except one My decks already
- * has under the same name with the same list.
- */
-export function importsToMove(
-  legacy: readonly NamedDeck[],
-  mine: readonly { name: string; list: string }[],
-): NamedDeck[] {
-  const body = (list: string) => list.replace(/^\[deck\].*$/m, "").trim();
-  return legacy.filter((deck) => {
-    const list = body(formatDeckList([deck]));
-    return !mine.some((m) => m.name === deck.name && body(m.list) === list);
-  });
 }
 
 /** One `<optgroup>` of a deck picker. */

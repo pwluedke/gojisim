@@ -28,11 +28,11 @@ import {
   type DeckOption,
   deckOptions,
   clearImportedDecks,
-  importsToMove,
   loadImportedDecks,
   pickerGroups,
 } from "../game/decks";
 import { deckOf, savedDeck } from "../game/deckStore";
+import { importsToMove, planImport } from "../game/importDeck";
 import { useMyDecks } from "../game/useMyDecks";
 import { ManualPanel } from "./ManualPanel";
 import { ActionPanel, LogPanel, StatusBar } from "./Panels";
@@ -177,16 +177,29 @@ function NewGameForm({
     return `${option.label} ${validation.legal ? "✓ legal" : `✗ ${failedRules(validation).join(", ")}`}`;
   };
 
-  /** Import saves into My decks: a deck with a saved deck's name replaces its list. */
+  /**
+   * Import saves into My decks through the shared import path (#167): a deck saved with the same
+   * name and list is skipped, and one with the same name and a different list is replaced.
+   */
   const importDeckList = async (file: File) => {
     const { decks, errors } = parseDeckList(await file.text());
     const now = Date.now();
-    decks.forEach((deck, i) => {
-      const fresh = savedDeck(deck, deck.name, new Date(now + i));
-      const existing = my.decks.find((d) => d.name === deck.name);
-      if (existing) my.update({ ...existing, list: fresh.list });
-      else my.add(fresh);
-    });
+    const added = [];
+    for (const step of planImport(decks, my.decks)) {
+      if (step.kind === "new")
+        added.push(
+          savedDeck(step.deck, step.name, new Date(now + added.length)),
+        );
+      else if (step.kind === "clash") {
+        const existing = my.decks.find((d) => d.id === step.existing.id);
+        if (existing)
+          my.update({
+            ...existing,
+            list: savedDeck(step.deck, existing.name).list,
+          });
+      }
+    }
+    if (added.length > 0) my.add(...added);
     setImportErrors(errors);
   };
 
