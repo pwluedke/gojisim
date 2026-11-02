@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-import { loadFixture, visibleCenter } from "./helpers";
+import { loadFixture, visibleCenter, importInDeckbuilder } from "./helpers";
 
 /** M5h-2: the battle log, rules, undo history, stack viewer, invade arrow, prompts and fixes. */
 
@@ -56,12 +56,17 @@ for (const width of [1280, 1440, 1920])
       ),
       "utf8",
     );
+    await importInDeckbuilder(page, list, name);
     await page.goto("/play");
-    await page.getByTestId("import-deck").click();
-    await page.getByTestId("import-text").fill(list);
-    await page.getByTestId("import-name").fill(name);
-    await page.getByTestId("import-save").click();
-    // The saved deck is P1's pick; put it in P2's seat too.
+    // The saved deck in both seats.
+    await page
+      .getByTestId("deck-P1")
+      .selectOption(
+        (await page
+          .getByTestId("deck-P1")
+          .locator("option", { hasText: "AAAA" })
+          .getAttribute("value")) ?? "",
+      );
     const option = page
       .getByTestId("deck-P2")
       .locator("option", { hasText: "AAAA" });

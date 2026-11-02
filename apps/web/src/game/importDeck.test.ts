@@ -55,7 +55,7 @@ describe("deck import (M7a)", () => {
     expect(one.canSave("Red")).toBe(true);
     const all = importStatus(cardsFixture("godzilla-sim-export-all.txt"));
     expect(all.decks).toHaveLength(2);
-    // The folder groups development decks only; My decks gets the name after it.
+    // My decks gets the name after the folder.
     expect(all.suggestedName).toBe("Starter Deck - Godzilla Minus One");
     const page = importStatus(cardsFixture("godzillatcgdb-deck-page.txt"));
     expect(page.format).toBe("godzillatcgdb-page");

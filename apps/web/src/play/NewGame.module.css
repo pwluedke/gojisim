@@ -40,7 +40,7 @@ form.screen input[type="file"] {
   font-weight: var(--heading-weight);
 }
 
-/* The title, with the development-deck filter beside it when there are development decks. */
+/* The title, with the Deckbuilder link beside it. */
 .titleRow {
   display: flex;
   flex-wrap: wrap;
@@ -51,13 +51,6 @@ form.screen input[type="file"] {
 
 .titleRow .title {
   margin: 0;
-}
-
-.filter {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-left: auto;
 }
 
 /* M5h fix: the columns may shrink below their content, so a long deck name never widens a seat. */
@@ -120,10 +113,6 @@ form.screen input[type="file"] {
 .deckName {
   overflow-wrap: anywhere;
   font-size: var(--font-size-sm);
-}
-
-.row {
-  margin: var(--space-2) 0;
 }
 
 .legal {
@@ -281,22 +270,6 @@ form.screen input[type="file"] {
   outline: 3px solid var(--color-selected);
 }
 
-/* My decks (M7a): collapsed by default; open, the list scrolls inside a box 4 rows tall. */
-.myDecks {
-  margin-top: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-panel-alt);
-}
-
-.myDecksHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
 form.screen .toggle {
   padding: 0;
   border: none;
@@ -305,66 +278,6 @@ form.screen .toggle {
   font: inherit;
   font-weight: bold;
   cursor: pointer;
-}
-
-.myDecksActions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  margin-left: auto;
-}
-
-.deckRows {
-  --deck-row-h: 44px;
-
-  max-height: calc(4 * var(--deck-row-h));
-  margin: var(--space-2) 0 0;
-  padding: 0;
-  overflow-y: auto;
-  list-style: none;
-}
-
-.deckRow {
-  display: flex;
-  box-sizing: border-box;
-  align-items: center;
-  gap: var(--space-2);
-  height: var(--deck-row-h);
-  padding: 0 var(--space-1);
-  border-top: 1px solid var(--color-border);
-}
-
-.deckRowName {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The "⋯" menu: Rename, Copy, Delete. */
-.menuBox {
-  position: relative;
-}
-
-.menuButton {
-  min-width: 36px;
-}
-
-.menu {
-  position: absolute;
-  z-index: 10;
-  top: 100%;
-  right: 0;
-  display: flex;
-  flex-direction: column;
-  min-width: 8em;
-  padding: var(--space-1) 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-panel);
-  box-shadow: var(--panel-shadow);
 }
 
 form.screen .menuItem {
@@ -425,12 +338,6 @@ form.screen .menuItem:focus-visible {
   font-size: var(--font-size-sm);
 }
 
-.renameRow {
-  display: flex;
-  gap: var(--space-1);
-  align-items: center;
-}
-
 /* A deck's legality warnings (M7a): it still plays (Paul's ruling, Oct 21, 2026). */
 .warning {
   color: var(--color-warning);
@@ -454,26 +361,8 @@ form.screen .menuItem:focus-visible {
   cursor: not-allowed;
 }
 
-/* #152: the first sign-in's offer to upload this browser's decks. */
-.syncOffer {
+/* #161: the link to the Deckbuilder, where the decks are managed now. */
+.buildLink {
   margin: var(--space-2) 0;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-panel-alt);
-}
-
-.syncOffer p {
-  margin: var(--space-1) 0;
-}
-
-.syncClash {
-  display: block;
-  margin: var(--space-1) 0;
-}
-
-.syncActions {
-  display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
 }

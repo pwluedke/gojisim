@@ -341,3 +341,7 @@
   font-size: var(--font-size-sm);
   opacity: 0.75;
 }
+
+.offer {
+  padding: 0 var(--space-4);
+}

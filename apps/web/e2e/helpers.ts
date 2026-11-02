@@ -135,3 +135,26 @@ export async function officialImages(page: Page, present: boolean) {
         : route.abort(),
   );
 }
+
+/**
+ * #161: decks are imported in the Deckbuilder, not `/play`. Saves `text` there (named `name` if
+ * given) and closes the My decks window that opens after.
+ */
+export async function importInDeckbuilder(
+  page: Page,
+  text: string,
+  name?: string,
+): Promise<void> {
+  if (!new URL(page.url(), "http://x").pathname.startsWith("/decks"))
+    await page.goto("/decks");
+  await page.getByTestId("db-import").click();
+  await page.getByTestId("import-text").fill(text);
+  if (name) await page.getByTestId("import-name").fill(name);
+  await page.getByTestId("import-save").click();
+  // Storage has caught up before the caller leaves the page (decision 295).
+  await expect(page.getByTestId("db-decks-window")).toHaveAttribute(
+    "data-decks-stored",
+    "true",
+  );
+  await page.getByTestId("db-decks-close").click();
+}

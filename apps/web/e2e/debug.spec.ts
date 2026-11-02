@@ -116,7 +116,7 @@ const SAMPLE_DECKS = `# Made-up decks for the e2e test
 4 ESD02-008
 `;
 
-test("debug viewer: import deck lists, legality shown, illegal deck warning, remembered, export", async ({
+test("debug viewer: import deck lists into My decks, legality shown, illegal deck warning, in the Deckbuilder, export", async ({
   page,
 }) => {
   await page.goto("/debug");
@@ -129,18 +129,18 @@ test("debug viewer: import deck lists, legality shown, illegal deck warning, rem
     buffer: Buffer.from(SAMPLE_DECKS),
   });
   const p1 = page.getByTestId("deck-P1");
-  // Labelled without the [deck] folder, in a group per folder (the export keeps the full name).
+  // #161: imports go into My decks, the store /play and the Deckbuilder use; the folder stays in
+  // the name.
   await expect(
-    p1.locator(
-      'optgroup[label="Development: imported in /debug › Sample"] option',
-      { hasText: "Legal Red ✓ legal" },
-    ),
+    p1.locator('optgroup[label="My decks"] option', {
+      hasText: "Sample/Legal Red ✓ legal",
+    }),
   ).toHaveCount(1);
   await expect(
-    p1.locator("option", { hasText: "Too Small ✗ 6.1.1.2" }),
+    p1.locator("option", { hasText: "Sample/Too Small ✗ 6.1.1.2" }),
   ).toHaveCount(1);
 
-  await p1.selectOption({ label: "Too Small ✗ 6.1.1.2" });
+  await p1.selectOption({ label: "Sample/Too Small ✗ 6.1.1.2" });
   await expect(page.getByTestId("deck-legality").first()).toContainText(
     "Illegal: 6.1.1.2",
   );
@@ -150,7 +150,7 @@ test("debug viewer: import deck lists, legality shown, illegal deck warning, rem
   );
   await expect(page.getByTestId("status-step")).toHaveText("7.3.2");
 
-  // Remembered in this browser.
+  // Saved in My decks: still there after a reload.
   await page.reload();
   await expect(
     page.getByTestId("deck-P2").locator("option", { hasText: "Legal Red" }),
@@ -158,7 +158,7 @@ test("debug viewer: import deck lists, legality shown, illegal deck warning, rem
 
   await page
     .getByTestId("deck-P1")
-    .selectOption({ label: "Legal Red ✓ legal" });
+    .selectOption({ label: "Sample/Legal Red ✓ legal" });
   const [download] = await Promise.all([
     page.waitForEvent("download"),
     page.getByTestId("export-deck-list").click(),
@@ -168,4 +168,42 @@ test("debug viewer: import deck lists, legality shown, illegal deck warning, rem
   ).readFile((await download.path()) as string, "utf8");
   expect(text).toContain("[deck] Sample/Legal Red");
   expect(text).toContain("[deck] Starter Deck - Heisei Series Godzilla");
+});
+
+test("#161: every /debug deck is in the Deckbuilder, and the old /debug imports move to My decks once", async ({
+  page,
+}) => {
+  // A deck imported in /debug before #161, kept under its old storage key.
+  await page.addInitScript((list) => {
+    if (!sessionStorage.getItem("seeded")) {
+      localStorage.setItem("gojisim.debug.importedDecks", list);
+      sessionStorage.setItem("seeded", "1");
+    }
+  }, SAMPLE_DECKS);
+  await page.goto("/debug");
+  const p1 = page.getByTestId("deck-P1");
+  await expect(
+    p1.locator('optgroup[label="My decks"] option', { hasText: "Legal Red" }),
+  ).toHaveCount(1);
+  expect(
+    await p1
+      .locator("optgroup")
+      .evaluateAll((groups) => groups.map((g) => g.getAttribute("label"))),
+  ).toEqual(["Starter decks", "My decks", "Random test decks"]);
+  // The old store is cleared once the decks are saved, so a reload doesn't copy them again.
+  await expect
+    .poll(() =>
+      page.evaluate(() => localStorage.getItem("gojisim.debug.importedDecks")),
+    )
+    .toBeNull();
+  await page.reload();
+  await expect(
+    p1.locator("option", { hasText: "Sample/Legal Red" }),
+  ).toHaveCount(1);
+  // The same decks are in the Deckbuilder's My decks.
+  await page.goto("/decks");
+  await page.getByTestId("db-my-decks").click();
+  await expect(
+    page.locator('[data-testid="db-deck"][data-deck-name="Sample/Legal Red"]'),
+  ).toHaveCount(1);
 });
