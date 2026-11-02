@@ -67,10 +67,16 @@ export async function uploadRecord(
   fetchImpl: typeof fetch = fetch,
   smoke: boolean = isSmokeCheck(),
 ): Promise<boolean> {
+  // #151: a finished game's result, so the server can index each player's games without
+  // running the engine. The player isn't sent: the server records it from the session.
+  const result = session.states.at(-1)?.result;
   const record: ExportedRecord = {
     ...session.record,
     position: session.position,
     ...(smoke ? { smokeCheck: true } : {}),
+    ...(result
+      ? { outcome: { winner: result.winner, reason: result.reason } }
+      : {}),
   };
   try {
     const res = await fetchImpl("/api/games", {

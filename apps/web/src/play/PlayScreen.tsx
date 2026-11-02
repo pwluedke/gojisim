@@ -95,6 +95,7 @@ import {
 import { MAT_MAX_BYTES } from "./matStore";
 import { useCustomMat } from "./useCustomMat";
 import { SoundPlayer, slamCues, stepIsHeard, stepSounds } from "../game/sounds";
+import { fetchMyGame } from "../account";
 import { PlayerBadge } from "../PlayerBadge";
 import { WhatsNew } from "../WhatsNew";
 
@@ -309,6 +310,18 @@ export function PlayScreen() {
       pending !== null ||
       reporting !== null,
   });
+  // #151: "Load" in My games opens /play?load=<game id>: the player's own record, from the server.
+  const { importRecord } = game;
+  const loadedFromUrl = useRef(false);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("load");
+    // Once for the page's URL (importRecord is a new function each render).
+    if (!id || loadedFromUrl.current) return;
+    loadedFromUrl.current = true;
+    void fetchMyGame(id).then((text) => {
+      if (text) void importRecord(new File([text], "game.json"));
+    });
+  }, [importRecord]);
   const { session, state } = game;
   const { setDelay } = game;
   // #95: the first error from the app's own code in a game uploads the record with it (Test Site

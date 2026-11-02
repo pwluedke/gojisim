@@ -62,6 +62,8 @@ export function latestPerGame(files: readonly RecordFile[]): RecordFile[] {
 /** Every report in a game's latest file, in action order. */
 export function reportsOf({ file, record }: RecordFile): Report[] {
   const game = gameKey(record);
+  // #151: the signed-in player's display name; the typed name for records from before accounts.
+  const who = (typed: string) => record.playerName ?? typed;
   const bot: Report[] = (record.botFeedback ?? []).map((e) => {
     const kind = e.kind ?? "bad";
     return {
@@ -70,7 +72,7 @@ export function reportsOf({ file, record }: RecordFile): Report[] {
       file,
       record,
       actionIndex: e.actionIndex,
-      reporter: e.reporter,
+      reporter: who(e.reporter),
       at: e.at,
       text: e.text,
       label: e.label,
@@ -82,7 +84,7 @@ export function reportsOf({ file, record }: RecordFile): Report[] {
     file,
     record,
     actionIndex: e.actionIndex,
-    reporter: e.reporter,
+    reporter: who(e.reporter),
     at: e.at,
     text: e.text,
     bug: e,
@@ -93,7 +95,7 @@ export function reportsOf({ file, record }: RecordFile): Report[] {
     file,
     record,
     actionIndex: e.actionIndex,
-    reporter: e.reporter,
+    reporter: who(e.reporter),
     at: e.at,
     text: e.text,
   }));
@@ -106,7 +108,7 @@ export function reportsOf({ file, record }: RecordFile): Report[] {
           file,
           record,
           actionIndex: record.crash.actionIndex,
-          reporter: "",
+          reporter: record.playerName ?? "",
           at: record.crash.at,
           text: record.crash.message,
         },

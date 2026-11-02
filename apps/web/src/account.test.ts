@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchMe, meFrom, resetMe } from "./account";
+import { fetchMe, fetchMyGame, fetchMyGames, meFrom, resetMe } from "./account";
 
 afterEach(() => resetMe());
 
@@ -55,6 +55,53 @@ describe("the signed-in player (#150)", () => {
       await fetchMe((async () => {
         throw new TypeError("offline");
       }) as unknown as typeof fetch),
+    ).toBeNull();
+  });
+});
+
+describe("my games (#151)", () => {
+  it("lists the player's games; no accounts (404) or offline is null", async () => {
+    const game = {
+      gameId: "g1",
+      startedAt: 1,
+      updatedAt: 2,
+      endedAt: null,
+      result: null,
+      botLevel: "Easy",
+      deckNames: "A vs B",
+    };
+    const ok = (async () =>
+      new Response(
+        JSON.stringify({ games: [game] }),
+      )) as unknown as typeof fetch;
+    expect(await fetchMyGames(ok)).toEqual([game]);
+    expect(
+      await fetchMyGames(
+        (async () =>
+          new Response("{}", { status: 404 })) as unknown as typeof fetch,
+      ),
+    ).toBeNull();
+    expect(
+      await fetchMyGames((async () => {
+        throw new TypeError("offline");
+      }) as unknown as typeof fetch),
+    ).toBeNull();
+  });
+
+  it("loads one game's record by id, encoded", async () => {
+    const urls: string[] = [];
+    const fetchImpl = (async (url: string) => {
+      urls.push(url);
+      return new Response('{"version":1}');
+    }) as unknown as typeof fetch;
+    expect(await fetchMyGame("a/b", fetchImpl)).toBe('{"version":1}');
+    expect(urls).toEqual(["/api/games/a%2Fb"]);
+    expect(
+      await fetchMyGame(
+        "x",
+        (async () =>
+          new Response("", { status: 404 })) as unknown as typeof fetch,
+      ),
     ).toBeNull();
   });
 });

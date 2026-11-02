@@ -321,6 +321,41 @@ describe("game collection in the browser (M13b)", () => {
     expect(await uploadRecord(session, down)).toBe(false);
   });
 
+  it("#151: a finished game's upload carries its outcome; the player is never sent", async () => {
+    const session = play(newSession(5, decks(), { P1: human, P2: bot }), 2);
+    const bodies: Record<string, unknown>[] = [];
+    const server = (async (_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+      return { ok: true };
+    }) as unknown as typeof fetch;
+    await uploadRecord(session, server, false);
+    expect("outcome" in (bodies[0] ?? {})).toBe(false);
+    const last = session.states.at(-1) as GameState;
+    const finished = {
+      ...session,
+      states: [
+        ...session.states.slice(0, -1),
+        {
+          ...last,
+          result: {
+            winner: "P1" as const,
+            reason: "concession" as const,
+            rule: "1.2.3",
+          },
+        },
+      ],
+    };
+    await uploadRecord(finished, server, false);
+    expect(bodies[1]?.["outcome"]).toEqual({
+      winner: "P1",
+      reason: "concession",
+    });
+    for (const body of bodies) {
+      expect("playerId" in body).toBe(false);
+      expect("playerName" in body).toBe(false);
+    }
+  });
+
   it("#92: the smoke check's browser marks its uploads smokeCheck; others never carry it", async () => {
     const session = play(newSession(5, decks(), { P1: human, P2: bot }), 2);
     const bodies: Record<string, unknown>[] = [];

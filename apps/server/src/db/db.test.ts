@@ -52,6 +52,27 @@ describe("the database (#150)", () => {
     expect(existsSync(join(file, "..", "backups"))).toBe(false);
   });
 
+  it("#151: a version-1 file (players only, as #150 shipped) upgrades to games, its players kept", () => {
+    const file = join(folder(), "gojisim.db");
+    const v1 = openDb(file, { migrations: MIGRATIONS.slice(0, 1), log: quiet });
+    v1.prepare(
+      "INSERT INTO players (id, discord_id, display_name, avatar_url, created_at, last_seen_at, roles_checked_at) VALUES ('p1', '111', 'Ann', NULL, 1, 1, 1)",
+    ).run();
+    v1.close();
+    const db = openDb(file, { log: quiet });
+    expect(schemaVersion(db)).toBe(LATEST_VERSION);
+    expect(tables(db)).toEqual(["games", "players"]);
+    expect(
+      (
+        db.prepare("SELECT display_name FROM players").get() as {
+          display_name: string;
+        }
+      ).display_name,
+    ).toBe("Ann");
+    db.close();
+    expect(readdirSync(join(file, "..", "backups"))).toHaveLength(1);
+  });
+
   it("the migrations are numbered 1, 2, 3 … with no gaps", () => {
     expect(MIGRATIONS.map((m) => m.version)).toEqual(
       MIGRATIONS.map((_, i) => i + 1),
