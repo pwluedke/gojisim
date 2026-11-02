@@ -554,11 +554,11 @@ body {
   /* Your hand shows the top 40 % of each card at the window's bottom edge (Paul). */
   --hand-peek: 0.4;
   /*
-   * #163: your hand's cards are at least this many times the board card (the board leaves room
+   * Issue 163: your hand's cards are at least this many times the board card (the board leaves room
    * for them), and the row takes any height the mats leave, so it starts right under your mat.
    */
   --hand-scale: 1.3;
-  /* #163: a raised hand card is this many times the board card, never taller than the window. */
+  /* Issue 163: a raised hand card is this many times the board card, never taller than the window. */
   --raised-scale: 2.75;
   --left-column-width: 260px;
   --board-chrome: calc(

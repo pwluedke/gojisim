@@ -419,9 +419,19 @@ for (const theme of THEMES)
       const at = await visibleCenter(page, cards(page).nth(2));
       await page.mouse.move(at.x, at.y);
       const raised = cards(page).nth(2);
+      // Wait until the raise has finished: its bottom on the window's edge, at its full height.
       await expect
-        .poll(async () => (await lifted(raised)).height, { timeout: 2000 })
-        .toBeGreaterThan(rest.height * 1.5);
+        .poll(
+          async () => {
+            const b = await lifted(raised);
+            return b.height > rest.height * 1.5 &&
+              Math.abs(b.y + b.height - height) < 0.5
+              ? "up"
+              : "rising";
+          },
+          { timeout: 3000 },
+        )
+        .toBe("up");
       const box = await lifted(raised);
       expect(box.y).toBeGreaterThanOrEqual(0);
       expect(box.y + box.height).toBeCloseTo(height, 0);

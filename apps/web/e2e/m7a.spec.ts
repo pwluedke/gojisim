@@ -32,6 +32,11 @@ async function importDeck(page: Page, text: string, name?: string) {
   if (name) await page.getByTestId("import-name").fill(name);
   await page.getByTestId("import-save").click();
   await expect(page.getByTestId("db-decks-window")).toBeVisible();
+  // Storage has caught up, so a reload keeps the deck (decision 295).
+  await expect(page.getByTestId("db-decks-window")).toHaveAttribute(
+    "data-decks-stored",
+    "true",
+  );
 }
 
 /** The My decks window's deck names (it opens if closed). */
@@ -48,6 +53,10 @@ const deckRow = (page: Page, name: string) =>
 
 /** Picks the saved deck `label` for P1 in /play. */
 async function pickInPlay(page: Page, label: string) {
+  // Storage has caught up before leaving the Deckbuilder (decision 295).
+  const win = page.getByTestId("db-decks-window");
+  if (await win.isVisible())
+    await expect(win).toHaveAttribute("data-decks-stored", "true");
   await page.goto("/play?mode=bot");
   await page.getByTestId("deck-P1").selectOption({ label });
 }
