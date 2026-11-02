@@ -7,6 +7,8 @@ import {
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { decklogMiddleware } from "./decklog.js";
+import { openDb } from "./db/db.js";
+import { createDiscordGate, type DiscordAuthOptions } from "./discordAuth.js";
 import { createGate } from "./gate.js";
 import {
   gamesMiddleware,
@@ -44,6 +46,13 @@ export interface AppServerOptions {
    * server doesn't know it (local runs).
    */
   commit?: string | null;
+  /**
+   * #150: Discord sign-in in place of the password (`GOJISIM_AUTH=discord`): the database and
+   * the OAuth app. Without it, the password gate (or none) as before.
+   */
+  discord?: Omit<DiscordAuthOptions, "fetchImpl" | "now" | "secret">;
+  /** The Discord sign-in's `fetch` (tests pass a fake Discord); defaults to `fetchImpl`. */
+  discordFetch?: typeof fetch;
   /** The Test Site switch (M13b, `GOJISIM_TEST_SITE`); on by default. */
   config?: SiteConfig;
   now?: () => number;
@@ -98,18 +107,27 @@ export function createAppServer({
   reportsWebhook,
   slackReportsWebhook,
   reportsFetch,
+  discord,
+  discordFetch,
   config = { testSite: true },
   commit = null,
   now,
 }: AppServerOptions = {}): Server {
-  if (password && (!secret || secret.length < 32))
+  if ((password || discord) && (!secret || secret.length < 32))
     throw new Error(
-      "SESSION_SECRET must be set (32 characters or more) when GOJISIM_PASSWORD is",
+      "SESSION_SECRET must be set (32 characters or more) with GOJISIM_PASSWORD or Discord sign-in",
     );
   const gate =
-    password && secret
-      ? createGate({ password, secret, ...(now ? { now } : {}) })
-      : null;
+    discord && secret
+      ? createDiscordGate({
+          ...discord,
+          secret,
+          fetchImpl: discordFetch ?? fetchImpl,
+          ...(now ? { now } : {}),
+        })
+      : password && secret
+        ? createGate({ password, secret, ...(now ? { now } : {}) })
+        : null;
   const decklog = decklogMiddleware(fetchImpl);
   const games = gamesMiddleware({
     config,
@@ -153,6 +171,12 @@ export function createAppServer({
         return passed;
       };
       if (gate && !(await passes((next) => gate(req, res, next)))) return;
+      // #150: without Discord sign-in there's no player (the Discord gate answers it itself).
+      if (path === "/api/me") {
+        res.writeHead(404, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: "no-accounts" }));
+        return;
+      }
       if (!(await passes((next) => decklog(req, res, next)))) return;
       if (!(await passes((next) => games(req, res, next)))) return;
       if (!(await passes((next) => cards(req, res, next)))) return;
@@ -168,9 +192,55 @@ export function createAppServer({
 export function openSiteWarning(
   env: Record<string, string | undefined>,
 ): string | null {
-  return env.RAILWAY_ENVIRONMENT && !env.GOJISIM_PASSWORD
+  return env.RAILWAY_ENVIRONMENT &&
+    !env.GOJISIM_PASSWORD &&
+    authMode(env) !== "discord"
     ? "WARNING: no password gate, the site is open to anyone. Set GOJISIM_PASSWORD and SESSION_SECRET (docs/deploy.md)."
     : null;
+}
+
+/** `GOJISIM_AUTH` (#150): `discord` for Discord sign-in; anything else keeps the password gate. */
+export function authMode(
+  env: Record<string, string | undefined>,
+): "password" | "discord" {
+  return env.GOJISIM_AUTH?.trim().toLowerCase() === "discord"
+    ? "discord"
+    : "password";
+}
+
+/**
+ * The Discord sign-in settings from the environment (#150), or an error naming what's missing.
+ * The server refuses to start with `GOJISIM_AUTH=discord` and any of them unset.
+ */
+export function discordSettings(env: Record<string, string | undefined>):
+  | {
+      ok: true;
+      settings: Omit<NonNullable<AppServerOptions["discord"]>, "db">;
+      dbFile: string;
+    }
+  | { ok: false; missing: string[] } {
+  const need = [
+    "DISCORD_CLIENT_ID",
+    "DISCORD_CLIENT_SECRET",
+    "DISCORD_GUILD_ID",
+    "DISCORD_TESTER_ROLE_ID",
+  ] as const;
+  const missing = need.filter((name) => !env[name]?.trim());
+  if (missing.length > 0) return { ok: false, missing };
+  return {
+    ok: true,
+    settings: {
+      clientId: env.DISCORD_CLIENT_ID?.trim() ?? "",
+      clientSecret: env.DISCORD_CLIENT_SECRET?.trim() ?? "",
+      guildId: env.DISCORD_GUILD_ID?.trim() ?? "",
+      testerRoleId: env.DISCORD_TESTER_ROLE_ID?.trim() ?? "",
+      redirectUri:
+        env.DISCORD_REDIRECT_URI?.trim() ||
+        "https://gojisim.somanygames.app/auth/discord/callback",
+      smokeToken: env.SMOKE_LOGIN_TOKEN?.trim() || undefined,
+    },
+    dbFile: env.GOJISIM_DB?.trim() || "/data/gojisim.db",
+  };
 }
 
 if (
@@ -180,7 +250,18 @@ if (
   const port = Number(process.env.PORT ?? 3000);
   const warning = openSiteWarning(process.env);
   if (warning) console.warn(warning);
+  let discord: AppServerOptions["discord"];
+  if (authMode(process.env) === "discord") {
+    const found = discordSettings(process.env);
+    if (!found.ok)
+      throw new Error(
+        `GOJISIM_AUTH=discord needs ${found.missing.join(", ")} (docs/deploy.md).`,
+      );
+    // Migrations run here, after a backup; a failure stops the start (Railway keeps the old deploy).
+    discord = { ...found.settings, db: openDb(resolve(found.dbFile)) };
+  }
   createAppServer({
+    ...(discord ? { discord } : {}),
     password: process.env.GOJISIM_PASSWORD || undefined,
     secret: process.env.SESSION_SECRET || undefined,
     ...(process.env.CARDS_DIR
@@ -194,7 +275,7 @@ if (
     config: siteConfig(process.env),
   }).listen(port, () => {
     console.log(
-      `GojiSim server listening on http://localhost:${port}${process.env.GOJISIM_PASSWORD ? " (password gate on)" : ""}`,
+      `GojiSim server listening on http://localhost:${port}${discord ? " (Discord sign-in on)" : process.env.GOJISIM_PASSWORD ? " (password gate on)" : ""}`,
     );
     // Again after the listening line, so it is next to the last line the deploy check reads.
     if (warning) console.warn(warning);

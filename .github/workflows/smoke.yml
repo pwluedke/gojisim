@@ -48,6 +48,8 @@ jobs:
         if: steps.wait.outcome == 'success'
         env:
           SMOKE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+          # #150: with Discord sign-in, the check signs in with this token instead of the password.
+          SMOKE_LOGIN_TOKEN: ${{ secrets.SMOKE_LOGIN_TOKEN }}
         run: pnpm --filter @gojisim/web e2e:smoke
 
       - name: Report to Slack

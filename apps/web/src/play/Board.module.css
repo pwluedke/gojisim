@@ -800,6 +800,11 @@
   color: var(--color-text);
 }
 
+.settingsPlayer {
+  display: flex;
+  margin-bottom: var(--space-2);
+}
+
 .settingsPanel {
   margin-top: var(--space-1);
   padding: var(--space-2);

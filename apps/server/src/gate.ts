@@ -48,13 +48,16 @@ export function validSession(
 }
 
 /** Same-length digests, so the comparison takes the same time whatever was typed. */
-const samePassword = (a: string, b: string) =>
+export const samePassword = (a: string, b: string) =>
   timingSafeEqual(
     createHash("sha256").update(a).digest(),
     createHash("sha256").update(b).digest(),
   );
 
-function cookieOf(req: IncomingMessage, name: string): string | undefined {
+export function cookieOf(
+  req: IncomingMessage,
+  name: string,
+): string | undefined {
   for (const part of (req.headers.cookie ?? "").split(";")) {
     const [key, ...value] = part.trim().split("=");
     if (key === name) return value.join("=");
@@ -93,7 +96,7 @@ export function safeNext(next: string | null | undefined): string {
   return next;
 }
 
-const escapeHtml = (text: string) =>
+export const escapeHtml = (text: string) =>
   text.replace(
     /[&<>"']/g,
     (c) =>
@@ -149,7 +152,7 @@ export function loginPage(next: string, message?: string): string {
 `;
 }
 
-function readBody(req: IncomingMessage, limit = 4096): Promise<string> {
+export function readBody(req: IncomingMessage, limit = 4096): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = "";
     req.on("data", (chunk: Buffer) => {
@@ -164,7 +167,11 @@ function readBody(req: IncomingMessage, limit = 4096): Promise<string> {
   });
 }
 
-function sendHtml(res: ServerResponse, status: number, html: string): void {
+export function sendHtml(
+  res: ServerResponse,
+  status: number,
+  html: string,
+): void {
   res.writeHead(status, {
     "content-type": "text/html; charset=utf-8",
     "cache-control": "no-store",

@@ -66,7 +66,7 @@ It downloads every card's original PNG from godzillatcgdb.com (1 request per sec
 
 ## Deploy for testers
 
-The testers' build runs on Railway at `https://gojisim.somanygames.app`, behind one shared password. It deploys only by hand: Railway watches the `release` branch, which Paul moves with this command:
+The testers' build runs on Railway at `https://gojisim.somanygames.app`, behind one shared password, or Discord sign-in for members with the Tester role once Paul sets `GOJISIM_AUTH=discord` (#150; players are kept in SQLite on the volume, `node:sqlite`, so Node 22.13 or newer). It deploys only by hand: Railway watches the `release` branch, which Paul moves with this command:
 
 ```
 git checkout main && git pull && git push origin main:release

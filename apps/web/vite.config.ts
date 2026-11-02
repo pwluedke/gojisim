@@ -6,6 +6,7 @@ import {
   siteConfig,
   uploadsPerMinuteFrom,
 } from "../server/src/games.js";
+import { devSignIn } from "./devSignIn";
 import { localDecksPlugin } from "./localDecksPlugin";
 
 // Development decks: the repository's `local-decks/` in the dev server (Paul's machine only; the
@@ -24,6 +25,14 @@ export default defineConfig({
       name: "gojisim-decklog",
       configureServer(server) {
         server.middlewares.use(decklogMiddleware());
+      },
+    },
+    {
+      // #150: the dev sign-in, in the dev server only (a build never runs `configureServer`);
+      // the deployed server has no such route.
+      name: "gojisim-dev-sign-in",
+      configureServer(server) {
+        server.middlewares.use(devSignIn());
       },
     },
     {
