@@ -46,3 +46,4 @@ export const BOTS: Record<string, Bot> = {
   // Q42: the current Hard with its opponent's decklist, for the hidden-decklist value test.
   "hard-open": openBot("hard-open", PRESETS.hard),
 };
+export * from "./rules";

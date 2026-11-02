@@ -94,4 +94,17 @@ describe("#170 deck-vs-deck", () => {
     );
     expect(args).toContain("--deterministic");
   });
+
+  it("#175: a matchup without fixed decks plays the plan's deck source, with each bot's settings", () => {
+    const plan: Plan = {
+      name: "rules",
+      defaults: { a: "hard", b: "hard", bSettings: "rules=0", decks: "mixed" },
+      matchups: [{ id: "new-vs-old", games: 200 }],
+    };
+    const args = matchupArgs(plan, plan.matchups[0] as Plan["matchups"][0]);
+    const value = (flag: string) => args[args.indexOf(flag) + 1];
+    expect(value("--decks")).toBe("mixed");
+    expect(value("--b-settings")).toBe("rules=0");
+    expect(args).not.toContain("--a-deck");
+  });
 });
