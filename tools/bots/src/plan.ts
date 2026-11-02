@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { STOP_FILE } from "./decks";
 
@@ -69,11 +70,83 @@ export function matchupArgs(plan: Plan, m: Matchup): string[] {
   ];
 }
 
+/**
+ * #177: the current run, for `bots-pause`, `bots-resume` and `bots-status` (`shell.zsh`): the
+ * run's folder on the first line and its plan file on the second. `GOJISIM_CURRENT_RUN` names
+ * another file (tests).
+ */
+export const currentRunFile = () =>
+  process.env["GOJISIM_CURRENT_RUN"] ?? join(homedir(), ".gojisim-current-run");
+
+export function writeCurrentRun(dir: string, planFile: string): void {
+  writeFileSync(
+    currentRunFile(),
+    `${resolve(dir)}\n${resolve(dir, planFile)}\n`,
+  );
+}
+
+export function readCurrentRun(): { dir: string; plan: string } | null {
+  if (!existsSync(currentRunFile())) return null;
+  const [dir = "", plan = ""] = readFileSync(currentRunFile(), "utf8").split(
+    "\n",
+  );
+  return dir && plan ? { dir, plan } : null;
+}
+
+/**
+ * #177 `bots-status`: games played of each matchup's total, from its report once done, else from
+ * its journal (`bot-reports/runs/<seed>-<key>/`).
+ */
+export function planStatus(
+  plan: Plan,
+  out: string,
+): { id: string; played: number; total: number; done: boolean }[] {
+  const runs = resolve(out, "bot-reports", "runs");
+  const folders = existsSync(runs) ? readdirSync(runs) : [];
+  return plan.matchups.map((m) => {
+    const total = m.games ?? plan.defaults?.games ?? 100;
+    const report = resolve(out, planDir(plan), `${m.id}.json`);
+    if (existsSync(report)) {
+      const games = (
+        JSON.parse(readFileSync(report, "utf8")) as { games: unknown[] }
+      ).games.length;
+      return { id: m.id, played: games, total, done: true };
+    }
+    const seed =
+      `${m.seed ?? plan.defaults?.seed ?? plan.name}-${m.id}`.replace(
+        /[^\w.-]/g,
+        "_",
+      );
+    let played = 0;
+    for (const folder of folders.filter((f) => f.startsWith(`${seed}-`)))
+      for (const f of readdirSync(join(runs, folder)).filter((f) =>
+        f.endsWith(".jsonl"),
+      ))
+        played += readFileSync(join(runs, folder, f), "utf8")
+          .split("\n")
+          .filter((line) => line.trim()).length;
+    return { id: m.id, played, total, done: false };
+  });
+}
+
 async function main() {
   const out = process.env["INIT_CWD"] ?? ".";
   const file = process.argv[2];
-  if (!file) throw new Error("Usage: pnpm bots-plan <plan.json>");
+  if (!file) throw new Error("Usage: pnpm bots-plan <plan.json> [--status]");
   const plan = JSON.parse(readFileSync(resolve(out, file), "utf8")) as Plan;
+  if (process.argv.includes("--status")) {
+    const rows = planStatus(plan, out);
+    for (const r of rows)
+      console.log(
+        `${r.done ? "done   " : "       "} ${r.id}: ${r.played} / ${r.total}`,
+      );
+    const played = rows.reduce((n, r) => n + r.played, 0);
+    const total = rows.reduce((n, r) => n + r.total, 0);
+    console.log(`${played} / ${total} games`);
+    return;
+  }
+  // #177: the commands in `shell.zsh` find this run.
+  writeCurrentRun(out, file);
   const main = resolve(import.meta.dirname, "main.ts");
   const total = plan.matchups.length;
   let next = 0;

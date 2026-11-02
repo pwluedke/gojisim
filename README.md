@@ -87,6 +87,14 @@ Deploy only when you want testers to get what's on main; merging a PR doesn't de
 
 See [docs/deploy.md](docs/deploy.md) for the setup steps, deploying and rolling back, the card image volume and how the gate works. `pnpm build`, then `node apps/server/dist/index.js` (with `GOJISIM_PASSWORD` and `SESSION_SECRET` set to try the gate) serves the built app locally; `pnpm --filter @gojisim/web e2e:prod` tests it with the gate on. In `/play`, **Report bug** (the Test Site panel, left column) uploads the current game record with the tester's note (it downloads the file when the send fails or sharing is off); "Load a game record" or `/debug` opens it. Finished games, Bad Bot! reports, Report bug notes and Monster Island Mailbox suggestions upload to `/data/records` (`RECORDS_DIR`, capped at 1 GB: past it, uploads answer 507 and the server logs it once); locally the dev server writes them to the gitignored `records/`.
 
+## Pausing a bot plan
+
+`pnpm bots-plan <plan.json>` records the run it starts in `~/.gojisim-current-run` (its folder and plan file). Three shell commands use that, so they work for whichever run is current, in any clone (#177). Add them with one line in `~/.zshrc`: `source /path/to/gojisim/tools/bots/shell.zsh`.
+
+- `bots-pause` writes the run's `bot-reports/STOP`: the games in progress finish, then it stops, keeping its journal.
+- `bots-resume` removes STOP and runs `caffeinate -is pnpm bots-plan <plan>` in the run's folder, picking up where it stopped.
+- `bots-status` says whether the plan is running, pausing, paused, done or not running, with games played of each matchup's total (from the reports and journals; `pnpm bots-plan <plan> --status` prints just the counts).
+
 ## Slack watcher
 
 `pnpm slack-watch` (`tools/slack-watch`) polls #gojisim-dev every 30 s and prints one line for each Monarch message (text starting with "[Monarch]") that has no :white_check_mark: reaction yet: `[slack] Monarch <time> <first 80 characters> ts=<ts>`, and again every 15 minutes, marked `(still unchecked)`, until it gets one (#148). Thread replies count too. Mecha starts it by itself as a monitored background command at the start of every session and whenever it has stopped (CLAUDE.md), and says so in #gojisim-dev; a printed line wakes the session to read Slack and act, so Paul doesn't type "check slack". No error stops it: an API error or an unexpected one prints one line and polling goes on; a rate limit (429) waits the `Retry-After` time.
