@@ -1,12 +1,16 @@
+import { formatDeckList, parseDeckList } from "@gojisim/cards/deck-lists";
 import { describe, expect, it } from "vitest";
 import type { NamedDeck } from "@gojisim/cards/deck-lists";
 import {
   type DeckOption,
   deckOptions,
+  pickerGroups,
+  playDeckOptions,
   optionLegality,
-  randomDeckKey,
   tournamentProblems,
+  randomDeckKey,
 } from "./decks";
+import { importsToMove } from "./importDeck";
 import { newSession } from "./session";
 
 const official = (key: string) => {
@@ -107,5 +111,59 @@ describe("Randomize", () => {
       Array.from({ length: 200 }, () => randomDeckKey(keys, "a")),
     );
     expect(seen).toEqual(new Set(["b", "c", "d"]));
+  });
+});
+
+describe("one simple picker (#161)", () => {
+  const mine = [
+    {
+      id: "d1",
+      name: "Club/Red",
+      deck: { name: "Club/Red", monsterDeck: [], mainDeck: [] },
+    },
+  ];
+
+  it("/play lists the Starter decks, then My decks, and nothing else", () => {
+    const options = playDeckOptions(mine);
+    expect(options.map((o) => o.kind)).toEqual([
+      "official",
+      "official",
+      "mine",
+    ]);
+    expect(pickerGroups(options).map((g) => g.label)).toEqual([
+      "Starter decks",
+      "My decks",
+    ]);
+    // A folder carries over as part of the deck's name.
+    expect(options.at(-1)?.label).toBe("Club/Red");
+  });
+
+  it("/debug lists the Starter decks, My decks and the random test decks", () => {
+    const groups = pickerGroups(deckOptions(mine)).map((g) => g.label);
+    expect(groups).toEqual(["Starter decks", "My decks", "Random test decks"]);
+  });
+
+  it("the old /debug imports move to My decks once, skipping a deck saved with the same name and list", () => {
+    const deck = (name: string, n: string) => {
+      const parsed = parseDeckList(
+        `[deck] ${name}\n[monster deck]\n1 ESD01-001\n[main deck]\n4 ${n}\n`,
+      ).decks[0];
+      if (!parsed) throw new Error(name);
+      return parsed;
+    };
+    const same = deck("Same", "ESD01-016");
+    const changed = deck("Changed", "ESD01-016");
+    const fresh = deck("Fresh", "ESD01-016");
+    const saved = [
+      { id: "s", name: "Same", list: formatDeckList([same]) },
+      {
+        id: "c",
+        name: "Changed",
+        list: formatDeckList([deck("Changed", "ESD01-017")]),
+      },
+    ];
+    expect(
+      importsToMove([same, changed, fresh], saved).map((d) => d.name),
+    ).toEqual(["Changed", "Fresh"]);
   });
 });
