@@ -527,3 +527,7 @@
 .counts {
   font-size: var(--font-size-sm);
 }
+
+.offer {
+  padding: 0 var(--space-4);
+}

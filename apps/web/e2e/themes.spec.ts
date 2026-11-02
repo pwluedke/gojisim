@@ -128,7 +128,7 @@ for (const theme of THEMES)
   });
 
 for (const theme of THEMES)
-  test(`the new-game screen, My decks and the import modal meet AA in the ${theme} theme`, async ({
+  test(`the new-game screen, the import modal and My decks meet AA in the ${theme} theme`, async ({
     page,
   }) => {
     await page.addInitScript((t) => {
@@ -138,7 +138,11 @@ for (const theme of THEMES)
       );
     }, theme);
     await page.goto("/play?mode=bot");
-    await page.getByTestId("import-deck").click();
+    await expect(page.getByTestId("deck-P1")).toBeVisible();
+    expect(await contrastProblems(page)).toEqual([]);
+    // #161: Import and My decks are in the Deckbuilder.
+    await page.goto("/decks");
+    await page.getByTestId("db-import").click();
     // A deck with an error, warnings and a card list.
     await page
       .getByTestId("import-text")
@@ -153,7 +157,7 @@ for (const theme of THEMES)
         "[deck] Small\n[monster deck]\n1 ESD01-001\n[main deck]\n4 ESD01-005\n",
       );
     await page.getByTestId("import-save").click();
-    await expect(page.getByTestId("my-deck")).toHaveCount(1);
+    await expect(page.getByTestId("db-deck")).toHaveCount(1);
     expect(await contrastProblems(page)).toEqual([]);
   });
 
@@ -226,16 +230,14 @@ test("Showa Poster themes the form controls: 2 px ink borders, Zen Kaku Gothic N
   const height = async (id: string) =>
     (await page.getByTestId(id).first().boundingBox())?.height ?? 0;
   await expect(page.getByTestId("deck-P1")).toBeVisible();
-  for (const id of ["deck-P1", "seed-input", "dev-deck-filter"]) {
+  for (const id of ["deck-P1", "seed-input"]) {
     expect(await css(id, "border-top-width"), id).toBe("2px");
     expect(await css(id, "border-top-color"), id).toBe("rgb(26, 20, 16)");
     expect(await css(id, "font-family"), id).toMatch(/^"?Zen Kaku Gothic New/);
     expect(await height(id), id).toBeCloseTo(36, 0);
   }
-  // The seat presets (Easy / Medium / Hard), Export all, and the primary actions.
-  expect(await height("export-decks")).toBeCloseTo(36, 0);
-  for (const id of ["start-game", "import-deck"])
-    expect(await css(id, "background-color"), id).toBe("rgb(244, 179, 35)");
+  // The primary action.
+  expect(await css("start-game", "background-color")).toBe("rgb(244, 179, 35)");
   expect(
     await page
       .locator('input[type="radio"]')
@@ -262,7 +264,7 @@ test("Showa Poster themes the form controls: 2 px ink borders, Zen Kaku Gothic N
   expect(await css("seed-input", "border-top-color")).not.toBe(
     "rgb(26, 20, 16)",
   );
-  expect(await css("import-deck", "background-color")).not.toBe(
+  expect(await css("start-game", "background-color")).not.toBe(
     "rgb(244, 179, 35)",
   );
 });

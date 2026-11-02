@@ -3,7 +3,13 @@ import type { NamedDeck } from "@gojisim/cards/deck-lists";
 import { decklogCode, decklogDeckList } from "@gojisim/cards/decklog";
 import { useEffect, useMemo, useState } from "react";
 import { fetchDecklogDeck } from "../game/decklog";
-import { type ImportAll, importAll, importStatus } from "../game/importDeck";
+import {
+  freeName,
+  type ImportAll,
+  importAll,
+  importStatus,
+  type MyDeck,
+} from "../game/importDeck";
 import styles from "./Board.module.css";
 import newGame from "./NewGame.module.css";
 
@@ -56,20 +62,25 @@ function cardLines(cards: readonly Card[]): string[] {
  * preview, errors and warnings apply.
  */
 export function ImportDeck({
-  existingNames,
+  mine,
   onSave,
   onSaveAll,
+  onReplace,
   onClose,
 }: {
-  /** My decks' names, so Import all doesn't repeat one. */
-  existingNames: readonly string[];
+  /** My decks, so Import all skips a deck already saved and asks about a name clash (#167). */
+  mine: readonly MyDeck[];
   onSave: (deck: NamedDeck, name: string) => void;
   /** Import all: the decks to save, already named; the modal stays open with its report. */
   onSaveAll: (decks: ImportAll["saved"]) => void;
+  /** Import all's Replace: the saved deck `id` takes the imported deck's list. */
+  onReplace: (id: string, deck: NamedDeck) => void;
   onClose: () => void;
 }) {
   const [text, setText] = useState("");
   const [allReport, setAllReport] = useState<ImportAll | null>(null);
+  // Import all's name clashes answered so far, by name: "replaced" or the kept copy's name.
+  const [answered, setAnswered] = useState<Record<string, string>>({});
   const [choice, setChoice] = useState(0);
   const [name, setName] = useState<string | null>(null);
   const [decklogInput, setDecklogInput] = useState("");
@@ -233,11 +244,12 @@ export function ImportDeck({
               data-testid="import-all"
               // Once it has saved, a second click would save the same decks again as " (2)";
               // a change to the text clears the report and the button.
-              disabled={!!allReport?.saved.length}
+              disabled={!!allReport}
               onClick={() => {
-                const report = importAll(text, existingNames);
+                const report = importAll(text, mine);
                 if (report.saved.length > 0) onSaveAll(report.saved);
                 setAllReport(report);
+                setAnswered({});
               }}
             >
               Import all
@@ -252,6 +264,64 @@ export function ImportDeck({
                 `: ${allReport.saved.map((d) => d.name).join(", ")}`}
               .
             </div>
+            {allReport.same.length > 0 && (
+              <div data-testid="import-all-same">
+                Already in My decks: {allReport.same.join(", ")}.
+              </div>
+            )}
+            {allReport.clashes.length > 0 && (
+              <ul data-testid="import-clashes">
+                {allReport.clashes.map((clash) => {
+                  const answer = answered[clash.name];
+                  return (
+                    <li
+                      key={clash.name}
+                      data-testid="import-clash"
+                      data-deck-name={clash.name}
+                    >
+                      My decks already has a different &quot;{clash.name}&quot;.{" "}
+                      {answer === undefined ? (
+                        <>
+                          <button
+                            type="button"
+                            data-testid="import-clash-replace"
+                            onClick={() => {
+                              onReplace(clash.existing.id, clash.deck);
+                              setAnswered((a) => ({ ...a, [clash.name]: "" }));
+                            }}
+                          >
+                            Replace
+                          </button>{" "}
+                          <button
+                            type="button"
+                            data-testid="import-clash-keep"
+                            onClick={() => {
+                              const taken = new Set([
+                                ...mine.map((d) => d.name),
+                                ...allReport.saved.map((d) => d.name),
+                                ...Object.values(answered),
+                              ]);
+                              const name = freeName(clash.name, taken);
+                              onSaveAll([{ deck: clash.deck, name }]);
+                              setAnswered((a) => ({
+                                ...a,
+                                [clash.name]: name,
+                              }));
+                            }}
+                          >
+                            Keep both
+                          </button>
+                        </>
+                      ) : answer === "" ? (
+                        "Replaced."
+                      ) : (
+                        `Kept both: saved as "${answer}".`
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
             {(allReport.failed.length > 0 || allReport.stray.length > 0) && (
               <ul className={newGame.importErrors}>
                 {allReport.failed.map((f, i) => (

@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
-import { fixture, loadFixture, vsBot } from "./helpers";
+import { fixture, loadFixture, vsBot, importInDeckbuilder } from "./helpers";
 
 /** M5h-3: the fight-card header, board numbers in selection modals, the invasion-win slam. */
 
@@ -119,11 +119,16 @@ test("#18 a long deck name shrinks, then is cut with its full name in the toolti
     ),
     "utf8",
   );
+  await importInDeckbuilder(page, list, name);
   await page.goto("/play");
-  await page.getByTestId("import-deck").click();
-  await page.getByTestId("import-text").fill(list);
-  await page.getByTestId("import-name").fill(name);
-  await page.getByTestId("import-save").click();
+  await page
+    .getByTestId("deck-P1")
+    .selectOption(
+      (await page
+        .getByTestId("deck-P1")
+        .locator("option", { hasText: "AAAA" })
+        .getAttribute("value")) ?? "",
+    );
   await page.getByTestId("start-game").click();
   await page.getByTestId("first-pick-card-0").click();
   await page.getByTestId("first-pick-continue").click();
