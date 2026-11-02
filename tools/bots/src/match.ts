@@ -5,8 +5,9 @@ import {
   decklistsOf,
   seededRng,
 } from "@gojisim/bot";
+import type { NamedDeck } from "@gojisim/cards/deck-lists";
 import { buildTestDeck } from "@gojisim/cards/test-decks";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import {
   type Action,
   advanceToDecision,
@@ -100,6 +101,27 @@ function decksFor(
   }) as [PlayerSetup, PlayerSetup];
 }
 
+/** #170 options: a fixed deck per bot (deck-vs-deck), and a folder to keep each game's record. */
+export interface MatchOptions {
+  /** Bot a's and bot b's decks, whatever seat they sit in. */
+  fixed?: { a: NamedDeck; b: NamedDeck };
+  /** Each game's record goes here as `game-<n>.json` (`pnpm bot-explain` reads it). */
+  recordDir?: string;
+}
+
+/** The two seats' setups when each bot brings its own deck (#170). */
+function fixedDecks(
+  fixed: NonNullable<MatchOptions["fixed"]>,
+  aSeat: "P1" | "P2",
+): [PlayerSetup, PlayerSetup] {
+  const [p1, p2] = aSeat === "P1" ? [fixed.a, fixed.b] : [fixed.b, fixed.a];
+  return [p1, p2].map((deck, i) => ({
+    id: `P${i + 1}`,
+    monsterDeck: deck.monsterDeck,
+    mainDeck: deck.mainDeck,
+  })) as [PlayerSetup, PlayerSetup];
+}
+
 /** Plays one game between two bots, each deciding only from its own `BotInput`. */
 export function playMatchGame(
   a: SeatedBot,
@@ -108,10 +130,13 @@ export function playMatchGame(
   game: number,
   source: DeckSource,
   turnCap = MATCH_TURN_CAP,
+  options: MatchOptions = {},
 ): GameResult {
   const seed = `${runSeed}-${game}`;
   const aSeat = game % 2 === 0 ? "P1" : "P2";
-  const decks = decksFor(runSeed, game, source);
+  const decks = options.fixed
+    ? fixedDecks(options.fixed, aSeat)
+    : decksFor(runSeed, game, source);
   const lists = decklistsOf(decks);
   const seats = {
     [aSeat]: { side: "a" as const, ...a, rng: seededRng(`${seed}-a`) },
@@ -125,7 +150,11 @@ export function playMatchGame(
     game,
     seed,
     aSeat,
-    decks: setsFor(game, source),
+    decks: options.fixed
+      ? aSeat === "P1"
+        ? [options.fixed.a.name, options.fixed.b.name]
+        : [options.fixed.b.name, options.fixed.a.name]
+      : setsFor(game, source),
     winner: null,
     reason: "unfinished",
     turns: 0,
@@ -191,6 +220,31 @@ export function playMatchGame(
     state = next;
   }
   result.turns = state.turn;
+  if (options.recordDir) {
+    // #170: the game as a record, to mine its lines and replay a decision (`pnpm bot-explain`).
+    mkdirSync(options.recordDir, { recursive: true });
+    const seatOf = (bot: SeatedBot) => ({
+      kind: "bot",
+      name: bot.bot.name,
+      settings: bot.settings ?? {},
+    });
+    writeFileSync(
+      `${options.recordDir}/game-${game}.json`,
+      JSON.stringify({
+        version: 1,
+        seed,
+        decks,
+        actions: played,
+        seats: {
+          [aSeat]: seatOf(a),
+          [aSeat === "P1" ? "P2" : "P1"]: seatOf(b),
+        },
+        botSeed: seed,
+        aSeat,
+        result: state.result,
+      }),
+    );
+  }
   if (state.result) {
     result.reason = state.result.reason;
     result.winner =
@@ -224,6 +278,9 @@ export interface MatchSummary {
   games: number;
   seed: string;
   decks: DeckSource;
+  /** #170 deck-vs-deck: the deck each bot brought. */
+  aDeck?: string;
+  bDeck?: string;
   /** Search bots ran without a time budget, so the run depends only on its seed. */
   deterministic?: boolean;
   wins: { a: number; b: number; draws: number };

@@ -1,7 +1,11 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { BOTS, type BotSettings } from "@gojisim/bot";
+import { formatDeckList } from "@gojisim/cards/deck-lists";
+import { loadDeck, STOP_FILE } from "./decks";
 import {
   appendJournal,
   clearJournal,
@@ -12,6 +16,7 @@ import {
   type DeckSource,
   type GameResult,
   MATCH_TURN_CAP,
+  type MatchOptions,
   playMatchGame,
   summarize,
 } from "./match";
@@ -21,6 +26,11 @@ import {
  * Seats alternate every game; the JSON report goes to `bot-reports/` (gitignored). Each finished
  * game is journaled under `bot-reports/runs/`, so the same command run again after a crash or a
  * restart plays only the games still missing (M13c).
+ *
+ * #170: `--a-deck <file>#<deck name>` and `--b-deck …` give each bot its own deck (or
+ * `random:<SET>` for a random test deck with a fixed seed); `--keep-records <dir>` keeps every
+ * game's record; `--report <file>` names the report. A `bot-reports/STOP` file stops the run after
+ * the games in progress, keeping the journal: delete it and run the same command to resume.
  */
 const { values } = parseArgs({
   options: {
@@ -44,6 +54,11 @@ const { values } = parseArgs({
     journal: { type: "string" },
     // pnpm runs this script inside tools/bots; INIT_CWD is where `pnpm bots` was typed.
     out: { type: "string", default: process.env["INIT_CWD"] ?? "." },
+    // #170 deck-vs-deck, kept records and the report's path.
+    "a-deck": { type: "string" },
+    "b-deck": { type: "string" },
+    "keep-records": { type: "string" },
+    report: { type: "string" },
   },
 });
 const a = BOTS[values.a];
@@ -76,6 +91,23 @@ const label = (name: string, settings: BotSettings) =>
         .join(",")})`
     : name;
 const decks = values.decks as DeckSource;
+// #170: both decks or neither; each is read from its file and must pass `validateDeck`.
+if (!values["a-deck"] !== !values["b-deck"])
+  throw new Error("--a-deck and --b-deck go together");
+const fixed =
+  values["a-deck"] && values["b-deck"]
+    ? {
+        a: loadDeck(values["a-deck"], values.out, values.seed),
+        b: loadDeck(values["b-deck"], values.out, values.seed),
+      }
+    : undefined;
+const options: MatchOptions = {
+  ...(fixed ? { fixed } : {}),
+  ...(values["keep-records"]
+    ? { recordDir: resolve(values.out, values["keep-records"]) }
+    : {}),
+};
+const stopFile = resolve(values.out, STOP_FILE);
 if (decks !== "official" && decks !== "random" && decks !== "mixed")
   throw new Error(
     `--decks must be official, random or mixed, got ${values.decks}`,
@@ -100,6 +132,13 @@ const journal =
     decks,
     games,
     turnCap: values["turn-cap"],
+    // The decks' lists, so a changed variant is a new run.
+    ...(fixed
+      ? {
+          aDeck: formatDeckList([fixed.a]),
+          bDeck: formatDeckList([fixed.b]),
+        }
+      : {}),
   });
 const played = await readJournal(journal);
 if (!shard && played.size > 0)
@@ -150,6 +189,8 @@ if (workers > 1 && !shard) {
   for (let game = 0; game < games; game++) {
     if (!mine(game)) continue;
     const old = played.get(game);
+    // #170: the stop file ends the run between games; the journal keeps what's done.
+    if (!old && existsSync(stopFile)) break;
     const result =
       old ??
       playMatchGame(
@@ -159,6 +200,7 @@ if (workers > 1 && !shard) {
         game,
         decks,
         Number(values["turn-cap"]),
+        options,
       );
     if (!old) await appendJournal(journal, file, result);
     results.push(result);
@@ -172,18 +214,31 @@ if (workers > 1 && !shard) {
   if (shard) process.exit(0);
 }
 
+if (results.length < games) {
+  // Stopped by the stop file: no report yet, and the journal stays for the resume.
+  console.log(
+    `  stopped (${STOP_FILE}): ${results.length} / ${games} games played; delete it and run the same command to resume`,
+  );
+  process.exit(0);
+}
 const summary = summarize(a, b, values.seed, decks, results);
+if (fixed) {
+  summary.aDeck = fixed.a.name;
+  summary.bDeck = fixed.b.name;
+}
 summary.a = label(a.name, aSettings);
 summary.b = label(b.name, bSettings);
 if (values.deterministic) summary.deterministic = true;
 console.log(JSON.stringify(summary, null, 2));
 const dir = `${values.out}/bot-reports`;
 await mkdir(dir, { recursive: true });
-const file =
-  `${dir}/${new Date().toISOString().replace(/[:.]/g, "-")}-${summary.a}-vs-${summary.b}.json`.replace(
-    /[(),=]/g,
-    "_",
-  );
+const file = values.report
+  ? resolve(values.out, values.report)
+  : `${dir}/${new Date().toISOString().replace(/[:.]/g, "-")}-${summary.a}-vs-${summary.b}.json`.replace(
+      /[(),=]/g,
+      "_",
+    );
+await mkdir(dirname(file), { recursive: true });
 await writeFile(
   file,
   // Per-decision times are summed up in the summary; the report leaves them out.

@@ -10,7 +10,8 @@
     "bot-positions": "GOJISIM_FREEZE=1 tsx src/positions.ts",
     "bot-feedback": "tsx src/feedback.ts",
     "feedback": "GOJISIM_FREEZE=1 tsx src/feedbackCmd.ts",
-    "search-rate": "GOJISIM_FREEZE=1 tsx src/searchRate.ts"
+    "search-rate": "GOJISIM_FREEZE=1 tsx src/searchRate.ts",
+    "bots-plan": "GOJISIM_FREEZE=1 tsx src/plan.ts"
   },
   "dependencies": {
     "@gojisim/bot": "workspace:*",
