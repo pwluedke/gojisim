@@ -10,6 +10,7 @@ import type { NamedDeck } from "@gojisim/cards/deck-lists";
 import { ImportDeck } from "../play/ImportDeck";
 import { applyTheme, loadSettings } from "../play/settings";
 import { PlayerBadge } from "../PlayerBadge";
+import { SyncOffer } from "./SyncOffer";
 import {
   applyFilter,
   buildPool,
@@ -174,6 +175,12 @@ export function Deckbuilder() {
         <PlayerBadge />
       </header>
 
+      {/* #152: the first sign-in's offer to keep this browser's decks with the account. */}
+      {my.offer && (
+        <div className={styles.offer}>
+          <SyncOffer my={my} />
+        </div>
+      )}
       <div className={styles.body}>
         <aside
           className={styles.filters}
@@ -369,8 +376,16 @@ export function Deckbuilder() {
 
       {importing && (
         <ImportDeck
-          existingNames={my.decks.map((d) => d.name)}
+          mine={my.decks}
           onClose={() => setImporting(false)}
+          onReplace={(id, deck) => {
+            const existing = my.decks.find((d) => d.id === id);
+            if (existing)
+              my.update({
+                ...existing,
+                list: savedDeck(deck, existing.name).list,
+              });
+          }}
           onSaveAll={(decks) => {
             const now = Date.now();
             my.add(
@@ -594,12 +609,27 @@ function DecksWindow({
     [],
   );
   const [deleting, setDeleting] = useState<string | null>(null);
+  // #161: Rename and Copy as plain text moved here from /play's My decks panel.
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(
+    null,
+  );
   const [note, setNote] = useState<string | null>(null);
   const backup = useRef<HTMLInputElement>(null);
+  const copy = async (deck: { name: string; list: string }) => {
+    try {
+      await navigator.clipboard.writeText(deck.list);
+      setNote(`Copied ${deck.name} as plain text.`);
+    } catch {
+      setNote(
+        `Couldn't reach the clipboard; Export the deck from the builder instead.`,
+      );
+    }
+  };
   return (
     <div
       className={styles.backdrop}
       data-testid="db-decks-window"
+      data-decks-stored={String(my.stored)}
       role="dialog"
       aria-label="My decks"
     >
@@ -621,13 +651,43 @@ function DecksWindow({
           ))}
         </ul>
         <h3>Your decks</h3>
+        {!my.persistent && (
+          <p data-testid="decks-session-only">
+            This browser isn't saving decks (storage is off), so they last for
+            this visit only.
+          </p>
+        )}
         {my.decks.length === 0 ? (
           <p>No saved decks yet. Import one, or build one here.</p>
         ) : (
           <ul className={styles.deckList}>
             {my.decks.map((d) => (
               <li key={d.id} data-testid="db-deck" data-deck-name={d.name}>
-                <span className={styles.deckName}>{d.name}</span>
+                {renaming?.id === d.id ? (
+                  <span className={styles.deckName}>
+                    <input
+                      data-testid="rename-input"
+                      aria-label={`New name for ${d.name}`}
+                      value={renaming.name}
+                      onChange={(e) =>
+                        setRenaming({ id: d.id, name: e.target.value })
+                      }
+                    />
+                    <button
+                      type="button"
+                      data-testid="rename-save"
+                      disabled={!renaming.name.trim()}
+                      onClick={() => {
+                        my.rename(d.id, renaming.name);
+                        setRenaming(null);
+                      }}
+                    >
+                      Save
+                    </button>
+                  </span>
+                ) : (
+                  <span className={styles.deckName}>{d.name}</span>
+                )}
                 <button
                   type="button"
                   data-testid="db-load"
@@ -657,6 +717,20 @@ function DecksWindow({
                   }}
                 >
                   Duplicate
+                </button>
+                <button
+                  type="button"
+                  data-testid="rename-deck"
+                  onClick={() => setRenaming({ id: d.id, name: d.name })}
+                >
+                  Rename
+                </button>
+                <button
+                  type="button"
+                  data-testid="copy-deck"
+                  onClick={() => void copy(d)}
+                >
+                  Copy
                 </button>
                 {deleting === d.id ? (
                   <>

@@ -2,7 +2,6 @@ import { type Card, type DeckValidation, failedRules } from "@gojisim/cards";
 import {
   type DeckListError,
   formatDeckList,
-  type NamedDeck,
   parseDeckList,
 } from "@gojisim/cards/deck-lists";
 import {
@@ -11,7 +10,7 @@ import {
   buildLoopReport,
 } from "@gojisim/engine";
 import { PRESETS } from "@gojisim/bot";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { difficultyName, displayState, type SeatConfig } from "../game/bots";
 import {
   downloadJson,
@@ -28,12 +27,13 @@ import {
   checkDeck,
   type DeckOption,
   deckOptions,
+  clearImportedDecks,
   loadImportedDecks,
   pickerGroups,
-  replaceByName,
-  saveImportedDecks,
 } from "../game/decks";
-import { localDecks } from "../game/localDecks";
+import { deckOf, savedDeck } from "../game/deckStore";
+import { importsToMove, planImport } from "../game/importDeck";
+import { useMyDecks } from "../game/useMyDecks";
 import { ManualPanel } from "./ManualPanel";
 import { ActionPanel, LogPanel, StatusBar } from "./Panels";
 
@@ -135,13 +135,33 @@ function NewGameForm({
     P1: { kind: "human" },
     P2: { kind: "human" },
   });
-  const [imported, setImported] = useState<NamedDeck[]>(() =>
-    loadImportedDecks(),
-  );
-  const options = useMemo(() => deckOptions(imported), [imported]);
-  // Type-to-filter for the development groups (Monarch, Oct 25, 2026).
-  const [filter, setFilter] = useState("");
-  const [confirmClear, setConfirmClear] = useState(false);
+  // #161: My decks, the store /play and the Deckbuilder use (synced when signed in), so any deck
+  // here is in the Deckbuilder too. It replaced the development deck files and /debug's own
+  // import store.
+  const my = useMyDecks();
+  const options = useMemo(() => {
+    const mine = my.decks.flatMap((saved) => {
+      const deck = deckOf(saved);
+      return deck ? [{ id: saved.id, name: saved.name, deck }] : [];
+    });
+    return deckOptions(mine);
+  }, [my.decks]);
+  // #161: decks imported here before go into My decks once (a same-named deck with the same
+  // list is skipped); the old store is cleared only once they're saved in this browser.
+  const moved = useRef(false);
+  useEffect(() => {
+    if (moved.current || !my.loaded || !my.stored) return;
+    moved.current = true;
+    const legacy = loadImportedDecks();
+    if (legacy.length === 0) return;
+    const now = Date.now();
+    my.add(
+      ...importsToMove(legacy, my.decks).map((deck, i) =>
+        savedDeck(deck, deck.name, new Date(now + i)),
+      ),
+    );
+    if (my.persistent) clearImportedDecks();
+  }, [my]);
   const [keys, setKeys] = useState<[string, string]>([
     "official:ESD01",
     "official:ESD02",
@@ -152,30 +172,35 @@ function NewGameForm({
     options.find((o) => o.key === key) ?? (options[0] as DeckOption);
   const picked: [DeckOption, DeckOption] = [byKey(keys[0]), byKey(keys[1])];
   const legalityLabel = (option: DeckOption) => {
-    if (option.kind !== "imported" && option.kind !== "file")
-      return option.label;
+    if (option.kind !== "mine") return option.label;
     const validation = checkDeck(option.build(0));
     return `${option.label} ${validation.legal ? "✓ legal" : `✗ ${failedRules(validation).join(", ")}`}`;
   };
 
+  /**
+   * Import saves into My decks through the shared import path (#167): a deck saved with the same
+   * name and list is skipped, and one with the same name and a different list is replaced.
+   */
   const importDeckList = async (file: File) => {
     const { decks, errors } = parseDeckList(await file.text());
-    // A deck with a stored deck's name replaces it, so a second import doesn't double the list.
-    const next = replaceByName(imported, decks);
-    setImported(next);
-    saveImportedDecks(next);
+    const now = Date.now();
+    const added = [];
+    for (const step of planImport(decks, my.decks)) {
+      if (step.kind === "new")
+        added.push(
+          savedDeck(step.deck, step.name, new Date(now + added.length)),
+        );
+      else if (step.kind === "clash") {
+        const existing = my.decks.find((d) => d.id === step.existing.id);
+        if (existing)
+          my.update({
+            ...existing,
+            list: savedDeck(step.deck, existing.name).list,
+          });
+      }
+    }
+    if (added.length > 0) my.add(...added);
     setImportErrors(errors);
-  };
-
-  const clearImported = () => {
-    setImported([]);
-    saveImportedDecks([]);
-    setConfirmClear(false);
-    // A pick that was an import goes back to the starters.
-    setKeys(([a, b]) => [
-      a.startsWith("imported:") ? "official:ESD01" : a,
-      b.startsWith("imported:") ? "official:ESD02" : b,
-    ]);
   };
 
   const exportDeckList = () => {
@@ -231,17 +256,15 @@ function NewGameForm({
                   )
                 }
               >
-                {pickerGroups(options, filter, [keys[i] as string]).map(
-                  (group) => (
-                    <optgroup key={group.label} label={group.label}>
-                      {group.options.map((option) => (
-                        <option key={option.key} value={option.key}>
-                          {legalityLabel(option)}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ),
-                )}
+                {pickerGroups(options).map((group) => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.options.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {legalityLabel(option)}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
               </select>
             </label>
             <LegalityNote
@@ -256,26 +279,9 @@ function NewGameForm({
           </div>
         ))}
       </div>
-      {options.some((o) => o.kind === "file" || o.kind === "imported") && (
-        <label style={{ display: "block", marginTop: 6 }}>
-          Find a development deck{" "}
-          <input
-            type="search"
-            data-testid="dev-deck-filter"
-            placeholder="Name, file or folder"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            onKeyDown={(e) => {
-              // Enter filters; it never starts the game from here.
-              if (e.key === "Enter") e.preventDefault();
-            }}
-          />
-        </label>
-      )}
-      <LocalDeckFiles />
       <div style={{ marginTop: 6 }}>
         <label>
-          Import deck list (.txt){" "}
+          Import deck list into My decks (.txt){" "}
           <input
             type="file"
             accept=".txt,text/plain"
@@ -292,31 +298,6 @@ function NewGameForm({
         >
           Export deck list
         </button>{" "}
-        {imported.length > 0 &&
-          (confirmClear ? (
-            <span data-testid="clear-imported-confirm">
-              Clear {imported.length} imported deck
-              {imported.length === 1 ? "" : "s"} from this browser?{" "}
-              <button
-                type="button"
-                data-testid="clear-imported-yes"
-                onClick={clearImported}
-              >
-                Clear
-              </button>{" "}
-              <button type="button" onClick={() => setConfirmClear(false)}>
-                Keep
-              </button>
-            </span>
-          ) : (
-            <button
-              type="button"
-              data-testid="clear-imported-decks"
-              onClick={() => setConfirmClear(true)}
-            >
-              Clear imported decks
-            </button>
-          ))}
         {importErrors.length > 0 && (
           <ul
             data-testid="deck-list-errors"
@@ -332,35 +313,6 @@ function NewGameForm({
       </div>
       {error && <div style={{ color: "var(--color-illegal)" }}>{error}</div>}
     </form>
-  );
-}
-
-/**
- * The development deck files (`local-decks/*.txt`, dev server only): how many decks each gave,
- * and each file's parse errors once, with their lines. Nothing shows without the folder.
- */
-function LocalDeckFiles() {
-  const { counts, errors, parseMs } = localDecks();
-  if (counts.length === 0) return null;
-  return (
-    <div data-testid="local-deck-files" style={{ fontSize: 12, marginTop: 4 }}>
-      Development deck files (local-decks, read in {Math.round(parseMs)} ms):{" "}
-      {counts.map((c) => `${c.file} (${c.decks})`).join(", ")}
-      {errors.map(({ file, errors: list }) => (
-        <ul
-          key={file}
-          data-testid="local-deck-errors"
-          data-file={file}
-          style={{ color: "var(--color-illegal)", margin: "2px 0" }}
-        >
-          {list.map((e) => (
-            <li key={e.line}>
-              {file} line {e.line}: {e.reason}
-            </li>
-          ))}
-        </ul>
-      ))}
-    </div>
   );
 }
 

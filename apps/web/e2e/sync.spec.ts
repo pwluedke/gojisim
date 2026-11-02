@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
+import { importInDeckbuilder } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -78,24 +79,23 @@ async function fakeAccount(
   return { store, writes };
 }
 
+/** Saves a deck in the Deckbuilder (#161: decks are imported there). */
 async function saveLocalDeck(page: Page, name: string) {
-  await page.getByTestId("import-deck").click();
-  await page.getByTestId("import-text").fill(list);
-  await page.getByTestId("import-name").fill(name);
-  await page.getByTestId("import-save").click();
-  await expect(page.getByTestId("my-decks")).toHaveAttribute(
-    "data-decks-stored",
-    "true",
-  );
+  await importInDeckbuilder(page, list, name);
 }
 
-const names = (page: Page) => page.getByTestId("my-deck-name");
+/** The Deckbuilder's My decks window's deck names (it opens if closed). */
+async function names(page: Page) {
+  const win = page.getByTestId("db-decks-window");
+  if (!(await win.isVisible())) await page.getByTestId("db-my-decks").click();
+  return win.locator('[data-testid="db-deck"] > span:first-child');
+}
 
 test("#152: at first sign-in, this browser's decks are offered once (a name clash asks), the account's arrive, and changes go to the account", async ({
   page,
 }) => {
   // Before signing in: two decks in this browser only.
-  await page.goto("/play?mode=bot");
+  await page.goto("/decks");
   await saveLocalDeck(page, "Local Green");
   await saveLocalDeck(page, "Red Rush");
 
@@ -119,14 +119,16 @@ test("#152: at first sign-in, this browser's decks are offered once (a name clas
     ],
     { theme: "grey", sound: true },
   );
-  await page.goto("/auth/dev?next=%2Fplay%3Fmode%3Dbot");
-  await page.getByTestId("my-decks-toggle").click();
+  // The offer is in the Deckbuilder (#161).
+  await page.goto("/auth/dev?next=%2Fdecks");
 
   // The account's decks arrived; nothing of this browser's is lost.
-  await expect(names(page)).toHaveText(
+  await expect(await names(page)).toHaveText(
     ["Local Green", "Red Rush", "Account Blue", "Red Rush"],
     { useInnerText: true },
   );
+  // The window covers the page; close it to answer the offer.
+  await page.getByTestId("db-decks-close").click();
   const offer = page.getByTestId("sync-offer");
   await expect(offer).toContainText(
     "2 decks saved in this browser aren't in your account yet.",
@@ -145,21 +147,19 @@ test("#152: at first sign-in, this browser's decks are offered once (a name clas
         .sort(),
     )
     .toEqual(["Local Green", "Red Rush (this browser)"]);
-  await expect(names(page)).toContainText(["Red Rush (this browser)"]);
+  await expect(await names(page)).toContainText(["Red Rush (this browser)"]);
 
   // Asked once: a reload shows no offer.
   await page.reload();
-  await page.getByTestId("my-decks-toggle").click();
-  await expect(names(page).first()).toBeVisible();
+  await expect((await names(page)).first()).toBeVisible();
   await expect(page.getByTestId("sync-offer")).toHaveCount(0);
 
   // A delete here reaches the account.
   const blue = page.locator(
-    '[data-testid="my-deck"][data-deck-name="Account Blue"]',
+    '[data-testid="db-deck"][data-deck-name="Account Blue"]',
   );
-  await blue.getByTestId("deck-menu").click();
-  await page.getByTestId("delete-deck").click();
-  await page.getByTestId("delete-confirm").click();
+  await blue.getByTestId("db-delete").click();
+  await blue.getByTestId("db-delete-confirm").click();
   await expect
     .poll(() => account.writes.some((w) => w.startsWith("DELETE acct-blue")))
     .toBe(true);

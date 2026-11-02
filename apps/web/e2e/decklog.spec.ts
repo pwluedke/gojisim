@@ -44,8 +44,8 @@ async function mockRoute(page: Page, status: number, body: unknown) {
 }
 
 async function fetchDeck(page: Page, input: string) {
-  await page.goto("/play?mode=bot");
-  await page.getByTestId("import-deck").click();
+  await page.goto("/decks");
+  await page.getByTestId("db-import").click();
   await page.getByTestId("decklog-input").fill(input);
   await page.getByTestId("decklog-fetch").click();
 }
@@ -72,7 +72,11 @@ test("paste a Decklog URL: the deck is fetched, previewed, saved and played", as
   await expect(page.getByTestId("import-warnings")).toHaveCount(0);
   await expect(page.getByTestId("import-name")).toHaveValue("The Despangler");
   await page.getByTestId("import-save").click();
-  await expect(page.getByTestId("my-deck-name")).toHaveText(["The Despangler"]);
+  await expect(page.getByTestId("db-decks-window")).toContainText(
+    "The Despangler",
+  );
+  await page.goto("/play?mode=bot");
+  await page.getByTestId("deck-P1").selectOption({ label: "The Despangler" });
   await expect(
     page.getByTestId("seat-panel-P1").getByTestId("legality"),
   ).toHaveText("Legal");
@@ -80,19 +84,19 @@ test("paste a Decklog URL: the deck is fetched, previewed, saved and played", as
   await expect(page.getByTestId("board")).toBeVisible();
 });
 
-test("a bare deck code works too, and Enter fetches without starting a game", async ({
+test("a bare deck code works too, and Enter fetches without saving", async ({
   page,
 }) => {
   const codes = await mockRoute(page, 200, despangler);
-  await page.goto("/play?mode=bot");
-  await page.getByTestId("import-deck").click();
+  await page.goto("/decks");
+  await page.getByTestId("db-import").click();
   await page.getByTestId("decklog-input").fill("1STAP");
   await page.getByTestId("decklog-input").press("Enter");
   await expect(page.getByTestId("import-counts")).toHaveText(
     "Monster deck 4 · Main deck 50",
   );
   expect(codes).toEqual(["1STAP"]);
-  await expect(page.getByTestId("board")).toHaveCount(0);
+  await expect(page.getByTestId("db-decks-window")).toHaveCount(0);
 });
 
 test("deck not found", async ({ page }) => {

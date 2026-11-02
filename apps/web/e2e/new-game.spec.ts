@@ -21,28 +21,39 @@ const starter = readFileSync(
   "utf8",
 );
 
-/** Six saved decks through Import backup, the quickest way to fill My decks. */
-async function sixDecks(page: Page) {
-  const backup = {
-    app: "gojisim",
-    kind: "decks",
-    version: 1,
-    decks: Array.from({ length: 6 }, (_, i) => ({
-      name: `Saved deck ${i + 1}`,
-      list: starter,
-    })),
-  };
-  await page.getByTestId("import-backup").setInputFiles({
+/** Restores `decks` with Import backup in the Deckbuilder's My decks window (#161), then comes back. */
+async function restore(page: Page, decks: { name: string; list: string }[]) {
+  const back = page.url();
+  await page.goto("/decks");
+  await page.getByTestId("db-my-decks").click();
+  await page.getByTestId("db-backup-file").setInputFiles({
     name: "decks.json",
     mimeType: "application/json",
-    buffer: Buffer.from(JSON.stringify(backup)),
+    buffer: Buffer.from(
+      JSON.stringify({ app: "gojisim", kind: "decks", version: 1, decks }),
+    ),
   });
-  await expect(page.getByTestId("my-deck")).toHaveCount(6);
-  // Storage has caught up (decision 295).
-  await expect(page.getByTestId("my-decks")).toHaveAttribute(
+  await expect(page.getByTestId("db-decks-note")).toContainText("Restored");
+  // Storage has caught up before leaving (decision 295).
+  await expect(page.getByTestId("db-decks-window")).toHaveAttribute(
     "data-decks-stored",
     "true",
   );
+  await page.goto(back);
+}
+
+/** Six saved decks, the quickest way to fill My decks. */
+async function sixDecks(page: Page) {
+  await restore(
+    page,
+    Array.from({ length: 6 }, (_, i) => ({
+      name: `Saved deck ${i + 1}`,
+      list: starter,
+    })),
+  );
+  await expect(
+    page.getByTestId("deck-P1").locator('optgroup[label="My decks"] option'),
+  ).toHaveCount(6);
 }
 
 async function open(page: Page, theme: string) {
@@ -65,29 +76,16 @@ const pageScrolls = (page: Page) =>
 
 for (const size of SIZES)
   for (const theme of THEMES)
-    test(`no page scroll at ${size.width}×${size.height} in ${theme}, with 6 saved decks and the list open`, async ({
+    test(`no page scroll at ${size.width}×${size.height} in ${theme}, with 6 saved decks`, async ({
       page,
     }) => {
       await page.setViewportSize(size);
       await open(page, theme);
       await sixDecks(page);
-      await expect(page.getByTestId("my-decks")).toHaveAttribute(
-        "data-open",
-        "true",
-      );
       expect(await pageScrolls(page)).toBe(false);
       // Two bots (the tallest seats: both show their level) still fit.
       await page.getByTestId("seat-P1").selectOption("bot");
       expect(await pageScrolls(page)).toBe(false);
-      // The list scrolls inside its box: 4 rows tall at most.
-      const list = page.getByTestId("my-decks-list");
-      const box = await list.evaluate((el) => ({
-        client: el.clientHeight,
-        scroll: el.scrollHeight,
-        row: el.querySelector("li")?.getBoundingClientRect().height ?? 0,
-      }));
-      expect(box.client).toBeLessThanOrEqual(4 * box.row + 1);
-      expect(box.scroll).toBeGreaterThan(box.client);
       if (process.env["NEW_GAME_SHOTS"])
         await page.screenshot({
           path: `${process.env["NEW_GAME_SHOTS"]}/new-game-${theme}-${size.width}.png`,
@@ -101,7 +99,7 @@ test.describe("compact controls", () => {
     page,
   }) => {
     await open(page, "showa");
-    for (const id of ["deck-P1", "seed-input", "randomize-P1", "import-deck"]) {
+    for (const id of ["deck-P1", "seed-input", "randomize-P1"]) {
       const control = page.getByTestId(id);
       expect((await control.boundingBox())?.height).toBeCloseTo(36, 0);
       await expect(control).toHaveCSS("font-size", "14px");
@@ -205,17 +203,7 @@ test.describe("Randomize", () => {
     await sixDecks(page);
     // Make every saved deck illegal: the starter list with a card missing.
     const short = starter.replace(/^4 (ESD01-\d+)$/m, "3 $1");
-    const backup = {
-      app: "gojisim",
-      kind: "decks",
-      version: 1,
-      decks: [{ name: "Short deck", list: short }],
-    };
-    await page.getByTestId("import-backup").setInputFiles({
-      name: "short.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(backup)),
-    });
+    await restore(page, [{ name: "Short deck", list: short }]);
     await page.getByTestId("match-mode-tournament").check();
     const illegal = await page
       .getByTestId("deck-P1")
@@ -250,39 +238,28 @@ test.describe("Randomize", () => {
   });
 });
 
-test.describe("My decks", () => {
+test.describe("one simple picker (#161)", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test("closed by default with its count; each row has one ⋯ menu with Rename, Copy and Delete", async ({
+  test("the picker lists Starter decks and My decks only; deck tools live in the Deckbuilder", async ({
     page,
   }) => {
     await open(page, "showa");
     await sixDecks(page);
-    await page.reload();
-    const section = page.getByTestId("my-decks");
-    await expect(section).toHaveAttribute("data-decks-stored", "true");
-    await expect(section).toHaveAttribute("data-open", "false");
-    await expect(page.getByTestId("my-decks-toggle")).toHaveText(
-      /My decks \(6\)/,
-    );
-    await expect(page.getByTestId("my-deck")).toHaveCount(0);
-    // Import deck, Export all and Import backup sit on one line.
-    const tops = await Promise.all(
-      ["import-deck", "export-decks", "import-backup-button"].map(
-        async (id) => (await page.getByTestId(id).boundingBox())?.y,
-      ),
-    );
-    expect(new Set(tops).size).toBe(1);
-    await page.getByTestId("my-decks-toggle").click();
-    const row = page.getByTestId("my-deck").first();
-    await expect(row.getByTestId("deck-menu")).toHaveCount(1);
-    await expect(row.getByRole("button")).toHaveCount(1);
-    await row.getByTestId("deck-menu").click();
-    await expect(
-      page.getByTestId("deck-menu-list").getByRole("menuitem"),
-    ).toHaveText(["Rename", "Copy", "Delete"]);
-    // Esc closes it.
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("deck-menu-list")).toHaveCount(0);
+    expect(
+      await page
+        .getByTestId("deck-P1")
+        .locator("optgroup")
+        .evaluateAll((groups) => groups.map((g) => g.getAttribute("label"))),
+    ).toEqual(["Starter decks", "My decks"]);
+    for (const id of [
+      "import-deck",
+      "my-decks",
+      "export-decks",
+      "dev-deck-filter",
+    ])
+      await expect(page.getByTestId(id)).toHaveCount(0);
+    await page.getByTestId("build-decks").click();
+    await expect(page).toHaveURL(/\/decks/);
   });
 });

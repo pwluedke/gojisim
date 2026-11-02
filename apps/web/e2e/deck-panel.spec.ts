@@ -124,10 +124,13 @@ test("#158: a starter loads legal; a banned card is marked with its reason; the 
   await expect(page.getByTestId("db-deck-name")).toHaveValue("Red Variant");
   await expect(page.getByTestId("db-count-main")).toHaveText("50/50");
 
-  // The saved deck plays: it's in /play's My decks.
+  // The saved deck plays: it's under My decks in /play's picker.
   await page.goto("/play?mode=bot");
-  await page.getByTestId("my-decks-toggle").click();
-  await expect(page.getByTestId("my-deck-name")).toContainText(["Red Variant"]);
+  await expect(
+    page
+      .getByTestId("deck-P1")
+      .locator('optgroup[label="My decks"] option', { hasText: "Red Variant" }),
+  ).toHaveCount(3);
 });
 
 test("#158: leaving with unsaved changes asks first; Cancel keeps the deck", async ({

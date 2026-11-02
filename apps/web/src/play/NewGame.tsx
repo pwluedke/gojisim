@@ -1,10 +1,9 @@
 import { PRESETS } from "@gojisim/bot";
 import type { MatchMode } from "@gojisim/engine";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { difficultyName, type SeatConfig } from "../game/bots";
 import {
   type DeckOption,
-  loadImportedDecks,
   optionLegality,
   pickerGroups,
   playDeckOptions,
@@ -14,22 +13,9 @@ import {
   deckReasons,
   tournamentProblems,
 } from "../game/decks";
-import {
-  backupJson,
-  deckOf,
-  readBackup,
-  type SavedDeck,
-  savedDeck,
-} from "../game/deckStore";
-import {
-  downloadText,
-  PLAYER_IDS,
-  type PlayerId,
-  randomSeed,
-} from "../game/session";
-import type { ClashChoice } from "../game/accountSync";
+import { deckOf } from "../game/deckStore";
+import { PLAYER_IDS, type PlayerId, randomSeed } from "../game/session";
 import { useMyDecks } from "../game/useMyDecks";
-import { ImportDeck } from "./ImportDeck";
 import styles from "./NewGame.module.css";
 import { Tooltip } from "./Tooltip";
 
@@ -84,15 +70,15 @@ function Legality({
 }
 
 /**
- * The `/play` new-game screen (M5a): a deck for each seat (the official starters, random test
- * decks, and decks imported in `/debug`, with a legality badge), Human or Bot per seat, and the
+ * The `/play` new-game screen (M5a): a deck for each seat (#161: the Starter decks, then My decks,
+ * each with a legality badge), Human or Bot per seat, and the
  * difficulty slider with its presets. M5e: Casual (undo allowed) or Tournament (no undo), stored
  * in the game record. Tournament games take legal decks only: an illegal deck can't be picked, and
  * the seat says why. Casual games play it with a warning on the board.
  *
  * The whole screen fits at 1280×800 with no page scroll (Monarch, Oct 26, 2026): compact 36 px
- * controls, the seats side by side, My decks collapsed, and the game options in one block at the
- * bottom. Each seat's Randomize picks a deck from its filtered list; switching the match type
+ * controls, the seats side by side, a link to the Deckbuilder, and the game options in one block at
+ * the bottom. Each seat's Randomize picks from the Starter decks and My decks; switching the match type
  * resets both seats to the starters.
  */
 export function NewGame({
@@ -113,22 +99,15 @@ export function NewGame({
     matchMode: MatchMode,
   ) => void;
 }) {
-  // M7a: the starters, My decks (saved in this browser), then the development decks.
+  // #161: the starters, then My decks (synced when signed in); nothing else.
   const my = useMyDecks();
-  // Read once: the stored imports can be hundreds of decks.
-  const [imported] = useState(loadImportedDecks);
   const options = useMemo(() => {
     const mine = my.decks.flatMap((saved) => {
       const deck = deckOf(saved);
       return deck ? [{ id: saved.id, name: saved.name, deck }] : [];
     });
-    return playDeckOptions(mine, imported);
-  }, [my.decks, imported]);
-  // Type-to-filter for the development groups (Monarch, Oct 25, 2026).
-  const [filter, setFilter] = useState("");
-  const [importing, setImporting] = useState(false);
-  // My decks starts collapsed; saving or restoring a deck opens it to show the new deck.
-  const [decksOpen, setDecksOpen] = useState(false);
+    return playDeckOptions(mine);
+  }, [my.decks]);
   const [keys, setKeys] = useState<Record<PlayerId, string>>({
     ...STARTER_PICKS,
   });
@@ -156,9 +135,8 @@ export function NewGame({
   const blocked = tournament
     ? PLAYER_IDS.filter((id) => problemsOf(keys[id]).length > 0)
     : [];
-  // Randomize draws from what the filter shows (Starters, My decks, the matching development
-  // decks), legal decks only in a Tournament game.
-  const randomCandidates = pickerGroups(options, filter)
+  // Randomize draws from the Starter decks and My decks, legal decks only in a Tournament game.
+  const randomCandidates = pickerGroups(options)
     .flatMap((group) => group.options)
     .filter((o) => !tournament || problemsOf(o.key).length === 0)
     .map((o) => o.key);
@@ -182,22 +160,6 @@ export function NewGame({
     >
       <div className={styles.titleRow}>
         <h1 className={styles.title}>Play vs bot</h1>
-        {options.some((o) => o.kind === "file" || o.kind === "imported") && (
-          <label className={styles.filter}>
-            Find a development deck{" "}
-            <input
-              type="search"
-              data-testid="dev-deck-filter"
-              placeholder="Name, file or folder"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              onKeyDown={(e) => {
-                // Enter filters; it never starts the game from here.
-                if (e.key === "Enter") e.preventDefault();
-              }}
-            />
-          </label>
-        )}
       </div>
       <div className={styles.seats}>
         {PLAYER_IDS.map((id) => {
@@ -256,7 +218,7 @@ export function NewGame({
                       setKeys((k) => ({ ...k, [id]: e.target.value }))
                     }
                   >
-                    {pickerGroups(options, filter, [keys[id]]).map(
+                    {pickerGroups(options).map(
                       ({ label: group, options: inGroup }) => (
                         <optgroup key={group} label={group}>
                           {inGroup.map((o) => {
@@ -377,41 +339,15 @@ export function NewGame({
           );
         })}
       </div>
-      <MyDecks
-        my={my}
-        open={decksOpen}
-        onOpen={setDecksOpen}
-        onImport={() => setImporting(true)}
-        onSaved={(deck) => {
-          setKeys((k) => ({ ...k, P1: `mine:${deck.id}` }));
-          setDecksOpen(true);
-        }}
-      />
-      {importing && (
-        <ImportDeck
-          existingNames={my.decks.map((d) => d.name)}
-          onClose={() => setImporting(false)}
-          onSaveAll={(decks) => {
-            const now = Date.now();
-            const saved = decks.map(({ deck, name }, i) =>
-              savedDeck(deck, name, new Date(now + i)),
-            );
-            my.add(...saved);
-            // The last saved deck is ready to play in P1's seat (decision 292).
-            const last = saved[saved.length - 1];
-            if (last) setKeys((k) => ({ ...k, P1: `mine:${last.id}` }));
-            setDecksOpen(true);
-          }}
-          onSave={(deck, name) => {
-            const saved = savedDeck(deck, name);
-            my.add(saved);
-            // The new deck is ready to play in P1's seat.
-            setKeys((k) => ({ ...k, P1: `mine:${saved.id}` }));
-            setDecksOpen(true);
-            setImporting(false);
-          }}
-        />
-      )}
+      {/* #161: decks are built, imported and backed up in the Deckbuilder. */}
+      <p className={styles.buildLink}>
+        <a href="/decks" data-testid="build-decks">
+          Build or import decks
+        </a>
+        {my.decks.length === 0
+          ? " to play your own here."
+          : ` (${my.decks.length} in My decks)`}
+      </p>
       <div className={styles.options} data-testid="game-options">
         <div className={styles.line}>
           <label>
@@ -516,396 +452,5 @@ export function NewGame({
         )}
       </div>
     </form>
-  );
-}
-
-/**
- * #152: the first sign-in's offer in a browser with its own decks: upload them to the account,
- * with a choice for each deck whose name the account already uses for a different deck. "Not
- * now" keeps them in this browser only. Asked once per browser and player.
- */
-function SyncOffer({ my }: { my: ReturnType<typeof useMyDecks> }) {
-  const offer = my.offer;
-  const [choices, setChoices] = useState<Record<string, ClashChoice>>({});
-  if (!offer) return null;
-  const count = offer.upload.length + offer.clashes.length;
-  return (
-    <div
-      className={styles.syncOffer}
-      data-testid="sync-offer"
-      role="group"
-      aria-label="Keep these decks with your account"
-    >
-      <strong>Keep this browser's decks with your account?</strong>
-      <p>
-        {count === 0
-          ? "Your account already has every deck saved here."
-          : `${count} deck${count === 1 ? "" : "s"} saved in this browser ${count === 1 ? "isn't" : "aren't"} in your account yet. Upload ${count === 1 ? "it" : "them"} to play ${count === 1 ? "it" : "them"} on any browser.`}
-      </p>
-      {offer.clashes.map(({ local }) => (
-        <label
-          key={local.id}
-          className={styles.syncClash}
-          data-testid="sync-clash"
-        >
-          Your account already has a different "{local.name}":{" "}
-          <select
-            value={choices[local.id] ?? "both"}
-            onChange={(e) =>
-              setChoices((c) => ({
-                ...c,
-                [local.id]: e.target.value as ClashChoice,
-              }))
-            }
-          >
-            <option value="both">Keep both</option>
-            <option value="account">Keep the account's</option>
-            <option value="browser">Use this browser's</option>
-          </select>
-        </label>
-      ))}
-      <div className={styles.syncActions}>
-        <button
-          type="button"
-          data-testid="sync-upload"
-          onClick={() => my.acceptOffer(choices)}
-        >
-          Upload
-        </button>
-        <button
-          type="button"
-          data-testid="sync-not-now"
-          onClick={() => my.declineOffer()}
-        >
-          Not now
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/**
- * My decks (M7a): the decks saved in this browser, each with its legality badge and one "⋯" menu
- * (Rename, Copy as plain text, Delete), plus Import deck and a JSON backup of all of them. The
- * list is collapsed by default ("My decks (6)"); open, it scrolls inside a box 4 rows tall.
- */
-function MyDecks({
-  my,
-  open,
-  onOpen,
-  onImport,
-  onSaved,
-}: {
-  my: ReturnType<typeof useMyDecks>;
-  open: boolean;
-  onOpen: (open: boolean) => void;
-  onImport: () => void;
-  onSaved: (deck: SavedDeck) => void;
-}) {
-  const [menu, setMenu] = useState<string | null>(null);
-  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(
-    null,
-  );
-  const [deleting, setDeleting] = useState<string | null>(null);
-  // Import backup is a button like its neighbors; it opens this hidden file picker.
-  const backupInput = useRef<HTMLInputElement>(null);
-  const [note, setNote] = useState<string | null>(null);
-  const [copyText, setCopyText] = useState<string | null>(null);
-  const copy = async (deck: SavedDeck) => {
-    try {
-      await navigator.clipboard.writeText(deck.list);
-      setNote(`Copied ${deck.name} as plain text.`);
-      setCopyText(null);
-    } catch {
-      // No clipboard access (an insecure page, or denied): show the text to copy by hand.
-      setCopyText(deck.list);
-    }
-  };
-  return (
-    <section
-      className={styles.myDecks}
-      data-testid="my-decks"
-      data-decks-stored={my.stored ? "true" : "false"}
-      data-open={open ? "true" : "false"}
-    >
-      <div className={styles.myDecksHead}>
-        <button
-          type="button"
-          className={styles.toggle}
-          data-testid="my-decks-toggle"
-          aria-expanded={open}
-          aria-controls="my-decks-list"
-          onClick={() => onOpen(!open)}
-        >
-          <span aria-hidden="true">{open ? "▾" : "▸"}</span> My decks (
-          {my.decks.length})
-        </button>
-        <span className={styles.myDecksActions}>
-          <button
-            type="button"
-            data-control
-            data-testid="import-deck"
-            data-primary
-            onClick={onImport}
-          >
-            Import deck
-          </button>
-          <button
-            type="button"
-            data-control
-            data-testid="export-decks"
-            disabled={my.decks.length === 0}
-            onClick={() =>
-              downloadText(backupJson(my.decks), "gojisim-my-decks.json")
-            }
-          >
-            Export all
-          </button>
-          <button
-            type="button"
-            data-control
-            data-testid="import-backup-button"
-            onClick={() => backupInput.current?.click()}
-          >
-            Import backup
-          </button>
-          <input
-            ref={backupInput}
-            type="file"
-            accept="application/json,.json"
-            hidden
-            data-testid="import-backup"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              e.target.value = "";
-              if (!file) return;
-              const { decks, problems } = readBackup(await file.text());
-              my.add(...decks);
-              const last = decks[decks.length - 1];
-              if (last) onSaved(last);
-              setNote(
-                [
-                  `Imported ${decks.length} deck${decks.length === 1 ? "" : "s"}.`,
-                  ...problems,
-                ].join(" "),
-              );
-            }}
-          />
-        </span>
-      </div>
-      {!my.persistent && (
-        <div className={styles.illegal} data-testid="decks-session-only">
-          This browser can&apos;t store decks: imported decks last for this
-          visit only.
-        </div>
-      )}
-      {note && (
-        <div className={styles.note} data-testid="decks-note">
-          {note}
-        </div>
-      )}
-      {my.offer && <SyncOffer my={my} />}
-      {copyText && (
-        <textarea
-          className={styles.importText}
-          data-testid="copy-text"
-          readOnly
-          rows={3}
-          value={copyText}
-          onFocus={(e) => e.currentTarget.select()}
-        />
-      )}
-      {open &&
-        (my.decks.length === 0 ? (
-          <div className={styles.note} id="my-decks-list">
-            No saved decks yet. Import one to play it here.
-          </div>
-        ) : (
-          <ul
-            className={styles.deckRows}
-            id="my-decks-list"
-            data-testid="my-decks-list"
-          >
-            {my.decks.map((saved) => {
-              const deck = deckOf(saved);
-              return (
-                <li
-                  key={saved.id}
-                  className={styles.deckRow}
-                  data-testid="my-deck"
-                  data-deck-name={saved.name}
-                >
-                  {renaming?.id === saved.id ? (
-                    // Not a <form>: My decks sits inside the new-game form, and forms can't nest.
-                    <span className={styles.renameRow}>
-                      <input
-                        data-testid="rename-input"
-                        value={renaming.name}
-                        autoFocus
-                        onChange={(e) =>
-                          setRenaming({ id: saved.id, name: e.target.value })
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            my.rename(saved.id, renaming.name);
-                            setRenaming(null);
-                          }
-                          if (e.key === "Escape") setRenaming(null);
-                        }}
-                      />
-                      <button
-                        type="button"
-                        data-control
-                        data-testid="rename-save"
-                        onClick={() => {
-                          my.rename(saved.id, renaming.name);
-                          setRenaming(null);
-                        }}
-                      >
-                        Save
-                      </button>
-                      <button
-                        type="button"
-                        data-control
-                        onClick={() => setRenaming(null)}
-                      >
-                        Cancel
-                      </button>
-                    </span>
-                  ) : deleting === saved.id ? (
-                    <span className={styles.renameRow}>
-                      <button
-                        type="button"
-                        data-control
-                        data-testid="delete-confirm"
-                        onClick={() => {
-                          my.remove(saved.id);
-                          setDeleting(null);
-                        }}
-                      >
-                        Delete {saved.name}?
-                      </button>
-                      <button
-                        type="button"
-                        data-control
-                        onClick={() => setDeleting(null)}
-                      >
-                        Keep
-                      </button>
-                    </span>
-                  ) : (
-                    <>
-                      <span
-                        className={styles.deckRowName}
-                        data-testid="my-deck-name"
-                      >
-                        {saved.name}
-                      </span>
-                      {deck && (
-                        <Legality
-                          legality={optionLegality(
-                            {
-                              key: saved.id,
-                              label: saved.name,
-                              kind: "mine",
-                              build: () => deck,
-                            },
-                            0,
-                          )}
-                        />
-                      )}
-                      <DeckMenu
-                        name={saved.name}
-                        open={menu === saved.id}
-                        onOpen={(o) => setMenu(o ? saved.id : null)}
-                        onRename={() =>
-                          setRenaming({ id: saved.id, name: saved.name })
-                        }
-                        onCopy={() => void copy(saved)}
-                        onDelete={() => setDeleting(saved.id)}
-                      />
-                    </>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        ))}
-    </section>
-  );
-}
-
-/**
- * A saved deck's "⋯" menu: Rename, Copy and Delete. It closes on a pick, Esc, or a click
- * anywhere else.
- */
-function DeckMenu({
-  name,
-  open,
-  onOpen,
-  onRename,
-  onCopy,
-  onDelete,
-}: {
-  name: string;
-  open: boolean;
-  onOpen: (open: boolean) => void;
-  onRename: () => void;
-  onCopy: () => void;
-  onDelete: () => void;
-}) {
-  const box = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: PointerEvent) => {
-      if (!box.current?.contains(e.target as Node)) onOpen(false);
-    };
-    const esc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onOpen(false);
-    };
-    document.addEventListener("pointerdown", close);
-    document.addEventListener("keydown", esc);
-    return () => {
-      document.removeEventListener("pointerdown", close);
-      document.removeEventListener("keydown", esc);
-    };
-  }, [open, onOpen]);
-  const item = (testId: string, label: string, act: () => void) => (
-    <button
-      type="button"
-      role="menuitem"
-      className={styles.menuItem}
-      data-testid={testId}
-      onClick={() => {
-        onOpen(false);
-        act();
-      }}
-    >
-      {label}
-    </button>
-  );
-  return (
-    <span ref={box} className={styles.menuBox}>
-      <button
-        type="button"
-        data-control
-        className={styles.menuButton}
-        data-testid="deck-menu"
-        aria-label={`${name}: more actions`}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => onOpen(!open)}
-      >
-        ⋯
-      </button>
-      {open && (
-        <span className={styles.menu} role="menu" data-testid="deck-menu-list">
-          {item("rename-deck", "Rename", onRename)}
-          {item("copy-deck", "Copy", onCopy)}
-          {item("delete-deck", "Delete", onDelete)}
-        </span>
-      )}
-    </span>
   );
 }

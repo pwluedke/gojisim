@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
-import { startGame } from "./helpers";
+import { importInDeckbuilder, startGame } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -18,19 +18,17 @@ const shortList = readFileSync(
   "utf8",
 );
 
+/** Saves the short deck in the Deckbuilder (#161), then picks it for P1 in a Casual game. */
 async function importShortDeck(page: Page) {
-  await page.getByTestId("import-deck").click();
-  await page.getByTestId("import-text").fill(shortList);
-  await page.getByTestId("import-name").fill("Short Gigan");
-  await page.getByTestId("import-save").click();
-  // The saved deck is P1's pick.
+  await importInDeckbuilder(page, shortList, "Short Gigan");
+  await page.goto("/play?mode=bot");
+  await page.getByTestId("deck-P1").selectOption({ label: "Short Gigan" });
   await expect(page.getByTestId("deck-P1")).toHaveValue(/^mine:/);
 }
 
-test("Tournament: an illegal deck can't be picked, the seat says why, and Start is blocked", async ({
+test("Tournament: an illegal deck can't be picked (6.1.1.2), and Casual offers it again", async ({
   page,
 }) => {
-  await page.goto("/play?mode=bot");
   await importShortDeck(page);
   // A match type switch resets both seats to the starters, which are legal.
   await page.getByTestId("match-mode-tournament").check();
@@ -42,18 +40,7 @@ test("Tournament: an illegal deck can't be picked, the seat says why, and Start 
   await expect(
     page.getByTestId("deck-P1").locator("option", { hasText: "Short Gigan" }),
   ).toHaveAttribute("disabled", "");
-  // Importing a deck makes it P1's pick, even an illegal one: then the seat says why.
-  await importShortDeck(page);
-  await expect(page.getByTestId("tournament-blocked-P1")).toContainText(
-    "6.1.1.2: Main deck needs exactly 50 cards (has 47)",
-  );
-  await expect(page.getByTestId("tournament-blocked-P2")).toHaveCount(0);
-  await expect(page.getByTestId("start-game")).toBeDisabled();
-  await expect(page.getByTestId("start-blocked")).toContainText("P1");
-  // A legal deck clears it.
-  await page.getByTestId("deck-P1").selectOption("official:ESD01");
   await expect(page.getByTestId("tournament-blocked-P1")).toHaveCount(0);
-  await expect(page.getByTestId("start-game")).toBeEnabled();
   // Casual offers the illegal deck again, with its warning badge.
   await page.getByTestId("match-mode-casual").check();
   await expect(
@@ -67,7 +54,6 @@ test("Tournament: an illegal deck can't be picked, the seat says why, and Start 
 test("Casual: an illegal deck plays, with a warning on its mat for the whole game", async ({
   page,
 }) => {
-  await page.goto("/play?mode=bot");
   await importShortDeck(page);
   await expect(page.getByTestId("match-mode-casual")).toBeChecked();
   await expect(page.getByTestId("start-game")).toBeEnabled();
@@ -114,11 +100,9 @@ test("the badges name a restricted card, its limit and the date (Gravity Beam, b
     .replace("[deck] Starter Deck - Godzilla Minus One", "[deck] Beam Test")
     .replace("\n2 ESD01-004\n", "\n1 ESD01-004\n1 EBP01-079\n");
   expect(list).toContain("1 EBP01-079");
+  await importInDeckbuilder(page, list, "Beam Test");
   await page.goto("/play?mode=bot");
-  await page.getByTestId("import-deck").click();
-  await page.getByTestId("import-text").fill(list);
-  await page.getByTestId("import-name").fill("Beam Test");
-  await page.getByTestId("import-save").click();
+  await page.getByTestId("deck-P1").selectOption({ label: "Beam Test" });
   const reason = "Gravity Beam (EBP01-079): banned since Sep 1, 2026";
   const badge = page.getByTestId("seat-panel-P1").getByTestId("legality");
   await expect(badge).toHaveText(`Warnings: ${reason}`);
