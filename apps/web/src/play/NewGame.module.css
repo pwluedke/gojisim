@@ -453,3 +453,27 @@ form.screen .menuItem:focus-visible {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* #152: the first sign-in's offer to upload this browser's decks. */
+.syncOffer {
+  margin: var(--space-2) 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-panel-alt);
+}
+
+.syncOffer p {
+  margin: var(--space-1) 0;
+}
+
+.syncClash {
+  display: block;
+  margin: var(--space-1) 0;
+}
+
+.syncActions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}

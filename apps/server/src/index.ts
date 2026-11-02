@@ -7,6 +7,7 @@ import {
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { decklogMiddleware } from "./decklog.js";
+import { accountMiddleware } from "./accountData.js";
 import { openDb } from "./db/db.js";
 import {
   createDiscordGate,
@@ -147,6 +148,11 @@ export function createAppServer({
     }),
     ...(now ? { now } : {}),
   });
+  // #152: My decks and Settings per player (404 without Discord sign-in).
+  const account = accountMiddleware({
+    db: discord?.db,
+    playerOf: requestPlayer,
+  });
   const cards = cardImages(cardsDir);
   const app = webApp(distDir);
   return createServer(
@@ -183,6 +189,7 @@ export function createAppServer({
         res.end(JSON.stringify({ error: "no-accounts" }));
         return;
       }
+      if (!(await passes((next) => account(req, res, next)))) return;
       if (!(await passes((next) => decklog(req, res, next)))) return;
       if (!(await passes((next) => games(req, res, next)))) return;
       if (!(await passes((next) => cards(req, res, next)))) return;

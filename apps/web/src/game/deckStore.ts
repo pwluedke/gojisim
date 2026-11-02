@@ -18,6 +18,8 @@ export interface SavedDeck {
   list: string;
   /** ISO time it was saved or last changed. */
   savedAt: string;
+  /** #152: ISO time of its last edit (a rename too), for the account sync's newest-wins rule. */
+  updatedAt?: string;
 }
 
 /** A saved deck as a deck to play; `null` if its list no longer parses cleanly. */

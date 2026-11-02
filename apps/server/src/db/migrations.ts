@@ -46,6 +46,28 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX games_by_player ON games (player_id, started_at DESC);
     `,
   },
+  {
+    version: 3,
+    name: "player decks and settings",
+    // #152: My decks and Settings follow the player. A deleted deck stays as a tombstone, so the
+    // other browsers drop it too. Times are the client's ISO edit times (the newest edit wins).
+    sql: `
+      CREATE TABLE player_decks (
+        player_id TEXT NOT NULL REFERENCES players(id),
+        deck_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        list TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        deleted INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (player_id, deck_id)
+      ) STRICT;
+      CREATE TABLE player_settings (
+        player_id TEXT PRIMARY KEY REFERENCES players(id),
+        settings TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      ) STRICT;
+    `,
+  },
 ];
 
 /** The schema version this code expects: the last migration's. */

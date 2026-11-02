@@ -61,7 +61,7 @@ describe("the database (#150)", () => {
     v1.close();
     const db = openDb(file, { log: quiet });
     expect(schemaVersion(db)).toBe(LATEST_VERSION);
-    expect(tables(db)).toEqual(["games", "players"]);
+    expect(tables(db)).toEqual(expect.arrayContaining(["games", "players"]));
     expect(
       (
         db.prepare("SELECT display_name FROM players").get() as {
