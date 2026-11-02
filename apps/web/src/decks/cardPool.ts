@@ -96,7 +96,16 @@ export interface CardFilter {
   rankMax: number | null;
   trait: string;
   keyword: string;
+  /** #158: a movie title, or `NO_MOVIE` for cards without one. */
+  movie: string;
 }
+
+/** The Movie filter's entry for cards whose data names no movie. */
+export const NO_MOVIE = "No movie";
+
+/** A card's movie for the filter. */
+export const movieOf = (entry: PoolEntry) =>
+  entry.card.movie?.trim() || NO_MOVIE;
 
 export const NO_FILTER: CardFilter = {
   q: "",
@@ -107,6 +116,7 @@ export const NO_FILTER: CardFilter = {
   rankMax: null,
   trait: "",
   keyword: "",
+  movie: "",
 };
 
 /** The set a card belongs to for the filter: its deck card number's prefix (`EBP01`). */
@@ -138,6 +148,8 @@ export function applyFilter(
     if (trait && !getCardTraits(c).some((t) => t.toLowerCase() === trait))
       return false;
     if (f.keyword && !e.keywords.includes(f.keyword)) return false;
+    if (f.movie && movieOf(e).toLowerCase() !== f.movie.trim().toLowerCase())
+      return false;
     return true;
   });
 }
@@ -148,11 +160,13 @@ export function facets(pool: readonly PoolEntry[]) {
   const colors = new Set<string>();
   const traits = new Set<string>();
   const keywords = new Set<string>();
+  const movies = new Set<string>();
   for (const e of pool) {
     sets.add(setOf(e));
     for (const c of e.card.colors) colors.add(c);
     for (const t of getCardTraits(e.card)) traits.add(t);
     for (const k of e.keywords) keywords.add(k);
+    movies.add(movieOf(e));
   }
   const sorted = (s: Set<string>) =>
     [...s].sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
@@ -161,6 +175,7 @@ export function facets(pool: readonly PoolEntry[]) {
     colors: sorted(colors),
     traits: sorted(traits),
     keywords: sorted(keywords),
+    movies: sorted(movies),
   };
 }
 
@@ -175,6 +190,7 @@ export function filterToQuery(f: CardFilter): string {
   if (f.rankMax !== null) p.set("rankMax", String(f.rankMax));
   if (f.trait.trim()) p.set("trait", f.trait.trim());
   if (f.keyword) p.set("keyword", f.keyword);
+  if (f.movie.trim()) p.set("movie", f.movie.trim());
   return p.toString();
 }
 
@@ -201,5 +217,6 @@ export function filterFromQuery(query: string): CardFilter {
     rankMax: rank("rankMax"),
     trait: p.get("trait") ?? "",
     keyword: p.get("keyword") ?? "",
+    movie: p.get("movie") ?? "",
   };
 }

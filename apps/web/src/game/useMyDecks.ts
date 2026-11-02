@@ -115,6 +115,13 @@ export function useMyDecks(
     keep(storeRef.current.put(renamed));
     sync(renamed);
   };
+  /** #158: an edited deck saved over its earlier version (same id), here and in the account. */
+  const update = (deck: SavedDeck) => {
+    const edited: SavedDeck = { ...deck, updatedAt: new Date().toISOString() };
+    setDecks((now) => now.map((d) => (d.id === deck.id ? edited : d)));
+    keep(storeRef.current.put(edited));
+    sync(edited);
+  };
   const remove = (id: string) => {
     setDecks((now) => now.filter((d) => d.id !== id));
     keep(storeRef.current.remove(id));
@@ -177,6 +184,7 @@ export function useMyDecks(
     stored: loaded && pending === 0,
     add,
     rename,
+    update,
     remove,
     offer,
     acceptOffer,
