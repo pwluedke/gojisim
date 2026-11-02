@@ -5,13 +5,17 @@ import { loadFixture, officialImages, visibleCenter } from "./helpers";
 /**
  * Your hand at the window's bottom edge (Paul): only the top 40 % of each card shows; cards overlap
  * like a held hand, each covering about a quarter of the one to its left, more as the hand grows,
- * and the row never scrolls. Hovering, focus or a selection raises a card whole, 1.5 times the
- * board card size, with no layout shift. Card backs have a white border in every theme.
+ * and the row never scrolls. #163: the hand's cards are at least 1.3 times the board card and the
+ * row starts right under your mat; hovering, focus or a selection raises a card whole, 2.75 times
+ * the board card size (capped by the window), with no layout shift. Card backs have a white border in every theme.
  */
 
 const THEMES = ["showa", "dark", "grey", "light"] as const;
 const PEEK = 0.4;
 const STEP = 0.75;
+/** #163: the hand's least size and a raised card's size, in board cards. */
+const HAND_SCALE = 1.3;
+const RAISED_SCALE = 2.75;
 
 type Box = { x: number; y: number; width: number; height: number };
 
@@ -52,7 +56,7 @@ async function noScroll(page: Page) {
   ).toEqual({ y: true, x: true });
 }
 
-/** A raised card is whole, inside the window, about 1.5 times the board card, and on top. */
+/** A raised card is whole, inside the window, 2.75 times the board card (#163), and on top. */
 async function expectRaised(
   page: Page,
   card: Locator,
@@ -63,7 +67,7 @@ async function expectRaised(
   const board = await boardCardHeight(page);
   await expect
     .poll(async () => (await lifted(card)).height, { timeout: 2000 })
-    .toBeCloseTo(board * 1.5, 0);
+    .toBeCloseTo(Math.min(board * RAISED_SCALE, view.height - 64), 0);
   const box = await lifted(card);
   expect(box.y).toBeGreaterThanOrEqual(0);
   expect(box.y + box.height).toBeLessThanOrEqual(view.height + 1);
@@ -117,12 +121,15 @@ for (const [fixture, count] of [
       const hand = (await page.getByTestId("your-hand").boundingBox()) as Box;
       const mat = (await page.getByTestId("mat-you").boundingBox()) as Box;
       for (const b of all) {
-        // Board card size, and the top 40 % above the window's bottom edge.
-        expect(b.height).toBeCloseTo(board, 0);
+        // #163: at least 1.3 times the board card, and the top 40 % above the window's bottom.
+        expect(b.height).toBeGreaterThanOrEqual(board * HAND_SCALE - 1);
+        expect(b.height).toBeCloseTo((all[0] as Box).height, 1);
         expect(height - b.y).toBeCloseTo(b.height * PEEK, 0);
       }
-      // The row never reaches into the mat.
+      // The row never reaches into the mat, and starts right under it: no wasted gap (#163).
       expect(hand.y).toBeGreaterThanOrEqual(mat.y + mat.height);
+      expect(hand.y - (mat.y + mat.height)).toBeLessThanOrEqual(12);
+      expect((all[0] as Box).y).toBeCloseTo(hand.y, 0);
       const steps = all.slice(1).map((b, i) => b.x - (all[i] as Box).x);
       const w = (all[0] as Box).width;
       for (const step of steps) {
@@ -233,9 +240,10 @@ test.describe("raising a card", () => {
     await expectRaised(page, card, { hit: false });
     await page.keyboard.press("Escape");
     await expect(card).not.toHaveAttribute("data-selected", "true");
+    // Lowered: back to its resting size in the hand.
     await expect
       .poll(async () => (await lifted(card)).height)
-      .toBeLessThan((await boardCardHeight(page)) * 1.1);
+      .toBeCloseTo((await card.boundingBox())?.height ?? 0, 0);
     // Select again and click a lit zone, even one the raised card covers: the play goes through.
     await card.click({ position: { x: 10, y: 10 } });
     const cardId = await card.getByTestId("card").getAttribute("data-card-id");
@@ -385,3 +393,47 @@ test.describe("the official card back (Tester fixes 1)", () => {
       }
     });
 });
+
+for (const theme of THEMES)
+  for (const [width, height] of [
+    [1280, 800],
+    [1440, 900],
+    [1920, 1080],
+  ] as const)
+    test(`#163 at ${width}x${height} in ${theme}: hand cards at least 1.3 times the board card, right under your mat; a raised card 2.75 times, inside the window`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height });
+      await settings(page, theme);
+      await loadFixture(page, "hand-count-five");
+      const board = await boardCardHeight(page);
+      const hand = (await page.getByTestId("your-hand").boundingBox()) as Box;
+      const mat = (await page.getByTestId("mat-you").boundingBox()) as Box;
+      const first = cards(page).first();
+      const rest = (await first.boundingBox()) as Box;
+      expect(rest.height).toBeGreaterThanOrEqual(board * HAND_SCALE - 1);
+      expect(hand.y - (mat.y + mat.height)).toBeGreaterThanOrEqual(0);
+      expect(hand.y - (mat.y + mat.height)).toBeLessThanOrEqual(12);
+      expect(height - rest.y).toBeCloseTo(rest.height * PEEK, 0);
+      await noScroll(page);
+      const at = await visibleCenter(page, cards(page).nth(2));
+      await page.mouse.move(at.x, at.y);
+      const raised = cards(page).nth(2);
+      // Wait until the raise has finished: its bottom on the window's edge, at its full height.
+      await expect
+        .poll(
+          async () => {
+            const b = await lifted(raised);
+            return b.height > rest.height * 1.5 &&
+              Math.abs(b.y + b.height - height) < 0.5
+              ? "up"
+              : "rising";
+          },
+          { timeout: 3000 },
+        )
+        .toBe("up");
+      const box = await lifted(raised);
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.y + box.height).toBeCloseTo(height, 0);
+      expect(box.height).toBeLessThanOrEqual(board * RAISED_SCALE + 1);
+    });

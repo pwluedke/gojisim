@@ -77,8 +77,9 @@ function HandCard({
         data-testid="hand-lift"
         ref={lift}
         // The lift is animated: place the tip again once the card is all the way up.
-        onTransitionEnd={() => {
-          if (tipAt) showTip();
+        // #163: width, height and bottom animate; once is enough.
+        onTransitionEnd={(e) => {
+          if (e.propertyName === "height" && tipAt) showTip();
         }}
       >
         <CardFace card={card} data={model.view.cards[card.cardId]} rotate />
@@ -136,8 +137,8 @@ export function Hand({
   const cards = player.hand.cards ?? [];
   const columns =
     cards.length <= 1
-      ? "var(--card-w)"
-      : `repeat(${cards.length - 1}, minmax(0, calc(var(--card-w) * ${HAND_STEP}))) var(--card-w)`;
+      ? "var(--hand-card-w)"
+      : `repeat(${cards.length - 1}, minmax(0, calc(var(--hand-card-w) * ${HAND_STEP}))) var(--hand-card-w)`;
   return (
     <div
       className={styles.hand}
