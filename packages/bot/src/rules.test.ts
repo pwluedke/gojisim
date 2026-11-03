@@ -213,24 +213,33 @@ describe("Paul's play rules for Hard (#175)", () => {
     expect(alive.length).toBeLessThan(plays.length);
   });
 
-  it("rule 6: Godzilla (1972) gets the prior in zone 8; a zone-1-5 card gets none while zone 8 is open to an invasion", () => {
+  it("rule 6: Godzilla (1972) goes in zone 8: a prune while zone 8 isn't exposed, a prior while it is (#189)", () => {
     const { state, p1, p2 } = base();
     monster(state, p1, "EBP02-052");
     p1.hand.push(add(state, real("EBP02-061"), "P1"));
-    // 8.2.1: a battle card's rank at most the opponent's monster zone.
+    const playsOf = (r: ReturnType<typeof rulesFor>) =>
+      r.actions.filter((a) => a.type === "playBattle") as Extract<
+        Action,
+        { type: "playBattle" }
+      >[];
+    // 8.2.1: a battle card's rank at most the opponent's monster zone. At 5 the opponent can't
+    // reach your zone 8 next turn: the plays outside zone 8 are pruned (Paul, #189).
     p2.monsterPosition = 5;
-    const r = rulesFor(state);
-    const plays = r.actions.filter((a) => a.type === "playBattle") as Extract<
-      Action,
-      { type: "playBattle" }
-    >[];
+    const safe = rulesFor(state);
+    const plays = playsOf(safe);
     expect(plays.some((a) => a.zone === 8)).toBe(true);
+    expect(plays.some((a) => a.zone !== 8)).toBe(true);
     for (const a of plays)
-      expect(r.verdict.bonus.get(r.key(a))).toBe(
+      expect(safe.verdict.dead.has(safe.key(a))).toBe(a.zone !== 8);
+    // At 6 with your zone 8 empty, it's exposed: zone 8 gets the prior and nothing is pruned.
+    p2.monsterPosition = 6;
+    const exposed = rulesFor(state);
+    for (const a of playsOf(exposed)) {
+      expect(exposed.verdict.dead.has(exposed.key(a))).toBe(false);
+      expect(exposed.verdict.bonus.get(exposed.key(a))).toBe(
         a.zone === 8 ? RULE_BONUS : undefined,
       );
-    // Nothing is pruned for zones: it's a prior only (Monarch).
-    expect(plays.every((a) => !r.verdict.dead.has(r.key(a)))).toBe(true);
+    }
   });
 
   it("rules act only at your own play timing", () => {
