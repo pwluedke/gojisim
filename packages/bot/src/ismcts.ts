@@ -351,15 +351,27 @@ export function decide(input: BotInput): Decision {
       search: null,
     };
   const settings = ismctsSettings(input.settings);
-  if (settings.blunder > 0 && rng() < settings.blunder)
+  if (settings.blunder > 0 && rng() < settings.blunder) {
+    // #189: with Paul's rules on, a blunder picks only among the moves the rules allow.
+    let allowed = [...legalActions];
+    if (settings.rules > 0) {
+      const state = determinize(input.view, input.knowledge, rng);
+      const me = input.view.viewer as PlayerId;
+      const { dead } = applyRules(state, legalActions, me, (a) =>
+        actionKey(state, a),
+      );
+      const kept = allowed.filter((a) => !dead.has(actionKey(state, a)));
+      if (kept.length > 0) allowed = kept;
+    }
     return {
       action:
         settings.uniformBlunder > 0
-          ? (legalActions[Math.floor(rng() * legalActions.length)] as Action)
-          : plausiblePick(input.view, [...legalActions], pickWith(rng)),
+          ? (allowed[Math.floor(rng() * allowed.length)] as Action)
+          : plausiblePick(input.view, allowed, pickWith(rng)),
       blundered: true,
       search: null,
     };
+  }
   const result = search(input, settings);
   const { root, rootKeys } = result;
   const visits = rootKeys.map((key) => root.children.get(key)?.visits ?? 0);

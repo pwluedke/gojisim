@@ -24,7 +24,8 @@ import {
  * evaluation are unchanged.
  *
  * 1. Stack a same-rank monster card (8.5.1) when a card wants a stack size it doesn't have yet.
- * 2. Hold one monster card per rank that can still be played on top for its ability.
+ * 2. Hold one monster card per rank that can still be played on top for its ability (#189: also
+ *    when a cost is paid by discarding from hand, 5.7.1).
  * 3. Discard every other monster card for rage (8.4.1): no pass while one can go.
  * 4. Counter-only strategies: held until the counter is made (with the others still playable),
  *    then preferred (a prior: one if one makes it, both if it takes two).
@@ -226,8 +227,20 @@ export function applyRules(
 ): RuleVerdict {
   const dead = new Set<string>();
   const bonus = new Map<string, number>();
-  if (state.pendingChoice || state.turnPlayer !== player)
-    return { dead, bonus };
+  const choice = state.pendingChoice;
+  // #189, rule 2 in choices: a cost paid by discarding from hand (5.7.1) leaves the held cards
+  // while another option stays (another card, or declining the cost).
+  if (choice) {
+    if (choice.player !== player || choice.rule !== "5.7.1")
+      return { dead, bonus };
+    const [me] = players(state, player);
+    const held = heldCards(state, me);
+    for (const a of actions)
+      if (a.type === "choose" && held.has(a.optionId)) dead.add(keyOf(a));
+    const alive = actions.filter((a) => !dead.has(keyOf(a)));
+    return { dead: alive.length > 0 ? dead : new Set(), bonus };
+  }
+  if (state.turnPlayer !== player) return { dead, bonus };
   const [me, opponent] = players(state, player);
   const held = heldCards(state, me);
   const monster = (a: Action) => cardOf(state, handCard(me, actionCard(a)));
@@ -262,11 +275,20 @@ export function applyRules(
     for (const a of actions) if (a.type === "pass") dead.add(keyOf(a));
   // Rule 4: a counter-only strategy is held while the counter isn't made, even with the others
   // still playable (a prune); when it is made, playing it is preferred (a prior: early on, the
-  // search may still build the board first, Paul).
+  // search may still build the board first, Paul). #189: while the turn's invasion is still
+  // legal, it waits for it (the invasion can crush the cards that make the counter), and the
+  // prior goes to the invasion instead.
+  const invasions = actions.filter(
+    (a) => a.type === "invade" || a.type === "invadeFromDeck",
+  );
   for (const a of actions) {
     if (a.type !== "activateStrategy" || !counterOnly(monster(a))) continue;
-    if (counterMadeWith(state, a, player)) add(a);
-    else dead.add(keyOf(a));
+    if (!counterMadeWith(state, a, player)) dead.add(keyOf(a));
+    else if (invasions.length === 0) add(a);
+    else {
+      dead.add(keyOf(a));
+      for (const i of invasions) add(i);
+    }
   }
   // Rule 5: same-column cards in the opponent's monster column (the next one if a copy holds it).
   const oppAt = opponent.monsterPosition;

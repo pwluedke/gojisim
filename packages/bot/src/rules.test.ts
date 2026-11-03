@@ -8,16 +8,19 @@ import {
   applyAction,
   type CardInstance,
   counterPowerOf,
+  type GameRecord,
   type GameState,
   getLegalActions,
   getThreat,
   type PlayerSetup,
   type PlayerState,
+  replayAll,
   startGame,
   type ZoneNumber,
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
-import { actionKey } from "./ismcts";
+import { actionKey, decide } from "./ismcts";
+import { botInput, decklistsOf, seededRng } from "./input";
 import {
   applyRules,
   boostedZones,
@@ -162,8 +165,10 @@ describe("Paul's play rules for Hard (#175)", () => {
     expect(god(state).every((a) => one.verdict.dead.has(one.key(a)))).toBe(
       true,
     );
-    // A second copy in hand with a free strategy zone: the first is now played.
+    // A second copy in hand with a free strategy zone, after the turn's invasion (8.6.2): the
+    // first is now played.
     p1.hand.push(add(state, real("EBP02-072"), "P1"));
+    state.turnFlags.invasionUsed = true;
     const two = rulesFor(state);
     expect(god(state).some((a) => !two.verdict.dead.has(two.key(a)))).toBe(
       true,
@@ -171,6 +176,20 @@ describe("Paul's play rules for Hard (#175)", () => {
     // Paul: when the counter is made, playing it is preferred, but only as a prior.
     expect(
       god(state).every((a) => two.verdict.bonus.get(two.key(a)) === RULE_BONUS),
+    ).toBe(true);
+
+    // #189: before the invasion (8.6.1 still legal) it waits, and the invasion gets the prior.
+    state.turnFlags.invasionUsed = false;
+    const before = rulesFor(state);
+    const invasions = before.actions.filter((a) => a.type === "invade");
+    expect(invasions.length).toBeGreaterThan(0);
+    expect(
+      god(state).every((a) => before.verdict.dead.has(before.key(a))),
+    ).toBe(true);
+    expect(
+      invasions.every(
+        (a) => before.verdict.bonus.get(before.key(a)) === RULE_BONUS,
+      ),
     ).toBe(true);
   });
 
@@ -221,5 +240,66 @@ describe("Paul's play rules for Hard (#175)", () => {
     state.turnPlayer = "P2";
     const { verdict } = rulesFor(state);
     expect(verdict.dead.size + verdict.bonus.size).toBe(0);
+  });
+});
+
+describe("#189 gaps in Paul's rules", () => {
+  it("rule 2 in a cost choice (5.7.1): a held card is left out while another option stays", () => {
+    const { state, p1 } = base();
+    monster(state, p1, "EBP02-052");
+    const held = add(state, real("EBP02-054"), "P1");
+    const other = add(state, real("EBP02-045"), "P1");
+    p1.hand.push(held, other);
+    state.pendingChoice = {
+      id: 99,
+      player: "P1",
+      kind: "target",
+      rule: "5.7.1",
+      options: [
+        { id: held.instanceId, cardId: held.cardId },
+        { id: other.instanceId, cardId: other.cardId },
+      ],
+    } as unknown as GameState["pendingChoice"];
+    const choose = (id: string): Action => ({
+      type: "choose",
+      player: "P1",
+      choiceId: 99,
+      optionId: id,
+    });
+    const actions = [choose(held.instanceId), choose(other.instanceId)];
+    const key = (a: Action) => (a as { optionId: string }).optionId;
+    const { dead } = applyRules(state, actions, "P1", key);
+    expect([...dead]).toEqual([held.instanceId]);
+    // The held card alone stays: something must be picked.
+    expect(applyRules(state, [actions[0] as Action], "P1", key).dead.size).toBe(
+      0,
+    );
+  });
+
+  it("a blunder picks only among the moves the rules allow (rule 3: no pass while a monster card can go to rage)", () => {
+    const position = JSON.parse(
+      readFileSync(
+        new URL(
+          "../../../tools/bots/positions/rule3-monster-cards-to-rage.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ) as { record: GameRecord };
+    const state = replayAll(position.record).at(-1) as GameState;
+    const player = state.turnPlayer;
+    const picks = (rules: number) =>
+      Array.from({ length: 100 }, (_, i) => {
+        const input = botInput(
+          state,
+          player,
+          decklistsOf(position.record.decks),
+          seededRng(`blunder-${i}`),
+          { blunder: 1, uniformBlunder: 1, rules, iterations: 1 },
+        );
+        return decide(input).action.type;
+      });
+    expect(picks(1)).not.toContain("pass");
+    expect(picks(0)).toContain("pass");
   });
 });
