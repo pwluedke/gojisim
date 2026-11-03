@@ -35,3 +35,14 @@ api.slack.com/apps → the existing GojiSim Slack app → **Incoming Webhooks �
 Then **Actions → Discord digest → Run workflow** to check: the log should say how many channels, threads and messages it read, and #gojisim-discord-digest gets the digest if there were any.
 
 Treat the token and the webhook like passwords. If one leaks, reset the bot token (step 1.3) or delete the webhook and make a new one, then replace the secret.
+
+# Posting to #bugs
+
+Paul posts to the GojiSim Discord's **#bugs** channel from GitHub, through the channel's webhook (`.github/workflows/discord-post.yml`). It's run by hand only; nothing else triggers it.
+
+- **How:** the `gojisim` repo → **Actions → Discord post → Run workflow**, with:
+  - `message`: the text, up to 2,000 characters (Discord's limit, counting a reply link).
+  - `reply_to` (optional): the id of the #bugs message it answers. Right-click the message → **Copy Message ID**, with Developer Mode on. A webhook can't thread-reply in a text channel, so the post starts with a link to that message instead (`↪ Re: https://discord.com/channels/…`).
+- **Mentions:** never pinged. `@everyone`, roles and users show as plain text (`allowed_mentions` is empty).
+- **What the log shows:** the repo is public, so the run's log shows only Discord's HTTP status, never the message or the webhook URL. A status that isn't 2xx fails the run.
+- **Setup (done):** #bugs → **Edit Channel → Integrations → Webhooks → New Webhook**, copy its URL, and store it as the repo secret `DISCORD_BUGS_WEBHOOK` (**Settings → Secrets and variables → Actions**). Treat it like a password: if it leaks, delete the webhook, make a new one and replace the secret.
