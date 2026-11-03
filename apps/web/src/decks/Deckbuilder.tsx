@@ -1103,7 +1103,12 @@ function DeckPanel({
         {counts.colors.map(([color, n]) => ` · ${color} ${n}`).join("")}
       </div>
       <div className={styles.panelActions}>
-        <button type="button" data-testid="db-save" onClick={onSave}>
+        <button
+          type="button"
+          data-testid="db-save"
+          data-primary
+          onClick={onSave}
+        >
           Save{dirty ? " *" : ""}
         </button>
         <button type="button" data-testid="db-save-copy" onClick={onSaveCopy}>
