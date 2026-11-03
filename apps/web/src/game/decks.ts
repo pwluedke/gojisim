@@ -169,6 +169,15 @@ export interface PickerGroup {
 }
 
 /**
+ * #179: whether a picker option matches a seat's filter: its label (a My decks label includes its
+ * folder) contains the text, ignoring case; an empty filter matches everything.
+ */
+export function matchesDeckFilter(label: string, filter: string): boolean {
+  const text = filter.trim().toLowerCase();
+  return text === "" || label.toLowerCase().includes(text);
+}
+
+/**
  * The picker's groups (#161): the Starter decks, My decks, then (in `/debug`) the random test
  * decks, each in the options' order.
  */

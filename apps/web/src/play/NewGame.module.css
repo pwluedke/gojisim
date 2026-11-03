@@ -366,3 +366,9 @@ form.screen .menuItem:focus-visible {
   margin: var(--space-2) 0;
   font-size: var(--font-size-sm);
 }
+
+/* #179: the filter above a seat's dropdown. */
+.deckFilter {
+  width: 100%;
+  margin-bottom: var(--space-1);
+}
