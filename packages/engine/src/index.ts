@@ -27,6 +27,7 @@ export {
   getCounterPower,
   getRank,
   getThreat,
+  hasFlag,
   RAGE_THREAT,
 } from "./stats";
 export {

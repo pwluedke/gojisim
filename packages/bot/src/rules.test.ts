@@ -24,6 +24,7 @@ import { botInput, decklistsOf, seededRng } from "./input";
 import {
   applyRules,
   boostedZones,
+  counterOffer,
   columnCard,
   counterOnly,
   heldCards,
@@ -460,5 +461,59 @@ describe("#189 copies and the concede guard", () => {
     );
     expect(verdict.dead.size).toBe(0);
     expect(verdict.killed.size).toBe(0);
+  });
+});
+
+describe("#195: counter Gigan (2004) out of rank 1 (Paul)", () => {
+  it("reads the counter offer from ability data: only Gigan (2004) EBP04-027's opponent-counter", () => {
+    expect(counterOffer("EBP04-027#opponent-counter")).toBe(true);
+    expect(counterOffer("EBP04-027#main-counter")).toBe(false);
+    expect(counterOffer(null)).toBe(false);
+  });
+
+  it("at the start of our main phase, Gigan's offer is taken (no decline), paid with the card that has no legal play", () => {
+    const { state: start, p1, p2 } = base();
+    // The opponent's rank 1 Gigan (2004) in zone 3, as in BFW182's game (decisions 8 and 47).
+    p2.invadingMonsterZone = [add(start, real("EBP04-027"), "P2")];
+    p2.monsterPosition = 3;
+    // Two invasion icon 2 cards: Mothra (Imago) (1992), rank 5, can't be played with their monster
+    // in zone 3 (8.2.1); Gorosaurus, rank 2, can.
+    const mothra = add(start, real("ESD02-010"), "P1");
+    const gorosaurus = add(start, real("EBP01-067"), "P1");
+    p1.hand.push(mothra, gorosaurus);
+    let state = start;
+    for (let n = 0; n < 60; n++) {
+      const choice = state.pendingChoice;
+      if (
+        choice?.player === "P1" &&
+        choice.options.some((o) => counterOffer(o.abilityId))
+      )
+        break;
+      const who = choice?.player ?? state.turnPlayer;
+      const legal = getLegalActions(state, who).filter(
+        (a) => a.type !== "concede",
+      );
+      // Decline every optional cost and pass, so Gigan's own counter (main-counter) isn't paid.
+      const next =
+        legal.find((a) => a.type === "pass") ??
+        legal.find(
+          (a) => a.type === "choose" && ["done", "no"].includes(a.optionId),
+        ) ??
+        (legal[0] as Action);
+      state = advanceToDecision(applyAction(state, next));
+    }
+    const choice = state.pendingChoice;
+    expect(choice?.player).toBe("P1");
+    const actions = getLegalActions(state, "P1").filter(
+      (a) => a.type !== "concede",
+    );
+    const key = (a: Action) => actionKey(state, a);
+    const { dead } = applyRules(state, actions, "P1", key);
+    const option = (id: string) =>
+      actions.find((a) => a.type === "choose" && a.optionId === id) as Action;
+    expect(option("done")).toBeDefined();
+    expect(dead.has(key(option("done")))).toBe(true);
+    expect(dead.has(key(option(mothra.instanceId)))).toBe(false);
+    expect(dead.has(key(option(gorosaurus.instanceId)))).toBe(true);
   });
 });

@@ -102,6 +102,22 @@ describe("dead-card pruning (M13a), from the engine's result", () => {
     expect(isDeadAction(state, activate(p1, card), p1.id)).toBe(false);
   });
 
+  it("#194: Godzilla and its son on Monster Island (EBP01-080) protects nothing with no rank 5 or lower battle card in zones 1-5: dead; with one there: live", () => {
+    const { state, p1 } = base();
+    for (const z of [1, 2, 3, 4, 5, 6, 7, 8] as const) p1.zones[z] = [];
+    const card = add(state, "EBP01-080", p1.id);
+    p1.hand.push(card);
+    // Nothing in zones 1-5 (BFW182's game, decision 33).
+    expect(isDeadAction(state, activate(p1, card), p1.id)).toBe(true);
+    // A rank 7 battle card in zone 3, or a rank 2 in zone 8: still nothing it covers.
+    p1.zones[3].push([add(state, "ESD01-012", p1.id)]);
+    p1.zones[8].push([add(state, "ESD01-008", p1.id)]);
+    expect(isDeadAction(state, activate(p1, card), p1.id)).toBe(true);
+    // Mothra (Imago) (1992), rank 5, in zone 2: protected now (5.12), so it's playable.
+    p1.zones[2].push([add(state, "ESD02-010", p1.id)]);
+    expect(isDeadAction(state, activate(p1, card), p1.id)).toBe(false);
+  });
+
   it("battle cards, monster plays and passes are never dead; with only dead actions, none is pruned", () => {
     const { state, p1, p2 } = base();
     const card = add(state, "EBP01-061", p1.id);

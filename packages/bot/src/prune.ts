@@ -3,10 +3,14 @@ import {
   type Action,
   advanceToDecision,
   applyAction,
+  type CardInstance,
   counterPowerOf,
   type GameState,
   getThreat,
+  hasFlag,
   type PlayerId,
+  type PlayerState,
+  ZONE_NUMBERS,
 } from "@gojisim/engine";
 
 /**
@@ -20,6 +24,10 @@ import {
  * and total counter power bonuses. Strategy cards leave at their owner's next start phase (7.2.3),
  * so such a card does nothing past this turn. Battle cards always add counter power and can block,
  * so they are never dead.
+ * #194: a protection-only strategy (its continuous abilities only make your cards impossible for
+ * the opponent to destroy, beside play rules like a cheaper cost) is dead while activating it
+ * protects none of your cards in play, as Godzilla and its son on Monster Island (EBP01-080)
+ * with no rank 5 or lower battle card in zones 1-5. The engine's flags decide, not a card list.
  */
 
 /** Log entries an activation makes on its own, with no effect on the game. */
@@ -57,6 +65,54 @@ const counters = (state: GameState, player: PlayerId): boolean => {
   );
 };
 
+/** #194: a card whose continuous abilities only protect your cards from the opponent's destroys. */
+function protectionOnly(cardNumber: string): boolean {
+  const { abilities } = getCardAbilities(cardNumber);
+  const continuous = abilities.filter((a) => a.kind === "continuous");
+  return (
+    continuous.length > 0 &&
+    abilities.every((a) => a.kind === "continuous" || a.kind === "playRule") &&
+    continuous.every(
+      (a) =>
+        a.kind === "continuous" &&
+        a.modifiers.every(
+          (m) => "flag" in m && m.flag === "cannotBeDestroyedByOpponent",
+        ),
+    )
+  );
+}
+
+/** Your cards in play: zones and strategy zones (not the hand or decks). */
+const inPlay = (player: PlayerState): CardInstance[] => [
+  ...ZONE_NUMBERS.flatMap((z) => player.zones[z].flat()),
+  ...player.strategyZones.flat().map((p) => p.card),
+];
+
+/** #194: activating it leaves every card of yours in play exactly as protected as before. */
+function protectsNothing(
+  state: GameState,
+  action: Extract<Action, { type: "activateStrategy" }>,
+  player: PlayerId,
+): boolean {
+  const after = advanceToDecision(applyAction(state, action));
+  if (after.result !== null) return false;
+  if (after.pendingChoice && after.pendingChoice.player === player)
+    return false;
+  const me = after.players.find((p) => p.id === player);
+  if (!me) return false;
+  const before = new Set(
+    inPlay(state.players.find((p) => p.id === player) ?? me)
+      .filter((c) => hasFlag(state, c, "cannotBeDestroyedByOpponent"))
+      .map((c) => c.instanceId),
+  );
+  return inPlay(me).every(
+    (c) =>
+      c.instanceId === action.cardInstanceId ||
+      before.has(c.instanceId) ||
+      !hasFlag(after, c, "cannotBeDestroyedByOpponent"),
+  );
+}
+
 export function isDeadAction(
   state: GameState,
   action: Action,
@@ -67,8 +123,10 @@ export function isDeadAction(
   const opponent = state.players.find((p) => p.id !== player);
   const card = me?.hand.find((c) => c.instanceId === action.cardInstanceId);
   const data = card ? state.cards[card.cardId] : undefined;
-  if (!me || !opponent || !data || !placementOnly(data.deckCardNumber))
-    return false;
+  if (!me || !opponent || !data) return false;
+  if (protectionOnly(data.deckCardNumber))
+    return protectsNothing(state, action, player);
+  if (!placementOnly(data.deckCardNumber)) return false;
   const after = advanceToDecision(applyAction(state, action));
   if (after.result !== null) return false;
   if (after.pendingChoice && after.pendingChoice.player === player)
