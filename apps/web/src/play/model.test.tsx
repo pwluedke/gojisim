@@ -14,6 +14,8 @@ import { BoardView } from "./BoardView";
 import {
   boardModel,
   bottomPlayer,
+  discardNeeded,
+  discardNeededText,
   mechaCheckNeeded,
   mechaCheckText,
 } from "./model";
@@ -419,5 +421,117 @@ describe("Mecha-Check (#138)", () => {
       "Mecha-Check: 1 more King Ghidorah card needed in your discard pile to play this.",
     );
     expect(mechaCheckText(0)).toBe("Mecha-Check: ready to play.");
+  });
+});
+
+describe("discard pile counts in hand (#182)", () => {
+  const card = (number: string) => {
+    const found = getAllCards().find((c) => c.deckCardNumber === number);
+    if (!found) throw new Error(number);
+    return found;
+  };
+  /** ESD01 for P1 with Godzilla Against Mechagodzilla (EBP01-073) added, at P1's first play timing. */
+  function gamGame(): GameState {
+    const base = official("esd01-starter.txt");
+    for (let n = 0; n < 50; n++) {
+      const state = advanceToDecision(
+        startGame({
+          seed: `gam-${n}`,
+          decks: [
+            {
+              id: "P1",
+              monsterDeck: base.monsterDeck,
+              mainDeck: [...base.mainDeck, card("EBP01-073")],
+            },
+            { id: "P2", ...official("esd02-starter.txt") },
+          ],
+        }),
+      );
+      if (state.turnPlayer === "P1" && !state.pendingChoice)
+        return structuredClone(state);
+    }
+    throw new Error("no seed where P1 goes first");
+  }
+  const me = (state: GameState) => {
+    const p = state.players.find((x) => x.id === "P1");
+    if (!p) throw new Error("P1");
+    return p;
+  };
+  /** Moves P1's GAM to the hand, and `n` monster cards from the deck to the discard pile. */
+  function setUp(state: GameState) {
+    const p = me(state);
+    const at = [...p.deck, ...p.hand].find(
+      (c) => state.cards[c.cardId]?.deckCardNumber === "EBP01-073",
+    );
+    if (!at) throw new Error("no GAM");
+    p.deck = p.deck.filter((c) => c !== at);
+    p.hand = [...p.hand.filter((c) => c !== at), at];
+    p.discard = p.discard.filter(
+      (c) => state.cards[c.cardId]?.type !== "Monster",
+    );
+    return at.instanceId;
+  }
+  const discardMonsters = (state: GameState, n: number) => {
+    const p = me(state);
+    for (let i = 0; i < n; i++) {
+      const at = p.deck.findIndex(
+        (c) => state.cards[c.cardId]?.type === "Monster",
+      );
+      if (at < 0) throw new Error("no monster card left in the deck");
+      const [moved] = p.deck.splice(at, 1);
+      if (moved) p.discard.push(moved);
+    }
+  };
+
+  it("8.2: GAM needs 8 monster cards in the discard pile, read from its play rule; only cards with such a rule are listed", () => {
+    const state = gamGame();
+    const id = setUp(state);
+    expect(discardNeeded(state, "P1", id)).toEqual({
+      needed: 8,
+      type: "Monster",
+    });
+    discardMonsters(state, 3);
+    expect(discardNeeded(state, "P1", id)).toEqual({
+      needed: 5,
+      type: "Monster",
+    });
+    // Other cards in the discard pile don't count.
+    const other = me(state).deck.findIndex(
+      (c) => state.cards[c.cardId]?.type !== "Monster",
+    );
+    me(state).discard.push(...me(state).deck.splice(other, 1));
+    expect(discardNeeded(state, "P1", id)?.needed).toBe(5);
+    expect(Object.keys(boardModel(state, "P1").discardCheck)).toEqual([id]);
+    expect(boardModel(state, "P2").discardCheck).toEqual({});
+  });
+
+  it("0 exactly when the rule no longer forbids the play (7 or fewer forbids it)", () => {
+    const state = gamGame();
+    const id = setUp(state);
+    // 8.2.1: GAM is rank 7, so the opponent's monster at zone 8 leaves only the discard rule.
+    const opp = state.players.find((p) => p.id === "P2");
+    if (opp) opp.monsterPosition = 8;
+    const legal = () =>
+      getLegalActions(state, "P1").some(
+        (a) => a.type === "playBattle" && a.cardInstanceId === id,
+      );
+    discardMonsters(state, 7);
+    expect(discardNeeded(state, "P1", id)?.needed).toBe(1);
+    expect(legal()).toBe(false);
+    discardMonsters(state, 1);
+    expect(discardNeeded(state, "P1", id)?.needed).toBe(0);
+    expect(legal()).toBe(true);
+  });
+
+  it("the wording: plural, singular, and ready to play", () => {
+    expect(discardNeededText({ needed: 3, type: "Monster" })).toBe(
+      "3 more monster cards needed in your discard pile to play this.",
+    );
+    expect(discardNeededText({ needed: 1, type: "Monster" })).toBe(
+      "1 more monster card needed in your discard pile to play this.",
+    );
+    expect(discardNeededText({ needed: 0, type: "Monster" })).toBe(
+      "Ready to play.",
+    );
   });
 });
