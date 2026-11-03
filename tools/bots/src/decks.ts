@@ -17,6 +17,17 @@ export const STOP_FILE = "bot-reports/STOP";
  * `random:<SET>`: a random test deck of that set with a seed fixed for the run. A deck from a file
  * must parse cleanly and pass `validateDeck`.
  */
+/**
+ * The `--decks meta` list (Paul's guard rule): every deck in a local deck-list file (the top-tier
+ * decks, `local-decks/meta.txt` by default), each parsed and checked as `loadDeck` does.
+ */
+export function loadMetaDecks(file: string, base: string): NamedDeck[] {
+  const parsed = parseDeckList(readFileSync(resolve(base, file), "utf8"));
+  return parsed.decks.map((d) =>
+    loadDeck(`${file}#${d.name.trim()}`, base, ""),
+  );
+}
+
 export function loadDeck(spec: string, base: string, seed: string): NamedDeck {
   if (spec.startsWith("random:")) {
     const set = spec.slice("random:".length);

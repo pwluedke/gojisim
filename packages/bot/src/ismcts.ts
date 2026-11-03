@@ -55,6 +55,8 @@ export interface IsmctsSettings {
   priorVisits: number;
   /** #175: 1 applies Paul's play rules at the root (`rules.ts`): prunes and prior bonuses. */
   rules: number;
+  /** #191: 1 draws the opponent's hidden cards toward a recognized archetype (`recognizer.ts`). */
+  recognizer: number;
 }
 
 export const ISMCTS_DEFAULTS: IsmctsSettings = {
@@ -70,6 +72,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   prune: 0,
   priorVisits: 0,
   rules: 0,
+  recognizer: 0,
 };
 
 /** Reads ISMCTS settings from a bot's settings, with defaults. */
@@ -247,7 +250,9 @@ export function search(input: BotInput, settings: IsmctsSettings) {
     Date.now() - started < settings.maxMs
   ) {
     iterations++;
-    let state = determinize(view, knowledge, rng);
+    let state = determinize(view, knowledge, rng, {
+      recognizer: settings.recognizer > 0,
+    });
     if (iterations === 1) {
       rootKeys = input.legalActions.map((a) => actionKey(state, a));
       const first = state;

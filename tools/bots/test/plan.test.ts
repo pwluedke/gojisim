@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { BOTS } from "@gojisim/bot";
 import { replayAll } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
-import { loadDeck } from "../src/decks";
-import { playMatchGame } from "../src/match";
+import { loadDeck, loadMetaDecks } from "../src/decks";
+import { metaPairFor, playMatchGame } from "../src/match";
 import {
   matchupArgs,
   type Plan,
@@ -112,6 +112,55 @@ describe("#170 deck-vs-deck", () => {
     expect(value("--decks")).toBe("mixed");
     expect(value("--b-settings")).toBe("rules=0");
     expect(args).not.toContain("--a-deck");
+  });
+});
+
+describe("guards on the top-tier decks (--decks meta, Paul's rule)", () => {
+  it("plays every ordered pairing of the list, two games each with the seats swapped", () => {
+    // Three decks: 6 ordered pairings, games 0-1 the first, 2-3 the second, and so on.
+    const seen = new Set<string>();
+    for (let game = 0; game < 12; game += 2) {
+      const pair = metaPairFor(game, 3);
+      expect(metaPairFor(game + 1, 3)).toEqual(pair);
+      expect(pair[0]).not.toBe(pair[1]);
+      seen.add(pair.join(">"));
+    }
+    expect(seen.size).toBe(6);
+    expect(metaPairFor(12, 3)).toEqual(metaPairFor(0, 3));
+  });
+
+  it("reads every deck of the list file (each must pass validateDeck); each bot plays both decks", () => {
+    const file = deckFile();
+    expect(() => loadMetaDecks(file, ".")).toThrow(/isn't legal/);
+    const legal = join(mkdtempSync(join(tmpdir(), "bots-meta-")), "meta.txt");
+    writeFileSync(
+      legal,
+      readFileSync(file, "utf8").split("[deck] Test/Short")[0] as string,
+    );
+    const meta = loadMetaDecks(legal, ".");
+    expect(meta.map((d) => d.name)).toEqual(["Test/ESD01", "Test/ESD02"]);
+    const bot = { bot: BOTS["random"] as NonNullable<(typeof BOTS)["random"]> };
+    const g0 = playMatchGame(bot, bot, "m", 0, "meta", 60, { meta });
+    const g1 = playMatchGame(bot, bot, "m", 1, "meta", 60, { meta });
+    expect(g0.decks).toEqual(["Test/ESD01", "Test/ESD02"]);
+    expect(g1.decks).toEqual(["Test/ESD01", "Test/ESD02"]);
+    // Same decks per seat, the bots swapped: each bot plays each deck.
+    expect([g0.aSeat, g1.aSeat]).toEqual(["P1", "P2"]);
+  });
+
+  it("a plan's matchup passes --decks meta and its list file", () => {
+    const plan: Plan = {
+      name: "guard",
+      defaults: { decks: "meta", metaDecks: "local-decks/meta.txt" },
+      matchups: [{ id: "N0", bSettings: "recognizer=0", games: 156 }],
+    };
+    const args = matchupArgs(
+      plan,
+      plan.matchups[0] as Plan["matchups"][number],
+    );
+    expect(args.join(" ")).toContain(
+      "--decks meta --meta-decks local-decks/meta.txt",
+    );
   });
 });
 

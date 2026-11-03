@@ -28,6 +28,7 @@ export * from "./greedy";
 export * from "./input";
 export * from "./ismcts";
 export * from "./prune";
+export * from "./recognizer";
 export * from "./types";
 
 /** Bots by name, for the tournament harness. */

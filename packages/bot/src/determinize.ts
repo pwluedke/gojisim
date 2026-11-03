@@ -8,6 +8,7 @@ import {
   ZONE_NUMBERS,
 } from "@gojisim/engine";
 import { guessHidden } from "./deckGuess";
+import { archetypeCards, archetypeWeights, pickArchetype } from "./recognizer";
 import type { Knowledge } from "./types";
 
 /**
@@ -25,11 +26,14 @@ import type { Knowledge } from "./types";
  * The opponent presents a deck and 4 monsters at setup, never their contents (6.3.1.1, Q42), so
  * without the opponent's decklist (every bot but the tools' `knowsDecklists` comparison) their
  * hidden cards are drawn by `guessHidden` from what a legal deck could hold, given what's public.
+ * #191: with `recognizer`, the opponent's public cards pick an archetype for this draw, and its
+ * core and common cards go first (`recognizer.ts`).
  */
 export function determinize(
   view: PlayerView,
   knowledge: Knowledge,
   rng: () => number,
+  options: { recognizer?: boolean } = {},
 ): GameState {
   const viewer = view.viewer;
   if (viewer === "spectator")
@@ -220,16 +224,48 @@ export function determinize(
     const firstMonster = view.log.find(
       (e) => e.type === "setInvadingMonster" && e.player === player.id,
     )?.payload["cardId"];
+    const rankOne =
+      typeof firstMonster === "number" ? cards[firstMonster] : undefined;
+    const asOf = knowledge.asOf ? new Date(knowledge.asOf) : new Date();
+    // #191: only what the opponent has made public picks the archetype: their board, discard
+    // pile and cards revealed to both players, not cards a private choice of ours showed us.
+    let bias: Card[] = [];
+    if (options.recognizer) {
+      const revealed = new Set(view.revealed.map((r) => r.card.instanceId));
+      const shown = (c: CardInstance) =>
+        !mine.some((k) => k.card.instanceId === c.instanceId) ||
+        revealed.has(c.instanceId);
+      const publicSeen = [
+        ...ZONE_NUMBERS.flatMap((z) => player.zones[z].flat()),
+        ...player.strategyZones.flat().map((p) => p.card),
+        ...player.invadingMonsterZone,
+        ...player.discard,
+        ...(view.resolutionArea.cards ?? []).filter(
+          (c) => c.owner === player.id,
+        ),
+        ...mine.map((k) => k.card),
+      ]
+        .filter(shown)
+        .flatMap((c) => {
+          const card = cards[c.cardId];
+          return card && !isToken(c.cardId) ? [card] : [];
+        });
+      const archetype = pickArchetype(
+        archetypeWeights(publicSeen, rankOne, asOf),
+        rng,
+      );
+      if (archetype) bias = archetypeCards(archetype, seen, rng);
+    }
     const guess = guessHidden(
       {
-        rankOne:
-          typeof firstMonster === "number" ? cards[firstMonster] : undefined,
+        rankOne,
         seen,
         hiddenMain: handNeeded + deckNeeded,
         hiddenRanks: shuffle(ranks).slice(0, monstersNeeded),
-        asOf: knowledge.asOf ? new Date(knowledge.asOf) : new Date(),
+        asOf,
       },
       rng,
+      bias,
     );
     for (const card of [...guess.main, ...guess.monsterDeck])
       cards[card.id] ??= card;
