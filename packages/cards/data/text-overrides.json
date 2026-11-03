@@ -38,5 +38,12 @@
       "to": "from your discard pile to your hand",
       "reason": "\"from your hand\" should be \"to your hand\" (findings F11, Q12)."
     }
+  ],
+  "EBP03-076": [
+    {
+      "from": "your zones 1 - 5, and 8",
+      "to": "your zones 1, 5, and 8",
+      "reason": "The printed card reads \"zones 1, 5, and 8\"; the scraped text says \"1 - 5, and 8\" (a tester's Discord #bugs report, confirmed by Paul, #200)."
+    }
   ]
 }
