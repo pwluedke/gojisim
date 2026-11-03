@@ -27,6 +27,7 @@ import {
   columnCard,
   counterOnly,
   heldCards,
+  statBoostZones,
   RULE_BONUS,
   stackWants,
 } from "./rules";
@@ -312,6 +313,37 @@ describe("#189 gaps in Paul's rules", () => {
       });
     expect(picks(1)).not.toContain("pass");
     expect(picks(0)).toContain("pass");
+  });
+});
+
+describe("#189 rule 6: the prune only for a plain stat boost (Paul)", () => {
+  it("reads plain stat boosts from ability data: counter power in a fixed zone", () => {
+    expect(statBoostZones(real("EBP02-061"))).toEqual([8]);
+    expect(statBoostZones(real("ESD01-012"))).toEqual([8]);
+    // KotM's zone condition is protection, Super-X's an [enter] trigger: no plain boost.
+    expect(statBoostZones(real("EBP01-075"))).toEqual([]);
+    expect(statBoostZones(real("ESD02-009"))).toEqual([]);
+    expect(boostedZones(real("ESD02-009"))).toEqual([8]);
+  });
+
+  it("rule 6: a zone condition that isn't a stat boost keeps the prior, with no prune", () => {
+    const { state, p1, p2 } = base();
+    monster(state, p1, "EBP02-052");
+    p1.hand.push(add(state, real("ESD02-009"), "P1"));
+    // 8.2.1: a battle card's rank at most the opponent's monster zone; at 5 zone 8 isn't exposed.
+    p2.monsterPosition = 5;
+    const r = rulesFor(state);
+    const plays = r.actions.filter((a) => a.type === "playBattle") as Extract<
+      Action,
+      { type: "playBattle" }
+    >[];
+    expect(plays.some((a) => a.zone === 8)).toBe(true);
+    for (const a of plays) {
+      expect(r.verdict.dead.has(r.key(a))).toBe(false);
+      expect(r.verdict.bonus.get(r.key(a))).toBe(
+        a.zone === 8 ? RULE_BONUS : undefined,
+      );
+    }
   });
 });
 

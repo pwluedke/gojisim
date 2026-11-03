@@ -30,9 +30,9 @@ import {
  * 4. Counter-only strategies: held until the counter is made (with the others still playable),
  *    then preferred (a prior: one if one makes it, both if it takes two).
  * 5. "Same column as the opponent's monster" battle cards go in that column.
- * 6. Zone-boosted battle cards go in their zone: a prune while your zone 8 isn't exposed (#189),
- *    else a prior on zone 8 only (never away from an open own zone 8 while the opponent can
- *    invade next turn).
+ * 6. Zone-boosted battle cards go in their zone: a prior, never away from an open own zone 8
+ *    while the opponent can invade next turn; a plain stat boost in a zone (#189) is a prune
+ *    while your zone 8 isn't exposed.
  */
 
 /** The prior bonus a rule-preferred root action gets, in evaluation units. */
@@ -123,6 +123,31 @@ export function boostedZones(card: Card | undefined): ZoneNumber[] {
   for (const o of nested(abilitiesOf(card)))
     if (o["zoneOf"] === "this" && Array.isArray(o["in"]))
       return o["in"] as ZoneNumber[];
+  return [];
+}
+
+/**
+ * Rule 6's prune (#189, Paul): the zones a card's plain stat boost needs, or none. A plain boost
+ * is a continuous ability whose own condition is `zoneOf this in [zones]` and whose modifiers
+ * all change counter power or threat (Godzilla (1972) EBP02-061: +3000 in zone 8). Other zone
+ * conditions (triggers, protection, replacements) keep the prior.
+ */
+export function statBoostZones(card: Card | undefined): ZoneNumber[] {
+  for (const a of abilitiesOf(card)) {
+    const condition = a["condition"] as Json | undefined;
+    const modifiers = a["modifiers"] as Json[] | undefined;
+    if (
+      a["kind"] === "continuous" &&
+      condition?.["zoneOf"] === "this" &&
+      Array.isArray(condition["in"]) &&
+      modifiers &&
+      modifiers.length > 0 &&
+      modifiers.every(
+        (m) => m["stat"] === "counterPower" || m["stat"] === "threat",
+      )
+    )
+      return condition["in"] as ZoneNumber[];
+  }
   return [];
 }
 
@@ -336,26 +361,28 @@ export function applyRules(
       )
         kill(a);
     }
-  // Rule 6: zone-boosted cards go in their zone. #189 (Paul: every zone-boosted card in its
-  // boosted zone): while your zone 8 isn't exposed, the card's plays elsewhere are pruned as long
-  // as a play in a boosted zone is legal; while it is, a prior that never steers away from zone 8.
+  // Rule 6: zone-boosted cards go in their zone, a prior that never steers away from an open
+  // zone 8 (#176). #189 (Paul): a card with a plain stat boost (`statBoostZones`) is pruned
+  // outside its zones while your zone 8 isn't exposed and a play in one is legal.
   const exposed = zone8Exposed(state, me, opponent);
   for (const a of actions) {
     if (a.type !== "playBattle") continue;
-    const zones = boostedZones(monster(a));
-    if (zones.length === 0) continue;
-    if (exposed) {
-      if (a.zone === 8 && zones.includes(8)) add(a);
+    const card = monster(a);
+    const stat = statBoostZones(card);
+    if (!exposed && stat.length > 0 && !stat.includes(a.zone)) {
+      const boostedPlay = actions.some(
+        (b) =>
+          b.type === "playBattle" &&
+          b.cardInstanceId === a.cardInstanceId &&
+          stat.includes(b.zone),
+      );
+      if (boostedPlay) kill(a);
       continue;
     }
-    if (zones.includes(a.zone)) continue;
-    const boostedPlay = actions.some(
-      (b) =>
-        b.type === "playBattle" &&
-        b.cardInstanceId === a.cardInstanceId &&
-        zones.includes(b.zone),
-    );
-    if (boostedPlay) kill(a);
+    const zones = boostedZones(card);
+    if (zones.length === 0 || !zones.includes(a.zone)) continue;
+    if (exposed && a.zone !== 8) continue;
+    add(a);
   }
   return verdict();
 }
