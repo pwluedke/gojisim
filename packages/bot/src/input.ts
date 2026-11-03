@@ -41,7 +41,9 @@ export function decklistsOf(
  * Everything a bot gets for one decision, built only from what `botId` may see: its view, its
  * legal actions (concede left out), its own decklist and the public log. The opponent's decklist
  * is dropped here (Q42: presented, never shown, 6.3.1.1), so no caller can pass it on; only the
- * tools' `knowsDecklists: true` setting keeps it, for comparisons. `asOf` is the game's date (the
+ * tools' `knowsDecklists: true` setting keeps it, for comparisons. #192: the tools'
+ * `fullInformation: true` also marks the opponent's hand as revealed, so a determinization keeps
+ * it and only the decks' order stays hidden (a diagnostic of what hidden information costs). `asOf` is the game's date (the
  * restriction list a guessed deck follows). The real state is used only to compute these; the
  * bot never receives it.
  */
@@ -53,12 +55,24 @@ export function botInput(
   settings: BotSettings = {},
   asOf?: string,
 ): BotInput {
-  const view = getPlayerView(state, botId);
-  const own = decks[botId];
   // `true` from code, "true" from a command line's `key=value` settings.
-  const knows =
-    settings["knowsDecklists"] === true ||
-    settings["knowsDecklists"] === "true";
+  const on = (key: string) =>
+    settings[key] === true || settings[key] === "true";
+  const full = on("fullInformation");
+  const seen = full
+    ? {
+        ...state,
+        revealed: [
+          ...state.revealed,
+          ...state.players
+            .filter((p) => p.id !== botId)
+            .flatMap((p) => p.hand.map((c) => c.instanceId)),
+        ],
+      }
+    : state;
+  const view = getPlayerView(seen, botId);
+  const own = decks[botId];
+  const knows = full || on("knowsDecklists");
   const knowledge: Knowledge = {
     decks: knows ? decks : own ? { [botId]: own } : {},
     log: view.log,
