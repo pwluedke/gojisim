@@ -64,6 +64,11 @@ export interface Settings {
   volume: number;
   /** New games skip the First / Second pick; the seed's random draw picks the first player (default off). */
   skipFirstPick: boolean;
+  /**
+   * #174: hovering a card opens the large preview in the right column (default on). Off, no
+   * hover opens it (hand, board, battle log, modals); the raised hand card stays.
+   */
+  hoverPreview: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -86,6 +91,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sound: true,
   volume: 50,
   skipFirstPick: false,
+  hoverPreview: true,
 };
 
 /** Applies a theme to the page (`:root[data-theme]`, see `theme.css`). */
