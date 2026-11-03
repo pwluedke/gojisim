@@ -226,6 +226,10 @@ export function PlayScreen() {
   const [overlay, setOverlay] = useState<"hand" | "shortcuts" | null>(null);
   // M5e: the game waiting for its First / Second pick, and human searches waiting for Confirm.
   const [pending, setPending] = useState<PendingGame | null>(null);
+  // #183: the setup the current game was started with, for Rematch (none for a loaded record).
+  const lastSetup = useRef<Omit<PendingGame, "picker" | "firstCard"> | null>(
+    null,
+  );
   // M13b: the server's Test Site switch, the open Bad Bot! / Report bug popup, the panel's note
   // (where the Report bug file went, or how a Bad Bot! send went), and whether the bot's hand
   // shows now (the record keeps its flag even after it is turned off).
@@ -730,36 +734,52 @@ export function PlayScreen() {
         : {}),
     });
 
+  /** Starts a game from a setup: the new-game screen's, or the last one again (#183 Rematch). */
+  const begin = (setup: Omit<PendingGame, "picker" | "firstCard">) => {
+    lastSetup.current = setup;
+    // The human picks; two bots, or the Skip First / Second pick setting, skip the pick.
+    const picker = settings.skipFirstPick
+      ? undefined
+      : (["P1", "P2"] as const).find((id) => setup.seats[id].kind === "human");
+    if (picker) {
+      // The pick is a modal over the board (Monarch, Oct 26, 2026): the mats with the decks in
+      // place, before the pick (6.3.1.4). Card 0's game tells which card is First; the decks are
+      // the same either way.
+      const probe = build(setup, picker, 0);
+      const firstCard = probe.states[0]?.firstPlayer === picker ? 0 : 1;
+      setPending({ ...setup, picker, firstCard });
+      game.startSession(prePickSession(probe), true);
+    } else game.startSession(build(setup), true);
+  };
+  /**
+   * #183: the same decks, seats, bot levels and match type as the game that just ended, with a
+   * new seed (a new shuffle); the record is new and uploads as usual.
+   */
+  const rematch = () => {
+    const setup = lastSetup.current;
+    if (!setup) return;
+    begin({
+      ...setup,
+      seed: Math.floor(Math.random() * 2 ** 31),
+      showOpponentHand: false,
+    });
+  };
+
   if (!session || !state)
     return (
       <div className="gojisim">
         <ThemeHeader />
         <NewGame
-          onStart={(seed, picked, seats, matchMode) => {
-            // Show opponent's hand is turned on from the Test Site panel (M13b).
-            const setup = {
+          onStart={(seed, picked, seats, matchMode) =>
+            begin({
               seed,
               picked,
               seats,
               matchMode,
+              // Show opponent's hand is turned on from the Test Site panel (M13b).
               showOpponentHand: false,
-            };
-            // The human picks; two bots, or the Skip First / Second pick setting, skip the pick.
-            const picker = settings.skipFirstPick
-              ? undefined
-              : (["P1", "P2"] as const).find(
-                  (id) => seats[id].kind === "human",
-                );
-            if (picker) {
-              // The pick is a modal over the board (Monarch, Oct 26, 2026): the mats with the
-              // decks in place, before the pick (6.3.1.4). Card 0's game tells which card is
-              // First; the decks are the same either way.
-              const probe = build(setup, picker, 0);
-              const firstCard = probe.states[0]?.firstPlayer === picker ? 0 : 1;
-              setPending({ ...setup, picker, firstCard });
-              game.startSession(prePickSession(probe), true);
-            } else game.startSession(build(setup), true);
-          }}
+            })
+          }
           skipFirstPick={settings.skipFirstPick}
           onSkipFirstPick={(skip) => updateSettings({ skipFirstPick: skip })}
           onLoad={async (file) =>
@@ -843,6 +863,17 @@ export function PlayScreen() {
           Game over: {state.result.winner ? name(state.result.winner) : "draw"}{" "}
           ({state.result.reason})
         </div>
+        {lastSetup.current && (
+          <button
+            type="button"
+            className={`${styles.button} ${styles.passButton}`}
+            data-testid="rematch-prompt"
+            data-primary
+            onClick={rematch}
+          >
+            Rematch
+          </button>
+        )}{" "}
         <a href="/play">New game</a>
       </div>
     ) : (
@@ -1555,6 +1586,17 @@ export function PlayScreen() {
                 {gameOver.line}
               </p>
               <div className={styles.modalButtons}>
+                {lastSetup.current && (
+                  <button
+                    type="button"
+                    className={`${styles.button} ${styles.passButton}`}
+                    data-testid="rematch"
+                    data-primary
+                    onClick={rematch}
+                  >
+                    Rematch
+                  </button>
+                )}
                 <button
                   type="button"
                   className={styles.button}
