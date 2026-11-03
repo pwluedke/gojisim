@@ -21,7 +21,8 @@ import { getAllCards } from "@gojisim/cards/all-cards";
  * - no Token cards (6.1.1.5);
  * - the monster deck: one card per rank (6.1.1.1), preferring cards that share a trait with the
  *   monsters seen (5.15.1.2) or that a `monsterOnto` rule lets onto them (Q23).
- * The draw is uniform for now; the recognizer (step 4) replaces `guessHidden` with engine odds.
+ * The draw is uniform unless the recognizer (#191, `recognizer.ts`) passes an archetype's cards
+ * as `bias`: those go first where a legal deck has room, then the uniform fill.
  */
 
 /** What is public about one player's deck. */
@@ -181,6 +182,7 @@ function candidatesFor(rankOne: Card | undefined, asOf: Date): Candidates {
 export function guessHidden(
   info: PublicDeckInfo,
   rng: () => number,
+  bias: readonly Card[] = [],
 ): HiddenGuess {
   const c = candidatesFor(info.rankOne, info.asOf);
   const counts = new Map<string, number>();
@@ -220,11 +222,16 @@ export function guessHidden(
     (c.traits.get(card.deckCardNumber) ?? []).some((t) => seenTraits.has(t)) ||
     (c.onto.get(card.deckCardNumber)?.every((t) => seenTraits.has(t)) ?? false);
   const monsterDeck: Card[] = [];
+  const biased = new Set(bias.map((card) => card.deckCardNumber));
   for (const rank of info.hiddenRanks) {
     const ofRank = (c.monstersByRank.get(rank) ?? []).filter(room);
     const linked = ofRank.filter(follows);
+    // #191: an archetype's own monster of this rank first.
+    const preferred = ofRank.filter((card) => biased.has(card.deckCardNumber));
     const card =
-      pick(linked.length > 0 ? linked : ofRank) ??
+      pick(
+        preferred.length > 0 ? preferred : linked.length > 0 ? linked : ofRank,
+      ) ??
       pick(
         englishPool().filter(
           (card) => card.type === "Monster" && card.rank === rank,
@@ -250,6 +257,14 @@ export function guessHidden(
         (r) => r.rule === "resonance",
       )
     : undefined;
+  // #191: the archetype's cards first, each only where a legal deck has room.
+  for (const card of bias) {
+    if (main.length >= info.hiddenMain) break;
+    if (!room(card) || !c.limit.has(card.deckCardNumber)) continue;
+    main.push(card);
+    add(card);
+    if (card.invadeZones === 2) icon2++;
+  }
   if (resonance?.rule === "resonance")
     for (const condition of resonance.conditions)
       if ("atLeast" in condition) {
@@ -264,5 +279,11 @@ export function guessHidden(
           draw(c.byType.get(condition.cards) ?? []);
       }
   while (main.length < info.hiddenMain) draw(c.all);
+  // The archetype's cards went in first; shuffle so the hand isn't drawn from them alone.
+  if (bias.length > 0)
+    for (let i = main.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [main[i], main[j]] = [main[j] as Card, main[i] as Card];
+    }
   return { main, monsterDeck };
 }
