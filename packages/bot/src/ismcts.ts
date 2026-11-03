@@ -237,6 +237,8 @@ export function search(input: BotInput, settings: IsmctsSettings) {
   const root = newNode(null);
   const started = Date.now();
   let rootKeys: string[] = [];
+  // #189: legal actions the rules rule out whose key survives (a held copy): never the pick.
+  let avoid = new Set<number>();
   // M13a: root actions whose only effect is moving a card out of the hand (`prune.ts`), judged
   // once on the first determinization from public information (the bot's own hand, both boards).
   let dead = new Set<string>();
@@ -263,10 +265,21 @@ export function search(input: BotInput, settings: IsmctsSettings) {
           actionKey(first, a),
         );
         bonus = verdict.bonus;
-        // Both sets leave an action each; together they must too.
+        // Both sets leave an action each; together they must too (#189: one that isn't
+        // conceding, which the search never plays).
         const both = new Set([...dead, ...verdict.dead]);
-        if (input.legalActions.some((a) => !both.has(actionKey(first, a))))
+        if (
+          input.legalActions.some(
+            (a) => a.type !== "concede" && !both.has(actionKey(first, a)),
+          )
+        ) {
           dead = both;
+          avoid = new Set(
+            input.legalActions.flatMap((a, i) =>
+              verdict.killed.has(a) ? [i] : [],
+            ),
+          );
+        }
       }
     }
     let node = root;
@@ -334,7 +347,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
       n.value += n.player === me ? value : -value;
     }
   }
-  return { root, rootKeys, dead, iterations, ms: Date.now() - started };
+  return { root, rootKeys, dead, avoid, iterations, ms: Date.now() - started };
 }
 
 /** One decision with its search, for the explain tool (M13a): what was picked and why. */
@@ -356,18 +369,35 @@ export function decide(input: BotInput): Decision {
       search: null,
     };
   const settings = ismctsSettings(input.settings);
-  if (settings.blunder > 0 && rng() < settings.blunder)
+  if (settings.blunder > 0 && rng() < settings.blunder) {
+    // #189: with Paul's rules on, a blunder picks only among the moves the rules allow.
+    let allowed = [...legalActions];
+    if (settings.rules > 0) {
+      const state = determinize(input.view, input.knowledge, rng);
+      const me = input.view.viewer as PlayerId;
+      const { dead, killed } = applyRules(state, legalActions, me, (a) =>
+        actionKey(state, a),
+      );
+      const kept = allowed.filter(
+        (a) => !killed.has(a) && !dead.has(actionKey(state, a)),
+      );
+      if (kept.length > 0) allowed = kept;
+    }
     return {
       action:
         settings.uniformBlunder > 0
-          ? (legalActions[Math.floor(rng() * legalActions.length)] as Action)
-          : plausiblePick(input.view, [...legalActions], pickWith(rng)),
+          ? (allowed[Math.floor(rng() * allowed.length)] as Action)
+          : plausiblePick(input.view, allowed, pickWith(rng)),
       blundered: true,
       search: null,
     };
+  }
   const result = search(input, settings);
-  const { root, rootKeys } = result;
-  const visits = rootKeys.map((key) => root.children.get(key)?.visits ?? 0);
+  const { root, rootKeys, avoid } = result;
+  // An avoided action has no visits of its own; its key's visits go to a copy that isn't.
+  const visits = rootKeys.map((key, i) =>
+    avoid.has(i) ? 0 : (root.children.get(key)?.visits ?? 0),
+  );
   if (settings.temperature > 0) {
     const weights = visits.map((v) => Math.pow(v, 1 / settings.temperature));
     const total = weights.reduce((a, b) => a + b, 0);
@@ -383,7 +413,11 @@ export function decide(input: BotInput): Decision {
     }
   }
   const most = Math.max(...visits);
-  const ties = legalActions.filter((_, i) => visits[i] === most);
+  const tied = legalActions.flatMap((a, i) => (visits[i] === most ? [i] : []));
+  const preferred = tied.filter((i) => !avoid.has(i));
+  const ties = (preferred.length > 0 ? preferred : tied).map(
+    (i) => legalActions[i] as Action,
+  );
   return {
     action: ties[Math.floor(rng() * ties.length)] as Action,
     blundered: false,

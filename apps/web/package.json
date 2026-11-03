@@ -18,7 +18,7 @@
     "@fontsource/anton": "5.3.0",
     "@fontsource/bungee": "5.3.0",
     "@fontsource/dela-gothic-one": "5.3.0",
-    "@fontsource/zen-kaku-gothic-new": "5.3.0",
+    "@fontsource/zen-kaku-gothic-new": "5.3.1",
     "@gojisim/bot": "workspace:*",
     "@gojisim/cards": "workspace:*",
     "@gojisim/engine": "workspace:*",
@@ -26,13 +26,13 @@
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
-    "@axe-core/playwright": "4.13.0",
+    "@axe-core/playwright": "4.14.0",
     "@playwright/test": "^1.64.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
-    "fake-indexeddb": "6.2.5",
+    "fake-indexeddb": "6.2.7",
     "tsx": "^4.23.15",
-    "vite": "^8.3.4"
+    "vite": "^8.3.5"
   }
 }
