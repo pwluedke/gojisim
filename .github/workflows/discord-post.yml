@@ -1,0 +1,77 @@
+name: Discord post
+
+# Paul posts to the GojiSim Discord's #bugs channel through its webhook (secret
+# `DISCORD_BUGS_WEBHOOK`). Run by hand only: Actions → Discord post → Run workflow. The repo is
+# public: the log shows only HTTP status codes, never the message or the webhook URL
+# (docs/discord.md).
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: "The message (up to 2000 characters)"
+        required: true
+      reply_to:
+        description: "Optional: the id of the #bugs message this answers (posted as a link to it)"
+        required: false
+        default: ""
+
+concurrency:
+  group: discord-post
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  post:
+    name: Post to #bugs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Post
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_BUGS_WEBHOOK }}
+          MESSAGE: ${{ inputs.message }}
+          REPLY_TO: ${{ inputs.reply_to }}
+        run: |
+          set -euo pipefail
+          if [ -z "$WEBHOOK" ]; then
+            echo "::error::The DISCORD_BUGS_WEBHOOK secret isn't set."
+            exit 1
+          fi
+          # Neither the URL nor the text is ever echoed; mask the URL in case a tool prints it.
+          echo "::add-mask::$WEBHOOK"
+          text="$MESSAGE"
+          # A webhook can't thread-reply in a text channel, so a reply quotes a link to the
+          # message. The webhook's own record names its server and channel.
+          if [ -n "$REPLY_TO" ]; then
+            if ! printf '%s' "$REPLY_TO" | grep -Eq '^[0-9]{15,22}$'; then
+              echo "::error::reply_to must be a Discord message id (digits only)."
+              exit 1
+            fi
+            info="$(curl -sS --fail-with-body --max-time 20 "$WEBHOOK" 2>/dev/null)" || {
+              echo "::error::Couldn't read the webhook's channel."
+              exit 1
+            }
+            guild="$(printf '%s' "$info" | jq -r '.guild_id // empty')"
+            channel="$(printf '%s' "$info" | jq -r '.channel_id // empty')"
+            if [ -z "$guild" ] || [ -z "$channel" ]; then
+              echo "::error::The webhook's record has no server or channel."
+              exit 1
+            fi
+            text="$(printf '↪ Re: https://discord.com/channels/%s/%s/%s\n%s' "$guild" "$channel" "$REPLY_TO" "$MESSAGE")"
+          fi
+          length="$(printf '%s' "$text" | wc -m | tr -d ' ')"
+          if [ "$length" -gt 2000 ]; then
+            echo "::error::The post is $length characters (with any reply link); Discord's limit is 2000."
+            exit 1
+          fi
+          # No mentions are ever parsed (@everyone, roles, users).
+          payload="$(jq -n --arg content "$text" '{content: $content, allowed_mentions: {parse: []}}')"
+          status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 \
+            -H 'Content-Type: application/json' -d "$payload" "$WEBHOOK" 2>/dev/null || echo 000)"
+          echo "Discord answered HTTP $status"
+          case "$status" in
+            2??) ;;
+            *) echo "::error::The post failed (HTTP $status)."; exit 1 ;;
+          esac
