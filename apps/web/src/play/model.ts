@@ -11,6 +11,7 @@ import {
   type PlayerView,
   ZONE_NUMBERS,
 } from "@gojisim/engine";
+import { getCardAbilities } from "@gojisim/cards";
 import type { SeatConfig } from "../game/bots";
 import type { PlayerId } from "../game/session";
 
@@ -84,6 +85,19 @@ export interface BoardModel {
    * the card can be played at the opponent's monster's zone now (`mechaCheckNeeded`).
    */
   mechaCheck: Record<string, number>;
+  /**
+   * #182: for each card in the bottom player's hand with a "can't be played while your discard
+   * pile has N or fewer <type> cards" rule (Godzilla Against Mechagodzilla, EBP01-073), by
+   * instance id, how many more such cards the discard pile needs (`discardNeeded`).
+   */
+  discardCheck: Record<string, DiscardNeed>;
+}
+
+/** #182: the cards a hand card's play rule still needs in your discard pile, and their type. */
+export interface DiscardNeed {
+  needed: number;
+  /** The card type counted (`Monster`), or `null` for any card. */
+  type: string | null;
 }
 
 /** Mecha-King Ghidorah: 2 ranks lower for each non-rank 23 King Ghidorah card in your discard pile. */
@@ -114,6 +128,50 @@ export function mechaCheckNeeded(
 export function mechaCheckText(needed: number): string {
   if (needed === 0) return "Mecha-Check: ready to play.";
   return `Mecha-Check: ${needed} more King Ghidorah card${needed === 1 ? "" : "s"} needed in your discard pile to play this.`;
+}
+
+/**
+ * #182: a hand card's discard pile requirement, read from its play rule (not its name): a
+ * `playRule` forbidding the play while the count of your discard pile's cards (of a type, if
+ * given) is at most N. The card needs N + 1; `null` for a card with no such rule.
+ */
+export function discardNeeded(
+  state: GameState,
+  player: PlayerId,
+  instanceId: string,
+): DiscardNeed | null {
+  const me = state.players.find((p) => p.id === player);
+  const card = me?.hand.find((c) => c.instanceId === instanceId);
+  const data = state.cards[card?.cardId ?? -1];
+  if (!me || !data) return null;
+  for (const ability of getCardAbilities(data.deckCardNumber)
+    .abilities as unknown as Record<string, unknown>[]) {
+    const forbidden = ability["forbidden"] as
+      Record<string, unknown> | undefined;
+    const count = forbidden?.["count"] as Record<string, unknown> | undefined;
+    if (
+      ability["kind"] !== "playRule" ||
+      !count ||
+      count["owner"] !== "you" ||
+      count["area"] !== "discard" ||
+      forbidden?.["op"] !== "<=" ||
+      typeof forbidden["value"] !== "number"
+    )
+      continue;
+    const type = typeof count["type"] === "string" ? count["type"] : null;
+    const have = me.discard.filter(
+      (c) => type === null || state.cards[c.cardId]?.type === type,
+    ).length;
+    return { needed: Math.max(0, forbidden["value"] + 1 - have), type };
+  }
+  return null;
+}
+
+/** #182's tooltip text (Paul confirms the wording in review). */
+export function discardNeededText({ needed, type }: DiscardNeed): string {
+  if (needed === 0) return "Ready to play.";
+  const kind = type ? `${type.toLowerCase()} card` : "card";
+  return `${needed} more ${kind}${needed === 1 ? "" : "s"} needed in your discard pile to play this.`;
 }
 
 /**
@@ -155,9 +213,12 @@ export function boardModel(
     if (monster) noteChanges(monster.instanceId);
   }
   const mechaCheck: Record<string, number> = {};
+  const discardCheck: Record<string, DiscardNeed> = {};
   for (const card of state.players.find((p) => p.id === bottom)?.hand ?? []) {
     const needed = mechaCheckNeeded(state, bottom, card.instanceId);
     if (needed !== null) mechaCheck[card.instanceId] = needed;
+    const discard = discardNeeded(state, bottom, card.instanceId);
+    if (discard !== null) discardCheck[card.instanceId] = discard;
   }
   return {
     bottom,
@@ -170,5 +231,6 @@ export function boardModel(
     changes,
     openHand,
     mechaCheck,
+    discardCheck,
   };
 }
