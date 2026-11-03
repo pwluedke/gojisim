@@ -7,14 +7,13 @@ import {
 } from "@gojisim/cards";
 import { getAllCards } from "@gojisim/cards/all-cards";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { backupJson, deckOf, readBackup, savedDeck } from "../game/deckStore";
-import { deckOptions } from "../game/decks";
+import { savedDeck } from "../game/deckStore";
 import { downloadText } from "../game/session";
 import { useMyDecks } from "../game/useMyDecks";
-import type { NamedDeck } from "@gojisim/cards/deck-lists";
 import { ImportDeck } from "../play/ImportDeck";
 import { applyTheme, loadSettings } from "../play/settings";
 import { PlayerBadge } from "../PlayerBadge";
+import { DecksWindow } from "./DecksWindow";
 import { SyncOffer } from "./SyncOffer";
 import {
   applyFilter,
@@ -519,6 +518,10 @@ export function Deckbuilder() {
         <DecksWindow
           my={my}
           onClose={() => setDecksOpen(false)}
+          onImport={() => {
+            setDecksOpen(false);
+            setImporting(true);
+          }}
           onLoad={(deck, id) => {
             if (openDraft(draftOf(deck), id)) setDecksOpen(false);
           }}
@@ -861,228 +864,6 @@ function CardDetail({ card, base }: { card: Card; base: Card }) {
         <div className={styles.detailMeta}>Errata: the corrected wording.</div>
       )}
       <p className={styles.detailText}>{text.text}</p>
-    </div>
-  );
-}
-
-/**
- * My decks (#157): the starter decks and your saved decks, with Delete, Export all and Import
- * backup. Load and Duplicate come with the deck panel (#158).
- */
-function DecksWindow({
-  my,
-  onClose,
-  onLoad,
-}: {
-  my: ReturnType<typeof useMyDecks>;
-  onClose: () => void;
-  /** #158: open a deck in the builder (a starter has no id: saving makes it yours). */
-  onLoad: (deck: NamedDeck, id: string | null) => void;
-}) {
-  const starters = useMemo(
-    () => deckOptions([]).filter((o) => o.kind === "official"),
-    [],
-  );
-  const [deleting, setDeleting] = useState<string | null>(null);
-  // #161: Rename and Copy as plain text moved here from /play's My decks panel.
-  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(
-    null,
-  );
-  const [note, setNote] = useState<string | null>(null);
-  const backup = useRef<HTMLInputElement>(null);
-  const copy = async (deck: { name: string; list: string }) => {
-    try {
-      await navigator.clipboard.writeText(deck.list);
-      setNote(`Copied ${deck.name} as plain text.`);
-    } catch {
-      setNote(
-        `Couldn't reach the clipboard; Export the deck from the builder instead.`,
-      );
-    }
-  };
-  return (
-    <div
-      className={styles.backdrop}
-      data-testid="db-decks-window"
-      data-decks-stored={String(my.stored)}
-      role="dialog"
-      aria-label="My decks"
-    >
-      <div className={styles.window}>
-        <h2>My decks</h2>
-        <h3>Starter decks</h3>
-        <ul className={styles.deckList}>
-          {starters.map((s) => (
-            <li key={s.key} data-testid="db-starter">
-              <span className={styles.deckName}>{s.label}</span>
-              <button
-                type="button"
-                data-testid="db-load"
-                onClick={() => onLoad({ ...s.build(0), name: s.label }, null)}
-              >
-                Load
-              </button>
-            </li>
-          ))}
-        </ul>
-        <h3>Your decks</h3>
-        {!my.persistent && (
-          <p data-testid="decks-session-only">
-            This browser isn't saving decks (storage is off), so they last for
-            this visit only.
-          </p>
-        )}
-        {my.decks.length === 0 ? (
-          <p>No saved decks yet. Import one, or build one here.</p>
-        ) : (
-          <ul className={styles.deckList}>
-            {my.decks.map((d) => (
-              <li key={d.id} data-testid="db-deck" data-deck-name={d.name}>
-                {renaming?.id === d.id ? (
-                  <span className={styles.deckName}>
-                    <input
-                      data-testid="rename-input"
-                      aria-label={`New name for ${d.name}`}
-                      value={renaming.name}
-                      onChange={(e) =>
-                        setRenaming({ id: d.id, name: e.target.value })
-                      }
-                    />
-                    <button
-                      type="button"
-                      data-testid="rename-save"
-                      disabled={!renaming.name.trim()}
-                      onClick={() => {
-                        my.rename(d.id, renaming.name);
-                        setRenaming(null);
-                      }}
-                    >
-                      Save
-                    </button>
-                  </span>
-                ) : (
-                  <span className={styles.deckName}>{d.name}</span>
-                )}
-                <button
-                  type="button"
-                  data-testid="db-load"
-                  onClick={() => {
-                    const deck = deckOf(d);
-                    if (deck) onLoad(deck, d.id);
-                    else
-                      setNote(
-                        `${d.name} no longer reads cleanly; fix it with Import.`,
-                      );
-                  }}
-                >
-                  Load
-                </button>
-                <button
-                  type="button"
-                  data-testid="db-duplicate"
-                  onClick={() => {
-                    const deck = deckOf(d);
-                    if (!deck) return;
-                    const name = copyName(
-                      d.name,
-                      my.decks.map((x) => x.name),
-                    );
-                    my.add(savedDeck({ ...deck, name }, name));
-                    setNote(`Duplicated as ${name}.`);
-                  }}
-                >
-                  Duplicate
-                </button>
-                <button
-                  type="button"
-                  data-testid="rename-deck"
-                  onClick={() => setRenaming({ id: d.id, name: d.name })}
-                >
-                  Rename
-                </button>
-                <button
-                  type="button"
-                  data-testid="copy-deck"
-                  onClick={() => void copy(d)}
-                >
-                  Copy
-                </button>
-                {deleting === d.id ? (
-                  <>
-                    <button
-                      type="button"
-                      data-testid="db-delete-confirm"
-                      data-danger
-                      onClick={() => {
-                        my.remove(d.id);
-                        setDeleting(null);
-                      }}
-                    >
-                      Delete {d.name}
-                    </button>
-                    <button type="button" onClick={() => setDeleting(null)}>
-                      Keep
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    data-testid="db-delete"
-                    data-danger
-                    onClick={() => setDeleting(d.id)}
-                  >
-                    Delete
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className={styles.windowActions}>
-          <button
-            type="button"
-            data-testid="db-export-all"
-            disabled={my.decks.length === 0}
-            onClick={() =>
-              downloadText(backupJson(my.decks), "gojisim-my-decks.json")
-            }
-          >
-            Export all
-          </button>
-          <button
-            type="button"
-            data-testid="db-import-backup"
-            onClick={() => backup.current?.click()}
-          >
-            Import backup
-          </button>
-          <input
-            ref={backup}
-            type="file"
-            accept="application/json,.json"
-            hidden
-            data-testid="db-backup-file"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              e.target.value = "";
-              if (!file) return;
-              const { decks, problems } = readBackup(await file.text());
-              my.add(...decks);
-              setNote(
-                [
-                  `Restored ${decks.length} deck${decks.length === 1 ? "" : "s"}.`,
-                  ...problems,
-                ].join(" "),
-              );
-            }}
-          />
-          <span className={styles.spacer} />
-          <button type="button" data-testid="db-decks-close" onClick={onClose}>
-            Close
-          </button>
-        </div>
-        {note && <p data-testid="db-decks-note">{note}</p>}
-      </div>
     </div>
   );
 }

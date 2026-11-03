@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { deckAction } from "./helpers";
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -122,10 +123,10 @@ test("#158: a starter loads legal; a banned card is marked with its reason; the 
   // My decks: Duplicate, and Load opens the saved deck as it was saved.
   await page.getByTestId("db-my-decks").click();
   const win = page.getByTestId("db-decks-window");
-  await win
-    .locator('[data-deck-name="Red Variant"]')
-    .getByTestId("db-duplicate")
-    .click();
+  await deckAction(
+    win.locator('[data-deck-name="Red Variant"]'),
+    "db-duplicate",
+  );
   await expect(win.getByTestId("db-deck")).toHaveCount(3);
   await expect(
     win.locator('[data-deck-name="Red Variant (copy 2)"]'),

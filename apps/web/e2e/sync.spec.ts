@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
-import { importInDeckbuilder } from "./helpers";
+import { deckAction, importInDeckbuilder, myDeckNames } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -84,11 +84,9 @@ async function saveLocalDeck(page: Page, name: string) {
   await importInDeckbuilder(page, list, name);
 }
 
-/** The Deckbuilder's My decks window's deck names (it opens if closed). */
-async function names(page: Page) {
-  const win = page.getByTestId("db-decks-window");
-  if (!(await win.isVisible())) await page.getByTestId("db-my-decks").click();
-  return win.locator('[data-testid="db-deck"] > span:first-child');
+/** The Deckbuilder's My decks window's full deck names, polled until they read `names`. */
+async function expectNames(page: Page, names: string[]) {
+  await expect.poll(() => myDeckNames(page)).toEqual(names);
 }
 
 test("#152: at first sign-in, this browser's decks are offered once (a name clash asks), the account's arrive, and changes go to the account", async ({
@@ -123,10 +121,12 @@ test("#152: at first sign-in, this browser's decks are offered once (a name clas
   await page.goto("/auth/dev?next=%2Fdecks");
 
   // The account's decks arrived; nothing of this browser's is lost.
-  await expect(await names(page)).toHaveText(
-    ["Local Green", "Red Rush", "Account Blue", "Red Rush"],
-    { useInnerText: true },
-  );
+  await expectNames(page, [
+    "Local Green",
+    "Red Rush",
+    "Account Blue",
+    "Red Rush",
+  ]);
   // The window covers the page; close it to answer the offer.
   await page.getByTestId("db-decks-close").click();
   const offer = page.getByTestId("sync-offer");
@@ -147,18 +147,22 @@ test("#152: at first sign-in, this browser's decks are offered once (a name clas
         .sort(),
     )
     .toEqual(["Local Green", "Red Rush (this browser)"]);
-  await expect(await names(page)).toContainText(["Red Rush (this browser)"]);
+  await expect
+    .poll(() => myDeckNames(page))
+    .toContain("Red Rush (this browser)");
 
   // Asked once: a reload shows no offer.
   await page.reload();
-  await expect((await names(page)).first()).toBeVisible();
+  await expect
+    .poll(async () => (await myDeckNames(page)).length)
+    .toBeGreaterThan(0);
   await expect(page.getByTestId("sync-offer")).toHaveCount(0);
 
   // A delete here reaches the account.
   const blue = page.locator(
     '[data-testid="db-deck"][data-deck-name="Account Blue"]',
   );
-  await blue.getByTestId("db-delete").click();
+  await deckAction(blue, "db-delete");
   await blue.getByTestId("db-delete-confirm").click();
   await expect
     .poll(() => account.writes.some((w) => w.startsWith("DELETE acct-blue")))

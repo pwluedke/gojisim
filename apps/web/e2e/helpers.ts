@@ -158,3 +158,20 @@ export async function importInDeckbuilder(
   );
   await page.getByTestId("db-decks-close").click();
 }
+
+/** #181: a My decks row's action from its ⋯ menu (Duplicate, Rename, Copy deck list, Export, Delete). */
+export async function deckAction(row: Locator, id: string): Promise<void> {
+  await row.getByTestId("db-deck-menu").click();
+  await row.getByTestId(id).click();
+}
+
+/** #181: My decks' full deck names (rows show the name after the folder), opening the window if closed. */
+export async function myDeckNames(page: Page): Promise<string[]> {
+  const win = page.getByTestId("db-decks-window");
+  if (!(await win.isVisible())) await page.getByTestId("db-my-decks").click();
+  return win
+    .getByTestId("db-deck")
+    .evaluateAll((rows) =>
+      rows.map((r) => r.getAttribute("data-deck-name") ?? ""),
+    );
+}
