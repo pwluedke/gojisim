@@ -84,7 +84,7 @@ import { type SearchResult, searchResults } from "./searches";
 import { NewGame } from "./NewGame";
 import { RulesPanel } from "../rules/RulesPanel";
 import { boardModel, bottomPlayer } from "./model";
-import { visibleCards } from "./Preview";
+import { HoverPreviewContext, visibleCards } from "./Preview";
 import {
   type AnimationSpeed,
   THEME_NAMES,
@@ -1208,6 +1208,17 @@ export function PlayScreen() {
           <label>
             <input
               type="checkbox"
+              data-testid="setting-hover-preview"
+              checked={settings.hoverPreview}
+              onChange={(e) =>
+                updateSettings({ hoverPreview: e.target.checked })
+              }
+            />{" "}
+            Card preview on hover
+          </label>
+          <label>
+            <input
+              type="checkbox"
               data-testid="setting-expanded-hand"
               checked={settings.expandedHand}
               onChange={(e) =>
@@ -1377,355 +1388,361 @@ export function PlayScreen() {
     />
   );
   return (
-    // A collapsed log frees its column, so --card-h recomputes on this wrapper (M5f).
-    <div
-      className={`gojisim${settings.logCollapsed ? " log-collapsed" : ""}`}
-      // The record's flags that keep a game out of statistics (M11), for tests and bug reports.
-      data-first-pick-peeked={
-        session.record.firstPickPeeked ? "true" : undefined
-      }
-      data-show-opponent-hand={
-        session.record.showOpponentHand ? "true" : undefined
-      }
-    >
-      <ThemeHeader />
-      <BoardView
-        model={model}
-        prompt={prompt}
-        actions={locked ? [] : actions}
-        locked={locked}
-        onAction={game.takeAction}
-        labelOf={(action) => actionLabel(state, action)}
-        zoneChoice={viewing === null ? zoneChoice : new Map()}
-        highlight={
-          viewing === null ? (botMove?.highlight ?? new Set()) : new Set()
+    <HoverPreviewContext.Provider value={settings.hoverPreview}>
+      {/* A collapsed log frees its column, so --card-h recomputes on this wrapper (M5f). */}
+      <div
+        className={`gojisim${settings.logCollapsed ? " log-collapsed" : ""}`}
+        // The record's flags that keep a game out of statistics (M11), for tests and bug reports.
+        data-first-pick-peeked={
+          session.record.firstPickPeeked ? "true" : undefined
         }
-        name={name}
-        settings={settingsPanel}
-        step={viewing === null ? session.position : null}
-        animation={settings.animation}
-        onAnimating={setAnimating}
-        onSlamImpact={() => sounds.current.playCues(slamCues(0))}
-        turnGlow={settings.turnGlow}
-        picking={pending !== null}
-        invadeArrow={settings.invadeArrow}
-        mat={customMat.view}
-        deckWarnings={deckWarnings}
-        log={
-          <BattleLog
-            lines={
-              settings.showUndone
-                ? lines
-                : lines.filter((l) => l.kind !== "undone")
-            }
-            viewer={liveBottom ?? undefined}
-            onRule={setRulesAt}
-            viewing={viewing}
-            showRules={settings.showRules}
-            onSelect={(position) =>
-              setHistoryAt(
-                position >= session.states.length - 1 ? null : position,
-              )
-            }
-          />
+        data-show-opponent-hand={
+          session.record.showOpponentHand ? "true" : undefined
         }
-        fightCard={fightCard}
-        logCollapsed={settings.logCollapsed}
-        onToggleLog={() =>
-          updateSettings({ logCollapsed: !settings.logCollapsed })
-        }
-      />
-      {viewing !== null && (
-        <div className={styles.historyBanner} data-testid="history-banner">
-          <span>History: turn {shown.turn}, read-only.</span>
-          <button
-            type="button"
-            className={`${styles.button} ${styles.backToLive}`}
-            data-testid="history-back-to-live"
-            onClick={() => setHistoryAt(null)}
-          >
-            Back to live
-          </button>
-        </div>
-      )}
-      {overlay === "hand" && (
-        // Read-only (Paul's rule): clicking a card here does nothing; H or Esc closes it.
-        <div
-          className={`${styles.modalBackdrop} ${styles.expandedBackdrop}`}
-          data-testid="expanded-hand"
-        >
-          <div className={styles.expandedHand}>
-            {handCards.map((card) => {
-              const data = model.view.cards[card.cardId];
-              // Strategy cards turn 90° clockwise here too (M5e).
-              const rotated = data?.type === "Strategy";
-              return (
-                <div
-                  key={card.instanceId}
-                  className={`${styles.expandedCard}${rotated ? ` ${styles.rotated}` : ""}`}
-                  data-testid="expanded-card"
-                  data-rotated={rotated ? "true" : undefined}
-                  data-card-id={data?.id}
-                >
-                  <div className={styles.cardFallback}>{data?.name}</div>
-                  <img
-                    className={styles.cardImage}
-                    src={`/cards/${card.cardId}-full.webp`}
-                    alt={data?.name ?? ""}
-                    draggable={false}
-                    onError={(e) => {
-                      // Missing image: show the name instead.
-                      e.currentTarget.style.visibility = "hidden";
-                      const fallback = e.currentTarget
-                        .previousElementSibling as HTMLElement | null;
-                      if (fallback) fallback.style.visibility = "visible";
-                    }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-          <div className={styles.muted}>H or Esc closes the hand.</div>
-        </div>
-      )}
-      {overlay === "shortcuts" && (
-        <div
-          className={styles.modalBackdrop}
-          data-testid="shortcut-list"
-          onClick={() => setOverlay(null)}
-        >
-          <div className={styles.modal}>
-            <div className={styles.modalHeading}>Keyboard shortcuts</div>
-            <table className={styles.shortcuts}>
-              <tbody>
-                {SHORTCUTS.map(([key, what]) => (
-                  <tr key={key}>
-                    <td>
-                      <kbd>{key}</kbd>
-                    </td>
-                    <td>{what}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-      {pending && (
-        <FirstPick
-          seed={pending.seed}
-          picker={pending.picker}
-          firstCard={pending.firstCard}
-          canPeek={pending.matchMode === "casual"}
-          build={(card, peeked) => build(pending, pending.picker, card, peeked)}
-          onStart={(next) => {
-            setPending(null);
-            game.startSession(next, true);
-          }}
-        />
-      )}
-      {search && !animating && (
-        <SearchModal
-          key={search.seq}
-          result={search}
-          cards={state.cards}
+      >
+        <ThemeHeader />
+        <BoardView
           model={model}
-          onConfirm={() => setSearches((queue) => queue.slice(1))}
+          prompt={prompt}
+          actions={locked ? [] : actions}
+          locked={locked}
+          onAction={game.takeAction}
+          labelOf={(action) => actionLabel(state, action)}
+          zoneChoice={viewing === null ? zoneChoice : new Map()}
+          highlight={
+            viewing === null ? (botMove?.highlight ?? new Set()) : new Set()
+          }
+          name={name}
+          settings={settingsPanel}
+          step={viewing === null ? session.position : null}
+          animation={settings.animation}
+          onAnimating={setAnimating}
+          onSlamImpact={() => sounds.current.playCues(slamCues(0))}
+          turnGlow={settings.turnGlow}
+          picking={pending !== null}
+          invadeArrow={settings.invadeArrow}
+          mat={customMat.view}
+          deckWarnings={deckWarnings}
+          log={
+            <BattleLog
+              lines={
+                settings.showUndone
+                  ? lines
+                  : lines.filter((l) => l.kind !== "undone")
+              }
+              viewer={liveBottom ?? undefined}
+              onRule={setRulesAt}
+              viewing={viewing}
+              showRules={settings.showRules}
+              onSelect={(position) =>
+                setHistoryAt(
+                  position >= session.states.length - 1 ? null : position,
+                )
+              }
+            />
+          }
+          fightCard={fightCard}
+          logCollapsed={settings.logCollapsed}
+          onToggleLog={() =>
+            updateSettings({ logCollapsed: !settings.logCollapsed })
+          }
         />
-      )}
-      {showModal &&
-        choice?.kind !== "zone" &&
-        !(search && !animating) &&
-        !callout && (
-          <ChoiceModal
-            key={choice?.id}
-            state={state}
-            heading={choiceHeading(state, name)}
-            source={choiceSource(state)}
-            actions={actions}
-            manualCards={manualCards}
-            onAction={game.takeAction}
-            labelOf={(action) => actionLabel(state, action)}
-            model={model}
-            onConfirmPicks={(ids, done) =>
-              choice && game.takeChoices(choice.player as PlayerId, ids, done)
-            }
-            onUndo={undoable ? undo : undefined}
-          />
+        {viewing !== null && (
+          <div className={styles.historyBanner} data-testid="history-banner">
+            <span>History: turn {shown.turn}, read-only.</span>
+            <button
+              type="button"
+              className={`${styles.button} ${styles.backToLive}`}
+              data-testid="history-back-to-live"
+              onClick={() => setHistoryAt(null)}
+            >
+              Back to live
+            </button>
+          </div>
         )}
-      {callout &&
-        comboOf(callout) &&
-        !animating &&
-        !announcing &&
-        !(search && !animating) && (
-          <ComboModal
-            key={`${callout.actionIndex}-${callout.comboId}-${callout.player}`}
-            combo={comboOf(callout) as Combo}
-            who={comboWho(callout.player)}
-            cards={callout.cards.map((n) => cardByNumber(state, n))}
-            model={model}
-            shake={settings.animation !== "off"}
-            onClose={closeCallout}
-          />
+        {overlay === "hand" && (
+          // Read-only (Paul's rule): clicking a card here does nothing; H or Esc closes it.
+          <div
+            className={`${styles.modalBackdrop} ${styles.expandedBackdrop}`}
+            data-testid="expanded-hand"
+          >
+            <div className={styles.expandedHand}>
+              {handCards.map((card) => {
+                const data = model.view.cards[card.cardId];
+                // Strategy cards turn 90° clockwise here too (M5e).
+                const rotated = data?.type === "Strategy";
+                return (
+                  <div
+                    key={card.instanceId}
+                    className={`${styles.expandedCard}${rotated ? ` ${styles.rotated}` : ""}`}
+                    data-testid="expanded-card"
+                    data-rotated={rotated ? "true" : undefined}
+                    data-card-id={data?.id}
+                  >
+                    <div className={styles.cardFallback}>{data?.name}</div>
+                    <img
+                      className={styles.cardImage}
+                      src={`/cards/${card.cardId}-full.webp`}
+                      alt={data?.name ?? ""}
+                      draggable={false}
+                      onError={(e) => {
+                        // Missing image: show the name instead.
+                        e.currentTarget.style.visibility = "hidden";
+                        const fallback = e.currentTarget
+                          .previousElementSibling as HTMLElement | null;
+                        if (fallback) fallback.style.visibility = "visible";
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div className={styles.muted}>H or Esc closes the hand.</div>
+          </div>
         )}
-      {gameOver &&
-        !gameOver.closed &&
-        viewing === null &&
-        !animating &&
-        !announcing &&
-        !callout && (
-          <div className={styles.modalBackdrop} data-testid="game-over-modal">
+        {overlay === "shortcuts" && (
+          <div
+            className={styles.modalBackdrop}
+            data-testid="shortcut-list"
+            onClick={() => setOverlay(null)}
+          >
             <div className={styles.modal}>
-              <div
-                className={styles.modalHeading}
-                data-testid="game-over-heading"
-              >
-                {outcomeHeading(gameOver.key)}
-              </div>
-              <p data-testid="game-over-line" data-outcome={gameOver.key}>
-                {gameOver.line}
-              </p>
-              <div className={styles.modalButtons}>
-                {lastSetup.current && (
+              <div className={styles.modalHeading}>Keyboard shortcuts</div>
+              <table className={styles.shortcuts}>
+                <tbody>
+                  {SHORTCUTS.map(([key, what]) => (
+                    <tr key={key}>
+                      <td>
+                        <kbd>{key}</kbd>
+                      </td>
+                      <td>{what}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+        {pending && (
+          <FirstPick
+            seed={pending.seed}
+            picker={pending.picker}
+            firstCard={pending.firstCard}
+            canPeek={pending.matchMode === "casual"}
+            build={(card, peeked) =>
+              build(pending, pending.picker, card, peeked)
+            }
+            onStart={(next) => {
+              setPending(null);
+              game.startSession(next, true);
+            }}
+          />
+        )}
+        {search && !animating && (
+          <SearchModal
+            key={search.seq}
+            result={search}
+            cards={state.cards}
+            model={model}
+            onConfirm={() => setSearches((queue) => queue.slice(1))}
+          />
+        )}
+        {showModal &&
+          choice?.kind !== "zone" &&
+          !(search && !animating) &&
+          !callout && (
+            <ChoiceModal
+              key={choice?.id}
+              state={state}
+              heading={choiceHeading(state, name)}
+              source={choiceSource(state)}
+              actions={actions}
+              manualCards={manualCards}
+              onAction={game.takeAction}
+              labelOf={(action) => actionLabel(state, action)}
+              model={model}
+              onConfirmPicks={(ids, done) =>
+                choice && game.takeChoices(choice.player as PlayerId, ids, done)
+              }
+              onUndo={undoable ? undo : undefined}
+            />
+          )}
+        {callout &&
+          comboOf(callout) &&
+          !animating &&
+          !announcing &&
+          !(search && !animating) && (
+            <ComboModal
+              key={`${callout.actionIndex}-${callout.comboId}-${callout.player}`}
+              combo={comboOf(callout) as Combo}
+              who={comboWho(callout.player)}
+              cards={callout.cards.map((n) => cardByNumber(state, n))}
+              model={model}
+              shake={settings.animation !== "off"}
+              onClose={closeCallout}
+            />
+          )}
+        {gameOver &&
+          !gameOver.closed &&
+          viewing === null &&
+          !animating &&
+          !announcing &&
+          !callout && (
+            <div className={styles.modalBackdrop} data-testid="game-over-modal">
+              <div className={styles.modal}>
+                <div
+                  className={styles.modalHeading}
+                  data-testid="game-over-heading"
+                >
+                  {outcomeHeading(gameOver.key)}
+                </div>
+                <p data-testid="game-over-line" data-outcome={gameOver.key}>
+                  {gameOver.line}
+                </p>
+                <div className={styles.modalButtons}>
+                  {lastSetup.current && (
+                    <button
+                      type="button"
+                      className={`${styles.button} ${styles.passButton}`}
+                      data-testid="rematch"
+                      data-primary
+                      onClick={rematch}
+                    >
+                      Rematch
+                    </button>
+                  )}
                   <button
                     type="button"
-                    className={`${styles.button} ${styles.passButton}`}
-                    data-testid="rematch"
-                    data-primary
-                    onClick={rematch}
+                    className={styles.button}
+                    data-testid="game-over-close"
+                    onClick={closeGameOver}
                   >
-                    Rematch
+                    Close [Space]
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        {(reporting === "badBot" || reporting === "goodBot") && badBotMove && (
+          <ReportModal
+            key={reporting}
+            kind={reporting}
+            moves={botMoves}
+            name={settings.reporterName}
+            sharingOff={!settings.shareGames}
+            onSubmit={(reporter, text, move) =>
+              void sendFeedback(
+                reporting === "goodBot" ? "good" : "bad",
+                reporter,
+                text,
+                move,
+              )
+            }
+            onCancel={() => setReporting(null)}
+            onReportBug={() => setReporting("bug")}
+          />
+        )}
+        {reporting === "idea" && (
+          <ReportModal
+            kind="idea"
+            name={settings.reporterName}
+            sharingOff={!settings.shareGames}
+            onSubmit={(reporter, text) => void sendIdea(reporter, text)}
+            onCancel={() => setReporting(null)}
+          />
+        )}
+        {reporting === "bug" && (
+          <ReportModal
+            kind="bug"
+            name={settings.reporterName}
+            sharingOff={!settings.shareGames}
+            onSubmit={(reporter, text) => void sendBugReport(reporter, text)}
+            onCancel={() => setReporting(null)}
+          />
+        )}
+        {rulesAt && (
+          <RulesPanel at={rulesAt} onClose={() => setRulesAt(null)} />
+        )}
+        {crashToast && (
+          <div className={styles.toast} data-testid="crash-toast" role="status">
+            {CRASH_TOAST}
+          </div>
+        )}
+        {botMove && !settings.announceBotPlays && (
+          <div className={styles.toast} data-testid="bot-toast">
+            {botMove.text}
+          </div>
+        )}
+        {settings.announceBotPlays && (
+          // Always in the page while the setting is on, so screen readers follow it (polite).
+          <div
+            className={styles.announceRegion}
+            aria-live="polite"
+            data-testid="bot-announcement-region"
+          >
+            {announcement && (
+              <div
+                key={announcement.id}
+                className={styles.announce}
+                data-testid="bot-announcement"
+              >
+                <span>{announcement.text}</span>
+                {announcement.ms === null && (
+                  <button
+                    type="button"
+                    className={styles.button}
+                    data-testid="announce-ok"
+                    onClick={dismissAnnouncement}
+                  >
+                    OK [Space]
                   </button>
                 )}
+              </div>
+            )}
+          </div>
+        )}
+        {confirming && (
+          <div className={styles.modalBackdrop} data-testid="confirm-dialog">
+            <div className={styles.modal}>
+              <div className={styles.modalHeading}>
+                {confirming === "pass"
+                  ? "End Main and move to the Counter Phase?"
+                  : confirming === "showHand"
+                    ? "Show the bot's hand?"
+                    : "Concede the game?"}
+              </div>
+              {confirming === "showHand" && (
+                <p data-testid="show-hand-warning">
+                  This game will be left out of your statistics, and achievement
+                  progress won&apos;t count for it.
+                </p>
+              )}
+              <div className={styles.modalButtons}>
                 <button
                   type="button"
                   className={styles.button}
-                  data-testid="game-over-close"
-                  onClick={closeGameOver}
+                  data-testid="confirm-yes"
+                  onClick={confirmYes}
                 >
-                  Close [Space]
+                  {confirming === "pass"
+                    ? "Confirm [Space]"
+                    : confirming === "showHand"
+                      ? "Show hand"
+                      : "Concede"}
+                </button>
+                <button
+                  type="button"
+                  className={styles.choiceButton}
+                  data-testid="confirm-cancel"
+                  onClick={() => setConfirming(null)}
+                >
+                  Cancel [Esc]
                 </button>
               </div>
             </div>
           </div>
         )}
-      {(reporting === "badBot" || reporting === "goodBot") && badBotMove && (
-        <ReportModal
-          key={reporting}
-          kind={reporting}
-          moves={botMoves}
-          name={settings.reporterName}
-          sharingOff={!settings.shareGames}
-          onSubmit={(reporter, text, move) =>
-            void sendFeedback(
-              reporting === "goodBot" ? "good" : "bad",
-              reporter,
-              text,
-              move,
-            )
-          }
-          onCancel={() => setReporting(null)}
-          onReportBug={() => setReporting("bug")}
-        />
-      )}
-      {reporting === "idea" && (
-        <ReportModal
-          kind="idea"
-          name={settings.reporterName}
-          sharingOff={!settings.shareGames}
-          onSubmit={(reporter, text) => void sendIdea(reporter, text)}
-          onCancel={() => setReporting(null)}
-        />
-      )}
-      {reporting === "bug" && (
-        <ReportModal
-          kind="bug"
-          name={settings.reporterName}
-          sharingOff={!settings.shareGames}
-          onSubmit={(reporter, text) => void sendBugReport(reporter, text)}
-          onCancel={() => setReporting(null)}
-        />
-      )}
-      {rulesAt && <RulesPanel at={rulesAt} onClose={() => setRulesAt(null)} />}
-      {crashToast && (
-        <div className={styles.toast} data-testid="crash-toast" role="status">
-          {CRASH_TOAST}
-        </div>
-      )}
-      {botMove && !settings.announceBotPlays && (
-        <div className={styles.toast} data-testid="bot-toast">
-          {botMove.text}
-        </div>
-      )}
-      {settings.announceBotPlays && (
-        // Always in the page while the setting is on, so screen readers follow it (polite).
-        <div
-          className={styles.announceRegion}
-          aria-live="polite"
-          data-testid="bot-announcement-region"
-        >
-          {announcement && (
-            <div
-              key={announcement.id}
-              className={styles.announce}
-              data-testid="bot-announcement"
-            >
-              <span>{announcement.text}</span>
-              {announcement.ms === null && (
-                <button
-                  type="button"
-                  className={styles.button}
-                  data-testid="announce-ok"
-                  onClick={dismissAnnouncement}
-                >
-                  OK [Space]
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-      {confirming && (
-        <div className={styles.modalBackdrop} data-testid="confirm-dialog">
-          <div className={styles.modal}>
-            <div className={styles.modalHeading}>
-              {confirming === "pass"
-                ? "End Main and move to the Counter Phase?"
-                : confirming === "showHand"
-                  ? "Show the bot's hand?"
-                  : "Concede the game?"}
-            </div>
-            {confirming === "showHand" && (
-              <p data-testid="show-hand-warning">
-                This game will be left out of your statistics, and achievement
-                progress won&apos;t count for it.
-              </p>
-            )}
-            <div className={styles.modalButtons}>
-              <button
-                type="button"
-                className={styles.button}
-                data-testid="confirm-yes"
-                onClick={confirmYes}
-              >
-                {confirming === "pass"
-                  ? "Confirm [Space]"
-                  : confirming === "showHand"
-                    ? "Show hand"
-                    : "Concede"}
-              </button>
-              <button
-                type="button"
-                className={styles.choiceButton}
-                data-testid="confirm-cancel"
-                onClick={() => setConfirming(null)}
-              >
-                Cancel [Esc]
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      </div>
+    </HoverPreviewContext.Provider>
   );
 }
