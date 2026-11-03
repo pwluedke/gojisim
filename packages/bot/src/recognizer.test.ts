@@ -51,6 +51,14 @@ describe("the deck recognizer (#191): archetypes from public cards", () => {
     );
     for (const a of archetypes())
       expect(a.core.length, a.name).toBeGreaterThan(0);
+    for (const a of archetypes())
+      for (const e of [...a.core, ...a.common])
+        expect(e.cards.length, a.name).toBeGreaterThan(0);
+    // A trait line (SpaceG's "King Ghidorah monster cards") holds monster cards with the trait.
+    const group = archetypes()
+      .find((a) => a.name === "SpaceG")
+      ?.core.find((e) => e.cards.length > 2);
+    expect(group?.cards.every((c) => c.type === "Monster")).toBe(true);
   });
 
   it("two or three tells pick the archetype: Godzilla (2002) with Entangling Fear and Godzilla vs. Destoroyah is Tangler", () => {
