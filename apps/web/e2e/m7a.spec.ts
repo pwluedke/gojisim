@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
-import { startGame } from "./helpers";
+import { deckAction, myDeckNames, startGame } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -32,13 +32,16 @@ async function importDeck(page: Page, text: string, name?: string) {
   if (name) await page.getByTestId("import-name").fill(name);
   await page.getByTestId("import-save").click();
   await expect(page.getByTestId("db-decks-window")).toBeVisible();
+  // Storage has caught up, so a reload keeps the deck (decision 295).
+  await expect(page.getByTestId("db-decks-window")).toHaveAttribute(
+    "data-decks-stored",
+    "true",
+  );
 }
 
-/** The My decks window's deck names (it opens if closed). */
-async function myDecks(page: Page) {
-  const win = page.getByTestId("db-decks-window");
-  if (!(await win.isVisible())) await page.getByTestId("db-my-decks").click();
-  return win.locator('[data-testid="db-deck"] > span:first-child');
+/** The My decks window's full deck names, polled until they read `names` (it opens if closed). */
+async function expectDecks(page: Page, names: string[]) {
+  await expect.poll(() => myDeckNames(page)).toEqual(names);
 }
 
 const deckRow = (page: Page, name: string) =>
@@ -48,6 +51,10 @@ const deckRow = (page: Page, name: string) =>
 
 /** Picks the saved deck `label` for P1 in /play. */
 async function pickInPlay(page: Page, label: string) {
+  // Storage has caught up before leaving the Deckbuilder (decision 295).
+  const win = page.getByTestId("db-decks-window");
+  if (await win.isVisible())
+    await expect(win).toHaveAttribute("data-decks-stored", "true");
   await page.goto("/play?mode=bot");
   await page.getByTestId("deck-P1").selectOption({ label });
 }
@@ -75,7 +82,7 @@ test("paste a godzillatcgdb list, save it in the Deckbuilder, pick it in /play a
     "Sample Gigan Deck",
   );
   await page.getByTestId("import-save").click();
-  await expect(await myDecks(page)).toHaveText(["Sample Gigan Deck"]);
+  await expectDecks(page, ["Sample Gigan Deck"]);
   // /play lists it under My decks, with its badge.
   await pickInPlay(page, "Sample Gigan Deck");
   await expect(page.getByTestId("deck-P1")).toHaveValue(/^mine:/);
@@ -109,18 +116,18 @@ test("rename and delete a saved deck; saved decks survive a reload and show in /
   await importDeck(page, tcgdbList, "Gigan");
   await page.getByTestId("db-decks-close").click();
   await importDeck(page, tcgdbList, "Second");
-  await expect(await myDecks(page)).toHaveText(["Gigan", "Second"]);
+  await expectDecks(page, ["Gigan", "Second"]);
   await page.reload();
-  await expect(await myDecks(page)).toHaveText(["Gigan", "Second"]);
-  await deckRow(page, "Gigan").getByTestId("rename-deck").click();
+  await expectDecks(page, ["Gigan", "Second"]);
+  await deckAction(deckRow(page, "Gigan"), "rename-deck");
   await page.getByTestId("rename-input").fill("Renamed Gigan");
   await page.getByTestId("rename-save").click();
-  await expect(await myDecks(page)).toHaveText(["Renamed Gigan", "Second"]);
-  await deckRow(page, "Second").getByTestId("db-delete").click();
+  await expectDecks(page, ["Renamed Gigan", "Second"]);
+  await deckAction(deckRow(page, "Second"), "db-delete");
   await deckRow(page, "Second").getByTestId("db-delete-confirm").click();
-  await expect(await myDecks(page)).toHaveText(["Renamed Gigan"]);
+  await expectDecks(page, ["Renamed Gigan"]);
   await page.reload();
-  await expect(await myDecks(page)).toHaveText(["Renamed Gigan"]);
+  await expectDecks(page, ["Renamed Gigan"]);
   await page.goto("/play?mode=bot");
   await expect(page.getByTestId("deck-P2").locator("option")).toContainText([
     "Renamed Gigan",
@@ -134,7 +141,7 @@ test("Copy puts the deck on the clipboard as plain text", async ({
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/decks");
   await importDeck(page, tcgdbList, "Gigan");
-  await deckRow(page, "Gigan").getByTestId("copy-deck").click();
+  await deckAction(deckRow(page, "Gigan"), "copy-deck");
   await expect(page.getByTestId("db-decks-note")).toContainText("Copied Gigan");
   const text = await page.evaluate(() => navigator.clipboard.readText());
   expect(text).toMatch(/^\[deck\] Gigan\n\[monster deck\]\n1 EBP04-027\n/);
@@ -154,15 +161,15 @@ test("Export all writes one JSON backup; importing it brings the decks back", as
     kind: "decks",
     decks: [{ name: "Gigan" }],
   });
-  await deckRow(page, "Gigan").getByTestId("db-delete").click();
+  await deckAction(deckRow(page, "Gigan"), "db-delete");
   await deckRow(page, "Gigan").getByTestId("db-delete-confirm").click();
-  await expect(await myDecks(page)).toHaveCount(0);
+  await expectDecks(page, []);
   await page.getByTestId("db-backup-file").setInputFiles({
     name: "gojisim-my-decks.json",
     mimeType: "application/json",
     buffer: Buffer.from(backup),
   });
-  await expect(await myDecks(page)).toHaveText(["Gigan"]);
+  await expectDecks(page, ["Gigan"]);
   await expect(page.getByTestId("db-decks-note")).toContainText(
     "Restored 1 deck",
   );
@@ -182,7 +189,7 @@ test("without storage, an imported deck still works for this visit, and My decks
   await page.goto("/decks");
   await importDeck(page, tcgdbList, "Visitor");
   await expect(page.getByTestId("decks-session-only")).toBeVisible();
-  await expect(await myDecks(page)).toHaveText(["Visitor"]);
+  await expectDecks(page, ["Visitor"]);
   // It opens in the builder for this visit.
   await deckRow(page, "Visitor").getByTestId("db-load").click();
   await expect(page.getByTestId("db-deck-name")).toHaveValue("Visitor");
@@ -194,7 +201,7 @@ test("Enter in the deck name saves the deck", async ({ page }) => {
   await page.getByTestId("import-text").fill(tcgdbList);
   await page.getByTestId("import-name").fill("Entered");
   await page.getByTestId("import-name").press("Enter");
-  await expect(await myDecks(page)).toHaveText(["Entered"]);
+  await expectDecks(page, ["Entered"]);
 });
 
 test("a godzillatcgdb deck page copied whole (Select All, Copy) imports with its counts and plays", async ({
@@ -219,7 +226,7 @@ test("a godzillatcgdb deck page copied whole (Select All, Copy) imports with its
     "Sample Gigan Deck",
   );
   await page.getByTestId("import-save").click();
-  await expect(await myDecks(page)).toHaveText(["Sample Gigan Deck"]);
+  await expectDecks(page, ["Sample Gigan Deck"]);
   await pickInPlay(page, "Sample Gigan Deck");
   await expect(
     page.getByTestId("seat-panel-P1").getByTestId("legality"),
@@ -243,7 +250,7 @@ test("a godzilla-sim Export to Clipboard (no name line) saves once it's named", 
   await expect(page.getByTestId("import-save")).toBeDisabled();
   await page.getByTestId("import-name").fill("From godzilla-sim");
   await page.getByTestId("import-save").click();
-  await expect(await myDecks(page)).toHaveText(["From godzilla-sim"]);
+  await expectDecks(page, ["From godzilla-sim"]);
 });
 
 test("Import all keeps folders, skips a deck already saved, asks about a name clash, and reports the bad one (#167)", async ({
@@ -277,7 +284,7 @@ test("Import all keeps folders, skips a deck already saved, asks about a name cl
   await expect(page.getByTestId("import-all")).toBeDisabled();
   await expect(page.getByTestId("import-cancel")).toHaveText("Close [Esc]");
   await page.getByTestId("import-cancel").click();
-  await expect(await myDecks(page)).toHaveText([
+  await expectDecks(page, [
     heisei,
     "Starters/Starter Deck - Godzilla Minus One",
     `${heisei} (2)`,
@@ -294,5 +301,5 @@ test("Import all keeps folders, skips a deck already saved, asks about a name cl
   await page.getByTestId("import-clash-replace").click();
   await expect(page.getByTestId("import-clash")).toContainText("Replaced.");
   await page.getByTestId("import-cancel").click();
-  await expect(await myDecks(page)).toHaveCount(3);
+  await expect.poll(async () => (await myDeckNames(page)).length).toBe(3);
 });

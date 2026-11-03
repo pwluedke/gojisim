@@ -120,7 +120,9 @@ for (const [width, height] of [
         '[data-testid="your-hand"] [data-testid="card"]',
         9,
       );
-      expect(Math.abs(hand.height - board.height)).toBeLessThanOrEqual(1);
+      // #163: the hand's cards are their own size, at least 1.3 times the board's, at most twice.
+      expect(hand.height).toBeGreaterThanOrEqual(board.height * 1.3 - 1);
+      expect(hand.height).toBeLessThanOrEqual(board.height * 2 + 1);
       // Mat cells are card-sized too.
       const z1 = await page.getByTestId("zone-P1-1").boundingBox();
       expect(Math.abs((z1?.width ?? 0) - board.width)).toBeLessThanOrEqual(1);

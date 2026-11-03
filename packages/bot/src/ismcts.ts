@@ -17,6 +17,7 @@ import {
 import { determinize } from "./determinize";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
 import { deadKeys } from "./prune";
+import { applyRules } from "./rules";
 import type { Bot, BotInput, BotSettings } from "./types";
 
 /**
@@ -52,6 +53,8 @@ export interface IsmctsSettings {
    * bias), so a clear static preference isn't erased by play-out noise. 0 is off.
    */
   priorVisits: number;
+  /** #175: 1 applies Paul's play rules at the root (`rules.ts`): prunes and prior bonuses. */
+  rules: number;
 }
 
 export const ISMCTS_DEFAULTS: IsmctsSettings = {
@@ -66,6 +69,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   uniformBlunder: 0,
   prune: 0,
   priorVisits: 0,
+  rules: 0,
 };
 
 /** Reads ISMCTS settings from a bot's settings, with defaults. */
@@ -230,9 +234,13 @@ export function search(input: BotInput, settings: IsmctsSettings) {
   const root = newNode(null);
   const started = Date.now();
   let rootKeys: string[] = [];
+  // #189: legal actions the rules rule out whose key survives (a held copy): never the pick.
+  let avoid = new Set<number>();
   // M13a: root actions whose only effect is moving a card out of the hand (`prune.ts`), judged
   // once on the first determinization from public information (the bot's own hand, both boards).
   let dead = new Set<string>();
+  // #175: Paul's rules' prior bonuses for root actions, by key.
+  let bonus = new Map<string, number>();
   let iterations = 0;
   while (
     iterations < settings.iterations &&
@@ -247,6 +255,27 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         dead = deadKeys(first, input.legalActions, me, (a) =>
           actionKey(first, a),
         );
+      if (settings.rules > 0) {
+        const verdict = applyRules(first, input.legalActions, me, (a) =>
+          actionKey(first, a),
+        );
+        bonus = verdict.bonus;
+        // Both sets leave an action each; together they must too (#189: one that isn't
+        // conceding, which the search never plays).
+        const both = new Set([...dead, ...verdict.dead]);
+        if (
+          input.legalActions.some(
+            (a) => a.type !== "concede" && !both.has(actionKey(first, a)),
+          )
+        ) {
+          dead = both;
+          avoid = new Set(
+            input.legalActions.flatMap((a, i) =>
+              verdict.killed.has(a) ? [i] : [],
+            ),
+          );
+        }
+      }
     }
     let node = root;
     const path: Node[] = [];
@@ -281,8 +310,10 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         if (settings.priorVisits > 0) {
           // Its static value from the side of the player who chose it, as visits store it.
           const v = evaluate(state, me, weightsOf(settings));
+          // #175: a root action a rule prefers starts a little ahead (`rules.ts`).
+          const lift = node === root ? (bonus.get(next.key) ?? 0) : 0;
           child.visits = settings.priorVisits;
-          child.value = settings.priorVisits * (who === me ? v : -v);
+          child.value = settings.priorVisits * ((who === me ? v : -v) + lift);
         }
         node = child;
         path.push(child);
@@ -311,7 +342,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
       n.value += n.player === me ? value : -value;
     }
   }
-  return { root, rootKeys, dead, iterations, ms: Date.now() - started };
+  return { root, rootKeys, dead, avoid, iterations, ms: Date.now() - started };
 }
 
 /** One decision with its search, for the explain tool (M13a): what was picked and why. */
@@ -333,18 +364,35 @@ export function decide(input: BotInput): Decision {
       search: null,
     };
   const settings = ismctsSettings(input.settings);
-  if (settings.blunder > 0 && rng() < settings.blunder)
+  if (settings.blunder > 0 && rng() < settings.blunder) {
+    // #189: with Paul's rules on, a blunder picks only among the moves the rules allow.
+    let allowed = [...legalActions];
+    if (settings.rules > 0) {
+      const state = determinize(input.view, input.knowledge, rng);
+      const me = input.view.viewer as PlayerId;
+      const { dead, killed } = applyRules(state, legalActions, me, (a) =>
+        actionKey(state, a),
+      );
+      const kept = allowed.filter(
+        (a) => !killed.has(a) && !dead.has(actionKey(state, a)),
+      );
+      if (kept.length > 0) allowed = kept;
+    }
     return {
       action:
         settings.uniformBlunder > 0
-          ? (legalActions[Math.floor(rng() * legalActions.length)] as Action)
-          : plausiblePick(input.view, [...legalActions], pickWith(rng)),
+          ? (allowed[Math.floor(rng() * allowed.length)] as Action)
+          : plausiblePick(input.view, allowed, pickWith(rng)),
       blundered: true,
       search: null,
     };
+  }
   const result = search(input, settings);
-  const { root, rootKeys } = result;
-  const visits = rootKeys.map((key) => root.children.get(key)?.visits ?? 0);
+  const { root, rootKeys, avoid } = result;
+  // An avoided action has no visits of its own; its key's visits go to a copy that isn't.
+  const visits = rootKeys.map((key, i) =>
+    avoid.has(i) ? 0 : (root.children.get(key)?.visits ?? 0),
+  );
   if (settings.temperature > 0) {
     const weights = visits.map((v) => Math.pow(v, 1 / settings.temperature));
     const total = weights.reduce((a, b) => a + b, 0);
@@ -360,7 +408,11 @@ export function decide(input: BotInput): Decision {
     }
   }
   const most = Math.max(...visits);
-  const ties = legalActions.filter((_, i) => visits[i] === most);
+  const tied = legalActions.flatMap((a, i) => (visits[i] === most ? [i] : []));
+  const preferred = tied.filter((i) => !avoid.has(i));
+  const ties = (preferred.length > 0 ? preferred : tied).map(
+    (i) => legalActions[i] as Action,
+  );
   return {
     action: ties[Math.floor(rng() * ties.length)] as Action,
     blundered: false,

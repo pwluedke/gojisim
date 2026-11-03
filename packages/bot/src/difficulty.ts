@@ -19,7 +19,8 @@ export const PRESETS = { easy: 20, medium: 55, hard: 90 } as const;
  * blunder (play a plausible move without searching, #132). 0 is close to random play; 100 is the full
  * search. M13a: from Medium up, dead strategy activations are pruned at the root (`prune.ts`).
  * M13c (#75): from Hard up, new search nodes start with `HARD_PRIOR_VISITS` virtual visits at
- * their static evaluation; Easy and Medium keep none.
+ * their static evaluation; Easy and Medium keep none. #175: from Hard up, Paul's play rules act at
+ * the root (`rules.ts`).
  */
 export function difficultySettings(difficulty: number): {
   iterations: number;
@@ -28,6 +29,7 @@ export function difficultySettings(difficulty: number): {
   maxMs: number;
   prune: number;
   priorVisits: number;
+  rules: number;
 } {
   const t = Math.max(0, Math.min(100, difficulty)) / 100;
   const round = (x: number) => Math.round(x * 1000) / 1000;
@@ -38,6 +40,7 @@ export function difficultySettings(difficulty: number): {
     maxMs: 1000,
     prune: difficulty >= PRESETS.medium ? 1 : 0,
     priorVisits: difficulty >= PRESETS.hard ? HARD_PRIOR_VISITS : 0,
+    rules: difficulty >= PRESETS.hard ? 1 : 0,
   };
 }
 

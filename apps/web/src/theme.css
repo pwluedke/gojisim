@@ -20,6 +20,15 @@
  */
 :root,
 :root[data-theme="showa"] {
+  /* issue 180: style A, "compact poster" buttons (Paul, Nov 2): fill, text, border, shadow. */
+  --btn-fill: #fbf4e4;
+  --btn-text: #1a1410;
+  --btn-line: #1a1410;
+  --btn-shadow: #1a1410;
+  --btn-primary-fill: #f4b323;
+  --btn-primary-text: #1a1410;
+  --btn-primary-line: #1a1410;
+  --btn-danger: #b81d17;
   color-scheme: light;
   --color-bg: #f1e6cf;
   --color-panel: #fbf4e4;
@@ -151,6 +160,15 @@
 }
 
 :root[data-theme="light"] {
+  /* issue 180: style A, "compact poster" buttons (Paul, Nov 2): fill, text, border, shadow. */
+  --btn-fill: #ffffff;
+  --btn-text: #1d2330;
+  --btn-line: #1d2330;
+  --btn-shadow: #1d2330;
+  --btn-primary-fill: #f5a623;
+  --btn-primary-text: #1d2330;
+  --btn-primary-line: #1d2330;
+  --btn-danger: #b42318;
   color-scheme: light;
   --color-bg: #f4f5f7;
   --color-panel: #ffffff;
@@ -275,6 +293,15 @@
 }
 
 :root[data-theme="grey"] {
+  /* issue 180: style A, "compact poster" buttons (Paul, Nov 2): fill, text, border, shadow. */
+  --btn-fill: #b9bdc4;
+  --btn-text: #101318;
+  --btn-line: #101318;
+  --btn-shadow: #101318;
+  --btn-primary-fill: #f5a623;
+  --btn-primary-text: #1d2330;
+  --btn-primary-line: #101318;
+  --btn-danger: #6e1207;
   color-scheme: light;
   --color-bg: #a4a8b0;
   --color-panel: #b9bdc4;
@@ -397,6 +424,15 @@
 }
 
 :root[data-theme="dark"] {
+  /* issue 180: style A, "compact poster" buttons (Paul, Nov 2): fill, text, border, shadow. */
+  --btn-fill: #23272e;
+  --btn-text: #e7e9ed;
+  --btn-line: #e7e9ed;
+  --btn-shadow: #000000;
+  --btn-primary-fill: #f5a623;
+  --btn-primary-text: #1d2330;
+  --btn-primary-line: #f5a623;
+  --btn-danger: #ff7b72;
   color-scheme: dark;
   --color-bg: #121418;
   --color-panel: #1b1e24;
@@ -553,6 +589,13 @@ body {
   --hand-gap: 4px;
   /* Your hand shows the top 40 % of each card at the window's bottom edge (Paul). */
   --hand-peek: 0.4;
+  /*
+   * Issue 163: your hand's cards are at least this many times the board card (the board leaves room
+   * for them), and the row takes any height the mats leave, so it starts right under your mat.
+   */
+  --hand-scale: 1.3;
+  /* Issue 163: a raised hand card is this many times the board card, never taller than the window. */
+  --raised-scale: 2.75;
   --left-column-width: 260px;
   --board-chrome: calc(
     40px + 4 * var(--mat-gap) + 4 * var(--mat-pad) + 4 * var(--mat-frame) +
@@ -560,7 +603,7 @@ body {
   );
   /* The mat is 5 portrait columns plus 2 landscape ones (M5f): 5w + 2h wide, w = 63h/88. */
   --card-h: min(
-    (100vh - var(--board-chrome)) / (6 + var(--hand-peek)),
+    (100vh - var(--board-chrome)) / (6 + var(--hand-scale) * var(--hand-peek)),
     (
       (
           100vw - var(--left-column-width) - var(--right-column-width) - 2 *
@@ -606,13 +649,10 @@ body {
 }
 
 /*
- * Showa Poster's form controls (Oct 26, 2026): selects, text fields, buttons, file pickers, radios,
- * checkboxes and sliders the app doesn't style itself take Zen Kaku Gothic New, a 2 px ink border,
- * the panel fill and a 4 px radius; buttons and selects are at least 44 px tall; radios,
- * checkboxes and sliders take the poster red accent. Only buttons with no class (or marked
- * `data-control`) take these rules, and `:where` keeps them below any class, so controls the app
- * styles itself (the board's buttons, the log's card links) keep their look, and other themes
- * keep the browser's controls. Primary actions (`data-primary`) are marigold, like Pass.
+ * Showa Poster's form controls (Oct 26, 2026): selects, text fields, radios, checkboxes and
+ * sliders the app doesn't style itself take Zen Kaku Gothic New, a 2 px ink border, the panel fill
+ * and a 4 px radius; selects and text fields are at least 44 px tall; radios, checkboxes and
+ * sliders take the poster red accent. Buttons follow issue 180's shared style below, in every theme.
  */
 :where(:root[data-theme="showa"])
   :where(
@@ -642,36 +682,71 @@ body {
   padding: 0 var(--space-2, 8px);
 }
 
-:where(:root[data-theme="showa"])
-  :where(button:not([class]), button[data-control]) {
-  min-height: 44px;
-  padding: 0 14px;
-  border: 2px solid var(--color-ink);
-  border-radius: 4px;
-  background-color: var(--color-panel);
-  color: var(--color-text);
+/*
+ * issue 180 (Paul, Nov 2): one button style for every page and theme, style A "compact poster": 32 px
+ * tall, 0 12 px padding, a 1.5 px border, 6 px corners, the panel fill, 13 px bold text and a
+ * 2 px offset shadow. `data-primary` is marigold; `data-danger` takes the theme's red text, border
+ * and shadow; `data-small` (dense lists only) is 26 px with a 1 px shadow. Colors are each
+ * theme's `--btn-*` tokens; module buttons use the same tokens (`.btn` fields below). `:where`
+ * keeps these below any class, so buttons the app draws as something else (cards, slots, the
+ * log's card links) keep their look.
+ */
+:root {
+  --btn-height: 32px;
+  --btn-padding: 0 12px;
+  --btn-radius: 6px;
+  --btn-border-width: 1.5px;
+  --btn-font-size: 13px;
+  --btn-height-small: 26px;
+  --btn-padding-small: 0 9px;
+  --btn-font-size-small: 12px;
+}
+
+:where(button:not([class]), button[data-control]),
+::file-selector-button {
+  box-sizing: border-box;
+  min-height: var(--btn-height);
+  padding: var(--btn-padding);
+  border: var(--btn-border-width) solid var(--btn-line);
+  border-radius: var(--btn-radius);
+  background-color: var(--btn-fill);
+  color: var(--btn-text);
+  box-shadow: 2px 2px 0 var(--btn-shadow);
   font-family: var(--font-body);
+  font-size: var(--btn-font-size);
   font-weight: 700;
+  line-height: 1.2;
   cursor: pointer;
 }
 
-:where(:root[data-theme="showa"])
-  :where(button:not([class]):disabled, button[data-control]:disabled) {
+::file-selector-button {
+  margin-right: var(--space-2, 8px);
+}
+
+:where(button:not([class]):disabled, button[data-control]:disabled) {
   opacity: 0.5;
   cursor: default;
 }
 
-:where(:root[data-theme="showa"]) ::file-selector-button {
-  min-height: 44px;
-  margin-right: var(--space-2, 8px);
-  padding: 0 14px;
-  border: 2px solid var(--color-ink);
-  border-radius: 4px;
-  background-color: var(--color-panel);
-  color: var(--color-text);
-  font-family: var(--font-body);
-  font-weight: 700;
-  cursor: pointer;
+:where(button[data-small]) {
+  min-height: var(--btn-height-small);
+  padding: var(--btn-padding-small);
+  font-size: var(--btn-font-size-small);
+  box-shadow: 1px 1px 0 var(--btn-shadow);
+}
+
+/* The board's Settings panel is a dense list: its file picker (Mat image) is small. */
+:where([data-play-board]) ::file-selector-button {
+  min-height: var(--btn-height-small);
+  padding: var(--btn-padding-small);
+  font-size: var(--btn-font-size-small);
+  box-shadow: 1px 1px 0 var(--btn-shadow);
+}
+
+:where(button[data-danger]) {
+  border-color: var(--btn-danger);
+  color: var(--btn-danger);
+  box-shadow: 2px 2px 0 var(--btn-danger);
 }
 
 :where(:root[data-theme="showa"])
@@ -679,21 +754,17 @@ body {
   accent-color: var(--color-poster-red);
 }
 
-:root[data-theme="showa"] [data-primary] {
-  border: 3px solid var(--color-ink);
-  background: var(--color-marigold);
-  color: var(--color-ink);
-  font-family: var(--font-heading);
-  font-weight: 400;
-  box-shadow: 3px 3px 0 var(--color-ink);
+:where(button[data-primary]) {
+  border-color: var(--btn-primary-line);
+  background: var(--btn-primary-fill);
+  color: var(--btn-primary-text);
 }
 
 /*
  * Issue 108 (Paul, Oct 29, 2026; amends decision 453): inside /play's board (`data-play-board`: the
- * Prompt, Settings, Test Site and zone banner columns and the mats), Showa's controls take the
- * other themes' sizes: the browser's height, padding and font size, and a 1 px border. Showa keeps
- * its colors, radius, ink borders and marigold primary; the 44 px minimum stays on the new-game
- * screen.
+ * Prompt, Settings, Test Site and zone banner columns and the mats), Showa's selects and text
+ * fields take the other themes' sizes: the browser's height, padding and font size, and a 1 px
+ * border. Buttons follow issue 180's shared style there too (it amends this for buttons).
  */
 :where(:root[data-theme="showa"])
   :where([data-play-board])
@@ -703,21 +774,9 @@ body {
     input:not([type]),
     input[type="text"],
     input[type="search"],
-    input[type="number"],
-    button:not([class]),
-    button[data-control]
+    input[type="number"]
   ) {
   min-height: 0;
-  padding: revert;
-  border-width: 1px;
-  font-size: revert;
-}
-
-:where(:root[data-theme="showa"])
-  :where([data-play-board])
-  ::file-selector-button {
-  min-height: 0;
-  margin-right: revert;
   padding: revert;
   border-width: 1px;
   font-size: revert;

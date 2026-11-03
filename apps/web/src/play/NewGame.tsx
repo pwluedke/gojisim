@@ -3,14 +3,15 @@ import type { MatchMode } from "@gojisim/engine";
 import { useMemo, useRef, useState } from "react";
 import { difficultyName, type SeatConfig } from "../game/bots";
 import {
+  badgeReasons,
   type DeckOption,
+  deckReasons,
+  matchesDeckFilter,
   optionLegality,
   pickerGroups,
   playDeckOptions,
   randomDeckKey,
   STARTER_PICKS,
-  badgeReasons,
-  deckReasons,
   tournamentProblems,
 } from "../game/decks";
 import { deckOf } from "../game/deckStore";
@@ -108,6 +109,11 @@ export function NewGame({
     });
     return playDeckOptions(mine);
   }, [my.decks]);
+  // #179: each seat's filter, narrowing its dropdown by deck or folder name as you type.
+  const [filters, setFilters] = useState<Record<PlayerId, string>>({
+    P1: "",
+    P2: "",
+  });
   const [keys, setKeys] = useState<Record<PlayerId, string>>({
     ...STARTER_PICKS,
   });
@@ -208,6 +214,21 @@ export function NewGame({
                   )}
                 </span>
               </div>
+              <input
+                type="search"
+                className={styles.deckFilter}
+                data-testid={`deck-filter-${id}`}
+                aria-label={`Filter ${id}'s decks`}
+                placeholder="Filter decks by name or folder"
+                value={filters[id]}
+                onChange={(e) =>
+                  setFilters((f) => ({ ...f, [id]: e.target.value }))
+                }
+                onKeyDown={(e) => {
+                  // Enter filters; it never starts the game from here.
+                  if (e.key === "Enter") e.preventDefault();
+                }}
+              />
               <div className={styles.line}>
                 <label className={styles.grow}>
                   <span className={styles.srOnly}>{id} deck</span>
@@ -218,8 +239,18 @@ export function NewGame({
                       setKeys((k) => ({ ...k, [id]: e.target.value }))
                     }
                   >
-                    {pickerGroups(options).map(
-                      ({ label: group, options: inGroup }) => (
+                    {pickerGroups(options)
+                      .map(({ label, options: inGroup }) => ({
+                        label,
+                        // The current choice stays, even when it doesn't match.
+                        shown: inGroup.filter(
+                          (o) =>
+                            o.key === keys[id] ||
+                            matchesDeckFilter(o.label, filters[id]),
+                        ),
+                      }))
+                      .filter(({ shown }) => shown.length > 0)
+                      .map(({ label: group, shown: inGroup }) => (
                         <optgroup key={group} label={group}>
                           {inGroup.map((o) => {
                             const illegal =
@@ -237,8 +268,7 @@ export function NewGame({
                             );
                           })}
                         </optgroup>
-                      ),
-                    )}
+                      ))}
                   </select>
                 </label>
                 {randomCandidates.length > 0 ? (
