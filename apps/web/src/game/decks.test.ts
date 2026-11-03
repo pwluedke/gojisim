@@ -4,11 +4,12 @@ import type { NamedDeck } from "@gojisim/cards/deck-lists";
 import {
   type DeckOption,
   deckOptions,
+  matchesDeckFilter,
+  optionLegality,
   pickerGroups,
   playDeckOptions,
-  optionLegality,
-  tournamentProblems,
   randomDeckKey,
+  tournamentProblems,
 } from "./decks";
 import { importsToMove } from "./importDeck";
 import { newSession } from "./session";
@@ -165,5 +166,14 @@ describe("one simple picker (#161)", () => {
     expect(
       importsToMove([same, changed, fresh], saved).map((d) => d.name),
     ).toEqual(["Changed", "Fresh"]);
+  });
+});
+
+describe("the /play deck filter (#179)", () => {
+  it("matches a deck or folder name, ignoring case; an empty filter matches everything", () => {
+    expect(matchesDeckFilter("Club/Red Rage", "club")).toBe(true);
+    expect(matchesDeckFilter("Club/Red Rage", "RAGE")).toBe(true);
+    expect(matchesDeckFilter("Club/Red Rage", "blue")).toBe(false);
+    expect(matchesDeckFilter("ESD01 official", "  ")).toBe(true);
   });
 });
