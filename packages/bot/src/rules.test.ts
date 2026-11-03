@@ -126,9 +126,11 @@ describe("Paul's play rules for Hard (#175)", () => {
       actions.find(
         (a) => a.type === "gainRage" && a.cardInstanceId === c.instanceId,
       );
-    // Copies of a card share an action key: the held copy's rage key is pruned, the King
-    // Ghidorah card's isn't.
-    expect(verdict.dead.has(key(rage(r3a) as Action))).toBe(true);
+    // #189 (Paul: extra copies go to rage): copies share an action key, so the key stays for
+    // the spare; only the held copy's action is ruled out. The King Ghidorah card's stays too.
+    expect(verdict.dead.has(key(rage(r3a) as Action))).toBe(false);
+    expect(verdict.killed.has(rage(r3a) as Action)).toBe(true);
+    expect(verdict.killed.has(rage(r3b) as Action)).toBe(false);
     expect(verdict.dead.has(key(rage(kg) as Action))).toBe(false);
   });
 
@@ -310,5 +312,121 @@ describe("#189 gaps in Paul's rules", () => {
       });
     expect(picks(1)).not.toContain("pass");
     expect(picks(0)).toContain("pass");
+  });
+});
+
+describe("#189 copies and the concede guard", () => {
+  const twoCopies = () => {
+    const { state, p1 } = base();
+    monster(state, p1, "EBP02-052");
+    // Two SpaceGodzilla EBP02-056: one is held (rule 2, one per rank), the other is a spare.
+    const a = add(state, real("EBP02-056"), "P1");
+    const b = add(state, real("EBP02-056"), "P1");
+    p1.hand.push(a, b);
+    const held = heldCards(state, p1);
+    expect(held.size).toBe(1);
+    const [heldCard, spare] = held.has(a.instanceId) ? [a, b] : [b, a];
+    return { state, heldCard, spare };
+  };
+
+  it("rule 2 (8.4.1): the copies share a key, so it stays; only the held copy's action is ruled out", () => {
+    const { state, heldCard, spare } = twoCopies();
+    const actions = getLegalActions(state, "P1");
+    const key = (x: Action) => actionKey(state, x);
+    const { dead, killed } = applyRules(state, actions, "P1", key);
+    const rage = (id: string) =>
+      actions.find(
+        (x) => x.type === "gainRage" && x.cardInstanceId === id,
+      ) as Action;
+    expect(dead.has(key(rage(spare.instanceId)))).toBe(false);
+    expect(killed.has(rage(heldCard.instanceId))).toBe(true);
+    expect(killed.has(rage(spare.instanceId))).toBe(false);
+    // Rule 3: a spare monster card can go to rage, so no pass.
+    expect(
+      actions.filter((x) => x.type === "pass").every((x) => dead.has(key(x))),
+    ).toBe(true);
+  });
+
+  it("the search and a blunder spend the spare copy, never the held one", () => {
+    // A real game with the made-up SpaceGodzilla deck (tools/bots/positions/decks), so the
+    // determinization knows every card: two EBP02-056 move from the deck to the hand.
+    const madeUp = parseDeckList(
+      readFileSync(
+        new URL(
+          "../../../tools/bots/positions/decks/made-up-spaceg.txt",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ).decks[0];
+    if (!madeUp) throw new Error("made-up-spaceg.txt");
+    const decks: [PlayerSetup, PlayerSetup] = [
+      { id: "P1", monsterDeck: madeUp.monsterDeck, mainDeck: madeUp.mainDeck },
+      DECKS[1],
+    ];
+    let state = advanceToDecision(startGame({ seed: "copies", decks }));
+    while (
+      state.turnPlayer !== "P1" ||
+      state.pendingChoice ||
+      state.step !== "7.3.2"
+    ) {
+      const who = state.pendingChoice?.player ?? state.turnPlayer;
+      const legal = getLegalActions(state, who).filter(
+        (x) => x.type !== "concede",
+      );
+      const pass = legal.find((x) => x.type === "pass");
+      state = advanceToDecision(
+        applyAction(state, pass ?? (legal[0] as Action)),
+      );
+    }
+    const p1 = state.players.find((x) => x.id === "P1") as PlayerState;
+    p1.deck.push(...p1.hand);
+    p1.hand = [];
+    for (let n = 0; n < 2; n++) {
+      const i = p1.deck.findIndex(
+        (c) => state.cards[c.cardId]?.deckCardNumber === "EBP02-056",
+      );
+      p1.hand.push(...p1.deck.splice(i, 1));
+    }
+    const held = heldCards(state, p1);
+    expect(held.size).toBe(1);
+    for (const settings of [
+      { iterations: 40 },
+      { blunder: 1, uniformBlunder: 1 },
+    ])
+      for (let i = 0; i < 12; i++) {
+        const input = botInput(
+          state,
+          "P1",
+          decklistsOf(decks),
+          seededRng(`copies-${i}`),
+          { ...settings, rules: 1, temperature: 0.1 },
+        );
+        const action = decide(input).action;
+        expect(
+          action.type === "gainRage" && held.has(action.cardInstanceId),
+        ).toBe(false);
+      }
+  });
+
+  it("conceding doesn't count as the action a prune must leave", () => {
+    const { state, p1 } = base();
+    monster(state, p1, "EBP02-052");
+    // A held card and God of Destruction's Counterattack without the counter (7.4.3): both ruled out.
+    p1.hand.push(add(state, real("EBP02-054"), "P1"));
+    p1.hand.push(add(state, real("EBP02-072"), "P1"));
+    const legal = getLegalActions(state, "P1");
+    const actions = legal.filter(
+      (x) =>
+        x.type === "concede" ||
+        x.type === "gainRage" ||
+        x.type === "activateStrategy",
+    );
+    expect(actions.some((x) => x.type === "concede")).toBe(true);
+    const verdict = applyRules(state, actions, "P1", (x) =>
+      actionKey(state, x),
+    );
+    expect(verdict.dead.size).toBe(0);
+    expect(verdict.killed.size).toBe(0);
   });
 });

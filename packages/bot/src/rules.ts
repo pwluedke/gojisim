@@ -215,6 +215,13 @@ function zone8Exposed(
 export interface RuleVerdict {
   /** Root action keys left out (hard rules), as long as another action stays. */
   dead: Set<string>;
+  /**
+   * #189: the actions the hard rules rule out, by identity. Copies of a card share a key, so a
+   * key is in `dead` only when every action with it is ruled out; the search's final pick (and
+   * a blunder) takes an action with the same key that isn't, so a spare copy goes, not the held
+   * one.
+   */
+  killed: Set<Action>;
   /** Root action keys with a prior bonus (soft rules). */
   bonus: Map<string, number>;
 }
@@ -226,22 +233,35 @@ export function applyRules(
   player: PlayerId,
   keyOf: (action: Action) => string,
 ): RuleVerdict {
-  const dead = new Set<string>();
+  const killed = new Set<Action>();
+  const kill = (a: Action) => killed.add(a);
   const bonus = new Map<string, number>();
+  // Every hard rule leaves at least one action that isn't conceding (#189: conceding counted, so
+  // a turn with every real action ruled out kept the prunes and fell back to a random pick).
+  const verdict = (): RuleVerdict => {
+    const keys = new Map<string, boolean>();
+    for (const a of actions)
+      keys.set(keyOf(a), (keys.get(keyOf(a)) ?? true) && killed.has(a));
+    const dead = new Set([...keys].filter(([, all]) => all).map(([k]) => k));
+    const alive = actions.some(
+      (a) => a.type !== "concede" && !dead.has(keyOf(a)),
+    );
+    return alive
+      ? { dead, killed, bonus }
+      : { dead: new Set(), killed: new Set(), bonus };
+  };
   const choice = state.pendingChoice;
   // #189, rule 2 in choices: a cost paid by discarding from hand (5.7.1) leaves the held cards
   // while another option stays (another card, or declining the cost).
   if (choice) {
-    if (choice.player !== player || choice.rule !== "5.7.1")
-      return { dead, bonus };
+    if (choice.player !== player || choice.rule !== "5.7.1") return verdict();
     const [me] = players(state, player);
     const held = heldCards(state, me);
     for (const a of actions)
-      if (a.type === "choose" && held.has(a.optionId)) dead.add(keyOf(a));
-    const alive = actions.filter((a) => !dead.has(keyOf(a)));
-    return { dead: alive.length > 0 ? dead : new Set(), bonus };
+      if (a.type === "choose" && held.has(a.optionId)) kill(a);
+    return verdict();
   }
-  if (state.turnPlayer !== player) return { dead, bonus };
+  if (state.turnPlayer !== player) return verdict();
   const [me, opponent] = players(state, player);
   const held = heldCards(state, me);
   const monster = (a: Action) => cardOf(state, handCard(me, actionCard(a)));
@@ -252,12 +272,12 @@ export function applyRules(
   for (const a of actions) {
     const id = actionCard(a);
     if (!id || !held.has(id)) continue;
-    if (a.type === "gainRage") dead.add(keyOf(a));
+    if (a.type === "gainRage") kill(a);
     if (
       a.type === "invade" &&
       invades.some((b) => !held.has(actionCard(b) ?? ""))
     )
-      dead.add(keyOf(a));
+      kill(a);
   }
   // Rules 1 and 2: stacking, when a card wants the stack size or the card is held for its ability.
   const wanted = stackWanted(state, me);
@@ -273,7 +293,7 @@ export function applyRules(
         !held.has(a.cardInstanceId),
     )
   )
-    for (const a of actions) if (a.type === "pass") dead.add(keyOf(a));
+    for (const a of actions) if (a.type === "pass") kill(a);
   // Rule 4: a counter-only strategy is held while the counter isn't made, even with the others
   // still playable (a prune); when it is made, playing it is preferred (a prior: early on, the
   // search may still build the board first, Paul). #189: while the turn's invasion is still
@@ -284,10 +304,10 @@ export function applyRules(
   );
   for (const a of actions) {
     if (a.type !== "activateStrategy" || !counterOnly(monster(a))) continue;
-    if (!counterMadeWith(state, a, player)) dead.add(keyOf(a));
+    if (!counterMadeWith(state, a, player)) kill(a);
     else if (invasions.length === 0) add(a);
     else {
-      dead.add(keyOf(a));
+      kill(a);
       for (const i of invasions) add(i);
     }
   }
@@ -314,7 +334,7 @@ export function applyRules(
         plays.some((b) => inColumn(b.zone, target)) &&
         !inColumn(a.zone, target)
       )
-        dead.add(keyOf(a));
+        kill(a);
     }
   // Rule 6: zone-boosted cards go in their zone. #189 (Paul: every zone-boosted card in its
   // boosted zone): while your zone 8 isn't exposed, the card's plays elsewhere are pruned as long
@@ -335,9 +355,7 @@ export function applyRules(
         b.cardInstanceId === a.cardInstanceId &&
         zones.includes(b.zone),
     );
-    if (boostedPlay) dead.add(keyOf(a));
+    if (boostedPlay) kill(a);
   }
-  // Every hard rule leaves at least one action.
-  const alive = actions.filter((a) => !dead.has(keyOf(a)));
-  return { dead: alive.length > 0 ? dead : new Set(), bonus };
+  return verdict();
 }
