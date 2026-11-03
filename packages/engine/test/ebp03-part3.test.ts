@@ -1,4 +1,5 @@
 import { type Card, getCardAbilities } from "@gojisim/cards";
+import { getAllCards } from "@gojisim/cards/test-decks";
 import { describe, expect, it } from "vitest";
 import {
   applyAction,
@@ -343,17 +344,44 @@ describe("EBP03 Base cards (K1, 12.9)", () => {
     expect(self(after, me).zones[1][0]).toHaveLength(2);
   });
 
-  it("EBP03-076 10.8.1: on the opponent's turn, +5,000 threat per card in your zones 1-5 and 8, your monster included", () => {
+  it("EBP03-076 10.8.1 (#200): on the opponent's turn, +5,000 threat per card in your zones 1, 5 and 8; zones 2-4 don't count", () => {
     const { state, me } = opponentsTurn();
-    monster(state, me, monsterCard(1, { counterOrThreat: 6000 }), 2);
+    monster(state, me, monsterCard(1, { counterOrThreat: 6000 }), 6);
     inStrategy(state, me, real("EBP03-076"));
+    // A battle card in zone 3 adds nothing (the card prints zones 1, 5 and 8).
+    place(state, me, battleCard(), 3);
+    expect(getThreat(state, me.id)).toBe(6000);
+    // Zones 1, 5 and 8: +5,000 each.
     place(state, me, battleCard(), 1);
+    place(state, me, battleCard(), 5);
     place(state, me, battleCard(), 8);
-    place(state, me, battleCard(), 6); // not counted
-    // 2 battle cards + the monster in zone 2.
     expect(getThreat(state, me.id)).toBe(6000 + 15000);
+    // Only on the opponent's turn.
     state.turnPlayer = me.id;
     expect(getThreat(state, me.id)).toBe(6000);
+  });
+
+  it("EBP03-076 10.8.1 (#200): your monster counts in zone 5, not in zone 3", () => {
+    const at = (zone: ZoneNumber) => {
+      const { state, me } = opponentsTurn();
+      monster(state, me, monsterCard(1, { counterOrThreat: 6000 }), zone);
+      inStrategy(state, me, real("EBP03-076"));
+      return getThreat(state, me.id);
+    };
+    expect(at(3)).toBe(6000);
+    expect(at(5)).toBe(6000 + 5000);
+  });
+
+  it("EBP03-076 (#200): its text reads zones 1, 5 and 8 on every print", () => {
+    const prints = getAllCards().filter(
+      (c) => c.deckCardNumber === "EBP03-076",
+    );
+    expect(prints.map((c) => c.cardNumber).sort()).toEqual([
+      "EBP03-076",
+      "EBP03-076+",
+    ]);
+    for (const card of prints)
+      expect(card.text).toContain("your zones 1, 5, and 8");
   });
 
   it("EBP03-080 5.11: at your counter phase you may play up to 1 Godzilla battle card from your hand", () => {

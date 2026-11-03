@@ -13916,7 +13916,7 @@
     "invadeZones": 1,
     "rarity": "R",
     "movie": "Godzilla vs. Spacegodzilla (1994)",
-    "text": "[base]When any monster card invades zones 6-8, [destroy] this card. (Cards with Base are not sent to the discard pile at the start phase.)\n[opponent-turn] For each monster or battle card in your zones 1 - 5, and 8, your monster card gains +5000 threat level.",
+    "text": "[base]When any monster card invades zones 6-8, [destroy] this card. (Cards with Base are not sent to the discard pile at the start phase.)\n[opponent-turn] For each monster or battle card in your zones 1, 5, and 8, your monster card gains +5000 threat level.",
     "notes": null,
     "imageUrl": "https://image.godzillatcgdb.com/img/cards/original/EBP03/618.png",
     "unknownFields": {
@@ -13942,7 +13942,7 @@
     "invadeZones": 1,
     "rarity": "P",
     "movie": "Godzilla vs. Spacegodzilla (1994)",
-    "text": "[base]When any monster card invades zones 6-8, [destroy] this card. (Cards with Base are not sent to the discard pile at the start phase.)\n[opponent-turn] For each monster or battle card in your zones 1 - 5, and 8, your monster card gains +5000 threat level.",
+    "text": "[base]When any monster card invades zones 6-8, [destroy] this card. (Cards with Base are not sent to the discard pile at the start phase.)\n[opponent-turn] For each monster or battle card in your zones 1, 5, and 8, your monster card gains +5000 threat level.",
     "notes": null,
     "imageUrl": "https://image.godzillatcgdb.com/img/cards/original/EBP03/619.png",
     "unknownFields": {}
