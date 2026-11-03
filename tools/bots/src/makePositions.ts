@@ -1,10 +1,15 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import {
   actionKey,
+  applyRules,
+  boostedZones,
   botInput,
+  columnCard,
+  counterOnly,
   decide,
   decklistsOf,
   difficultySettings,
+  heldCards,
   isDeadAction,
   PRESETS,
   pickWith,
@@ -18,8 +23,10 @@ import {
   advanceToDecision,
   applyAction,
   type GameRecord,
+  counterPowerOf,
   type GameState,
   getLegalActions,
+  getThreat,
   type PlayerSetup,
   startGame,
 } from "@gojisim/engine";
@@ -33,10 +40,14 @@ import { officialDeck } from "@gojisim/stress";
  */
 
 const dir = new URL("../positions/", import.meta.url);
-const madeUp = parseDeckList(
-  readFileSync(new URL("decks/made-up-destoroyah.txt", dir), "utf8"),
-).decks[0];
-if (!madeUp) throw new Error("no made-up deck");
+const readDeck = (file: string) => {
+  const deck = parseDeckList(
+    readFileSync(new URL(`decks/${file}`, dir), "utf8"),
+  ).decks[0];
+  if (!deck) throw new Error(`no deck in ${file}`);
+  return deck;
+};
+const madeUp = readDeck("made-up-destoroyah.txt");
 
 const deckOf = (
   id: "P1" | "P2",
@@ -107,10 +118,14 @@ interface Spec {
   p1: string;
   /** P2's deck: an official starter's set, else the made-up Destoroyah deck. */
   p2?: string;
+  /** #175: P2's deck from a made-up deck file in `positions/decks/` instead. */
+  p2File?: string;
   /** #130–#132: the level the tester reported (default Hard), for `missedByHard` and the seats. */
   level?: number;
   match: (s: GameState) => boolean;
-  avoid: (s: GameState) => string[];
+  avoid?: (s: GameState) => string[];
+  /** #175: keys one of which the bot should play (instead of `avoid`). */
+  prefer?: (s: GameState) => string[];
   /**
    * M13c: keep only a position that today's Hard (or the spec's `level`) gets wrong, so it
    * measures a miss. The check runs after `match`; a position that fails it is played on.
@@ -121,16 +136,20 @@ interface Spec {
 /** Seeds for the `missedByHard` check: Hard at its fixed iteration count, no clock. */
 const MISS_SEEDS = ["miss-0", "miss-1", "miss-2"];
 
-/** The level plays one of the `avoid` keys, from P2's own view, in at least 2 of the 3 seeds. */
+/**
+ * The level plays one of the `avoid` keys (or none of the `prefer` keys), from P2's own view, in
+ * at least 2 of the 3 seeds. #175: with Paul's rules off, as the level played before them.
+ */
 function hardMisses(
   s: GameState,
   decks: readonly PlayerSetup[],
-  avoid: string[],
+  keys: { avoid?: string[]; prefer?: string[] },
   level: number = PRESETS.hard,
 ): boolean {
   const settings = {
     ...difficultySettings(level),
     maxMs: Number.MAX_SAFE_INTEGER,
+    rules: 0,
   };
   let misses = 0;
   for (const seed of MISS_SEEDS) {
@@ -141,7 +160,9 @@ function hardMisses(
       seededRng(seed),
       settings,
     );
-    if (avoid.includes(actionKey(s, decide(input).action))) misses++;
+    const key = actionKey(s, decide(input).action);
+    if (keys.avoid ? keys.avoid.includes(key) : !keys.prefer?.includes(key))
+      misses++;
   }
   return misses >= 2;
 }
@@ -214,6 +235,214 @@ function godzillaLeavesZone8(s: GameState): Action[] {
 
 const keysOf = (s: GameState, actions: Action[]) => [
   ...new Set(actions.map((a) => actionKey(s, a))),
+];
+
+/** #175: P2's root actions, with Paul's rules' verdict on them. */
+function rulesAt(s: GameState) {
+  const legal = getLegalActions(s, P2).filter((a) => a.type !== "concede");
+  const key = (a: Action) => actionKey(s, a);
+  return { legal, key, verdict: applyRules(s, legal, P2, key) };
+}
+const me2 = (s: GameState) => s.players.find((p) => p.id === P2);
+const cardIn = (s: GameState, a: Action) =>
+  s.cards[
+    hand(s).find(
+      (c) => c.instanceId === (a as { cardInstanceId?: string }).cardInstanceId,
+    )?.cardId ?? -1
+  ];
+/** Rule 2: rage discards of a held card (held one per rank). */
+function heldRage(s: GameState): Action[] {
+  const me = me2(s);
+  if (!me || !atPlayTiming(s)) return [];
+  const held = heldCards(s, me);
+  return rulesAt(s).legal.filter(
+    (a) => a.type === "gainRage" && held.has(a.cardInstanceId),
+  );
+}
+/** Rule 3: pass with a monster card that isn't held still able to go to rage. */
+function passWithRage(s: GameState): Action[] {
+  if (!atPlayTiming(s)) return [];
+  const { legal, key, verdict } = rulesAt(s);
+  return legal.filter((a) => a.type === "pass" && verdict.dead.has(key(a)));
+}
+/** Rule 2 in a King Ghidorah deck: two same-rank copies in hand, so one goes to rage. */
+function extraCopy(s: GameState): boolean {
+  const me = me2(s);
+  if (!me) return false;
+  const ranks = me.hand
+    .map((c) => s.cards[c.cardId])
+    .filter((d) => d?.type === "Monster" && d.name.includes("Ghidorah"))
+    .map((d) => d?.rank);
+  return ranks.some((r, i) => ranks.indexOf(r) !== i);
+}
+/** Rule 4: counter-only activations the rules leave out (the counter isn't made). */
+function counterOnlyDead(s: GameState): Action[] {
+  if (!atPlayTiming(s)) return [];
+  const { legal, key, verdict } = rulesAt(s);
+  return legal.filter(
+    (a) =>
+      a.type === "activateStrategy" &&
+      counterOnly(cardIn(s, a)) &&
+      verdict.dead.has(key(a)),
+  );
+}
+/** Rule 4: two counter-only cards that make the counter together, where one alone wouldn't. */
+function counterOnlyPair(s: GameState): Action[] {
+  if (!atPlayTiming(s)) return [];
+  const { legal, key, verdict } = rulesAt(s);
+  const gods = legal.filter(
+    (a) => a.type === "activateStrategy" && counterOnly(cardIn(s, a)),
+  );
+  const copies = hand(s).filter((c) => counterOnly(s.cards[c.cardId])).length;
+  if (
+    copies < 2 ||
+    gods.length === 0 ||
+    gods.some((a) => verdict.dead.has(key(a)))
+  )
+    return [];
+  // GoD and pass are the only plays, so nothing better can draw the search (as `onlyDeadOrPass`).
+  if (
+    legal.some((a) => a.type !== "pass" && !gods.some((g) => key(g) === key(a)))
+  )
+    return [];
+  // No invasion that wins now: a win beats any counter.
+  if (
+    legal.some(
+      (a) =>
+        a.type === "invade" &&
+        advanceToDecision(applyAction(s, a)).result?.winner === P2,
+    )
+  )
+    return [];
+  // One alone doesn't make it: the rules allow it only because of the second copy.
+  const one = advanceToDecision(applyAction(s, gods[0] as Action));
+  const meOne = one.players.find((p) => p.id === P2);
+  const oppOne = one.players.find((p) => p.id !== P2);
+  if (!meOne || !oppOne || one.result) return [];
+  return counterPowerOf(one, meOne) < getThreat(one, oppOne.id) ? gods : [];
+}
+/** Rule 5: same-column plays the rules leave out. */
+function offColumn(s: GameState): Action[] {
+  if (!atPlayTiming(s)) return [];
+  const { legal, key, verdict } = rulesAt(s);
+  return legal.filter(
+    (a) =>
+      a.type === "playBattle" &&
+      columnCard(cardIn(s, a)) &&
+      verdict.dead.has(key(a)),
+  );
+}
+/** Rule 6: plays of a zone-boosted card outside its zones while a boosted play has the prior. */
+function offZone(s: GameState): Action[] {
+  if (!atPlayTiming(s)) return [];
+  const { legal, key, verdict } = rulesAt(s);
+  const boosted = legal.filter(
+    (a) => a.type === "playBattle" && verdict.bonus.has(key(a)),
+  );
+  if (boosted.length === 0) return [];
+  return legal.filter(
+    (a) =>
+      a.type === "playBattle" &&
+      boostedZones(cardIn(s, a)).length > 0 &&
+      !boostedZones(cardIn(s, a)).includes(a.zone),
+  );
+}
+/** Rule 1: a stacking play with the prior because a card wants a bigger stack. */
+function stackPlays(s: GameState): Action[] {
+  if (!atPlayTiming(s)) return [];
+  const { legal, key, verdict } = rulesAt(s);
+  const me = me2(s);
+  if (!me) return [];
+  const held = heldCards(s, me);
+  return legal.filter(
+    (a) =>
+      a.type === "playMonster" &&
+      verdict.bonus.has(key(a)) &&
+      !held.has(a.cardInstanceId),
+  );
+}
+const SPACEG = "made-up-spaceg.txt";
+const KING_GHIDORAH = "made-up-king-ghidorah.txt";
+/** Rule positions are kept only where today's Hard (rules off) breaks the rule. */
+const RULE_SPECS: Spec[] = [
+  {
+    name: "rule1-stack-for-stack-size",
+    note: "#175 rule 1 (8.5.1): a same-rank monster card goes on top when a card wants a bigger stack (Mecha-King Ghidorah EBP02-051 at 5, King Ghidorah (1991) EBP02-049 at 3). Made-up King Ghidorah deck; kept only where Hard without the rules doesn't stack.",
+    p1: "ESD01",
+    p2File: KING_GHIDORAH,
+    match: (s) => stackPlays(s).length > 0,
+    missedByHard: true,
+    prefer: (s) => keysOf(s, stackPlays(s)),
+  },
+  {
+    name: "rule2-hold-spacegodzilla",
+    note: "#175 rule 2: a main-deck SpaceGodzilla that can still be played on top is held, not discarded for rage (one per rank). Made-up SpaceGodzilla deck; kept only where Hard without the rules discards it.",
+    p1: "ESD01",
+    p2File: SPACEG,
+    match: (s) => heldRage(s).length > 0,
+    missedByHard: true,
+    avoid: (s) => keysOf(s, heldRage(s)),
+  },
+  {
+    name: "rule2-king-ghidorah-extra-copy-to-rage",
+    note: "#175 rule 2 (Monarch): hold at most one copy per rank; with two same-rank King Ghidorah cards in hand the extra one goes to rage (8.4.1), so no pass. Made-up King Ghidorah deck (a tester's ghidorat list can't be committed); kept only where Hard without the rules passes.",
+    p1: "ESD02",
+    p2File: KING_GHIDORAH,
+    match: (s) => extraCopy(s) && passWithRage(s).length > 0,
+    missedByHard: true,
+    avoid: (s) => keysOf(s, passWithRage(s)),
+  },
+  {
+    name: "rule3-monster-cards-to-rage",
+    note: "#175 rule 3 (8.4.1): every monster card that isn't held goes to rage each turn, so no pass while one can (King Ghidorah cards turn on Mecha-King Ghidorah EBP02-068 and GAM EBP01-073). Made-up SpaceGodzilla deck; kept only where Hard without the rules passes.",
+    p1: "ESD01",
+    p2File: SPACEG,
+    match: (s) => passWithRage(s).length > 0,
+    missedByHard: true,
+    avoid: (s) => keysOf(s, passWithRage(s)),
+  },
+  {
+    name: "rule4-counter-only-strategy-without-counter",
+    note: "#175 rule 4 (7.4.3): God of Destruction's Counterattack (EBP02-072) only on a turn the counter is made; here it isn't, so hold it. Made-up SpaceGodzilla deck; kept only where Hard without the rules plays it.",
+    p1: "ESD01",
+    p2File: SPACEG,
+    match: (s) => counterOnlyDead(s).length > 0,
+    missedByHard: true,
+    avoid: (s) => [
+      ...new Set(
+        counterOnlyDead(s).map((a) =>
+          actionKey(s, a).split(":").slice(0, 2).join(":"),
+        ),
+      ),
+    ],
+  },
+  {
+    name: "rule4-double-counter-only",
+    note: "#175 rule 4 (Monarch): two God of Destruction's Counterattack (EBP02-072) make the counter together where one wouldn't, and they and pass are the only plays: play them. Made-up SpaceGodzilla deck; kept only where Hard without the rules doesn't.",
+    p1: "ESD01",
+    p2File: SPACEG,
+    match: (s) => counterOnlyPair(s).length > 0,
+    missedByHard: true,
+    prefer: (s) => keysOf(s, counterOnlyPair(s)),
+  },
+  {
+    name: "rule5-same-column",
+    note: '#175 rule 5: Mecha-King Ghidorah (EBP02-068, "same column as the opponent\'s monster") goes in that column. Made-up King Ghidorah deck; kept only where Hard without the rules plays it elsewhere.',
+    p1: "ESD01",
+    p2File: KING_GHIDORAH,
+    match: (s) => offColumn(s).length > 0,
+    missedByHard: true,
+    avoid: (s) => keysOf(s, offColumn(s)),
+  },
+  {
+    name: "rule6-zone-boosted",
+    note: "#175 rule 6: Godzilla (1972) (EBP02-061, +3000 in zone 8) goes in zone 8. Made-up SpaceGodzilla deck; kept only where Hard without the rules plays it elsewhere.",
+    p1: "ESD01",
+    p2File: SPACEG,
+    match: (s) => offZone(s).length > 0,
+    missedByHard: true,
+    avoid: (s) => keysOf(s, offZone(s)),
+  },
 ];
 
 const SPECS: Spec[] = [
@@ -289,6 +518,7 @@ const SPECS: Spec[] = [
     missedByHard: true,
     avoid: (s) => keysOf(s, godzillaLeavesZone8(s)),
   },
+  ...RULE_SPECS,
 ];
 
 const only = process.argv.slice(2);
@@ -302,22 +532,32 @@ for (const spec of SPECS.filter(
       seed: `${spec.name}-${g}`,
       decks: [
         deckOf("P1", officialDeck(spec.p1)),
-        deckOf("P2", spec.p2 ? officialDeck(spec.p2) : madeUp),
+        deckOf(
+          "P2",
+          spec.p2File
+            ? readDeck(spec.p2File)
+            : spec.p2
+              ? officialDeck(spec.p2)
+              : madeUp,
+        ),
       ],
       actions: [],
     };
     const pick = pickWith(seededRng(`${spec.name}-${g}-policy`));
     let state = advanceToDecision(startGame(record));
     for (let i = 0; i < 3000 && !state.result; i++) {
+      const keys = spec.prefer
+        ? { prefer: spec.prefer(state) }
+        : { avoid: spec.avoid?.(state) ?? [] };
       if (
         spec.match(state) &&
         (!spec.missedByHard ||
-          hardMisses(state, record.decks, spec.avoid(state), spec.level))
+          hardMisses(state, record.decks, keys, spec.level))
       ) {
         const position = {
           note: spec.note,
-          made: `tools/bots/src/makePositions.ts, game ${g}: random weighted play, ${spec.p1} starter (P1) vs ${spec.p2 ? `the ${spec.p2} starter` : "the made-up Destoroyah deck"} (P2)`,
-          avoid: spec.avoid(state),
+          made: `tools/bots/src/makePositions.ts, game ${g}: random weighted play, ${spec.p1} starter (P1) vs ${spec.p2File ? `the ${spec.p2File} deck` : spec.p2 ? `the ${spec.p2} starter` : "the made-up Destoroyah deck"} (P2)`,
+          ...keys,
           record: {
             ...record,
             seats: {
@@ -339,7 +579,7 @@ for (const spec of SPECS.filter(
           `${JSON.stringify(position)}\n`,
         );
         console.log(
-          `${spec.name}: game ${g}, ${record.actions.length} actions, avoid ${position.avoid.join(", ")}`,
+          `${spec.name}: game ${g}, ${record.actions.length} actions, ${JSON.stringify(keys)}`,
         );
         written = true;
         break;

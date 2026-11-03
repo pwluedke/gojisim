@@ -30,12 +30,15 @@ interface Run {
   deterministic?: boolean;
   keepRecords?: boolean;
   turnCap?: number;
+  /** #175: the deck source for a matchup without fixed decks (`official`, `random`, `mixed`). */
+  decks?: string;
 }
 
 interface Matchup extends Run {
   id: string;
-  aDeck: string;
-  bDeck: string;
+  /** Each bot's deck; leave both out to play `decks` (#175: new vs old Hard on mixed decks). */
+  aDeck?: string;
+  bDeck?: string;
 }
 
 export interface Plan {
@@ -58,7 +61,9 @@ export function matchupArgs(plan: Plan, m: Matchup): string[] {
     ...["--a", run.a ?? "hard", "--b", run.b ?? "hard"],
     ...(run.aSettings ? ["--a-settings", run.aSettings] : []),
     ...(run.bSettings ? ["--b-settings", run.bSettings] : []),
-    ...["--a-deck", m.aDeck, "--b-deck", m.bDeck],
+    ...(m.aDeck && m.bDeck
+      ? ["--a-deck", m.aDeck, "--b-deck", m.bDeck]
+      : ["--decks", run.decks ?? "official"]),
     ...["--games", String(run.games ?? 100)],
     ...["--seed", `${run.seed ?? plan.name}-${m.id}`],
     ...["--workers", String(run.workers ?? 1)],

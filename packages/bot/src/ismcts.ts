@@ -17,6 +17,7 @@ import {
 import { determinize } from "./determinize";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
 import { deadKeys } from "./prune";
+import { applyRules } from "./rules";
 import type { Bot, BotInput, BotSettings } from "./types";
 
 /**
@@ -52,6 +53,8 @@ export interface IsmctsSettings {
    * bias), so a clear static preference isn't erased by play-out noise. 0 is off.
    */
   priorVisits: number;
+  /** #175: 1 applies Paul's play rules at the root (`rules.ts`): prunes and prior bonuses. */
+  rules: number;
 }
 
 export const ISMCTS_DEFAULTS: IsmctsSettings = {
@@ -66,6 +69,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   uniformBlunder: 0,
   prune: 0,
   priorVisits: 0,
+  rules: 0,
 };
 
 /** Reads ISMCTS settings from a bot's settings, with defaults. */
@@ -233,6 +237,8 @@ export function search(input: BotInput, settings: IsmctsSettings) {
   // M13a: root actions whose only effect is moving a card out of the hand (`prune.ts`), judged
   // once on the first determinization from public information (the bot's own hand, both boards).
   let dead = new Set<string>();
+  // #175: Paul's rules' prior bonuses for root actions, by key.
+  let bonus = new Map<string, number>();
   let iterations = 0;
   while (
     iterations < settings.iterations &&
@@ -247,6 +253,16 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         dead = deadKeys(first, input.legalActions, me, (a) =>
           actionKey(first, a),
         );
+      if (settings.rules > 0) {
+        const verdict = applyRules(first, input.legalActions, me, (a) =>
+          actionKey(first, a),
+        );
+        bonus = verdict.bonus;
+        // Both sets leave an action each; together they must too.
+        const both = new Set([...dead, ...verdict.dead]);
+        if (input.legalActions.some((a) => !both.has(actionKey(first, a))))
+          dead = both;
+      }
     }
     let node = root;
     const path: Node[] = [];
@@ -281,8 +297,10 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         if (settings.priorVisits > 0) {
           // Its static value from the side of the player who chose it, as visits store it.
           const v = evaluate(state, me, weightsOf(settings));
+          // #175: a root action a rule prefers starts a little ahead (`rules.ts`).
+          const lift = node === root ? (bonus.get(next.key) ?? 0) : 0;
           child.visits = settings.priorVisits;
-          child.value = settings.priorVisits * (who === me ? v : -v);
+          child.value = settings.priorVisits * ((who === me ? v : -v) + lift);
         }
         node = child;
         path.push(child);
