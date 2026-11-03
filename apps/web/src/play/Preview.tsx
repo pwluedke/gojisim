@@ -1,4 +1,5 @@
 import { type Card, getCardText, getCardTraits } from "@gojisim/cards";
+import { createContext, useContext } from "react";
 import type { CardInstance, PlayerAreasView } from "@gojisim/engine";
 import { printedWithCurrent } from "../game/printed";
 import styles from "./Board.module.css";
@@ -22,6 +23,9 @@ export function visibleCards(model: BoardModel): Map<string, CardInstance> {
   return out;
 }
 
+/** #174: the "Card preview on hover" setting; off, no preview opens (default on). */
+export const HoverPreviewContext = createContext(true);
+
 /**
  * The card preview panel (M5b): fixed over the right column. The full image, the text in force
  * with the errata flag, traits, current values (counter power with its modifier, rank,
@@ -37,9 +41,10 @@ export function Preview({
   /** A card named in the battle log (M5d): public, but shown without current values. */
   card?: Card | null;
 }) {
+  const enabled = useContext(HoverPreviewContext);
   const card = instanceId ? visibleCards(model).get(instanceId) : undefined;
   const data = card ? model.view.cards[card.cardId] : named;
-  if (!data) return null;
+  if (!enabled || !data) return null;
   const text = getCardText(data);
   const traits = getCardTraits(data);
   const owner = (model.view.players as PlayerAreasView[]).find((p) => {

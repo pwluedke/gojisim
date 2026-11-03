@@ -854,6 +854,13 @@
   display: block;
 }
 
+/* Checkbox rows 2 px apart instead of the box's default 6 px (19 px rows), so the left column
+   still fits at 1440 × 900 with Card preview on hover added (#174). */
+.settings input[type="checkbox"] {
+  margin-block: 1px;
+  vertical-align: -2px;
+}
+
 /* Where the bot's last move landed, for the delay time. */
 .highlight {
   outline: 3px solid var(--color-highlight);
