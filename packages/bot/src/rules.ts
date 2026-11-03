@@ -1,4 +1,5 @@
 import { getCardAbilities, getCardTraits } from "@gojisim/cards";
+import { evaluate } from "./evaluate";
 import {
   type Action,
   advanceToDecision,
@@ -8,6 +9,7 @@ import {
   type GameState,
   getLegalActions,
   getThreat,
+  handPlayRankOver,
   isBattle,
   type PlayerId,
   type PlayerState,
@@ -92,6 +94,29 @@ export function stackWants(card: Card | undefined): number[] {
       ? [o["value"] as number]
       : [];
   });
+}
+
+/**
+ * #195: an opponent's ability that lets us discard up to one card for it, and then counters its
+ * owner's monster if we did ("as" a binding the counter checks). Read from ability data; only
+ * Gigan (2004) EBP04-027's `opponent-counter` has this shape today.
+ */
+export function counterOffer(abilityId: string | null): boolean {
+  if (!abilityId) return false;
+  const [number, id] = abilityId.split("#");
+  const ability = (
+    getCardAbilities(number ?? "").abilities as unknown as Json[]
+  ).find((a) => a["id"] === id);
+  const effects = (ability?.["effects"] as Json[] | undefined) ?? [];
+  const discard = effects.find(
+    (e) =>
+      e["effect"] === "discard" &&
+      e["chooser"] === "opponent" &&
+      typeof e["as"] === "string" &&
+      (e["count"] as Json | undefined)?.["upTo"] !== undefined,
+  );
+  if (!discard) return false;
+  return JSON.stringify(effects).includes('"effect":"counter","player":"you"');
 }
 
 /** Rule 4: a strategy whose only abilities change counter power (God of Destruction's Counterattack). */
@@ -279,7 +304,31 @@ export function applyRules(
   // #189, rule 2 in choices: a cost paid by discarding from hand (5.7.1) leaves the held cards
   // while another option stays (another card, or declining the cost).
   if (choice) {
-    if (choice.player !== player || choice.rule !== "5.7.1") return verdict();
+    if (choice.player !== player) return verdict();
+    // #195 (Paul: counter Gigan out of rank 1 as quickly as possible): the opponent's card offers
+    // to counter its own monster if we discard a card for it (Gigan (2004) EBP04-027 rank 1).
+    // Declining is pruned while a card can pay, and only the cheapest card stays: one with no
+    // legal play now (8.2.1), then the one whose loss leaves our evaluation highest.
+    if (choice.options.some((o) => counterOffer(o.abilityId))) {
+      const pays = actions.filter(
+        (a) => a.type === "choose" && a.optionId !== "done",
+      );
+      if (pays.length === 0) return verdict();
+      for (const a of actions)
+        if (a.type === "choose" && a.optionId === "done") kill(a);
+      const unplayable = pays.filter(
+        (a) =>
+          a.type === "choose" &&
+          (handPlayRankOver(state, player, a.optionId) ?? 0) > 0,
+      );
+      const from = unplayable.length > 0 ? unplayable : pays;
+      const value = (a: Action) =>
+        evaluate(advanceToDecision(applyAction(state, a)), player);
+      const best = from.reduce((x, y) => (value(y) > value(x) ? y : x));
+      for (const a of pays) if (a !== best) kill(a);
+      return verdict();
+    }
+    if (choice.rule !== "5.7.1") return verdict();
     const [me] = players(state, player);
     const held = heldCards(state, me);
     for (const a of actions)
