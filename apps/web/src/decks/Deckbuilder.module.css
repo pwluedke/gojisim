@@ -18,7 +18,6 @@
 
 .header button,
 .filters button,
-.window button,
 .art button {
   padding: var(--space-1) var(--space-3);
   border: var(--button-border);
@@ -175,56 +174,6 @@
 .detailText {
   white-space: pre-wrap;
   line-height: 1.4;
-}
-
-.backdrop {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-backdrop);
-  z-index: 50;
-}
-
-.window {
-  width: min(520px, 92vw);
-  max-height: 86vh;
-  overflow-y: auto;
-  padding: var(--space-4);
-  background: var(--color-panel);
-  border: var(--panel-border-width) solid var(--color-panel-border);
-  border-radius: var(--radius);
-  box-shadow: var(--panel-shadow);
-}
-
-.window h2,
-.window h3 {
-  margin: 0 0 var(--space-2);
-}
-
-.deckList {
-  list-style: none;
-  margin: 0 0 var(--space-3);
-  padding: 0;
-}
-
-.deckList li {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) 0;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.deckName {
-  flex: 1;
-}
-
-.windowActions {
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
 }
 
 .thumb[data-missing] .fallback {
