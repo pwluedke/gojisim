@@ -531,3 +531,46 @@ describe("determinize: a bound card that has moved since (4.1.4, M13a)", () => {
     );
   });
 });
+
+describe("full information for diagnostics (#192, tools only)", () => {
+  const sorted = (cards: readonly { cardId: number }[]) =>
+    cards.map((c) => c.cardId).sort((a, b) => a - b);
+
+  it("fullInformation=true keeps the opponent's real hand and decklist; without it, the hand is guessed", () => {
+    const point = samples(1, 8).find(
+      (p) =>
+        p.state.pendingChoice === null &&
+        p.state.players.every((pl) => pl.hand.length > 0),
+    );
+    if (!point) throw new Error("no sample");
+    const s = point.state;
+    const bot = s.turnPlayer;
+    const opp = s.players.find(
+      (p) => p.id !== bot,
+    ) as GameState["players"][number];
+    expect(opp.hand.length).toBeGreaterThan(0);
+    const decks = decklistsOf(point.decks);
+    let guessedDifferently = false;
+    for (let i = 0; i < 8; i++) {
+      const full = botInput(s, bot, decks, seededRng(`fi-${i}`), {
+        fullInformation: true,
+      });
+      expect(full.knowledge.decks[opp.id]).toBeDefined();
+      const d = determinize(full.view, full.knowledge, seededRng(`fi-d-${i}`));
+      const hand = d.players.find((p) => p.id === opp.id)?.hand ?? [];
+      expect(sorted(hand)).toEqual(sorted(opp.hand));
+
+      const plain = botInput(s, bot, decks, seededRng(`fi-${i}`));
+      expect(plain.knowledge.decks[opp.id]).toBeUndefined();
+      const g = determinize(
+        plain.view,
+        plain.knowledge,
+        seededRng(`fi-d-${i}`),
+      );
+      const guess = g.players.find((p) => p.id === opp.id)?.hand ?? [];
+      if (JSON.stringify(sorted(guess)) !== JSON.stringify(sorted(opp.hand)))
+        guessedDifferently = true;
+    }
+    expect(guessedDifferently).toBe(true);
+  });
+});
