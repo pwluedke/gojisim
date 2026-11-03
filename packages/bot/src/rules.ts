@@ -16,7 +16,7 @@ import {
 } from "@gojisim/engine";
 
 /**
- * Paul's play rules for Hard (#175, Nov 2), from the #170 SpaceGodzilla study. Read from card
+ * Paul's play rules for Hard (#175, Nov 2), from the #170 study. Read from card
  * conditions, never card names, so they apply to every deck. They act only at the search root,
  * like M13a's pruning: judged once per decision on the first determinization from public
  * information (the bot's own hand, both boards). Hard rules leave actions out (`dead`); soft ones
@@ -24,13 +24,15 @@ import {
  * evaluation are unchanged.
  *
  * 1. Stack a same-rank monster card (8.5.1) when a card wants a stack size it doesn't have yet.
- * 2. Hold one monster card per rank that can still be played on top for its ability.
+ * 2. Hold one monster card per rank that can still be played on top for its ability (#189: also
+ *    when a cost is paid by discarding from hand, 5.7.1).
  * 3. Discard every other monster card for rage (8.4.1): no pass while one can go.
  * 4. Counter-only strategies: held until the counter is made (with the others still playable),
  *    then preferred (a prior: one if one makes it, both if it takes two).
  * 5. "Same column as the opponent's monster" battle cards go in that column.
- * 6. Zone-boosted battle cards go in their zone (a prior; never away from an open own zone 8
- *    while the opponent can invade next turn).
+ * 6. Zone-boosted battle cards go in their zone: a prior, never away from an open own zone 8
+ *    while the opponent can invade next turn; a plain stat boost in a zone (#189) is a prune
+ *    while your zone 8 isn't exposed.
  */
 
 /** The prior bonus a rule-preferred root action gets, in evaluation units. */
@@ -124,6 +126,31 @@ export function boostedZones(card: Card | undefined): ZoneNumber[] {
   return [];
 }
 
+/**
+ * Rule 6's prune (#189, Paul): the zones a card's plain stat boost needs, or none. A plain boost
+ * is a continuous ability whose own condition is `zoneOf this in [zones]` and whose modifiers
+ * all change counter power or threat (Godzilla (1972) EBP02-061: +3000 in zone 8). Other zone
+ * conditions (triggers, protection, replacements) keep the prior.
+ */
+export function statBoostZones(card: Card | undefined): ZoneNumber[] {
+  for (const a of abilitiesOf(card)) {
+    const condition = a["condition"] as Json | undefined;
+    const modifiers = a["modifiers"] as Json[] | undefined;
+    if (
+      a["kind"] === "continuous" &&
+      condition?.["zoneOf"] === "this" &&
+      Array.isArray(condition["in"]) &&
+      modifiers &&
+      modifiers.length > 0 &&
+      modifiers.every(
+        (m) => m["stat"] === "counterPower" || m["stat"] === "threat",
+      )
+    )
+      return condition["in"] as ZoneNumber[];
+  }
+  return [];
+}
+
 // ---------------------------------------------------------------------------------------------
 // The board
 
@@ -213,6 +240,13 @@ function zone8Exposed(
 export interface RuleVerdict {
   /** Root action keys left out (hard rules), as long as another action stays. */
   dead: Set<string>;
+  /**
+   * #189: the actions the hard rules rule out, by identity. Copies of a card share a key, so a
+   * key is in `dead` only when every action with it is ruled out; the search's final pick (and
+   * a blunder) takes an action with the same key that isn't, so a spare copy goes, not the held
+   * one.
+   */
+  killed: Set<Action>;
   /** Root action keys with a prior bonus (soft rules). */
   bonus: Map<string, number>;
 }
@@ -224,10 +258,35 @@ export function applyRules(
   player: PlayerId,
   keyOf: (action: Action) => string,
 ): RuleVerdict {
-  const dead = new Set<string>();
+  const killed = new Set<Action>();
+  const kill = (a: Action) => killed.add(a);
   const bonus = new Map<string, number>();
-  if (state.pendingChoice || state.turnPlayer !== player)
-    return { dead, bonus };
+  // Every hard rule leaves at least one action that isn't conceding (#189: conceding counted, so
+  // a turn with every real action ruled out kept the prunes and fell back to a random pick).
+  const verdict = (): RuleVerdict => {
+    const keys = new Map<string, boolean>();
+    for (const a of actions)
+      keys.set(keyOf(a), (keys.get(keyOf(a)) ?? true) && killed.has(a));
+    const dead = new Set([...keys].filter(([, all]) => all).map(([k]) => k));
+    const alive = actions.some(
+      (a) => a.type !== "concede" && !dead.has(keyOf(a)),
+    );
+    return alive
+      ? { dead, killed, bonus }
+      : { dead: new Set(), killed: new Set(), bonus };
+  };
+  const choice = state.pendingChoice;
+  // #189, rule 2 in choices: a cost paid by discarding from hand (5.7.1) leaves the held cards
+  // while another option stays (another card, or declining the cost).
+  if (choice) {
+    if (choice.player !== player || choice.rule !== "5.7.1") return verdict();
+    const [me] = players(state, player);
+    const held = heldCards(state, me);
+    for (const a of actions)
+      if (a.type === "choose" && held.has(a.optionId)) kill(a);
+    return verdict();
+  }
+  if (state.turnPlayer !== player) return verdict();
   const [me, opponent] = players(state, player);
   const held = heldCards(state, me);
   const monster = (a: Action) => cardOf(state, handCard(me, actionCard(a)));
@@ -238,12 +297,12 @@ export function applyRules(
   for (const a of actions) {
     const id = actionCard(a);
     if (!id || !held.has(id)) continue;
-    if (a.type === "gainRage") dead.add(keyOf(a));
+    if (a.type === "gainRage") kill(a);
     if (
       a.type === "invade" &&
       invades.some((b) => !held.has(actionCard(b) ?? ""))
     )
-      dead.add(keyOf(a));
+      kill(a);
   }
   // Rules 1 and 2: stacking, when a card wants the stack size or the card is held for its ability.
   const wanted = stackWanted(state, me);
@@ -259,14 +318,23 @@ export function applyRules(
         !held.has(a.cardInstanceId),
     )
   )
-    for (const a of actions) if (a.type === "pass") dead.add(keyOf(a));
+    for (const a of actions) if (a.type === "pass") kill(a);
   // Rule 4: a counter-only strategy is held while the counter isn't made, even with the others
   // still playable (a prune); when it is made, playing it is preferred (a prior: early on, the
-  // search may still build the board first, Paul).
+  // search may still build the board first, Paul). #189: while the turn's invasion is still
+  // legal, it waits for it (the invasion can crush the cards that make the counter), and the
+  // prior goes to the invasion instead.
+  const invasions = actions.filter(
+    (a) => a.type === "invade" || a.type === "invadeFromDeck",
+  );
   for (const a of actions) {
     if (a.type !== "activateStrategy" || !counterOnly(monster(a))) continue;
-    if (counterMadeWith(state, a, player)) add(a);
-    else dead.add(keyOf(a));
+    if (!counterMadeWith(state, a, player)) kill(a);
+    else if (invasions.length === 0) add(a);
+    else {
+      kill(a);
+      for (const i of invasions) add(i);
+    }
   }
   // Rule 5: same-column cards in the opponent's monster column (the next one if a copy holds it).
   const oppAt = opponent.monsterPosition;
@@ -291,18 +359,30 @@ export function applyRules(
         plays.some((b) => inColumn(b.zone, target)) &&
         !inColumn(a.zone, target)
       )
-        dead.add(keyOf(a));
+        kill(a);
     }
-  // Rule 6: zone-boosted cards toward their zone (a prior), but never away from an open zone 8.
+  // Rule 6: zone-boosted cards go in their zone, a prior that never steers away from an open
+  // zone 8 (#176). #189 (Paul): a card with a plain stat boost (`statBoostZones`) is pruned
+  // outside its zones while your zone 8 isn't exposed and a play in one is legal.
   const exposed = zone8Exposed(state, me, opponent);
   for (const a of actions) {
     if (a.type !== "playBattle") continue;
-    const zones = boostedZones(monster(a));
+    const card = monster(a);
+    const stat = statBoostZones(card);
+    if (!exposed && stat.length > 0 && !stat.includes(a.zone)) {
+      const boostedPlay = actions.some(
+        (b) =>
+          b.type === "playBattle" &&
+          b.cardInstanceId === a.cardInstanceId &&
+          stat.includes(b.zone),
+      );
+      if (boostedPlay) kill(a);
+      continue;
+    }
+    const zones = boostedZones(card);
     if (zones.length === 0 || !zones.includes(a.zone)) continue;
     if (exposed && a.zone !== 8) continue;
     add(a);
   }
-  // Every hard rule leaves at least one action.
-  const alive = actions.filter((a) => !dead.has(keyOf(a)));
-  return { dead: alive.length > 0 ? dead : new Set(), bonus };
+  return verdict();
 }

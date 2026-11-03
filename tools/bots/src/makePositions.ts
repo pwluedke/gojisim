@@ -120,6 +120,10 @@ interface Spec {
   p2?: string;
   /** #175: P2's deck from a made-up deck file in `positions/decks/` instead. */
   p2File?: string;
+  /** #189: P1's decks from made-up deck files instead of `p1`, one per game in turn. */
+  p1Files?: string[];
+  /** #189: the games are played by today's Hard (both seats), not random weighted play. */
+  hardPlay?: boolean;
   /** #130–#132: the level the tester reported (default Hard), for `missedByHard` and the seats. */
   level?: number;
   match: (s: GameState) => boolean;
@@ -405,6 +409,8 @@ const RULE_SPECS: Spec[] = [
     name: "rule4-counter-only-strategy-without-counter",
     note: "#175 rule 4 (7.4.3): God of Destruction's Counterattack (EBP02-072) only on a turn the counter is made; here it isn't, so hold it. Made-up SpaceGodzilla deck; kept only where Hard without the rules plays it.",
     p1: "ESD01",
+    p1Files: [KING_GHIDORAH, "made-up-destoroyah.txt"],
+    hardPlay: true,
     p2File: SPACEG,
     match: (s) => counterOnlyDead(s).length > 0,
     missedByHard: true,
@@ -420,6 +426,8 @@ const RULE_SPECS: Spec[] = [
     name: "rule4-double-counter-only",
     note: "#175 rule 4 (Monarch): two God of Destruction's Counterattack (EBP02-072) make the counter together where one wouldn't, and they and pass are the only plays: play them. Made-up SpaceGodzilla deck; kept only where Hard without the rules doesn't.",
     p1: "ESD01",
+    p1Files: [KING_GHIDORAH, "made-up-destoroyah.txt"],
+    hardPlay: true,
     p2File: SPACEG,
     match: (s) => counterOnlyPair(s).length > 0,
     missedByHard: true,
@@ -526,12 +534,13 @@ for (const spec of SPECS.filter(
   (s) => only.length === 0 || only.includes(s.name),
 )) {
   let written = false;
-  for (let g = 0; g < 3000 && !written; g++) {
+  for (let g = 0; g < (spec.hardPlay ? 200 : 3000) && !written; g++) {
+    const p1File = spec.p1Files?.[g % spec.p1Files.length];
     const record: GameRecord = {
       version: 1,
       seed: `${spec.name}-${g}`,
       decks: [
-        deckOf("P1", officialDeck(spec.p1)),
+        deckOf("P1", p1File ? readDeck(p1File) : officialDeck(spec.p1)),
         deckOf(
           "P2",
           spec.p2File
@@ -556,7 +565,7 @@ for (const spec of SPECS.filter(
       ) {
         const position = {
           note: spec.note,
-          made: `tools/bots/src/makePositions.ts, game ${g}: random weighted play, ${spec.p1} starter (P1) vs ${spec.p2File ? `the ${spec.p2File} deck` : spec.p2 ? `the ${spec.p2} starter` : "the made-up Destoroyah deck"} (P2)`,
+          made: `tools/bots/src/makePositions.ts, game ${g}: ${spec.hardPlay ? "Hard (rules on) for both seats" : "random weighted play"}, ${p1File ? `the ${p1File} deck` : `${spec.p1} starter`} (P1) vs ${spec.p2File ? `the ${spec.p2File} deck` : spec.p2 ? `the ${spec.p2} starter` : "the made-up Destoroyah deck"} (P2)`,
           ...keys,
           record: {
             ...record,
@@ -588,7 +597,20 @@ for (const spec of SPECS.filter(
       const legal = getLegalActions(state, who).filter(
         (a) => a.type !== "concede",
       );
-      const action = weightedPick(stateBoard(state), legal, pick);
+      const action = spec.hardPlay
+        ? decide(
+            botInput(
+              state,
+              who,
+              decklistsOf(record.decks),
+              seededRng(`${spec.name}-${g}-${i}`),
+              {
+                ...difficultySettings(PRESETS.hard),
+                maxMs: Number.MAX_SAFE_INTEGER,
+              },
+            ),
+          ).action
+        : weightedPick(stateBoard(state), legal, pick);
       record.actions.push(action);
       state = advanceToDecision(applyAction(state, action));
     }
