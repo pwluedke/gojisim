@@ -21,7 +21,7 @@ import {
 } from "@gojisim/engine";
 import { officialDeck } from "@gojisim/stress";
 
-export type DeckSource = "official" | "random" | "mixed";
+export type DeckSource = "official" | "random" | "mixed" | "meta";
 
 /**
  * `mixed` (M13a): the two starters and random test decks of the four boosters. Each pair of games
@@ -107,6 +107,19 @@ export interface MatchOptions {
   fixed?: { a: NamedDeck; b: NamedDeck };
   /** Each game's record goes here as `game-<n>.json` (`pnpm bot-explain` reads it). */
   recordDir?: string;
+  /**
+   * The `meta` source's decks (the top-tier list, Paul's guard rule): each pair of games plays one
+   * ordered pairing with the seats swapped, cycling through every ordered pair.
+   */
+  meta?: NamedDeck[];
+}
+
+/** The `meta` source's two decks for a game (P1's, P2's): both games of a pair play the same. */
+export function metaPairFor(game: number, count: number): [number, number] {
+  const pairs: [number, number][] = [];
+  for (let x = 0; x < count; x++)
+    for (let y = 0; y < count; y++) if (x !== y) pairs.push([x, y]);
+  return pairs[Math.floor(game / 2) % pairs.length] as [number, number];
 }
 
 /** The two seats' setups when each bot brings its own deck (#170). */
@@ -134,9 +147,23 @@ export function playMatchGame(
 ): GameResult {
   const seed = `${runSeed}-${game}`;
   const aSeat = game % 2 === 0 ? "P1" : "P2";
+  const meta =
+    !options.fixed && source === "meta"
+      ? metaPairFor(game, options.meta?.length ?? 0).map(
+          (i) => options.meta?.[i] as NamedDeck,
+        )
+      : null;
+  if (source === "meta" && !options.fixed && (options.meta?.length ?? 0) < 2)
+    throw new Error("--decks meta needs at least 2 decks");
   const decks = options.fixed
     ? fixedDecks(options.fixed, aSeat)
-    : decksFor(runSeed, game, source);
+    : meta
+      ? (meta.map((deck, i) => ({
+          id: `P${i + 1}`,
+          monsterDeck: deck.monsterDeck,
+          mainDeck: deck.mainDeck,
+        })) as [PlayerSetup, PlayerSetup])
+      : decksFor(runSeed, game, source);
   const lists = decklistsOf(decks);
   const seats = {
     [aSeat]: { side: "a" as const, ...a, rng: seededRng(`${seed}-a`) },
@@ -154,7 +181,9 @@ export function playMatchGame(
       ? aSeat === "P1"
         ? [options.fixed.a.name, options.fixed.b.name]
         : [options.fixed.b.name, options.fixed.a.name]
-      : setsFor(game, source),
+      : meta
+        ? [meta[0]?.name ?? "", meta[1]?.name ?? ""]
+        : setsFor(game, source),
     winner: null,
     reason: "unfinished",
     turns: 0,

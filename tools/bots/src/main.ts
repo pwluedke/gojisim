@@ -5,7 +5,7 @@ import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { BOTS, type BotSettings } from "@gojisim/bot";
 import { formatDeckList } from "@gojisim/cards/deck-lists";
-import { loadDeck, STOP_FILE } from "./decks";
+import { loadDeck, loadMetaDecks, STOP_FILE } from "./decks";
 import {
   appendJournal,
   clearJournal,
@@ -31,6 +31,9 @@ import {
  * `random:<SET>` for a random test deck with a fixed seed); `--keep-records <dir>` keeps every
  * game's record; `--report <file>` names the report. A `bot-reports/STOP` file stops the run after
  * the games in progress, keeping the journal: delete it and run the same command to resume.
+ *
+ * `--decks meta` plays the top-tier decks in `--meta-decks <file>` (default `local-decks/meta.txt`,
+ * gitignored): every ordered pairing, two games each with the seats swapped. Bot guards run on it.
  */
 const { values } = parseArgs({
   options: {
@@ -45,6 +48,7 @@ const { values } = parseArgs({
     games: { type: "string", default: "100" },
     seed: { type: "string", default: "1" },
     decks: { type: "string", default: "official" },
+    "meta-decks": { type: "string", default: "local-decks/meta.txt" },
     "turn-cap": { type: "string", default: String(MATCH_TURN_CAP) },
     progress: { type: "string", default: "50" },
     // Play games in N child processes (one shard each), then merge the results in game order.
@@ -108,10 +112,20 @@ const options: MatchOptions = {
     : {}),
 };
 const stopFile = resolve(values.out, STOP_FILE);
-if (decks !== "official" && decks !== "random" && decks !== "mixed")
+if (
+  decks !== "official" &&
+  decks !== "random" &&
+  decks !== "mixed" &&
+  decks !== "meta"
+)
   throw new Error(
-    `--decks must be official, random or mixed, got ${values.decks}`,
+    `--decks must be official, random, mixed or meta, got ${values.decks}`,
   );
+const meta =
+  decks === "meta" && !fixed
+    ? loadMetaDecks(values["meta-decks"], values.out)
+    : undefined;
+if (meta) options.meta = meta;
 const games = Number(values.games);
 const progress = Number(values.progress);
 
@@ -132,6 +146,8 @@ const journal =
     decks,
     games,
     turnCap: values["turn-cap"],
+    // The meta list's decks, so a changed top-tier list is a new run.
+    ...(meta ? { meta: formatDeckList(meta) } : {}),
     // The decks' lists, so a changed variant is a new run.
     ...(fixed
       ? {

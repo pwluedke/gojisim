@@ -30,8 +30,13 @@ interface Run {
   deterministic?: boolean;
   keepRecords?: boolean;
   turnCap?: number;
-  /** #175: the deck source for a matchup without fixed decks (`official`, `random`, `mixed`). */
+  /**
+   * #175: the deck source for a matchup without fixed decks (`official`, `random`, `mixed`, or
+   * `meta`: the top-tier list in `metaDecks`, Paul's guard rule).
+   */
   decks?: string;
+  /** The `meta` source's deck-list file (default `local-decks/meta.txt`). */
+  metaDecks?: string;
 }
 
 interface Matchup extends Run {
@@ -64,6 +69,9 @@ export function matchupArgs(plan: Plan, m: Matchup): string[] {
     ...(m.aDeck && m.bDeck
       ? ["--a-deck", m.aDeck, "--b-deck", m.bDeck]
       : ["--decks", run.decks ?? "official"]),
+    ...(run.metaDecks && !(m.aDeck && m.bDeck)
+      ? ["--meta-decks", run.metaDecks]
+      : []),
     ...["--games", String(run.games ?? 100)],
     ...["--seed", `${run.seed ?? plan.name}-${m.id}`],
     ...["--workers", String(run.workers ?? 1)],
