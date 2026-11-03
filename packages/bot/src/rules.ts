@@ -16,7 +16,7 @@ import {
 } from "@gojisim/engine";
 
 /**
- * Paul's play rules for Hard (#175, Nov 2), from the #170 SpaceGodzilla study. Read from card
+ * Paul's play rules for Hard (#175, Nov 2), from the #170 study. Read from card
  * conditions, never card names, so they apply to every deck. They act only at the search root,
  * like M13a's pruning: judged once per decision on the first determinization from public
  * information (the bot's own hand, both boards). Hard rules leave actions out (`dead`); soft ones
