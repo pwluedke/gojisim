@@ -1012,6 +1012,7 @@ function DecksWindow({
                     <button
                       type="button"
                       data-testid="db-delete-confirm"
+                      data-danger
                       onClick={() => {
                         my.remove(d.id);
                         setDeleting(null);
@@ -1027,6 +1028,7 @@ function DecksWindow({
                   <button
                     type="button"
                     data-testid="db-delete"
+                    data-danger
                     onClick={() => setDeleting(d.id)}
                   >
                     Delete
@@ -1320,7 +1322,12 @@ function DeckPanel({
         {counts.colors.map(([color, n]) => ` · ${color} ${n}`).join("")}
       </div>
       <div className={styles.panelActions}>
-        <button type="button" data-testid="db-save" onClick={onSave}>
+        <button
+          type="button"
+          data-testid="db-save"
+          data-primary
+          onClick={onSave}
+        >
           Save{dirty ? " *" : ""}
         </button>
         <button type="button" data-testid="db-save-copy" onClick={onSaveCopy}>

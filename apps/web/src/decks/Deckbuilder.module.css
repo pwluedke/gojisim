@@ -16,17 +16,40 @@
   border-bottom: var(--panel-border-width) solid var(--color-panel-border);
 }
 
+/* #180: the shared style A button (theme.css `--btn-*`). */
 .header button,
 .filters button,
 .window button,
-.art button {
-  padding: var(--space-1) var(--space-3);
-  border: var(--button-border);
-  border-radius: var(--radius);
-  background: var(--color-button);
-  color: var(--color-button-text);
-  font: inherit;
+.art button,
+.panel button {
+  box-sizing: border-box;
+  min-height: var(--btn-height);
+  padding: var(--btn-padding);
+  border: var(--btn-border-width) solid var(--btn-line);
+  border-radius: var(--btn-radius);
+  background: var(--btn-fill);
+  color: var(--btn-text);
+  box-shadow: 2px 2px 0 var(--btn-shadow);
+  font-family: var(--font-body);
+  font-size: var(--btn-font-size);
+  font-weight: 700;
+  line-height: 1.2;
   cursor: pointer;
+}
+
+.header button[data-primary],
+.window button[data-primary],
+.panel button[data-primary] {
+  border-color: var(--btn-primary-line);
+  background: var(--btn-primary-fill);
+  color: var(--btn-primary-text);
+}
+
+.window button[data-danger],
+.panel button[data-danger] {
+  border-color: var(--btn-danger);
+  color: var(--btn-danger);
+  box-shadow: 2px 2px 0 var(--btn-danger);
 }
 
 .home {
@@ -268,16 +291,6 @@
   gap: 6px;
 }
 
-.panel button {
-  padding: var(--space-1) var(--space-2);
-  border: var(--button-border);
-  border-radius: var(--radius);
-  background: var(--color-button);
-  color: var(--color-button-text);
-  font: inherit;
-  cursor: pointer;
-}
-
 .zone {
   padding: 6px var(--space-2);
   border: 1px dashed var(--color-border);
@@ -313,16 +326,27 @@
   font-size: var(--font-size-sm);
 }
 
+/* #180: the small style A button, for these dense rows. */
 .cellControls button,
 .viewToggle button {
-  min-width: 26px;
-  padding: 0 var(--space-2);
-  border: var(--button-border);
-  border-radius: var(--radius);
-  background: var(--color-button);
-  color: var(--color-button-text);
-  font: inherit;
+  box-sizing: border-box;
+  min-height: var(--btn-height);
+  padding: var(--btn-padding);
+  border: var(--btn-border-width) solid var(--btn-line);
+  border-radius: var(--btn-radius);
+  background: var(--btn-fill);
+  color: var(--btn-text);
+  box-shadow: 2px 2px 0 var(--btn-shadow);
+  font-family: var(--font-body);
+  font-size: var(--btn-font-size);
+  font-weight: 700;
+  line-height: 1.2;
   cursor: pointer;
+  min-width: var(--btn-height-small);
+  min-height: var(--btn-height-small);
+  padding: var(--btn-padding-small);
+  font-size: var(--btn-font-size-small);
+  box-shadow: 1px 1px 0 var(--btn-shadow);
 }
 
 .cellControls button:disabled {
@@ -352,13 +376,18 @@
   z-index: 6;
 }
 
+/* Style A's shape, in cream on the ink panel. */
 .cardPanel button {
-  padding: var(--space-1) var(--space-3);
-  border: 2px solid #f6edd9;
-  border-radius: var(--radius);
+  box-sizing: border-box;
+  min-height: var(--btn-height);
+  padding: var(--btn-padding);
+  border: var(--btn-border-width) solid #f6edd9;
+  border-radius: var(--btn-radius);
+  box-shadow: 2px 2px 0 #000;
+  font-weight: 700;
   background: transparent;
   color: #f6edd9;
-  font: inherit;
+  font-family: inherit;
   cursor: pointer;
 }
 
@@ -463,6 +492,7 @@
 
 /* Higher than `.panel button`: a slot is the card image alone. */
 .panel .slot {
+  min-height: 0;
   padding: 0;
   border: 0;
   background: none;
@@ -506,6 +536,8 @@
 .panel .stacked {
   display: block;
   width: 100%;
+  min-height: 0;
+  box-shadow: none;
   margin-bottom: 2px;
   padding: 2px 3px;
   overflow: hidden;
