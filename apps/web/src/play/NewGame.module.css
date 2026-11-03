@@ -15,14 +15,20 @@
  */
 form.screen select,
 form.screen
-  input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]),
-form.screen button,
-form.screen ::file-selector-button {
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]) {
   box-sizing: border-box;
   min-height: 36px;
   height: 36px;
   padding: 0 var(--space-2);
   font-size: 14px;
+}
+
+/* #180: buttons take the shared style A height (theme.css). */
+form.screen button,
+form.screen ::file-selector-button {
+  box-sizing: border-box;
+  min-height: var(--btn-height);
+  height: var(--btn-height);
 }
 
 form.screen {
@@ -125,15 +131,25 @@ form.screen input[type="file"] {
   font-size: var(--font-size-sm);
 }
 
+/* Start: the primary button (#180, style A). */
 .start {
   margin-top: var(--space-4);
-  padding: var(--space-2) var(--space-6);
-  border: none;
-  border-radius: var(--radius);
-  background: var(--color-button);
-  color: var(--color-button-text);
-  font-size: var(--font-size-lg);
+  box-sizing: border-box;
+  min-height: var(--btn-height);
+  padding: var(--btn-padding);
+  border: var(--btn-border-width) solid var(--btn-line);
+  border-radius: var(--btn-radius);
+  background: var(--btn-fill);
+  color: var(--btn-text);
+  box-shadow: 2px 2px 0 var(--btn-shadow);
+  font-family: var(--font-body);
+  font-size: var(--btn-font-size);
+  font-weight: 700;
+  line-height: 1.2;
   cursor: pointer;
+  border-color: var(--btn-primary-line);
+  background: var(--btn-primary-fill);
+  color: var(--btn-primary-text);
 }
 
 /* Seed, match type, Show opponent's hand, Start and Load a game record in one block. */

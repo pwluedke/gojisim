@@ -39,12 +39,23 @@
   font-size: var(--font-size-sm);
 }
 
+/* #180: a link drawn as the shared style A button. */
 .load {
-  padding: var(--space-1) var(--space-3);
-  border: var(--button-border);
-  border-radius: var(--radius);
-  background: var(--color-button);
-  color: var(--color-button-text);
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: var(--btn-height);
+  padding: var(--btn-padding);
+  border: var(--btn-border-width) solid var(--btn-line);
+  border-radius: var(--btn-radius);
+  background: var(--btn-fill);
+  color: var(--btn-text);
+  box-shadow: 2px 2px 0 var(--btn-shadow);
+  font-family: var(--font-body);
+  font-size: var(--btn-font-size);
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
   text-decoration: none;
 }
 

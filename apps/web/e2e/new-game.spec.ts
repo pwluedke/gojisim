@@ -95,15 +95,18 @@ for (const size of SIZES)
 test.describe("compact controls", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test("controls on the new-game screen are 36 px tall with 14 px text; Start stays marigold in Showa", async ({
+  test("selects and fields on the new-game screen are 36 px tall with 14 px text, buttons 32 px with 13 px (#180); Start stays marigold in Showa", async ({
     page,
   }) => {
     await open(page, "showa");
-    for (const id of ["deck-P1", "seed-input", "randomize-P1"]) {
+    for (const id of ["deck-P1", "seed-input"]) {
       const control = page.getByTestId(id);
       expect((await control.boundingBox())?.height).toBeCloseTo(36, 0);
       await expect(control).toHaveCSS("font-size", "14px");
     }
+    const randomize = page.getByTestId("randomize-P1");
+    expect((await randomize.boundingBox())?.height).toBeCloseTo(32, 0);
+    await expect(randomize).toHaveCSS("font-size", "13px");
     await expect(page.getByTestId("start-game")).toHaveCSS(
       "background-color",
       await page
@@ -262,4 +265,56 @@ test.describe("one simple picker (#161)", () => {
     await page.getByTestId("build-decks").click();
     await expect(page).toHaveURL(/\/decks/);
   });
+});
+
+test.describe("#180 style A", () => {
+  for (const theme of THEMES)
+    test(`#180 buttons take style A in the ${theme} theme: 32 px, a 1.5 px border, 6 px corners, an offset shadow; Start is the primary, Concede the danger`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await open(page, theme);
+      const css = (id: string, prop: string) =>
+        page
+          .getByTestId(id)
+          .evaluate((el, p) => getComputedStyle(el).getPropertyValue(p), prop);
+      const token = (name: string) =>
+        page.evaluate(
+          (n) =>
+            getComputedStyle(document.documentElement)
+              .getPropertyValue(n)
+              .trim(),
+          name,
+        );
+      for (const id of ["randomize-P1", "start-game"]) {
+        expect((await page.getByTestId(id).boundingBox())?.height).toBeCloseTo(
+          32,
+          0,
+        );
+        // The rule says 1.5 px; Chrome snaps border widths to whole pixels, so it computes as 1 px
+        // (the mockup's 1.5 px renders the same way).
+        expect(
+          parseFloat(await css(id, "border-top-width")),
+        ).toBeGreaterThanOrEqual(1);
+        expect(await css(id, "border-top-left-radius")).toBe("6px");
+        expect(await css(id, "box-shadow")).toContain("2px 2px 0px");
+        expect(await css(id, "font-weight")).toBe("700");
+      }
+      // Not the browser's own button, in any theme (Dark used to fall back to it).
+      expect(await css("randomize-P1", "background-color")).toBe(
+        hexToRgb(await token("--btn-fill")),
+      );
+      expect(await css("start-game", "background-color")).toBe(
+        hexToRgb(await token("--btn-primary-fill")),
+      );
+      await page.getByTestId("start-game").click();
+      await page.getByTestId("first-pick-card-0").click();
+      await page.getByTestId("first-pick-continue").click();
+      expect(await css("concede", "border-top-color")).toBe(
+        hexToRgb(await token("--btn-danger")),
+      );
+      expect(
+        (await page.getByTestId("pass").boundingBox())?.height,
+      ).toBeCloseTo(32, 0);
+    });
 });
