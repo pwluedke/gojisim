@@ -270,7 +270,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         const verdict = applyRules(first, input.legalActions, me, (a) =>
           actionKey(first, a),
         );
-        // Paul's Constructed Future rule (all cfTarget modes): play it only for MKG or GAM.
+        // Paul's Constructed Future rule (all cfTarget modes): play it only for MKG, KG (2024) or GAM.
         for (const a of constructedFutureDead(first, input.legalActions, me)) {
           verdict.dead.add(actionKey(first, a));
           verdict.killed.add(a);

@@ -8,14 +8,15 @@ import {
 
 /**
  * Paul's play rule for Constructed Future (SD05-005, Nov 5, 2026), part of the Hard rules layer:
- * activating it is dead unless resolving it would play Mecha-King Ghidorah (EBP02-068) or GAM
- * (EBP01-073; the engine plays GAM only with its own condition met, 8+ monster cards in the
- * discard pile). What it would play is read from the engine's resolution, choices answered with
+ * activating it is dead unless resolving it would play Mecha-King Ghidorah (EBP02-068), King
+ * Ghidorah (2024) (EBP01-074; it turns on Gravity Beam, EPR-019) or GAM (EBP01-073; the engine
+ * plays GAM only with its own condition met, 8+ monster cards in the discard pile). By rank
+ * (23 > 8 > 7) the engine's highest playable card already follows Paul's order. What it would play is read from the engine's resolution, choices answered with
  * their first option, not guessed from the discard pile.
  */
 const CONSTRUCTED_FUTURE = "SD05-005";
 const ABILITY = "SD05-005#constructed-future";
-const WORTH_IT = new Set(["EBP02-068", "EBP01-073"]);
+const WORTH_IT = new Set(["EBP02-068", "EBP01-074", "EBP01-073"]);
 /** Choices a simulated resolution may answer before it gives up (then the play is kept). */
 const MAX_CHOICES = 30;
 

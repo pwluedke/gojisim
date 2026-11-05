@@ -2318,8 +2318,8 @@ function perform(state: GameState, effect: Effect): Outcome {
         });
       // Paul (Nov 5, 2026): an effect play respects a card's own "can't be played" rule (8.2,
       // M2): GAM (EBP01-073) with 7 or fewer monster cards in the discard pile isn't played.
-      // Provisional until Paul rules: with the highest card unplayable, the next highest is
-      // (unplayable cards aren't candidates, as for the rank limit above).
+      // With the highest card unplayable, the next highest that can be played is (Paul): an
+      // unplayable card isn't a candidate, as for the rank limit above.
       candidates = candidates.filter(
         (c) => !playRuleOf(state, c.card, me.id).forbidden,
       );

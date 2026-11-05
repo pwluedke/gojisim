@@ -194,7 +194,7 @@ describe("SD05-005 Constructed Future", () => {
       expect(r.zones).toEqual([r.gam]);
     });
 
-    it("with 7, GAM can't be played; the next highest is (provisional until Paul rules)", () => {
+    it("with 7, GAM can't be played; the next highest playable one is (Paul, Nov 5)", () => {
       const r = run(7);
       expect(r.zones).not.toContain(r.gam);
       expect(r.zones).toEqual([r.four]);

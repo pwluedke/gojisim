@@ -111,4 +111,17 @@ describe("Constructed Future: Paul's play rule (Hard rules layer)", () => {
     expect(constructedFuturePlays(state, activate)).toBeNull();
     expect(constructedFutureDead(state, [activate], "P1").size).toBe(1);
   });
+
+  it("King Ghidorah (2024) (EBP01-074, rank 8; Gravity Beam's partner): the play is kept", () => {
+    const { state, activate } = base(["EBP01-074", "EBP02-061"]);
+    expect(constructedFuturePlays(state, activate)).toBe("EBP01-074");
+    expect(constructedFutureDead(state, [activate], "P1").size).toBe(0);
+  });
+
+  it("Paul's order follows rank: Mecha-King Ghidorah over King Ghidorah (2024) over GAM", () => {
+    const all = base(["EBP01-073", "EBP01-074", "EBP02-068", ...monsters(8)]);
+    expect(constructedFuturePlays(all.state, all.activate)).toBe("EBP02-068");
+    const two = base(["EBP01-073", "EBP01-074", ...monsters(8)]);
+    expect(constructedFuturePlays(two.state, two.activate)).toBe("EBP01-074");
+  });
 });
