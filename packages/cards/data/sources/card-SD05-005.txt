@@ -1,0 +1,24 @@
+Card: SD05-005 A Rigged Future (仕組まれた未来), entered by hand (godzillatcgdb.com doesn't list it; the English card isn't out).
+Source images (official Japanese site, retrieved 2026-11-04):
+  Normal: https://godzilla-cardgame.com/wordpress/wp-content/images/cardlist/SD05/SD05-005.png
+  SP (SD05-005+): https://godzilla-cardgame.com/wordpress/wp-content/images/cardlist/SD05/SD05-005_2.png
+Released: Japanese starter deck SD05 "King Ghidorah・Green", Nov 6, 2026. English edition ESD05: Dec 4, 2026.
+Name and text: Paul's English translation (Nov 4, 2026, relayed by Monarch in #gojisim-dev). The
+official English name is TBA: rename it when ESD05 is out.
+Tournament-legal from: 2026-12-04 (data/release-dates.json).
+
+Number: SD05-005 (parallel SD05-005+, SP)
+Name: A Rigged Future (Japanese: 仕組まれた未来)
+Card type: Strategy   Rank: 6   Color: White (silver frame)   Rarity: SD (SP for SD05-005+)
+Invade: 2   Traits: none
+Text:
+Choose 3 battle cards in your zones in ascending order of rank and [destroy] them. If 3 cards are [destroy] this way, play 1 battle card with the highest rank from your discard pile.
+
+Rulings (Paul, Nov 4, 2026):
+- The 3 are your lowest-ranked battle cards; you choose among ties. With fewer than 3 battle
+  cards, destroy what's there and play nothing.
+- Crystals tokens (rank 1) count, and are banished, not discarded (9.1.4.2).
+- "Play" (出現) is a normal play from the discard pile: [enter] triggers, you pick the zone,
+  ordinary placement rules.
+- Highest rank: printed rank, so Mecha-King Ghidorah (EBP02-068, rank 23) is the highest; you
+  choose among ties.

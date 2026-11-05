@@ -11,6 +11,7 @@
     "test",
     "data/errata.json",
     "data/restrictions.json",
+    "data/release-dates.json",
     "data/cards.json",
     "data/abilities/*.json",
     "data/tokens.json"

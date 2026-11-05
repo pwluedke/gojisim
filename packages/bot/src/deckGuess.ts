@@ -3,6 +3,7 @@ import {
   getCardAbilities,
   getCardTraits,
   getChoiceRestrictions,
+  getNotYetLegal,
   getRestriction,
   MAX_COPIES_PER_CARD,
   MAX_INVASION_2,
@@ -16,7 +17,8 @@ import { getAllCards } from "@gojisim/cards/all-cards";
  * a legal deck could hold, given what is public:
  * - colors (6.1.1.3): the rank I monster's, plus White, plus Resonance colors and conditions
  *   (12.8.2);
- * - copies (6.1.1.4) and the restriction list on the game's date, counting cards already seen;
+ * - copies (6.1.1.4), the restriction list and release dates on the game's date, counting cards
+ *   already seen;
  * - invasion icon 2 (6.1.1.2.2): at most 10, counting those seen;
  * - no Token cards (6.1.1.5);
  * - the monster deck: one card per rank (6.1.1.1), preferring cards that share a trait with the
@@ -66,8 +68,12 @@ function englishPool(): Card[] {
   return pool;
 }
 
-/** A card number's copy limit on `asOf`: 4, a lower restriction, or none ("any number"). */
+/**
+ * A card number's copy limit on `asOf`: 4, a lower restriction, or none ("any number"); 0 before
+ * the card is tournament-legal (SD05-005 until Dec 4, 2026).
+ */
 function copyLimit(card: Card, asOf: Date): number {
+  if (getNotYetLegal(card.deckCardNumber, asOf)) return 0;
   const anyNumber = getCardAbilities(card.deckCardNumber).deckRules?.some(
     (r) => r.rule === "anyNumber",
   );
