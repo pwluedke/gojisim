@@ -14,6 +14,7 @@ import {
   tacticalPick,
   weightedPick,
 } from "./baseline";
+import { type CfTarget, cfTargetDead } from "./cfTarget";
 import { determinize } from "./determinize";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
 import { deadKeys } from "./prune";
@@ -57,6 +58,8 @@ export interface IsmctsSettings {
   rules: number;
   /** #191: 1 draws the opponent's hidden cards toward a recognized archetype (`recognizer.ts`). */
   recognizer: number;
+  /** Paul's Constructed Future test, with `rules` on: which card cost discards aim at (`cfTarget.ts`). */
+  cfTarget: CfTarget;
 }
 
 export const ISMCTS_DEFAULTS: IsmctsSettings = {
@@ -73,6 +76,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   priorVisits: 0,
   rules: 0,
   recognizer: 0,
+  cfTarget: "auto",
 };
 
 /** Reads ISMCTS settings from a bot's settings, with defaults. */
@@ -81,7 +85,8 @@ export function ismctsSettings(settings: BotSettings): IsmctsSettings {
   for (const key of Object.keys(ISMCTS_DEFAULTS)) {
     const value = settings[key];
     if (value === undefined) continue;
-    out[key] = key === "rollout" ? String(value) : Number(value);
+    out[key] =
+      key === "rollout" || key === "cfTarget" ? String(value) : Number(value);
   }
   const overrides = Object.fromEntries(
     Object.entries(settings)
@@ -264,6 +269,15 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         const verdict = applyRules(first, input.legalActions, me, (a) =>
           actionKey(first, a),
         );
+        for (const a of cfTargetDead(
+          first,
+          input.legalActions,
+          me,
+          settings.cfTarget,
+        )) {
+          verdict.dead.add(actionKey(first, a));
+          verdict.killed.add(a);
+        }
         bonus = verdict.bonus;
         // Both sets leave an action each; together they must too (#189: one that isn't
         // conceding, which the search never plays).
