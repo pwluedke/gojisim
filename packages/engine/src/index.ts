@@ -73,7 +73,12 @@ export {
 export { canUndo, type UndoBoundary, undoBoundary, undoLast } from "./undo";
 export { isFreezeGuardOn, setFreezeGuard } from "./freeze";
 export { normalizeSeed } from "./rng";
-export { type CreateGameOptions, createGame, type PlayerSetup } from "./setup";
+export {
+  type CreateGameOptions,
+  createGame,
+  type PlayerSetup,
+  STARTING_HAND_SIZE,
+} from "./setup";
 export * from "./types";
 export * from "./view";
 export * from "./combos";
