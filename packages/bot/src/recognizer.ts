@@ -39,17 +39,19 @@ export interface Archetype {
   commonNumbers: Set<string>;
 }
 
-/** How likely a public card is in an archetype's deck: core, common, or any other card. */
-export const P_CORE = 0.9;
-export const P_COMMON = 0.5;
-export const P_OTHER = 0.05;
-/** The same for a deck outside the catalog. */
-export const P_NONE = 0.15;
-/** The rank I monster: a strong hint, not proof (Fest and EBP03-014 are shared). */
-export const RANK_ONE_HIT = 4;
-export const RANK_ONE_MISS = 0.5;
-/** The share of decks outside the catalog before anything is public. */
-export const PRIOR_NONE = 0.25;
+/**
+ * #199: evidence against "none of these", as likelihood ratios. A public card an archetype lists
+ * as core multiplies its weight by `R_CORE`, a common one by `R_COMMON`; any other card is
+ * neutral (real lists hold many cards a catalog line doesn't name). A matching rank I monster
+ * multiplies by `R_RANK_ONE_HIT`, another rank I by `R_RANK_ONE_MISS` (the strongest signal; it
+ * also settles archetypes that share cards, like a Gigan deck's and a SpaceG deck's 23dorah).
+ */
+export const R_CORE = 4;
+export const R_COMMON = 1.5;
+export const R_RANK_ONE_HIT = 6;
+export const R_RANK_ONE_MISS = 0.2;
+/** "None of these" (the uniform guess) keeps this weight, with no evidence for or against it. */
+export const PRIOR_NONE = 0.3;
 /** The chance a common entry goes in a drawn deck. */
 export const COMMON_IN = 0.5;
 /** Core entries without a count in the catalog (Monarch: x2-3); common ones x1-2. */
@@ -138,16 +140,18 @@ export function archetypeWeights(
     const legal = core.filter((n) => pool.has(n)).length / (core.length || 1);
     let w = ((1 - PRIOR_NONE) / all.length) * legal;
     if (rankOne)
-      w *= a.rankOne.has(rankOne.deckCardNumber) ? RANK_ONE_HIT : RANK_ONE_MISS;
-    for (const n of numbers)
-      w *= a.coreNumbers.has(n)
-        ? P_CORE
-        : a.commonNumbers.has(n)
-          ? P_COMMON
-          : P_OTHER;
+      w *= a.rankOne.has(rankOne.deckCardNumber)
+        ? R_RANK_ONE_HIT
+        : R_RANK_ONE_MISS;
+    // Each catalog line counts once, however many of its cards show: a trait line ("King
+    // Ghidorah monster cards") or a copy of a card adds no more than one card would.
+    for (const e of a.core)
+      if (e.cards.some((c) => numbers.has(c.deckCardNumber))) w *= R_CORE;
+    for (const e of a.common)
+      if (e.cards.some((c) => numbers.has(c.deckCardNumber))) w *= R_COMMON;
     return { archetype: a, weight: w };
   });
-  raw.push({ archetype: null, weight: PRIOR_NONE * P_NONE ** numbers.size });
+  raw.push({ archetype: null, weight: PRIOR_NONE });
   const total = raw.reduce((s, x) => s + x.weight, 0);
   const weights = raw.map((x) => ({
     ...x,
