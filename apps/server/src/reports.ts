@@ -1,5 +1,8 @@
 /**
- * Tester reports to the Discord staff #reports channel (#136) and Slack #gojisim-reports (#146):
+ * Tester reports to the Discord staff #reports channel (#136) and Slack #gojisim-reports (#146),
+ * and (#214) the community's Discord #bugs (Report bug) and #bot-feedback (Bad Bot! and Good Bot!)
+ * channels, unless the reporter opted out. Community posts are public: the name (unless posted
+ * without it), the note, the turn and phase and the bot level, nothing else:
  * when a stored upload adds a Report bug, Bad Bot!, Good Bot!, Monster Island Mailbox note or
  * crash, the server posts one message per new entry to the webhooks in `DISCORD_REPORTS_WEBHOOK`
  * and `SLACK_REPORTS_WEBHOOK`. No decklists and no record go with it,
@@ -20,6 +23,12 @@ export const POST_TIMEOUT_MS = 5000;
 export type ReportKind =
   "Report bug" | "Bad Bot!" | "Good Bot!" | "Mailbox" | "Crash";
 
+/**
+ * #214: what the reporter allowed in the community channel. An entry without it (an app from
+ * before #214, which never said it would post) isn't posted publicly.
+ */
+export type CommunityPost = "named" | "anonymous" | "none";
+
 /** One new entry, as the post shows it. */
 export interface NewReport {
   kind: ReportKind;
@@ -34,6 +43,8 @@ export interface NewReport {
   /** A crash's first frame from the app's code, and where the error came from. */
   frame: string | null;
   source: string | null;
+  /** #214: Report bug, Bad Bot! and Good Bot! only; "none" for the rest. */
+  community: CommunityPost;
 }
 
 type Json = Record<string, unknown>;
@@ -44,6 +55,8 @@ const num = (v: unknown): number | null =>
   typeof v === "number" && Number.isInteger(v) ? v : null;
 const list = (v: unknown): Json[] =>
   Array.isArray(v) ? v.map(obj).filter((e): e is Json => e !== null) : [];
+const community = (v: unknown): CommunityPost =>
+  v === "named" || v === "anonymous" ? v : "none";
 
 /** The first frame from the app's own code (V8's `at …`, Firefox's and Safari's `fn@url`), as `pnpm feedback` reads it. */
 export function firstAppFrame(stack: string | null): string | null {
@@ -70,11 +83,17 @@ function entries(record: Json): { key: string; report: NewReport }[] {
     move: null,
     frame: null,
     source: null,
+    community: "none" as CommunityPost,
   });
   for (const e of list(record["bugReports"]))
     out.push({
       key: `bug|${str(e["at"])}|${str(e["text"])}`,
-      report: { kind: "Report bug", ...base(e), when: str(e["when"]) },
+      report: {
+        kind: "Report bug",
+        ...base(e),
+        when: str(e["when"]),
+        community: community(e["community"]),
+      },
     });
   for (const e of list(record["botFeedback"])) {
     const good = e["kind"] === "good";
@@ -86,6 +105,7 @@ function entries(record: Json): { key: string; report: NewReport }[] {
         ...base(e),
         when: whenInLabel(label),
         move: label,
+        community: community(e["community"]),
       },
     });
   }
@@ -108,6 +128,7 @@ function entries(record: Json): { key: string; report: NewReport }[] {
         move: null,
         frame: firstAppFrame(str(crash["stack"])),
         source: str(crash["source"]),
+        community: "none",
       },
     });
   return out;
@@ -139,6 +160,18 @@ const PRESETS: Record<number, string> = {
 /** A bot difficulty as the app names it (`difficultyName`): a preset, else "Level N". */
 export const levelName = (difficulty: number) =>
   PRESETS[difficulty] ?? `Level ${difficulty}`;
+
+/** #214: the bot seats' levels ("Hard", "Easy and Hard"), or `null` with no bot. */
+export function botLevels(record: unknown): string | null {
+  const seats = obj(obj(record)?.["seats"]) ?? {};
+  const levels = ["P1", "P2"].flatMap((id) => {
+    const seat = obj(seats[id]);
+    if (seat?.["kind"] !== "bot") return [];
+    const d = obj(seat["settings"])?.["difficulty"];
+    return [typeof d === "number" ? levelName(d) : "bot"];
+  });
+  return levels.length === 0 ? null : levels.join(" and ");
+}
 
 export function gameContext(record: unknown): GameContext {
   const r = obj(record) ?? {};
@@ -198,6 +231,29 @@ export function reportMessage(
   return cut(`${lines.join("\n")}\n${tail}`, MESSAGE_MAX);
 }
 
+/**
+ * #214: a community channel's post: the kind, the name unless posted without it, the turn and
+ * phase, the bot level for bot feedback, and the note. Never the record's file, decks, the bot
+ * move's label or any id.
+ */
+export function communityMessage(
+  report: NewReport,
+  bots: string | null,
+): string {
+  const head = [
+    `**${report.kind}**`,
+    report.community === "named" && report.reporter
+      ? `from ${cut(report.reporter, 80)}`
+      : null,
+    report.when,
+    report.kind !== "Report bug" && bots ? `vs ${bots} bot` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const text = report.text.trim() === "" ? "(no text)" : report.text.trim();
+  return cut(`${head}\n${quote(cut(text, NOTE_MAX))}`, MESSAGE_MAX);
+}
+
 /** The webhook body: mentions off, so no tester's note can ping anyone. */
 export const discordBody = (content: string) => ({
   content,
@@ -229,6 +285,10 @@ export interface ReportsOptions {
   webhook: string | undefined;
   /** #146: the Slack #gojisim-reports webhook (`SLACK_REPORTS_WEBHOOK`). Either works without the other. */
   slackWebhook?: string | undefined;
+  /** #214: the community Discord #bugs webhook (`DISCORD_BUGS_WEBHOOK`), for Report bug. */
+  bugsWebhook?: string | undefined;
+  /** #214: the community Discord #bot-feedback webhook (`DISCORD_BOT_FEEDBACK_WEBHOOK`). */
+  botFeedbackWebhook?: string | undefined;
   fetchImpl?: typeof fetch;
   log?: (line: string) => void;
 }
@@ -242,6 +302,8 @@ export interface ReportsOptions {
 export function reportPoster({
   webhook,
   slackWebhook,
+  bugsWebhook,
+  botFeedbackWebhook,
   fetchImpl = fetch,
   log = (line) => console.warn(line),
 }: ReportsOptions) {
@@ -261,6 +323,40 @@ export function reportPoster({
       warned: false,
     },
   ];
+  // #214: the community channels, each for its kinds, with the reporter's consent.
+  const community = [
+    {
+      name: "Discord #bugs",
+      variable: "DISCORD_BUGS_WEBHOOK",
+      url: bugsWebhook?.trim(),
+      kinds: ["Report bug"] as ReportKind[],
+      warned: false,
+    },
+    {
+      name: "Discord #bot-feedback",
+      variable: "DISCORD_BOT_FEEDBACK_WEBHOOK",
+      url: botFeedbackWebhook?.trim(),
+      kinds: ["Bad Bot!", "Good Bot!"] as ReportKind[],
+      warned: false,
+    },
+  ];
+  const post = async (name: string, url: string, body: unknown) => {
+    try {
+      const res = await fetchImpl(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(POST_TIMEOUT_MS),
+      });
+      if (res.ok) return true;
+      log(`GojiSim: a ${name} report post failed (HTTP ${res.status}).`);
+    } catch (err) {
+      log(
+        `GojiSim: a ${name} report post failed (${err instanceof Error ? err.name : "error"}).`,
+      );
+    }
+    return false;
+  };
   return async (
     record: unknown,
     earlier: unknown,
@@ -287,25 +383,32 @@ export function reportPoster({
         continue;
       }
       // One at a time, in order, within each webhook's rate limit.
-      for (const content of messages) {
-        try {
-          const res = await fetchImpl(target.url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(target.body(content)),
-            signal: AbortSignal.timeout(POST_TIMEOUT_MS),
-          });
-          if (res.ok) posted++;
-          else
-            log(
-              `GojiSim: a ${target.name} report post failed (HTTP ${res.status}).`,
-            );
-        } catch (err) {
+      for (const content of messages)
+        if (await post(target.name, target.url, target.body(content))) posted++;
+    }
+    const bots = botLevels(record);
+    for (const target of community) {
+      const mine = reports.filter(
+        (r) => target.kinds.includes(r.kind) && r.community !== "none",
+      );
+      if (mine.length === 0) continue;
+      if (!target.url) {
+        if (!target.warned)
           log(
-            `GojiSim: a ${target.name} report post failed (${err instanceof Error ? err.name : "error"}).`,
+            `GojiSim: ${target.variable} isn't set; reports aren't posted to ${target.name}.`,
           );
-        }
+        target.warned = true;
+        continue;
       }
+      for (const report of mine.slice(0, POSTS_PER_UPLOAD))
+        if (
+          await post(
+            target.name,
+            target.url,
+            discordBody(communityMessage(report, bots)),
+          )
+        )
+          posted++;
     }
     return posted;
   };

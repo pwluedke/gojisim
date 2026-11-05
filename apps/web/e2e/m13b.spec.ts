@@ -124,6 +124,8 @@ test("Report bug: a popup needs a name and a text, Esc cancels, and Send uploads
   await expect(submit).toBeDisabled();
   await page.getByTestId("report-name").fill("Dr. Serizawa");
   await expect(submit).toBeEnabled();
+  // #214: the report will also go to the community's #bugs, unless opted out.
+  await expect(page.getByTestId("report-community")).toContainText("#bugs");
   await page.keyboard.press("Escape");
   await expect(modal).toHaveCount(0);
   // Esc closed only the popup: the game is still on.
@@ -137,6 +139,7 @@ test("Report bug: a popup needs a name and a text, Esc cancels, and Send uploads
     text,
     reporter: "Dr. Serizawa",
     actionIndex: record["position"],
+    community: "named",
   });
   // Stored on the server as sent.
   await expect.poll(() => uploadsWith(text).length).toBe(1);
@@ -262,6 +265,14 @@ test("Bad Bot!: the popup names the bot's last move, needs a name and a text, Es
   const text = marker("it wasted its best card");
   await page.getByTestId("bad-bot").click();
   await fill(page, "Dr. Serizawa", text);
+  // #214: #bot-feedback, here without the name; "Don't post publicly" rules out the name choice.
+  await expect(page.getByTestId("report-community")).toContainText(
+    "#bot-feedback",
+  );
+  await page.getByTestId("report-not-public").check();
+  await expect(page.getByTestId("report-without-name")).toBeDisabled();
+  await page.getByTestId("report-not-public").uncheck();
+  await page.getByTestId("report-without-name").check();
   await page.getByTestId("report-submit").click();
   await expect(page.getByTestId("test-site-note")).toHaveText("Thanks, sent.");
   await expect.poll(() => uploadsWith(text).length).toBe(1);
@@ -271,6 +282,7 @@ test("Bad Bot!: the popup names the bot's last move, needs a name and a text, Es
     kind: "bad",
     text,
     reporter: "Dr. Serizawa",
+    community: "anonymous",
   });
   expect(String(feedback[0]?.["label"])).toMatch(/^Bot \(.*\(Turn \d+, /);
   // The game goes on; the finished game's upload carries the report again, into the same file.

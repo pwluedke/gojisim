@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAppServer } from "./index.js";
 import {
+  botLevels,
+  communityMessage,
   firstAppFrame,
   gameContext,
   MESSAGE_MAX,
@@ -343,6 +345,116 @@ describe("Slack #gojisim-reports (#146)", () => {
       "GojiSim: a Slack report post failed (HTTP 403).",
     ]);
     expect(logs.join("\n")).not.toMatch(/secret/);
+  });
+});
+
+describe("community posts: Report bug to #bugs, bot feedback to #bot-feedback (#214)", () => {
+  const BUGS = "https://discord.example/api/webhooks/bugs";
+  const BOTS = "https://discord.example/api/webhooks/bot-feedback";
+  const record = {
+    ...base,
+    playerName: "Kong Fan",
+    bugReports: [{ ...bug, community: "named" }],
+    botFeedback: [
+      { ...bad, community: "anonymous" },
+      { ...good, community: "none" },
+    ],
+    ideas: [idea],
+    crash,
+  };
+  const fakeFetch = () => {
+    const calls: { url: string; body: Record<string, unknown> }[] = [];
+    const fake = (async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({
+        url: String(url),
+        body: JSON.parse(String(init?.body)) as Record<string, unknown>,
+      });
+      return new Response("ok");
+    }) as typeof fetch;
+    return { calls, fake };
+  };
+
+  it("a community post has the kind, the name unless posted without it, turn and phase, the bot level for bot feedback and the note", () => {
+    const [b, bb] = newReports(record, null);
+    expect(communityMessage(b!, botLevels(record))).toBe(
+      "**Report bug** · from Kong Fan · Turn 6, Main phase\n> Godzilla left zone 8 @everyone",
+    );
+    expect(communityMessage(bb!, botLevels(record))).toBe(
+      "**Bad Bot!** · Turn 6, Main phase · vs Easy bot\n> big blunder",
+    );
+  });
+
+  it("nothing private reaches a community post: no file, decks, deck names, move label or ids", async () => {
+    const { calls, fake } = fakeFetch();
+    const post = reportPoster({
+      webhook: undefined,
+      bugsWebhook: BUGS,
+      botFeedbackWebhook: BOTS,
+      fetchImpl: fake,
+      log: () => {},
+    });
+    await post(record, null, "2026-10-30/" + GAME + ".json");
+    expect(calls.length).toBeGreaterThan(0);
+    for (const c of calls) {
+      const text = JSON.stringify(c.body);
+      for (const secret of [
+        GAME,
+        ".json",
+        "SECRET",
+        "ESD01 official",
+        "Kaiju Rush",
+        "Move Godzilla",
+        "--at",
+      ])
+        expect(text, secret).not.toContain(secret);
+      expect(c.body).toMatchObject({ allowed_mentions: { parse: [] } });
+    }
+  });
+
+  it("each kind goes to its channel; opted-out entries, the Mailbox and crashes stay off them", async () => {
+    const { calls, fake } = fakeFetch();
+    const post = reportPoster({
+      webhook: undefined,
+      bugsWebhook: BUGS,
+      botFeedbackWebhook: BOTS,
+      fetchImpl: fake,
+      log: () => {},
+    });
+    expect(await post(record, null, "f.json")).toBe(2);
+    expect(
+      calls.map((c) => [c.url, String(c.body["content"]).split("\n")[0]]),
+    ).toEqual([
+      [BUGS, "**Report bug** · from Kong Fan · Turn 6, Main phase"],
+      [BOTS, "**Bad Bot!** · Turn 6, Main phase · vs Easy bot"],
+    ]);
+    // An entry from an app before #214 (no `community`) was never offered: not posted.
+    calls.length = 0;
+    await post({ ...base, bugReports: [bug] }, null, "f.json");
+    expect(calls).toEqual([]);
+  });
+
+  it("unset community webhooks post nothing and log once each, never with an address", async () => {
+    const { calls, fake } = fakeFetch();
+    const logs: string[] = [];
+    const post = reportPoster({
+      webhook: undefined,
+      fetchImpl: fake,
+      log: (l) => logs.push(l),
+    });
+    await post(record, null, "f.json");
+    await post(
+      { ...record, bugReports: [{ ...bug, at: AT(9), community: "named" }] },
+      record,
+      "f.json",
+    );
+    expect(calls).toEqual([]);
+    expect(logs.filter((l) => l.includes("DISCORD_BUGS_WEBHOOK"))).toHaveLength(
+      1,
+    );
+    expect(
+      logs.filter((l) => l.includes("DISCORD_BOT_FEEDBACK_WEBHOOK")),
+    ).toHaveLength(1);
+    expect(logs.join("\n")).not.toContain("https://");
   });
 });
 

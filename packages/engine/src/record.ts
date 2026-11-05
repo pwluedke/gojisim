@@ -122,6 +122,13 @@ export interface CrashEntry {
  * One Bad Bot! or Good Bot! report (M13b): the bot action it marks and what the reporter said.
  * Entries from before Good Bot! have no `kind` and read as `"bad"`.
  */
+/**
+ * #214: what the reporter allowed in the community Discord channel (#bugs, #bot-feedback): their
+ * name and note, the note without the name, or nothing. Absent (an app from before #214) is
+ * `"none"`.
+ */
+export type CommunityPost = "named" | "anonymous" | "none";
+
 export interface FeedbackEntry {
   /** Bad Bot! (a bad move) or Good Bot! (a good play to keep); absent means `"bad"`. */
   kind?: "bad" | "good";
@@ -134,6 +141,8 @@ export interface FeedbackEntry {
   reporter: string;
   /** ISO time of the report. */
   at: string;
+  /** #214: the community #bot-feedback post the reporter allowed. */
+  community?: CommunityPost;
 }
 
 /** One Report bug note (M13b): where the game was and what went wrong. */
@@ -146,6 +155,8 @@ export interface BugReport {
   reporter: string;
   /** ISO time of the report. */
   at: string;
+  /** #214: the community #bugs post the reporter allowed. */
+  community?: CommunityPost;
   /** #105: the choice open when the report was made, as the player saw it. */
   choice?: { kind: string; heading: string; options: string[] };
   /**

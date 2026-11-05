@@ -44,6 +44,9 @@ export interface AppServerOptions {
   reportsWebhook?: string | undefined;
   /** #146: the Slack #gojisim-reports webhook (`SLACK_REPORTS_WEBHOOK`); unset posts nothing there. */
   slackReportsWebhook?: string | undefined;
+  /** #214: the community Discord #bugs and #bot-feedback webhooks; unset posts nothing there. */
+  bugsWebhook?: string | undefined;
+  botFeedbackWebhook?: string | undefined;
   /** The Discord posts' `fetch` (tests pass a fake webhook); defaults to `fetchImpl`. */
   reportsFetch?: typeof fetch;
   /**
@@ -111,6 +114,8 @@ export function createAppServer({
   uploadsPerMinute,
   reportsWebhook,
   slackReportsWebhook,
+  bugsWebhook,
+  botFeedbackWebhook,
   reportsFetch,
   discord,
   discordFetch,
@@ -144,6 +149,8 @@ export function createAppServer({
     onStored: reportPoster({
       webhook: reportsWebhook,
       slackWebhook: slackReportsWebhook,
+      bugsWebhook,
+      botFeedbackWebhook,
       fetchImpl: reportsFetch ?? fetchImpl,
     }),
     ...(now ? { now } : {}),
@@ -284,6 +291,8 @@ if (
     uploadsPerMinute: uploadsPerMinuteFrom(process.env),
     reportsWebhook: process.env.DISCORD_REPORTS_WEBHOOK,
     slackReportsWebhook: process.env.SLACK_REPORTS_WEBHOOK,
+    bugsWebhook: process.env.DISCORD_BUGS_WEBHOOK,
+    botFeedbackWebhook: process.env.DISCORD_BOT_FEEDBACK_WEBHOOK,
     commit: process.env.RAILWAY_GIT_COMMIT_SHA || null,
     config: siteConfig(process.env),
   }).listen(port, () => {
