@@ -1,0 +1,74 @@
+/* #166: card insights in the Deckbuilder's card detail (folded by default, like Stats). Colors
+   come from the panel around it. */
+.insights {
+  margin: var(--space-2) 0;
+  font-size: var(--font-size-sm);
+}
+
+/* Plain like Stats' toggle; the panel's own button rule would make it a full button. */
+.insights .toggle {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toggle:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.body {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.title {
+  margin: 0 0 2px;
+  font-size: inherit;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The decks wrap in a row of small buttons, each with its copies. */
+.decks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.decks .deck {
+  min-height: var(--btn-height-small);
+  padding: 0 8px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.count {
+  opacity: 0.8;
+}
+
+.more,
+.none {
+  margin: 0;
+  opacity: 0.8;
+}
