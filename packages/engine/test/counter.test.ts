@@ -92,6 +92,19 @@ describe("counter (5.15, 7.4)", () => {
     expect(activeRank(after, nonTurnPlayer(after))).toBe(2);
   });
 
+  it("7.4.3 counter power 0 against threat 0 counters (0 >= 0, a tie counts)", () => {
+    // A monster at 0 threat (no counter power, no rage) is countered with no battle cards.
+    const { state } = counterGame({ powers: [], opponentThreat: 0 });
+    const after = runCounter(state);
+    expect(check(after)).toEqual({
+      rule: "7.4.3",
+      total: 0,
+      threat: 0,
+      countered: true,
+    });
+    expect(logTypes(after)).toContain("counter");
+  });
+
   it("7.4.3 counter power 9,000 against threat 10,000 does not counter (case 36)", () => {
     const { state, opp } = counterGame({
       powers: [9000],
