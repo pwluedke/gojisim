@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { type Card, validateDeck } from "@gojisim/cards";
 import { findCardByNumber, parseDeckList } from "@gojisim/cards/deck-lists";
+import { getAllCards } from "@gojisim/cards/test-decks";
 import {
   advanceToDecision,
   applyAction,
@@ -78,6 +79,39 @@ describe("the deck recognizer (#191): archetypes from public cards", () => {
       card("EBP03-014"),
     );
     expect(later.name).toBe("Bungler");
+  });
+
+  it("#199: cards no catalog line names are neutral: twenty of them don't hide Tangler's tells", () => {
+    const catalogued = new Set(
+      archetypes().flatMap((a) => [...a.coreNumbers, ...a.commonNumbers]),
+    );
+    const unlisted = getAllCards()
+      .filter(
+        (c) =>
+          c.parentId === null &&
+          c.type !== "Token" &&
+          !catalogued.has(c.deckCardNumber) &&
+          c.colors.includes("Blue"),
+      )
+      .slice(0, 20);
+    expect(unlisted).toHaveLength(20);
+    const r = top(
+      [card("EBP04-081"), card("EBP01-062"), ...unlisted],
+      card("EBP03-014"),
+    );
+    expect(r.name).toBe("Tangler");
+  });
+
+  it("#199: archetypes that share cards are settled by the rank I (Gigan vs SpaceG, both with 23dorah and King Ghidorah monster cards)", () => {
+    const shared = [
+      card("EBP02-068"),
+      card("EBP02-045"),
+      card("EBP02-046"),
+      card("EBP02-048"),
+      card("EBP02-049"),
+    ];
+    expect(top(shared, card("EBP02-041")).name).toBe("Gigan");
+    expect(top(shared, card("EBP02-052")).name).toBe("SpaceG");
   });
 
   it("a deck that matches nothing keeps today's uniform guess", () => {
