@@ -6,13 +6,15 @@ import {
   getMaxCopies,
 } from "@gojisim/cards";
 import { getAllCards } from "@gojisim/cards/all-cards";
+import type { NamedDeck } from "@gojisim/cards/deck-lists";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { savedDeck } from "../game/deckStore";
+import { type SavedDeck, savedDeck } from "../game/deckStore";
 import { downloadText } from "../game/session";
 import { useMyDecks } from "../game/useMyDecks";
 import { ImportDeck } from "../play/ImportDeck";
 import { applyTheme, loadSettings } from "../play/settings";
 import { PlayerBadge } from "../PlayerBadge";
+import { CardInsights } from "./CardInsights";
 import { DeckStats } from "./DeckStats";
 import { DecksWindow } from "./DecksWindow";
 import { SyncOffer } from "./SyncOffer";
@@ -456,6 +458,10 @@ export function Deckbuilder() {
                 )
               }
               onClose={() => setSelected(null)}
+              saved={my.decks}
+              onLoadDeck={(deck, id) => {
+                openDraft(draftOf(deck), id);
+              }}
             />
           ) : (
             hovered && (
@@ -729,6 +735,8 @@ function DetailPanel({
   onRemove,
   onFill,
   onClose,
+  saved,
+  onLoadDeck,
 }: {
   entry: PoolEntry;
   print: Card;
@@ -740,6 +748,8 @@ function DetailPanel({
   onRemove: () => void;
   onFill: () => void;
   onClose: () => void;
+  saved: readonly SavedDeck[];
+  onLoadDeck: (deck: NamedDeck, id: string) => void;
 }) {
   const base = entry.card;
   const traits = getCardTraits(base);
@@ -810,6 +820,11 @@ function DetailPanel({
         <div className={styles.detailMeta}>Errata: the corrected wording.</div>
       )}
       <p className={styles.detailText}>{text.text}</p>
+      <CardInsights
+        deckCardNumber={entry.deckCardNumber}
+        saved={saved}
+        onLoad={onLoadDeck}
+      />
       <div className={styles.inDeck} data-testid="db-card-panel-copies">
         In deck: {copies} / {limit}
       </div>
