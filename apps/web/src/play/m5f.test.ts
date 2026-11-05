@@ -8,6 +8,7 @@ import {
   flightsTime,
   planFlights,
   planMoves,
+  roundTripCards,
   type Snapshot,
 } from "./animation";
 import { glowCycle } from "./glow";
@@ -187,6 +188,69 @@ describe("card movement flights (M5f)", () => {
     // Explode 320 ms, hang 300 ms, then reassemble over the 450 ms move.
     expect(flightsTime(flights, "normal")).toBe(320 + 300 + 450);
     expect(flightsTime(flights, "off")).toBe(0);
+  });
+
+  it("#201 11.5: two cards played from the discard pile into one zone, two destroyed back in the same step; every card flies", () => {
+    // Before: P1's battle card in zone 2 (c270, card 45) and the discard pile's top (c286, 48).
+    const inDiscard = ([id, c]: [string, CardSpot]): [string, CardSpot] => [
+      id,
+      { ...c, box: anchors["P1|discard"], pile: "discard" },
+    ];
+    const before = snap(
+      [spot("c270", 45, 100), inDiscard(spot("c286", 48, 0))],
+      { "P1|discard": 8 },
+    );
+    // Cards 43 (c289) and 45 (c290) are played from the discard pile into zone 2; 11.5 then
+    // destroys c270 and c289. c290 stays; c289 is back on the pile as its new top (c292).
+    const after = snap(
+      [spot("c290", 45, 100), inDiscard(spot("c292", 43, 0))],
+      { "P1|discard": 8 },
+    );
+    const log = [
+      [
+        "place",
+        { cardId: 43, instanceId: "c289", from: "discard", to: "zone 2" },
+      ],
+      [
+        "place",
+        { cardId: 45, instanceId: "c290", from: "discard", to: "zone 2" },
+      ],
+      ["destroy", { cardIds: [45], instanceId: "c270" }],
+      ["destroy", { cardIds: [43], instanceId: "c289" }],
+    ].map(([type, payload], seq) => ({
+      seq,
+      type: type as string,
+      player: "P1" as const,
+      payload: payload as Record<string, unknown>,
+    }));
+    expect(roundTripCards(log, 0)).toEqual([{ cardId: 43, owner: "P1" }]);
+    const { flights, unexplained } = planMoves(
+      before,
+      after,
+      destroyedCards(log, 0),
+      null,
+      [],
+      roundTripCards(log, 0),
+    );
+    expect(unexplained).toEqual({});
+    // Nothing appears or vanishes in place: those are for tokens only.
+    expect(flights.filter((f) => f.kind)).toEqual([]);
+    const of = (id: string) => flights.find((f) => f.seed === id);
+    // The destroyed card shatters into the discard pile.
+    expect(of("c270")).toMatchObject({
+      to: anchors["P1|discard"],
+      shatter: true,
+    });
+    // The played card comes out of the discard pile.
+    expect(of("c290")).toMatchObject({
+      from: anchors["P1|discard"],
+      to: box(100),
+    });
+    // The round trip's card shatters back onto the pile as its top.
+    expect(of("c292")).toMatchObject({
+      from: anchors["P1|discard"],
+      shatter: true,
+    });
   });
 
   it("a replaced destroy (ESD01-011 to the deck bottom) shatters and flies to the deck", () => {

@@ -11,6 +11,7 @@ import {
 import { describe, expect, it } from "vitest";
 import {
   bottomedCards,
+  roundTripCards,
   type Box,
   type CardSpot,
   destroyedCards,
@@ -134,11 +135,10 @@ const MOVES = new Set([
 ]);
 
 /**
- * Known gaps, by game and step, each with its issue. #201: Godzilla (1992)'s [enter] (ESD02-003)
- * plays two cards from the discard pile into zone 2, and 11.5 destroys two in the same step; the
- * planner can't chain the new instance ids, so three cards appear or vanish with no flight.
+ * Known gaps, by game and step, each with its issue. (#201's game 23 step 109, a card played from
+ * the discard pile and destroyed back to it in the same step, is fixed: `roundTripCards`.)
  */
-const KNOWN_GAPS = new Set(["game 23 step 109"]);
+const KNOWN_GAPS = new Set<string>();
 
 describe("animation audit (M5h #8)", () => {
   it("every card move in real games has a flight; only tokens appear or vanish in place", () => {
@@ -177,6 +177,7 @@ describe("animation audit (M5h #8)", () => {
           destroyedCards(view.log, prev.logLength),
           null,
           bottomedCards(view.log, prev.logLength),
+          roundTripCards(view.log, prev.logLength),
         );
         const known = KNOWN_GAPS.has(`game ${g} step ${step}`);
         if (Object.keys(unexplained).length > 0 && !known)
