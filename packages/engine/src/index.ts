@@ -65,6 +65,7 @@ export {
   replayAll,
   startGame,
   type UndoEntry,
+  type CommunityPost,
   type FeedbackEntry,
   type BugReport,
   type IdeaEntry,

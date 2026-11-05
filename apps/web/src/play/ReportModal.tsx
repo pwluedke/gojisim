@@ -1,3 +1,4 @@
+import type { CommunityPost } from "@gojisim/engine";
 import { useEffect, useRef, useState } from "react";
 import {
   type BotMoveRef,
@@ -21,8 +22,16 @@ export interface ReportModalProps {
    * bug: its button reads Download instead of Send.
    */
   sharingOff?: boolean;
-  /** The picked move (Bad Bot! and Good Bot!), or `null` for Report bug and the Mailbox. */
-  onSubmit: (name: string, text: string, move: BotMoveRef | null) => void;
+  /**
+   * The picked move (Bad Bot! and Good Bot!), or `null` for Report bug and the Mailbox; #214: the
+   * community post the reporter allowed (`"none"` for the Mailbox, and with nothing uploaded).
+   */
+  onSubmit: (
+    name: string,
+    text: string,
+    move: BotMoveRef | null,
+    community: CommunityPost,
+  ) => void;
   onCancel: () => void;
   /** Bad Bot! with sharing off: open Report bug instead. */
   onReportBug?: () => void;
@@ -69,6 +78,14 @@ export function ReportModal({
   const [name, setName] = useState(savedName);
   const [text, setText] = useState("");
   const [picked, setPicked] = useState(0);
+  // #214: Report bug posts to the community's #bugs, Bad Bot! and Good Bot! to #bot-feedback.
+  const channel =
+    kind === "bug" ? "#bugs" : kind === "idea" ? null : "#bot-feedback";
+  const [withoutName, setWithoutName] = useState(false);
+  const [notPublic, setNotPublic] = useState(false);
+  const posts = channel !== null && !sharingOff;
+  const community: CommunityPost =
+    !posts || notPublic ? "none" : withoutName ? "anonymous" : "named";
   const move = moves?.[picked] ?? null;
   const first = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const copy = COPY[kind];
@@ -98,7 +115,8 @@ export function ReportModal({
         aria-labelledby="report-title"
         onSubmit={(e) => {
           e.preventDefault();
-          if (ready && !blocked) onSubmit(name.trim(), text.trim(), move);
+          if (ready && !blocked)
+            onSubmit(name.trim(), text.trim(), move, community);
         }}
       >
         <div className={styles.modalHeading} id="report-title">
@@ -181,6 +199,36 @@ export function ReportModal({
                 {text.length} / {MAX_REPORT_LENGTH}
               </span>
             </label>
+            {posts && (
+              <div
+                className={styles.reportCommunity}
+                data-testid="report-community"
+              >
+                <p>
+                  Your name and note will also be posted in the GojiSim
+                  Discord's {channel} channel, so others can see it and join in.
+                </p>
+                <label>
+                  <input
+                    type="checkbox"
+                    data-testid="report-without-name"
+                    checked={withoutName}
+                    disabled={notPublic}
+                    onChange={(e) => setWithoutName(e.target.checked)}
+                  />{" "}
+                  Post without my name
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    data-testid="report-not-public"
+                    checked={notPublic}
+                    onChange={(e) => setNotPublic(e.target.checked)}
+                  />{" "}
+                  Don't post publicly
+                </label>
+              </div>
+            )}
           </>
         )}
         <div className={styles.modalButtons}>

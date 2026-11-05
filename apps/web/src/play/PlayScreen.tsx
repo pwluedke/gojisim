@@ -2,6 +2,7 @@ import {
   type Action,
   combosInGame,
   type ComboHit,
+  type CommunityPost,
   type GameState,
   getLegalActions,
   type MatchMode,
@@ -997,6 +998,7 @@ export function PlayScreen() {
     reporter: string,
     text: string,
     move: BotMoveRef | null,
+    community: CommunityPost,
   ) => {
     if (!move) return;
     remember(reporter);
@@ -1008,6 +1010,7 @@ export function PlayScreen() {
       text,
       reporter,
       at: new Date().toISOString(),
+      community,
     };
     const next = withFeedback(session, entry);
     game.setSession((s) => (s ? withFeedback(s, entry) : s));
@@ -1021,7 +1024,11 @@ export function PlayScreen() {
   };
   // Report bug sends the record with the note, like Bad Bot!; a failed send, or sharing off,
   // downloads the file for the tester to send to Paul instead.
-  const sendBugReport = async (reporter: string, text: string) => {
+  const sendBugReport = async (
+    reporter: string,
+    text: string,
+    community: CommunityPost,
+  ) => {
     remember(reporter);
     setReporting(null);
     // #105: the open choice as shown, the last answer (even one that threw) and the last error.
@@ -1036,6 +1043,7 @@ export function PlayScreen() {
       text,
       reporter,
       at: new Date().toISOString(),
+      community,
       ...(choice
         ? {
             choice: {
@@ -1630,12 +1638,13 @@ export function PlayScreen() {
             moves={botMoves}
             name={settings.reporterName}
             sharingOff={!settings.shareGames}
-            onSubmit={(reporter, text, move) =>
+            onSubmit={(reporter, text, move, community) =>
               void sendFeedback(
                 reporting === "goodBot" ? "good" : "bad",
                 reporter,
                 text,
                 move,
+                community,
               )
             }
             onCancel={() => setReporting(null)}
@@ -1656,7 +1665,9 @@ export function PlayScreen() {
             kind="bug"
             name={settings.reporterName}
             sharingOff={!settings.shareGames}
-            onSubmit={(reporter, text) => void sendBugReport(reporter, text)}
+            onSubmit={(reporter, text, _move, community) =>
+              void sendBugReport(reporter, text, community)
+            }
             onCancel={() => setReporting(null)}
           />
         )}

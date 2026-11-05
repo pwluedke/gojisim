@@ -2111,6 +2111,23 @@
   cursor: pointer;
 }
 
+/* #214: where a report is posted publicly, with the opt-outs. */
+.reportCommunity {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+.reportCommunity p {
+  margin: 0;
+}
+
+.reportCommunity label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .reportField {
   display: flex;
   flex-direction: column;

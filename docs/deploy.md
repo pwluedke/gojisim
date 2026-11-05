@@ -37,15 +37,17 @@ The repo's `.railway/railway.ts` (Railway's Infrastructure as Code) holds the se
 
 **Variables → New Variable** for each:
 
-| Variable                  | Value                            | Why                                                                                                                                                                                                                                                |
-| ------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GOJISIM_PASSWORD`        | the testers' password            | The one shared password. Testers type it once per browser.                                                                                                                                                                                         |
-| `SESSION_SECRET`          | 64 random characters (see below) | Signs the login cookie. The server won't start with a password and a missing or short secret.                                                                                                                                                      |
-| `CARDS_DIR`               | `/data/cards`                    | Where the server finds the card images (the volume, step 3).                                                                                                                                                                                       |
-| `RECORDS_DIR`             | `/data/records`                  | Where uploaded game records go (the volume, step 3). This is the default; set it to be sure. Capped at 1 GB: past it, uploads answer 507 and the log says "the records folder is full" (download and clear old days to make room).                 |
-| `GOJISIM_TEST_SITE`       | `on` or `off`                    | The Test Site panel (Bad Bot!, Report bug, Test settings) and game uploads. Default `on`.                                                                                                                                                          |
-| `DISCORD_REPORTS_WEBHOOK` | the staff #reports webhook URL   | Optional (#136): each new Report bug, Bad Bot!, Good Bot!, Mailbox note and crash is posted to the Discord staff #reports channel. Unset, nothing is posted and the log says so once. See [Tester reports in Discord](#tester-reports-in-discord). |
-| `SLACK_REPORTS_WEBHOOK`   | the #gojisim-reports webhook URL | Optional (#146): the same posts to Slack #gojisim-reports, where Monarch reads them. Either webhook works without the other. See [Tester reports in Slack](#tester-reports-in-slack).                                                              |
+| Variable                       | Value                                   | Why                                                                                                                                                                                                                                                |
+| ------------------------------ | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GOJISIM_PASSWORD`             | the testers' password                   | The one shared password. Testers type it once per browser.                                                                                                                                                                                         |
+| `SESSION_SECRET`               | 64 random characters (see below)        | Signs the login cookie. The server won't start with a password and a missing or short secret.                                                                                                                                                      |
+| `CARDS_DIR`                    | `/data/cards`                           | Where the server finds the card images (the volume, step 3).                                                                                                                                                                                       |
+| `RECORDS_DIR`                  | `/data/records`                         | Where uploaded game records go (the volume, step 3). This is the default; set it to be sure. Capped at 1 GB: past it, uploads answer 507 and the log says "the records folder is full" (download and clear old days to make room).                 |
+| `GOJISIM_TEST_SITE`            | `on` or `off`                           | The Test Site panel (Bad Bot!, Report bug, Test settings) and game uploads. Default `on`.                                                                                                                                                          |
+| `DISCORD_REPORTS_WEBHOOK`      | the staff #reports webhook URL          | Optional (#136): each new Report bug, Bad Bot!, Good Bot!, Mailbox note and crash is posted to the Discord staff #reports channel. Unset, nothing is posted and the log says so once. See [Tester reports in Discord](#tester-reports-in-discord). |
+| `SLACK_REPORTS_WEBHOOK`        | the #gojisim-reports webhook URL        | Optional (#146): the same posts to Slack #gojisim-reports, where Monarch reads them. Either webhook works without the other. See [Tester reports in Slack](#tester-reports-in-slack).                                                              |
+| `DISCORD_BUGS_WEBHOOK`         | the community #bugs webhook URL         | Optional (#214): each Report bug the reporter lets post publicly goes to the community #bugs channel. See [Community report posts](#community-report-posts).                                                                                       |
+| `DISCORD_BOT_FEEDBACK_WEBHOOK` | the community #bot-feedback webhook URL | Optional (#214): each Bad Bot! and Good Bot! the reporter lets post publicly goes to #bot-feedback.                                                                                                                                                |
 
 Make the secret on your Mac with `openssl rand -hex 32` and paste the output. Railway sets `PORT` itself; don't add it.
 
@@ -76,6 +78,15 @@ One time, Paul's step (#146). The same posts go to Slack #gojisim-reports, so Mo
 
 1. api.slack.com/apps → the existing GojiSim Slack app → **Incoming Webhooks → Add New Webhook to Workspace** → pick **#gojisim-reports** → **Allow**, then copy the URL.
 2. In Railway: the `gojisim` service → **Variables → New Variable**. Name: `SLACK_REPORTS_WEBHOOK`. Value: the URL. Click **Apply changes**.
+
+### Community report posts
+
+One time, Paul's step (#214). Besides staff #reports, a Report bug goes to the community's #bugs and a Bad Bot! or Good Bot! to #bot-feedback, so reporters get credit and others can join in. Until a variable is set, nothing is posted to that channel and the deploy log says so once.
+
+1. In Discord: #bugs (the repo's Actions secret already has its webhook) and #bot-feedback → **Edit Channel → Integrations → Webhooks → New Webhook**, then copy each URL.
+2. In Railway: the `gojisim` service → **Variables**: `DISCORD_BUGS_WEBHOOK` and `DISCORD_BOT_FEEDBACK_WEBHOOK`. Click **Apply changes**.
+
+A community post is public, so it carries only the kind, the reporter's name (unless they ticked "Post without my name"), the turn and phase, the bot level for bot feedback, and the note, with mentions off. Never the game file, decklists, deck names, the bot move's label or any id. "Don't post publicly" keeps a report off both channels; staff #reports gets every report either way. Reports from an app before #214, which never offered the choice, aren't posted publicly.
 
 The Slack message is the Discord one in Slack's format: `&`, `<` and `>` are escaped, so a tester's note can't mention anyone or make a link. The same rules apply as for Discord: once per entry, the smoke check's games skipped, at most five per upload, and the upload never waits. The whole flow is in [docs/feedback-flow.md](feedback-flow.md).
 
