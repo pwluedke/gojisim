@@ -146,4 +146,28 @@ describe("SD05-005 A Rigged Future", () => {
     expect(self(after, me).deck.at(-1)?.cardId).toBe(kept.cardId);
     expect(discardIds(after, me)).toContain(king.cardId);
   });
+
+  it("SD05-005 12.7.2: a destroyed Revenge card's ability triggers, after the play from the discard pile (official FAQ)", () => {
+    const { state, me } = setup();
+    for (const zone of [1, 2] as const) place(state, me, real(CRYSTALS), zone);
+    // Dorat (EBP02-058, rank 2): [revenge] return up to 1 [king-ghidorah] monster card.
+    place(state, me, real("EBP02-058"), 3);
+    const king = inDiscard(state, me, real(MECHA_KING));
+    inDiscard(state, me, real("EBP02-045")); // King Ghidorah (1964), a monster card
+    const after = settle(rigged(state, me));
+    const entries = after.log.slice(state.log.length);
+    const played = entries.findIndex(
+      (e) => e.type === "place" && e.payload["cardId"] === king.cardId,
+    );
+    const revenge = entries.findIndex(
+      (e) =>
+        e.type === "resolveAbility" &&
+        String(e.payload["abilityId"]).startsWith("EBP02-058#"),
+    );
+    expect(played).toBeGreaterThanOrEqual(0);
+    expect(revenge).toBeGreaterThan(played);
+    expect(self(after, me).hand.map((c) => c.cardId)).toContain(
+      real("EBP02-045").id,
+    );
+  });
 });

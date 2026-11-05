@@ -11,6 +11,7 @@ Number: SD05-005 (parallel SD05-005+, SP)
 Name: A Rigged Future (Japanese: 仕組まれた未来)
 Card type: Strategy   Rank: 6   Color: White (silver frame)   Rarity: SD (SP for SD05-005+)
 Invade: 2   Traits: none
+Source: Godzilla vs. King Ghidorah (1991) (the official Japanese card data)
 Text:
 Choose 3 battle cards in your zones in ascending order of rank and [destroy] them. If 3 cards are [destroy] this way, play 1 battle card with the highest rank from your discard pile.
 
@@ -22,3 +23,13 @@ Rulings (Paul, Nov 4, 2026):
   ordinary placement rules.
 - Highest rank: printed rank, so Mecha-King Ghidorah (EBP02-068, rank 23) is the highest; you
   choose among ties.
+
+Official Japanese text (godzilla-cardgame.com card data, retrieved 2026-11-04):
+あなたのエリアにいる交戦カードを、等級が低い順に３枚⁅破壊＠⁆する。３枚⁅破壊＠⁆したら、あなたの捨て札から最も等級が高い交戦カードを１枚出現させる。
+
+Official FAQ (6 entries), which agree with the rulings above:
+- Cards stacked under another don't count as battle cards in your zones.
+- A [revenge] triggered by this destroy does trigger; this card's play from the discard pile comes first.
+- With 1 or 2 battle cards, they are only destroyed.
+- Two rank 2s, a rank 3 and a rank 4: no choice; the two rank 2s and the rank 3 are destroyed.
+- Four cards tied for the lowest rank: you choose which.
