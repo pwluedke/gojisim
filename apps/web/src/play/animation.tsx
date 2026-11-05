@@ -236,8 +236,10 @@ export function planFlights(
   drop: { instanceId: string; box: Box } | null = null,
   /** Card ids put on the bottom of a deck in this step (`putOnDeck`, bottom). */
   bottoms: readonly number[] = [],
+  /** Cards played from a discard pile and destroyed back to it in this step (#201). */
+  roundTrips: readonly RoundTrip[] = [],
 ): Flight[] {
-  return planMoves(prev, next, destroyed, drop, bottoms).flights;
+  return planMoves(prev, next, destroyed, drop, bottoms, roundTrips).flights;
 }
 
 /**
@@ -250,6 +252,7 @@ export function planMoves(
   destroyed: readonly number[],
   drop: { instanceId: string; box: Box } | null = null,
   bottoms: readonly number[] = [],
+  roundTrips: readonly RoundTrip[] = [],
 ): { flights: Flight[]; unexplained: Record<string, number> } {
   const removed = [...prev.cards.values()].filter(
     (c) => !next.cards.has(c.instanceId),
@@ -306,6 +309,41 @@ export function planMoves(
     doomed.splice(i, 1);
     return true;
   };
+  // #201: a card played from a discard pile and destroyed back to it in the same step (11.5)
+  // never shows on the board between the two snapshots. Its leaving the pile explains one card
+  // of that pile's change; if it's the pile's new top, it flies from the pile below. In such a
+  // step every destroyed field card's arrival in that player's discard pile is counted up
+  // front, so the cards played out of the pile still find their source.
+  const tripTops = new Set<string>();
+  const toDiscard = new Set<string>();
+  if (roundTrips.length > 0) {
+    const tops = [...roundTrips];
+    for (const trip of roundTrips) {
+      // Each trip card left its owner's discard pile: one card of that pile's change.
+      const key = `${trip.owner}|discard`;
+      left.set(key, (left.get(key) ?? 0) + 1);
+    }
+    for (const card of added) {
+      const i = tops.findIndex(
+        (t) => t.cardId === card.cardId && t.owner === card.owner,
+      );
+      if (card.pile !== "discard" || i < 0) continue;
+      tops.splice(i, 1);
+      tripTops.add(card.instanceId);
+    }
+    // Only the round trip's own discard pile: another player's destroys plan as before.
+    const owners = new Set(roundTrips.map((t) => t.owner));
+    for (const card of removed) {
+      if (card.pile || card.token || card.cardId === null) continue;
+      if (!owners.has(card.owner)) continue;
+      if (!destroyed.includes(card.cardId) || bottoms.includes(card.cardId))
+        continue;
+      const key = `${card.owner}|discard`;
+      if (!next.anchors[key]) continue;
+      toDiscard.add(card.instanceId);
+      left.set(key, (left.get(key) ?? 0) - 1);
+    }
+  }
   const take = (owner: string, sign: 1 | -1, order: readonly string[]) => {
     for (const pile of order) {
       const key = `${owner}|${pile}`;
@@ -333,6 +371,23 @@ export function planMoves(
   const samePlace = (a: Box, b: Box) =>
     Math.abs(a.x - b.x) < 3 && Math.abs(a.y - b.y) < 3;
   for (const card of added) {
+    // #201: back from a round trip (played, then destroyed): from its discard pile.
+    if (tripTops.has(card.instanceId)) {
+      const from = prev.anchors[`${card.owner}|discard`];
+      if (from) {
+        arrived.add(card.instanceId);
+        flights.push({
+          id: card.instanceId,
+          cardId: card.cardId,
+          from,
+          to: card.box,
+          target: card.instanceId,
+          shatter: shatters(card.cardId),
+          seed: card.instanceId,
+        });
+        continue;
+      }
+    }
     const partners = removed.filter(
       (r) =>
         !used.has(r.instanceId) &&
@@ -551,7 +606,9 @@ export function planMoves(
       sentToBottom.splice(sentToBottom.indexOf(card.cardId as number), 1);
     const to = bottom
       ? next.anchors[`${card.owner}|deck`]
-      : take(card.owner, 1, ["discard", "deck", "monsterDeck", "hand"]);
+      : toDiscard.has(card.instanceId)
+        ? next.anchors[`${card.owner}|discard`]
+        : take(card.owner, 1, ["discard", "deck", "monsterDeck", "hand"]);
     if (!to) continue;
     flights.push({
       id: `${card.instanceId}>`,
@@ -649,6 +706,35 @@ export function planMoves(
 }
 
 /** Card ids put on the bottom of a deck in the log entries after `from` (`putOnDeck`). */
+/**
+ * #201: card ids played from a discard pile and destroyed in the same step (11.5): the same
+ * instance placed from "discard" and then destroyed, in the log entries after `from`.
+ */
+export interface RoundTrip {
+  cardId: number;
+  owner: string;
+}
+export function roundTripCards(
+  log: readonly LogEntry[],
+  from: number,
+): RoundTrip[] {
+  const entries = log.slice(from);
+  return entries.flatMap((e, i) =>
+    e.type === "place" &&
+    e.payload["from"] === "discard" &&
+    e.player &&
+    entries
+      .slice(i + 1)
+      .some(
+        (d) =>
+          d.type === "destroy" &&
+          d.payload["instanceId"] === e.payload["instanceId"],
+      )
+      ? [{ cardId: e.payload["cardId"] as number, owner: e.player }]
+      : [],
+  );
+}
+
 export function bottomedCards(
   log: readonly LogEntry[],
   from: number,
@@ -938,6 +1024,7 @@ export function useMoveAnimations({
       destroyedCards(model.view.log, before.logLength),
       dropped && performance.now() - dropped.at < 2000 ? dropped : null,
       bottomedCards(model.view.log, before.logLength),
+      roundTripCards(model.view.log, before.logLength),
     );
     if (planned.length === 0) return;
     for (const flight of planned) {
