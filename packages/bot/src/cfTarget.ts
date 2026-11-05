@@ -8,11 +8,14 @@ import type { Action, GameState, PlayerId } from "@gojisim/engine";
  *   (EBP01-073) is kept to play while another card can pay;
  * - `gam`: while a Constructed Future is in hand or deck, Mecha-King Ghidorah is never discarded
  *   for a cost when another card can pay, and GAM is discarded first;
+ * - `23one` (Nov 5): at most one Mecha-King Ghidorah goes to the discard pile for costs: with one
+ *   there already, another isn't discarded while a different card can pay (the rest hold the
+ *   column lock); otherwise as `auto`;
  * - `auto` (the default): the search decides.
  * A cost discard is an invade (it discards the hand card it names, 8.6.1.1) or a choice of cards
  * in the player's own hand. Card numbers are read directly, as this is a test setting.
  */
-export type CfTarget = "auto" | "23" | "gam";
+export type CfTarget = "auto" | "23" | "gam" | "23one";
 
 const MECHA_KING = "EBP02-068";
 const GAM = "EBP01-073";
@@ -66,6 +69,14 @@ export function cfTargetDead(
   const killOnly = (drop: string) => {
     for (const c of costs) if (c.number === drop) dead.add(c.action);
   };
+  if (policy === "23one") {
+    const inDiscard = me.discard.some(
+      (c) => state.cards[c.cardId]?.deckCardNumber === MECHA_KING,
+    );
+    if (inDiscard && has(MECHA_KING) && others(MECHA_KING))
+      killOnly(MECHA_KING);
+    return dead;
+  }
   if (policy === "23") {
     if (has(MECHA_KING)) killUnless(MECHA_KING);
     else if (has(GAM) && others(GAM)) killOnly(GAM);
