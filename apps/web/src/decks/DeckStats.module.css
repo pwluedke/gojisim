@@ -1,0 +1,213 @@
+/* #159: the deck panel's stats (folded to the counts line) and the sample opening hand. */
+.stats {
+  font-size: var(--font-size-sm);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--btn-height-small);
+}
+
+.toggle {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.body {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.type,
+.color {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.swatch,
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+}
+
+.dot {
+  border-radius: 50%;
+}
+
+/* The curve's type colors, from theme tokens (every theme has them). */
+.swatch[data-type="Monster"],
+.part[data-type="Monster"] {
+  background: var(--color-text);
+}
+
+.swatch[data-type="Battle"],
+.part[data-type="Battle"] {
+  background: var(--btn-primary-fill);
+}
+
+.swatch[data-type="Strategy"],
+.part[data-type="Strategy"] {
+  background: var(--color-muted);
+}
+
+.icon2 {
+  margin-left: auto;
+}
+
+.icon2[data-over="true"] {
+  color: var(--color-illegal);
+  font-weight: 700;
+}
+
+.curve {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
+  height: 72px;
+  align-items: end;
+}
+
+.bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+
+.barCount {
+  height: 14px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.barStack {
+  display: flex;
+  flex: 1;
+  flex-direction: column-reverse;
+  justify-content: flex-start;
+  width: 70%;
+  min-height: 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.part {
+  display: block;
+  width: 100%;
+}
+
+.barRank {
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+/* The sample hand, over the deck panel and the page. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-backdrop);
+  z-index: 50;
+}
+
+.window {
+  width: min(620px, 94vw);
+  padding: 16px 20px;
+  background: var(--color-panel);
+  border: var(--panel-border-width) solid var(--color-panel-border);
+  border-radius: 10px;
+  box-shadow: var(--panel-shadow);
+  color: var(--color-text);
+}
+
+.windowHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.windowHead h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 18px;
+}
+
+.seed {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.close {
+  box-sizing: border-box;
+  width: var(--btn-height);
+  min-height: var(--btn-height);
+  padding: 0;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.card {
+  position: relative;
+  aspect-ratio: 63 / 88;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-panel-alt);
+  cursor: pointer;
+}
+
+.card img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fallback {
+  position: absolute;
+  inset: 6px;
+  font-size: 11px;
+  color: var(--color-text);
+  text-align: left;
+}
+
+.windowFoot {
+  display: flex;
+  justify-content: flex-end;
+}

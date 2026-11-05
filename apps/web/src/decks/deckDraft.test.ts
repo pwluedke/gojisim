@@ -9,6 +9,7 @@ import {
   copyName,
   type DeckDraft,
   deckCounts,
+  deckStats,
   draftOf,
   draftText,
   emptyDraft,
@@ -18,6 +19,7 @@ import {
   removeCard,
   removeCopy,
   rows,
+  sampleHand,
   slotOrder,
   zoneFor,
 } from "./deckDraft";
@@ -276,5 +278,58 @@ describe("#165 deck panel helpers", () => {
     expect(counts.colors.reduce((n, [, k]) => n + k, 0)).toBeGreaterThanOrEqual(
       50,
     );
+  });
+});
+
+describe("#159 deck stats and a sample opening hand", () => {
+  it("counts types, colors, the rank curve by type and invasion icon 2 (6.1.1.2.2) from the main deck", () => {
+    const draft = starter();
+    const stats = deckStats(draft);
+    const main = draft.mainDeck;
+    expect(stats.types).toEqual({
+      Monster: main.filter((c) => c.type === "Monster").length,
+      Battle: main.filter((c) => c.type === "Battle").length,
+      Strategy: main.filter((c) => c.type === "Strategy").length,
+    });
+    expect(stats.colors).toEqual(deckCounts(draft).colors);
+    // The curve's bars add up to the main deck's ranked cards.
+    const curveTotal = stats.curve.reduce(
+      (n, r) => n + r.byType.Monster + r.byType.Battle + r.byType.Strategy,
+      0,
+    );
+    expect(curveTotal).toBe(main.filter((c) => c.rank !== null).length);
+    expect(stats.curve.map((r) => r.rank)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    const rank3 = stats.curve[2];
+    expect(rank3?.byType.Battle).toBe(
+      main.filter((c) => c.type === "Battle" && c.rank === 3).length,
+    );
+    expect(stats.icon2).toBe(main.filter((c) => c.invadeZones === 2).length);
+    expect(stats.icon2Limit).toBe(10);
+  });
+
+  it("a sample hand is the top 5 cards (6.3.1.5) of a seeded shuffle: the same seed, the same hand", () => {
+    const draft = starter();
+    const a = sampleHand(draft, "s1");
+    expect(a).toHaveLength(5);
+    expect(sampleHand(draft, "s1").map((c) => c.id)).toEqual(
+      a.map((c) => c.id),
+    );
+    // Every card comes from the main deck, and no copy is drawn more often than the deck holds.
+    for (const c of a)
+      expect(a.filter((x) => x.id === c.id).length).toBeLessThanOrEqual(
+        draft.mainDeck.filter((x) => x.id === c.id).length,
+      );
+    const hands = new Set(
+      ["s1", "s2", "s3", "s4"].map((seed) =>
+        sampleHand(draft, seed)
+          .map((c) => c.id)
+          .join(","),
+      ),
+    );
+    expect(hands.size).toBeGreaterThan(1);
+    // A deck with fewer than 5 cards draws them all.
+    expect(
+      sampleHand({ ...emptyDraft(), mainDeck: [card("ESD01-016")] }, "x"),
+    ).toHaveLength(1);
   });
 });

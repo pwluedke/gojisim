@@ -1,4 +1,6 @@
-import { type Card, validateDeck } from "@gojisim/cards";
+import { seededRng } from "@gojisim/bot";
+import { type Card, MAX_INVASION_2, validateDeck } from "@gojisim/cards";
+import { STARTING_HAND_SIZE } from "@gojisim/engine";
 import { formatDeckList, type NamedDeck } from "@gojisim/cards/deck-lists";
 
 /**
@@ -196,4 +198,59 @@ export function deckCounts(draft: DeckDraft): {
     strategy: draft.mainDeck.filter((c) => c.type === "Strategy").length,
     colors: [...colors].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])),
   };
+}
+
+/** #159: card types counted in the main deck's stats and rank curve. */
+export const STAT_TYPES = ["Monster", "Battle", "Strategy"] as const;
+export type StatType = (typeof STAT_TYPES)[number];
+
+/**
+ * #159: the main deck's stats. Card types, each color's count, the rank curve (ranks 1 to 8, by
+ * type), and the cards with invasion icon 2 against the deck's limit (6.1.1.2.2). The monster
+ * deck isn't counted: it always holds ranks I to IV.
+ */
+export function deckStats(draft: DeckDraft): {
+  types: Record<StatType, number>;
+  colors: [string, number][];
+  curve: { rank: number; byType: Record<StatType, number> }[];
+  icon2: number;
+  icon2Limit: number;
+} {
+  const types: Record<StatType, number> = {
+    Monster: 0,
+    Battle: 0,
+    Strategy: 0,
+  };
+  const curve = Array.from({ length: 8 }, (_, i) => ({
+    rank: i + 1,
+    byType: { Monster: 0, Battle: 0, Strategy: 0 } as Record<StatType, number>,
+  }));
+  for (const card of draft.mainDeck) {
+    const type = card.type as StatType;
+    if (!(type in types)) continue;
+    types[type]++;
+    const row = card.rank === null ? undefined : curve[card.rank - 1];
+    if (row) row.byType[type]++;
+  }
+  return {
+    types,
+    colors: deckCounts(draft).colors,
+    curve,
+    icon2: draft.mainDeck.filter((c) => c.invadeZones === 2).length,
+    icon2Limit: MAX_INVASION_2,
+  };
+}
+
+/**
+ * #159: a sample opening hand: the top 5 cards (6.3.1.5) of the main deck after a shuffle seeded
+ * by `seed`, so the same seed draws the same hand.
+ */
+export function sampleHand(draft: DeckDraft, seed: string): Card[] {
+  const deck = [...draft.mainDeck];
+  const rng = seededRng(seed);
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [deck[i], deck[j]] = [deck[j] as Card, deck[i] as Card];
+  }
+  return deck.slice(0, STARTING_HAND_SIZE);
 }

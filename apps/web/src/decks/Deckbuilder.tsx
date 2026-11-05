@@ -13,6 +13,7 @@ import { useMyDecks } from "../game/useMyDecks";
 import { ImportDeck } from "../play/ImportDeck";
 import { applyTheme, loadSettings } from "../play/settings";
 import { PlayerBadge } from "../PlayerBadge";
+import { DeckStats } from "./DeckStats";
 import { DecksWindow } from "./DecksWindow";
 import { SyncOffer } from "./SyncOffer";
 import {
@@ -35,7 +36,6 @@ import {
   copiesOf,
   copyName,
   type DeckDraft,
-  deckCounts,
   type DeckZone,
   draftOf,
   draftText,
@@ -912,7 +912,7 @@ function Slot({
 
 /**
  * #165: the deck panel. The name, the legality banner, the monster deck's 4 image slots, the main
- * deck as 50 slots or 8 rank columns, the counts, then Save, Save as copy and Export.
+ * deck as 50 slots or 8 rank columns, the stats (#159), then Save, Save as copy and Export.
  */
 function DeckPanel({
   draft,
@@ -938,7 +938,6 @@ function DeckPanel({
   onHover: (card: Card | null) => void;
 }) {
   const check = useMemo(() => legality(draft), [draft]);
-  const counts = useMemo(() => deckCounts(draft), [draft]);
   const [view, setView] = useState<MainView>(loadView);
   const broken = (card: Card) => check.marked.has(card.deckCardNumber);
   const dropZone = (which: DeckZone) => ({
@@ -1098,10 +1097,7 @@ function DeckPanel({
           </div>
         )}
       </section>
-      <div className={styles.counts} data-testid="db-counts">
-        Battle {counts.battle} · Strategy {counts.strategy}
-        {counts.colors.map(([color, n]) => ` · ${color} ${n}`).join("")}
-      </div>
+      <DeckStats draft={draft} onOpen={onOpen} onHover={onHover} />
       <div className={styles.panelActions}>
         <button
           type="button"
