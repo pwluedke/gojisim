@@ -614,7 +614,7 @@ FC01's 6 cards, all with pieces built in earlier sets. FC01 is 6 of 6, and **all
 - Engine fix: when one destroy takes several cards, every card's "cannot be destroyed by your opponent's effects" is read before any of them leaves, so a condition that counts cards (FC01-006) sees the board the destroy started from, not one with some of the cards already gone.
 - Tests that need a manual window use `MANUAL_TEST_CARD` (`@gojisim/cards/test-decks`), a made-up card no data file knows, since every real card with text now has data.
 
-### SD05-005 A Rigged Future (Japanese starter, Nov 2026)
+### SD05-005 Constructed Future (Japanese starter, Nov 2026)
 
 A Japanese SD05 card hand-entered ahead of the English ESD05 (Dec 4, 2026), with Paul's translation and rulings (Nov 4, 2026). 389 cards are in scope, all implemented.
 

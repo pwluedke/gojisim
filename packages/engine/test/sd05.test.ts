@@ -12,18 +12,18 @@ import {
   setup,
 } from "./fixtures/play";
 
-// SD05-005 A Rigged Future (Japanese SD05, Nov 6, 2026; Paul's translation and rulings, Nov 4).
+// SD05-005 Constructed Future (Japanese SD05, Nov 6, 2026; the community's name; Paul's translation and rulings, Nov 4).
 
 const CRYSTALS = "EBP02-T03";
 const MECHA_KING = "EBP02-068"; // Mecha-King Ghidorah, battle card, rank 23
 const MINILLA = "EBP01-024"; // Minilla (2004), rank 6: [enter] the opponent loses 1 rage
 
-const rigged = (state: GameState, me: PlayerState) =>
+const constructed = (state: GameState, me: PlayerState) =>
   activate(state, me, inHand(state, me, real("SD05-005")));
 const discardIds = (state: GameState, me: PlayerState) =>
   self(state, me).discard.map((c) => c.cardId);
 
-describe("SD05-005 A Rigged Future", () => {
+describe("SD05-005 Constructed Future", () => {
   it("SD05-005 5.12, 9.1.4.2, 5.11.1: 3 Crystals (rank 1) are destroyed and banished, then Mecha-King Ghidorah (rank 23) is played from the discard pile", () => {
     const { state, me } = setup();
     for (const zone of [1, 2, 3] as const)
@@ -31,7 +31,7 @@ describe("SD05-005 A Rigged Future", () => {
     const kept = place(state, me, battleCard({ rank: 7 }), 4);
     const king = inDiscard(state, me, real(MECHA_KING));
     inDiscard(state, me, battleCard({ rank: 9 }));
-    const after = settle(rigged(state, me));
+    const after = settle(constructed(state, me));
     expect(
       newLogTypes(after, state).filter((t) => t === "tokenGone"),
     ).toHaveLength(3);
@@ -50,7 +50,7 @@ describe("SD05-005 A Rigged Future", () => {
     const a = place(state, me, battleCard({ rank: 2 }), 1);
     const b = place(state, me, battleCard({ rank: 5 }), 2);
     const king = inDiscard(state, me, real(MECHA_KING));
-    const after = settle(rigged(state, me));
+    const after = settle(constructed(state, me));
     expect(zoneCardIds(self(after, me))).toEqual({});
     expect(discardIds(after, me)).toEqual(
       expect.arrayContaining([a.cardId, b.cardId, king.cardId]),
@@ -64,7 +64,7 @@ describe("SD05-005 A Rigged Future", () => {
       place(state, me, battleCard({ rank: 2 }), zone),
     );
     const high = place(state, me, battleCard({ rank: 5 }), 5);
-    let current = rigged(state, me);
+    let current = constructed(state, me);
     const offered = new Set<string>();
     // Pick the rank 2 cards in zones 3 and 4, leaving zone 2's.
     while (current.pendingChoice && current.pendingChoice.kind !== "zone") {
@@ -98,7 +98,7 @@ describe("SD05-005 A Rigged Future", () => {
     const { state, me } = setup();
     for (const zone of [1, 2, 3] as const)
       place(state, me, real(CRYSTALS), zone);
-    const after = settle(rigged(state, me));
+    const after = settle(constructed(state, me));
     expect(zoneCardIds(self(after, me))).toEqual({});
     // The tokens are gone and the strategy card stays in its strategy zone: nothing to play.
     expect(self(after, me).discard).toEqual([]);
@@ -110,7 +110,7 @@ describe("SD05-005 A Rigged Future", () => {
       place(state, me, real(CRYSTALS), zone);
     inDiscard(state, me, real(MINILLA));
     opp.rage = 3;
-    const after = settle(rigged(state, me));
+    const after = settle(constructed(state, me));
     expect(Object.values(zoneCardIds(self(after, me))).flat()).toEqual([
       real(MINILLA).id,
     ]);
@@ -124,7 +124,7 @@ describe("SD05-005 A Rigged Future", () => {
     const first = inDiscard(state, me, battleCard({ rank: 8 }));
     const second = inDiscard(state, me, battleCard({ rank: 8 }));
     inDiscard(state, me, battleCard({ rank: 3 }));
-    let current = rigged(state, me);
+    let current = constructed(state, me);
     while (current.pendingChoice?.options.some((o) => o.id === "yes"))
       current = choose(current, (id) => id === "yes");
     expect(current.pendingChoice?.options.map((o) => o.id).sort()).toEqual(
@@ -141,7 +141,7 @@ describe("SD05-005 A Rigged Future", () => {
     // ESD01-011 (rank 5) goes to the bottom of the deck instead of being destroyed.
     const kept = place(state, me, real("ESD01-011"), 3);
     const king = inDiscard(state, me, real(MECHA_KING));
-    const after = settle(rigged(state, me));
+    const after = settle(constructed(state, me));
     expect(zoneCardIds(self(after, me))).toEqual({});
     expect(self(after, me).deck.at(-1)?.cardId).toBe(kept.cardId);
     expect(discardIds(after, me)).toContain(king.cardId);
@@ -154,7 +154,7 @@ describe("SD05-005 A Rigged Future", () => {
     place(state, me, real("EBP02-058"), 3);
     const king = inDiscard(state, me, real(MECHA_KING));
     inDiscard(state, me, real("EBP02-045")); // King Ghidorah (1964), a monster card
-    const after = settle(rigged(state, me));
+    const after = settle(constructed(state, me));
     const entries = after.log.slice(state.log.length);
     const played = entries.findIndex(
       (e) => e.type === "place" && e.payload["cardId"] === king.cardId,

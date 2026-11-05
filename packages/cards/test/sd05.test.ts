@@ -5,8 +5,8 @@ import { allCardsLegalFrom, getNotYetLegal } from "../src/releaseDates";
 import { type Deck, validateDeck } from "../src/validate";
 
 /**
- * SD05-005 A Rigged Future (仕組まれた未来), hand-entered from the Japanese starter SD05 (Nov 6,
- * 2026) with Paul's translation; tournament-legal from Dec 4, 2026, when ESD05 is out.
+ * SD05-005 Constructed Future (仕組まれた未来), hand-entered from the Japanese starter SD05 (Nov 6,
+ * 2026) with Paul's translation, under the community's name; tournament-legal from Dec 4, 2026, when ESD05 is out.
  */
 
 const card = (n: string) => {
@@ -17,11 +17,11 @@ const card = (n: string) => {
 const failuresOf = (deck: Deck, asOf: string, rule: string) =>
   validateDeck(deck, new Date(asOf)).failures.filter((f) => f.rule === rule);
 
-describe("SD05-005 A Rigged Future", () => {
+describe("SD05-005 Constructed Future", () => {
   it("is a White rank 6 strategy card with invasion icon 2, with its SP print SD05-005+", () => {
     const base = card("SD05-005");
     expect(base).toMatchObject({
-      name: "A Rigged Future",
+      name: "Constructed Future",
       type: "Strategy",
       colors: ["White"],
       rank: 6,
@@ -48,7 +48,9 @@ describe("SD05-005 A Rigged Future", () => {
 
   it("6.1.1.4.1: both prints resolve in a deck list and count as one card", () => {
     const { decks, errors } = parseDeckList(
-      ["[deck] Rigged", "[main deck]", "3 SD05-005", "2 SD05-005+"].join("\n"),
+      ["[deck] Constructed", "[main deck]", "3 SD05-005", "2 SD05-005+"].join(
+        "\n",
+      ),
     );
     expect(errors).toEqual([]);
     const deck = decks[0] as Deck;
@@ -84,7 +86,7 @@ describe("SD05-005 A Rigged Future", () => {
     const before = failuresOf(deck, "2026-12-03", "Release date");
     expect(before).toHaveLength(1);
     expect(before[0]?.reasons).toEqual([
-      "A Rigged Future (SD05-005): tournament-legal from Dec 4, 2026",
+      "Constructed Future (SD05-005): tournament-legal from Dec 4, 2026",
     ]);
     expect(failuresOf(deck, "2026-12-04", "Release date")).toEqual([]);
     expect(getNotYetLegal("SD05-005", new Date("2026-11-04"))).toBe(

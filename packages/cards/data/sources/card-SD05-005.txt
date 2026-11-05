@@ -1,14 +1,15 @@
-Card: SD05-005 A Rigged Future (仕組まれた未来), entered by hand (godzillatcgdb.com doesn't list it; the English card isn't out).
+Card: SD05-005 Constructed Future (仕組まれた未来), entered by hand (godzillatcgdb.com doesn't list it; the English card isn't out).
 Source images (official Japanese site, retrieved 2026-11-04):
   Normal: https://godzilla-cardgame.com/wordpress/wp-content/images/cardlist/SD05/SD05-005.png
   SP (SD05-005+): https://godzilla-cardgame.com/wordpress/wp-content/images/cardlist/SD05/SD05-005_2.png
 Released: Japanese starter deck SD05 "King Ghidorah・Green", Nov 6, 2026. English edition ESD05: Dec 4, 2026.
-Name and text: Paul's English translation (Nov 4, 2026, relayed by Monarch in #gojisim-dev). The
+Name: Constructed Future, the name the community uses (Paul, Nov 4, 2026). Text: Paul's English
+translation (Nov 4, 2026, relayed by Monarch in #gojisim-dev). The
 official English name is TBA: rename it when ESD05 is out.
 Tournament-legal from: 2026-12-04 (data/release-dates.json).
 
 Number: SD05-005 (parallel SD05-005+, SP)
-Name: A Rigged Future (Japanese: 仕組まれた未来)
+Name: Constructed Future (Japanese: 仕組まれた未来)
 Card type: Strategy   Rank: 6   Color: White (silver frame)   Rarity: SD (SP for SD05-005+)
 Invade: 2   Traits: none
 Source: Godzilla vs. King Ghidorah (1991) (the official Japanese card data)
