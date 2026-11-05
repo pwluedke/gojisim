@@ -2316,6 +2316,13 @@ function perform(state: GameState, effect: Effect): Outcome {
           const rank = getRank(state, c.card);
           return rank !== null && rank <= (opponent.monsterPosition ?? 0);
         });
+      // Paul (Nov 5, 2026): an effect play respects a card's own "can't be played" rule (8.2,
+      // M2): GAM (EBP01-073) with 7 or fewer monster cards in the discard pile isn't played.
+      // With the highest card unplayable, the next highest that can be played is (Paul): an
+      // unplayable card isn't a candidate, as for the rank limit above.
+      candidates = candidates.filter(
+        (c) => !playRuleOf(state, c.card, me.id).forbidden,
+      );
       // "The highest rank": printed rank, ties to the player (SD05-005, Paul's ruling).
       if (effect.order === "highestRank" && candidates.length > 0) {
         const printed = (c: Located) => cardOf(state, c.card).rank ?? -Infinity;

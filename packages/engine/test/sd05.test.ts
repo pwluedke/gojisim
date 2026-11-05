@@ -170,4 +170,34 @@ describe("SD05-005 Constructed Future", () => {
       real("EBP02-045").id,
     );
   });
+
+  describe("8.2, M2 (Paul, Nov 5, 2026): the play respects GAM's own condition", () => {
+    const GAM = "EBP01-073"; // can't be played with 7 or fewer monster cards in your discard pile
+    const run = (monsters: number) => {
+      const { state, me } = setup();
+      for (const zone of [1, 2, 3] as const)
+        place(state, me, real(CRYSTALS), zone);
+      const gam = inDiscard(state, me, real(GAM));
+      const four = inDiscard(state, me, battleCard({ rank: 4 }));
+      for (let i = 0; i < monsters; i++)
+        inDiscard(state, me, real("EBP02-045"));
+      const after = settle(constructed(state, me));
+      return {
+        zones: Object.values(zoneCardIds(self(after, me))).flat(),
+        gam: gam.cardId,
+        four: four.cardId,
+      };
+    };
+
+    it("with 8 monster cards in the discard pile, GAM (rank 7) is played", () => {
+      const r = run(8);
+      expect(r.zones).toEqual([r.gam]);
+    });
+
+    it("with 7, GAM can't be played; the next highest playable one is (Paul, Nov 5)", () => {
+      const r = run(7);
+      expect(r.zones).not.toContain(r.gam);
+      expect(r.zones).toEqual([r.four]);
+    });
+  });
 });
