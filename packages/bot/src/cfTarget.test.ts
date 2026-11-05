@@ -138,4 +138,37 @@ describe("cfTarget (tools-only Hard rules setting)", () => {
       cards[1]!.instanceId,
     ]);
   });
+
+  it("23one: a second Mecha-King Ghidorah isn't discarded for a cost while one is in the discard pile; the first may be", () => {
+    const first = holding([MK, OTHER], true);
+    expect(
+      cfTargetDead(first.state, invades(first.cards), "P1", "23one").size,
+    ).toBe(0);
+    const second = holding([MK, OTHER], true);
+    const mk = getAllCards().find(
+      (c) => c.cardNumber === MK && c.parentId === null,
+    ) as Card;
+    second.state.cards = { ...second.state.cards, [mk.id]: mk };
+    second.state.players[0]!.discard.push({
+      instanceId: "c-discarded-mk",
+      cardId: mk.id,
+      owner: "P1",
+    });
+    expect(
+      numbers(
+        second.state,
+        cfTargetDead(second.state, invades(second.cards), "P1", "23one"),
+      ),
+    ).toEqual([MK]);
+    // Mecha-King Ghidorah the only way to pay: kept.
+    const only = holding([MK], true);
+    only.state.players[0]!.discard.push({
+      instanceId: "c-discarded-mk-2",
+      cardId: mk.id,
+      owner: "P1",
+    });
+    expect(
+      cfTargetDead(only.state, invades(only.cards), "P1", "23one").size,
+    ).toBe(0);
+  });
 });
