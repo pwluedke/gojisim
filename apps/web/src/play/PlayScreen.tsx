@@ -63,6 +63,7 @@ import { TestSitePanel } from "./TestSitePanel";
 import styles from "./Board.module.css";
 import { BoardView, STEP_NAMES } from "./BoardView";
 import { ThemeHeader } from "../ThemeHeader";
+import { LeaveGameModal } from "./LeaveGameModal";
 import { BattleLog } from "./BattleLog";
 import { FightCard, type FightSide } from "./FightCard";
 import { buildLog } from "./logLines";
@@ -235,6 +236,8 @@ export function PlayScreen() {
   // (where the Report bug file went, or how a Bad Bot! send went), and whether the bot's hand
   // shows now (the record keeps its flag even after it is turned off).
   const [config, setConfig] = useState<SiteConfig | null>(null);
+  // #211: the header's home link asked to leave a game in progress.
+  const [leaving, setLeaving] = useState(false);
   const [reporting, setReporting] = useState<
     "badBot" | "goodBot" | "bug" | "idea" | null
   >(null);
@@ -305,7 +308,8 @@ export function PlayScreen() {
       searches.length > 0 ||
       callouts.length > 0 ||
       pending !== null ||
-      reporting !== null,
+      reporting !== null ||
+      leaving,
     // While cards move or a combo modal is open, no bot decision starts; nor while a Bad Bot! or
     // Report bug popup is open (M13b).
     pause:
@@ -313,7 +317,8 @@ export function PlayScreen() {
       animating ||
       callouts.length > 0 ||
       pending !== null ||
-      reporting !== null,
+      reporting !== null ||
+      leaving,
   });
   // #151: "Load" in My games opens /play?load=<game id>: the player's own record, from the server.
   const { importRecord } = game;
@@ -656,7 +661,7 @@ export function PlayScreen() {
       }
       // Input waits while cards move (M5f) and while the combo modal is open (its own keys), and
       // while a Bad Bot! or Report bug popup is open (M13b: its own Esc).
-      if (animating || callouts.length > 0 || reporting) return;
+      if (animating || callouts.length > 0 || reporting || leaving) return;
       if (e.ctrlKey || e.metaKey || e.altKey || !session) return;
       // The game-over modal takes Space and Esc (M5h #17).
       if (gameOver && !gameOver.closed) {
@@ -1408,7 +1413,14 @@ export function PlayScreen() {
           session.record.showOpponentHand ? "true" : undefined
         }
       >
-        <ThemeHeader />
+        {/* #211: home asks first while the game is on; once it's over it just goes. */}
+        <ThemeHeader
+          onHome={() => {
+            if (result !== null) return true;
+            setLeaving(true);
+            return false;
+          }}
+        />
         <BoardView
           model={model}
           prompt={prompt}
@@ -1669,6 +1681,12 @@ export function PlayScreen() {
               void sendBugReport(reporter, text, community)
             }
             onCancel={() => setReporting(null)}
+          />
+        )}
+        {leaving && (
+          <LeaveGameModal
+            onStay={() => setLeaving(false)}
+            onLeave={() => window.location.assign("/")}
           />
         )}
         {rulesAt && (
