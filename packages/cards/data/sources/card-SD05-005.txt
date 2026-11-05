@@ -1,0 +1,36 @@
+Card: SD05-005 Constructed Future (仕組まれた未来), entered by hand (godzillatcgdb.com doesn't list it; the English card isn't out).
+Source images (official Japanese site, retrieved 2026-11-04):
+  Normal: https://godzilla-cardgame.com/wordpress/wp-content/images/cardlist/SD05/SD05-005.png
+  SP (SD05-005+): https://godzilla-cardgame.com/wordpress/wp-content/images/cardlist/SD05/SD05-005_2.png
+Released: Japanese starter deck SD05 "King Ghidorah・Green", Nov 6, 2026. English edition ESD05: Dec 4, 2026.
+Name: Constructed Future, the name the community uses (Paul, Nov 4, 2026). Text: Paul's English
+translation (Nov 4, 2026, relayed by Monarch in #gojisim-dev). The
+official English name is TBA: rename it when ESD05 is out.
+Tournament-legal from: 2026-12-04 (data/release-dates.json).
+
+Number: SD05-005 (parallel SD05-005+, SP)
+Name: Constructed Future (Japanese: 仕組まれた未来)
+Card type: Strategy   Rank: 6   Color: White (silver frame)   Rarity: SD (SP for SD05-005+)
+Invade: 2   Traits: none
+Source: Godzilla vs. King Ghidorah (1991) (the official Japanese card data)
+Text:
+Choose 3 battle cards in your zones in ascending order of rank and [destroy] them. If 3 cards are [destroy] this way, play 1 battle card with the highest rank from your discard pile.
+
+Rulings (Paul, Nov 4, 2026):
+- The 3 are your lowest-ranked battle cards; you choose among ties. With fewer than 3 battle
+  cards, destroy what's there and play nothing.
+- Crystals tokens (rank 1) count, and are banished, not discarded (9.1.4.2).
+- "Play" (出現) is a normal play from the discard pile: [enter] triggers, you pick the zone,
+  ordinary placement rules.
+- Highest rank: printed rank, so Mecha-King Ghidorah (EBP02-068, rank 23) is the highest; you
+  choose among ties.
+
+Official Japanese text (godzilla-cardgame.com card data, retrieved 2026-11-04):
+あなたのエリアにいる交戦カードを、等級が低い順に３枚⁅破壊＠⁆する。３枚⁅破壊＠⁆したら、あなたの捨て札から最も等級が高い交戦カードを１枚出現させる。
+
+Official FAQ (6 entries), which agree with the rulings above:
+- Cards stacked under another don't count as battle cards in your zones.
+- A [revenge] triggered by this destroy does trigger; this card's play from the discard pile comes first.
+- With 1 or 2 battle cards, they are only destroyed.
+- Two rank 2s, a rank 3 and a rank 4: no choice; the two rank 2s and the rank 3 are destroyed.
+- Four cards tied for the lowest rank: you choose which.

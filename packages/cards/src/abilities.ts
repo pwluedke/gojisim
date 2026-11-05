@@ -8,6 +8,7 @@ import fc01 from "../data/abilities/FC01.json";
 import esd01 from "../data/abilities/ESD01.json";
 import esd02 from "../data/abilities/ESD02.json";
 import pr from "../data/abilities/PR.json";
+import sd05 from "../data/abilities/SD05.json";
 
 /**
  * Card ability data (docs/abilities/format.md, the M4 contract). Every type of the format is in
@@ -153,6 +154,11 @@ const AmountReadSchema = z.union([
   z.strictObject({ monsterRankOf: PlayerRefSchema, times: z.number().int() }),
   /** Zones a player's monster advanced by invasion this turn (C2, 5.13.3). */
   z.strictObject({ invasionAdvancesThisTurn: PlayerRefSchema }),
+  /**
+   * How many cards an effect bound with `as`, by last known information (10.10): a token it
+   * destroyed still counts once banished ("if 3 cards are destroyed this way", SD05-005).
+   */
+  z.strictObject({ boundCount: z.string().min(1) }),
   /** C4: distinct colors among the cards a selector picks, White included (EBP03-067). */
   z.strictObject({ colorsAmong: SelectorSchema, times: z.number().int() }),
   /** Per zone of a player's with no card, not counting the zone their monster occupies. */
@@ -425,6 +431,7 @@ export type Effect =
       preferEmpty?: boolean | undefined;
       ignoreRankLimit?: boolean | undefined;
       onePerZone?: boolean | undefined;
+      order?: "highestRank" | undefined;
       as?: string | undefined;
     }
   | {
@@ -698,6 +705,11 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
       ignoreRankLimit: z.boolean().optional(),
       /** At most one card per zone: stop when no unused zone is left (EBP02-028). */
       onePerZone: z.boolean().optional(),
+      /**
+       * Only the cards of the highest printed rank among those the filter picks; the player picks
+       * among ties (SD05-005, Paul's ruling).
+       */
+      order: z.literal("highestRank").optional(),
       ...asField,
     }),
     z.strictObject({
@@ -1272,6 +1284,7 @@ export const ABILITY_FILES: Record<string, unknown> = {
   ESD02: esd02,
   FC01: fc01,
   PR: pr,
+  SD05: sd05,
 };
 
 let loaded: Map<string, CardAbilities> | null = null;

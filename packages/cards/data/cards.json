@@ -25135,5 +25135,53 @@
     "unknownFields": {
       "Language": "jp"
     }
+  },
+  {
+    "id": 900008,
+    "cardNumber": "SD05-005",
+    "baseCardNumber": "SD05-005",
+    "isParallel": false,
+    "parentId": null,
+    "deckCardNumber": "SD05-005",
+    "name": "Constructed Future",
+    "set": "SD05",
+    "colors": [
+      "White"
+    ],
+    "type": "Strategy",
+    "traits": [],
+    "rank": 6,
+    "counterOrThreat": null,
+    "invadeZones": 2,
+    "rarity": "SD",
+    "movie": "Godzilla vs. King Ghidorah (1991)",
+    "text": "Choose 3 battle cards in your zones in ascending order of rank and [destroy] them. If 3 cards are [destroy] this way, play 1 battle card with the highest rank from your discard pile.",
+    "notes": "Japanese name 仕組まれた未来; official English name TBA (ESD05, Dec 4, 2026). The name is the one the community uses (Paul, Nov 4, 2026); the text is Paul's translation of the Japanese card (SD05, Nov 6, 2026). Tournament-legal from Dec 4, 2026.",
+    "imageUrl": "https://godzilla-cardgame.com/wordpress/wp-content/images/cardlist/SD05/SD05-005.png",
+    "unknownFields": {}
+  },
+  {
+    "id": 900009,
+    "cardNumber": "SD05-005+",
+    "baseCardNumber": "SD05-005",
+    "isParallel": true,
+    "parentId": 900008,
+    "deckCardNumber": "SD05-005",
+    "name": "Constructed Future",
+    "set": "SD05",
+    "colors": [
+      "White"
+    ],
+    "type": "Strategy",
+    "traits": [],
+    "rank": 6,
+    "counterOrThreat": null,
+    "invadeZones": 2,
+    "rarity": "SP",
+    "movie": "Godzilla vs. King Ghidorah (1991)",
+    "text": "Choose 3 battle cards in your zones in ascending order of rank and [destroy] them. If 3 cards are [destroy] this way, play 1 battle card with the highest rank from your discard pile.",
+    "notes": "Japanese name 仕組まれた未来; official English name TBA (ESD05, Dec 4, 2026). The name is the one the community uses (Paul, Nov 4, 2026); the text is Paul's translation of the Japanese card (SD05, Nov 6, 2026). Tournament-legal from Dec 4, 2026.",
+    "imageUrl": "https://godzilla-cardgame.com/wordpress/wp-content/images/cardlist/SD05/SD05-005_2.png",
+    "unknownFields": {}
   }
 ]

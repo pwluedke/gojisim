@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { validateDeck } from "@gojisim/cards";
+import { allCardsLegalFrom, validateDeck } from "@gojisim/cards";
 import { type NamedDeck, parseDeckList } from "@gojisim/cards/deck-lists";
 import { buildTestDeck } from "@gojisim/cards/test-decks";
 
@@ -15,7 +15,7 @@ export const STOP_FILE = "bot-reports/STOP";
 /**
  * A deck from `<file>#<deck name>` (the full `[deck]` name, folder included), or
  * `random:<SET>`: a random test deck of that set with a seed fixed for the run. A deck from a file
- * must parse cleanly and pass `validateDeck`.
+ * must parse cleanly and pass `validateDeck` on the day every card is tournament-legal.
  */
 /**
  * The `--decks meta` list (Paul's guard rule): every deck in a local deck-list file (the top-tier
@@ -48,7 +48,9 @@ export function loadDeck(spec: string, base: string, seed: string): NamedDeck {
     throw new Error(
       `"${name}" doesn't parse: ${errors.map((e) => `line ${e.line}: ${e.reason}`).join("; ")}`,
     );
-  const check = validateDeck(deck, new Date());
+  // Checked for the tournament: on the day every card in the data is legal (SD05-005 from Dec 4,
+  // 2026), so decks with a card out in Japan only can play now.
+  const check = validateDeck(deck, allCardsLegalFrom(new Date()));
   if (!check.legal)
     throw new Error(
       `"${name}" isn't legal: ${check.failures.flatMap((f) => f.reasons.map((r) => `${f.rule} ${r}`)).join("; ")}`,

@@ -61,7 +61,7 @@ describe("ability data (format.md)", () => {
     expect(getAllCards().some((c) => c.id === MANUAL_TEST_CARD.id)).toBe(false);
   });
 
-  it("M12g: every card with text is implemented (the 388 in scope plus the 5 tokens)", () => {
+  it("M12g: every card with text is implemented (the 389 in scope, SD05-005 included, plus the 5 tokens)", () => {
     const withText = new Set(
       getAllCards()
         .filter((c) => c.type !== "Rage")
@@ -71,7 +71,7 @@ describe("ability data (format.md)", () => {
       (n) => getCardAbilities(n).status !== "implemented",
     );
     expect(notDone).toEqual([]);
-    expect(withText.size).toBe(393);
+    expect(withText.size).toBe(394);
     expect(
       getAllCards().every((c) => c.type !== "Rage" || c.text.trim() === ""),
     ).toBe(true);

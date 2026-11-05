@@ -1,5 +1,6 @@
 import { getCardAbilities } from "./abilities";
 import { getCardTraits } from "./errata";
+import { getNotYetLegal } from "./releaseDates";
 import { getChoiceRestrictions, getRestriction } from "./restrictions";
 import type { Card } from "./schema";
 
@@ -230,6 +231,17 @@ export function validateDeck(deck: Deck, asOf: Date): DeckValidation {
         ],
       );
     }
+  }
+
+  // Cards not yet tournament-legal on `asOf` (out in Japan or announced only).
+  for (const number of copies.keys()) {
+    const legalFrom = getNotYetLegal(number, asOf);
+    if (legalFrom)
+      fail(
+        "Release date",
+        `${number} isn't tournament-legal until ${legalFrom}`,
+        [`${nameOf(number)}: tournament-legal from ${longDate(legalFrom)}`],
+      );
   }
 
   // Choice restrictions: cards from at most one card number of each group.

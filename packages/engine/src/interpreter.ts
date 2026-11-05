@@ -593,6 +593,10 @@ export function amountOf(ctx: Context, amount: Amount): number {
     return (
       Math.floor(countOf(ctx, amount.per) / (amount.every ?? 1)) * amount.times
     );
+  if ("boundCount" in amount) {
+    const binding = ctx.bindings[amount.boundCount];
+    return binding?.kind === "cards" ? binding.cards.length : 0;
+  }
   if ("colorsAmong" in amount) {
     // C4: distinct colors among the cards, White included (EBP03-067).
     const colors = new Set(
@@ -2122,11 +2126,6 @@ function perform(state: GameState, effect: Effect): Outcome {
         chooserOf(chooser),
       );
       if (targets === "paused") return "paused";
-      bindCards(
-        ctx,
-        effect.as,
-        targets.map((t) => t.card),
-      );
       // A card with 2 or more replacements: its master picks the one that applies (10.9.2.1).
       const picks = new Map<string, string>();
       let pickIndex = 0;
@@ -2150,7 +2149,13 @@ function perform(state: GameState, effect: Effect): Outcome {
         }
         picks.set(target.card.instanceId, picked);
       }
-      destroyCards(state, targets, "5.12", abilityId, picks, ctx.master);
+      // Bound: the cards actually destroyed, not those a replacement or protection kept (5.12,
+      // "destroyed this way").
+      bindCards(
+        ctx,
+        effect.as,
+        destroyCards(state, targets, "5.12", abilityId, picks, ctx.master),
+      );
       return "done";
     }
     case "discard": {
@@ -2311,6 +2316,12 @@ function perform(state: GameState, effect: Effect): Outcome {
           const rank = getRank(state, c.card);
           return rank !== null && rank <= (opponent.monsterPosition ?? 0);
         });
+      // "The highest rank": printed rank, ties to the player (SD05-005, Paul's ruling).
+      if (effect.order === "highestRank" && candidates.length > 0) {
+        const printed = (c: Located) => cardOf(state, c.card).rank ?? -Infinity;
+        const best = Math.max(...candidates.map(printed));
+        candidates = candidates.filter((c) => printed(c) === best);
+      }
       // A bound card can still be in a hidden area: a searched card is played from the deck
       // (ESD01-014), so its pick is private like the search (4.8.2, decision 140).
       const cards = pickCards(ctx, candidates, effect.count, me.id, "5.11.1", {

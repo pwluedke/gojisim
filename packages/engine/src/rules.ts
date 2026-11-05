@@ -110,7 +110,8 @@ function destroyStack(
 
 /**
  * Destroys cards an effect chose (5.12), all at once: a card on top of a zone stack takes its whole
- * stack with it (3.2.4); a strategy card leaves its strategy zone.
+ * stack with it (3.2.4); a strategy card leaves its strategy zone. Returns the chosen cards that
+ * were destroyed: not those a replacement (10.9) or protection (1.3.3) kept.
  */
 export function destroyCards(
   state: GameState,
@@ -119,7 +120,7 @@ export function destroyCards(
   cause: string,
   picks: Map<string, string> = new Map(),
   by: PlayerId | null = null,
-): void {
+): CardInstance[] {
   // Replacements first, while each card is still where it would be destroyed (10.9, Q1).
   const replaced = new Set<string>();
   for (const { card } of targets) {
@@ -191,6 +192,9 @@ export function destroyCards(
       known: known.get(card.instanceId) as LastKnown,
     });
   }
+  const destroyed = removed.map(({ cards, zone }) =>
+    zone === null ? (cards[0] as CardInstance) : (topOf(cards) as CardInstance),
+  );
   for (const { player, zone, cards, known: info } of removed) {
     // Moved first, so Revenge (12.7.2) finds the card in the discard pile.
     const discarded = cards.map((card) => toDiscard(state, card));
@@ -205,6 +209,7 @@ export function destroyCards(
       ...(by === null ? {} : { by }),
     });
   }
+  return destroyed;
 }
 
 /**

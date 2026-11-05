@@ -613,3 +613,17 @@ FC01's 6 cards, all with pieces built in earlier sets. FC01 is 6 of 6, and **all
 - FC01-006 is `cannotBeDestroyedByOpponent` on your battle cards during your opponent's turn while they have 2 or fewer battle cards in their zones.
 - Engine fix: when one destroy takes several cards, every card's "cannot be destroyed by your opponent's effects" is read before any of them leaves, so a condition that counts cards (FC01-006) sees the board the destroy started from, not one with some of the cards already gone.
 - Tests that need a manual window use `MANUAL_TEST_CARD` (`@gojisim/cards/test-decks`), a made-up card no data file knows, since every real card with text now has data.
+
+### SD05-005 Constructed Future (Japanese starter, Nov 2026)
+
+A Japanese SD05 card hand-entered ahead of the English ESD05 (Dec 4, 2026), with Paul's translation and rulings (Nov 4, 2026). 389 cards are in scope, all implemented.
+
+```ts
+type Amount = ... | { boundCount: string };                // cards bound with `as`, by last known information (10.10)
+{ effect: "play"; ...; order?: "highestRank" }              // highest printed rank among the filter's cards; ties to the player
+```
+
+- "Choose 3 battle cards in your zones in ascending order of rank and [destroy] them" is a destroy with `count: { exact: 3 }` and `order: "lowestRank"`: the picks go up one rank at a time, ties to the player (X, Q33). With fewer than 3 battle cards, all of them are destroyed.
+- A destroy's `as` now binds the cards actually destroyed, not those a replacement (10.9) or protection (1.3.3) kept. No card bound a destroy before this one.
+- "If 3 cards are [destroy] this way" is `if` with `{ amount: { boundCount: "destroyed" }, op: ">=", value: 3 }`. `boundCount` counts a destroyed Crystals token too, though it is banished (9.1.4.2) and no longer anywhere a selector looks.
+- "Play 1 battle card with the highest rank from your discard pile" is a normal effect play (5.11.1): its [enter] triggers and the player picks the zone. Highest is the printed rank (Mecha-King Ghidorah, rank 23), ties to the player.
