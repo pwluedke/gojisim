@@ -27,10 +27,13 @@ import {
  * - Stages: pay invade costs with the first King Ghidorah (2024) and the first Mecha-King
  *   Ghidorah (so it has a target), keep later copies; hold Gravity Beam unless King Ghidorah
  *   (2024)'s +20,000 makes this turn's counter or the opponent has 6+ cards in hand.
+ * - Rank 8 ties (Nov 6): with a Gravity Beam in hand, Constructed Future's play takes King
+ *   Ghidorah (2024) over another rank 8 card; without one, the search picks.
  */
 const KG_2024 = "EBP01-074";
 const MECHA_KING = "EBP02-068";
 const GRAVITY_BEAM = "EPR-019";
+const CONSTRUCTED_FUTURE_ABILITY = "SD05-005#constructed-future";
 /** Choices a simulated Gravity Beam may answer before it gives up. */
 const MAX_CHOICES = 30;
 
@@ -187,7 +190,32 @@ export function cfPlanDead(
 ): Set<Action> {
   const dead = new Set<Action>();
   const me = state.players.find((p) => p.id === player);
-  if (!me || state.turnPlayer !== player || state.pendingChoice) return dead;
+  if (!me) return dead;
+  // Rank 8 ties: Constructed Future's play pick (every option a card in the discard pile) takes
+  // King Ghidorah (2024) when a Gravity Beam is in hand.
+  const choice = state.pendingChoice;
+  if (
+    choice &&
+    choice.player === player &&
+    state.resolution?.standby.abilityId === CONSTRUCTED_FUTURE_ABILITY &&
+    me.hand.some((c) => numberOf(state, c.cardId) === GRAVITY_BEAM)
+  ) {
+    const fromDiscard = choice.options.every(
+      (o) => o.id === "done" || me.discard.some((c) => c.instanceId === o.id),
+    );
+    const kg = new Set(
+      choice.options
+        .filter(
+          (o) => o.cardId !== null && numberOf(state, o.cardId) === KG_2024,
+        )
+        .map((o) => o.id),
+    );
+    if (fromDiscard && kg.size > 0)
+      for (const a of actions)
+        if (a.type === "choose" && !kg.has(a.optionId)) dead.add(a);
+    return dead;
+  }
+  if (state.turnPlayer !== player || choice) return dead;
   const handNumber = (instanceId: string) => {
     const card = me.hand.find((c) => c.instanceId === instanceId);
     return card ? numberOf(state, card.cardId) : undefined;

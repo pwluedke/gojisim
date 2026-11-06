@@ -227,4 +227,67 @@ describe("Paul's Constructed Future plan (cfPlan=1)", () => {
       cfPlanDead(disrupt.state, disrupt.legal, "P1").has(gb(disrupt)!),
     ).toBe(false);
   });
+
+  describe("rank 8 ties (Nov 6): King Ghidorah (2024) when a Gravity Beam is in hand", () => {
+    /** Constructed Future played on 3 Crystals, up to the pick between two rank 8 cards. */
+    const tiePick = (hand: string[]) => {
+      const { state } = position({
+        monster: "EBP02-057",
+        crystals: 3,
+        hand: ["SD05-005", ...hand],
+        discard: ["EBP01-074", "EBP03-066"],
+      });
+      const p1 = state.players[0] as PlayerState;
+      const cf = p1.hand.find(
+        (c) => state.cards[c.cardId]?.deckCardNumber === "SD05-005",
+      )!;
+      const activate = getLegalActions(state, "P1").find(
+        (a) =>
+          a.type === "activateStrategy" && a.cardInstanceId === cf.instanceId,
+      )!;
+      let s = advanceToDecision(applyAction(state, activate));
+      // Answer the destroy picks (the 3 Crystals) until the play pick between the rank 8 cards.
+      for (let k = 0; k < 10 && s.pendingChoice; k++) {
+        const fromDiscard = s.pendingChoice.options.every(
+          (o) =>
+            o.id === "done" ||
+            (s.players[0] as PlayerState).discard.some(
+              (c) => c.instanceId === o.id,
+            ),
+        );
+        if (fromDiscard) break;
+        const c = s.pendingChoice;
+        s = advanceToDecision(
+          applyAction(s, {
+            type: "choose",
+            player: c.player,
+            choiceId: c.id,
+            optionId: c.options[0]!.id,
+          }),
+        );
+      }
+      expect(s.pendingChoice).not.toBeNull();
+      const legal = getLegalActions(s, "P1");
+      const name = (a: Action) => {
+        const o = s.pendingChoice!.options.find(
+          (x) => a.type === "choose" && x.id === a.optionId,
+        );
+        return o?.cardId != null
+          ? s.cards[o.cardId]?.deckCardNumber
+          : undefined;
+      };
+      return { s, legal, name };
+    };
+
+    it("with a Gravity Beam in hand, the other rank 8 card is dead", () => {
+      const { s, legal, name } = tiePick(["EPR-019"]);
+      const dead = cfPlanDead(s, legal, "P1");
+      expect([...dead].map(name)).toEqual(["EBP03-066"]);
+    });
+
+    it("without a Gravity Beam, the search picks (nothing dead)", () => {
+      const { s, legal } = tiePick([]);
+      expect(cfPlanDead(s, legal, "P1").size).toBe(0);
+    });
+  });
 });
