@@ -14,7 +14,8 @@ import {
   tacticalPick,
   weightedPick,
 } from "./baseline";
-import { constructedFutureDead, constructedFuturePassDead } from "./cfPlay";
+import { constructedFutureDead } from "./cfPlay";
+import { cfPlanDead } from "./cfPlan";
 import { type CfTarget, cfTargetDead } from "./cfTarget";
 import { determinize } from "./determinize";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
@@ -59,6 +60,8 @@ export interface IsmctsSettings {
   rules: number;
   /** #191: 1 draws the opponent's hidden cards toward a recognized archetype (`recognizer.ts`). */
   recognizer: number;
+  /** Paul's Constructed Future plan (`cfPlan.ts`), with `rules` on: 1 (the default) on, 0 off. */
+  cfPlan: number;
   /** Paul's Constructed Future test, with `rules` on: which card cost discards aim at (`cfTarget.ts`). */
   cfTarget: CfTarget;
 }
@@ -78,6 +81,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   rules: 0,
   recognizer: 0,
   cfTarget: "auto",
+  cfPlan: 1,
 };
 
 /** Reads ISMCTS settings from a bot's settings, with defaults. */
@@ -270,11 +274,13 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         const verdict = applyRules(first, input.legalActions, me, (a) =>
           actionKey(first, a),
         );
-        // Paul's Constructed Future rules (all cfTarget modes): play it only for a target, and
-        // with a target there, don't end the main phase without playing it.
+        // Paul's Constructed Future rules (all cfTarget modes): play it only for a target; with
+        // cfPlan on (the default), his plan (cfPlan.ts).
         for (const a of [
           ...constructedFutureDead(first, input.legalActions, me),
-          ...constructedFuturePassDead(first, input.legalActions, me),
+          ...(settings.cfPlan > 0
+            ? cfPlanDead(first, input.legalActions, me)
+            : []),
         ]) {
           verdict.dead.add(actionKey(first, a));
           verdict.killed.add(a);

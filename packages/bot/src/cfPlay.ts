@@ -17,9 +17,9 @@ import {
  * from the engine's resolution, choices answered with their first option, not guessed from the
  * discard pile.
  */
-const CONSTRUCTED_FUTURE = "SD05-005";
+export const CONSTRUCTED_FUTURE = "SD05-005";
 const ABILITY = "SD05-005#constructed-future";
-const WORTH_IT = new Set([
+export const WORTH_IT = new Set([
   "EBP02-068",
   "EBP01-074",
   "EBP01-075",
@@ -34,6 +34,17 @@ export function constructedFuturePlays(
   state: GameState,
   action: Action,
 ): string | null | undefined {
+  return simulateConstructedFuture(state, action).plays;
+}
+
+/**
+ * Constructed Future's resolution in the engine, choices answered with their first option: what
+ * it plays (`null` for none, `undefined` if the simulation can't follow it) and the state then.
+ */
+export function simulateConstructedFuture(
+  state: GameState,
+  action: Action,
+): { plays: string | null | undefined; after: GameState | null } {
   try {
     let s = advanceToDecision(applyAction(state, action));
     for (let i = 0; i < MAX_CHOICES; i++) {
@@ -46,14 +57,16 @@ export function constructedFuturePlays(
             e.payload["played"],
         );
       if (placed)
-        return (
-          s.cards[placed.payload["cardId"] as number]?.deckCardNumber ?? null
-        );
+        return {
+          plays:
+            s.cards[placed.payload["cardId"] as number]?.deckCardNumber ?? null,
+          after: s,
+        };
       const choice = s.pendingChoice;
-      if (!choice) return null;
+      if (!choice) return { plays: null, after: s };
       const option =
         choice.options.find((o) => o.id !== "done") ?? choice.options[0];
-      if (!option) return undefined;
+      if (!option) return { plays: undefined, after: null };
       s = advanceToDecision(
         applyAction(s, {
           type: "choose",
@@ -66,7 +79,7 @@ export function constructedFuturePlays(
   } catch {
     // A resolution the simulation can't follow: keep the play.
   }
-  return undefined;
+  return { plays: undefined, after: null };
 }
 
 /** The Constructed Future activations Paul's rule rules out. */
