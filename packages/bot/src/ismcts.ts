@@ -14,7 +14,7 @@ import {
   tacticalPick,
   weightedPick,
 } from "./baseline";
-import { constructedFutureDead } from "./cfPlay";
+import { constructedFutureDead, constructedFuturePassDead } from "./cfPlay";
 import { type CfTarget, cfTargetDead } from "./cfTarget";
 import { determinize } from "./determinize";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
@@ -270,8 +270,12 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         const verdict = applyRules(first, input.legalActions, me, (a) =>
           actionKey(first, a),
         );
-        // Paul's Constructed Future rule (all cfTarget modes): play it only for MKG, KG (2024) or GAM.
-        for (const a of constructedFutureDead(first, input.legalActions, me)) {
+        // Paul's Constructed Future rules (all cfTarget modes): play it only for a target, and
+        // with a target there, don't end the main phase without playing it.
+        for (const a of [
+          ...constructedFutureDead(first, input.legalActions, me),
+          ...constructedFuturePassDead(first, input.legalActions, me),
+        ]) {
           verdict.dead.add(actionKey(first, a));
           verdict.killed.add(a);
         }
