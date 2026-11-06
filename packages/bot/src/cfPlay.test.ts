@@ -14,7 +14,11 @@ import {
   startGame,
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
-import { constructedFutureDead, constructedFuturePlays } from "./cfPlay";
+import {
+  constructedFutureDead,
+  constructedFuturePassDead,
+  constructedFuturePlays,
+} from "./cfPlay";
 
 // Paul's Constructed Future play rule (Nov 5, 2026): play it only for Mecha-King Ghidorah or a
 // GAM whose own condition is met (8.2, M2: 8+ monster cards in the discard pile).
@@ -37,8 +41,8 @@ function add(state: GameState, number: string, owner: string): CardInstance {
   return { instanceId: `c${nextId++}`, cardId: card.id, owner };
 }
 
-/** P1's main phase, monster in zone 6, 3 Crystals in its zones, Constructed Future in hand. */
-function base(discard: string[]) {
+/** P1's main phase, monster in zone 6, `crystals` Crystals in its zones, Constructed Future in hand. */
+function base(discard: string[], crystals = 3, hand: string[] = []) {
   let state = advanceToDecision(
     startGame({
       seed: "cf-play",
@@ -70,10 +74,10 @@ function base(discard: string[]) {
   p1.monsterPosition = 6;
   p2.monsterPosition = 8;
   p1.discard = discard.map((n) => add(state, n, "P1"));
-  for (const zone of [1, 2, 3] as const)
+  for (const zone of ([1, 2, 3] as const).slice(0, crystals))
     p1.zones[zone] = [[add(state, "EBP02-T03", "P1")]];
   const cf = add(state, "SD05-005", "P1");
-  p1.hand = [cf];
+  p1.hand = [cf, ...hand.map((n) => add(state, n, "P1"))];
   const activate = getLegalActions(state, "P1").find(
     (a) => a.type === "activateStrategy" && a.cardInstanceId === cf.instanceId,
   ) as Action;
@@ -123,5 +127,63 @@ describe("Constructed Future: Paul's play rule (Hard rules layer)", () => {
     expect(constructedFuturePlays(all.state, all.activate)).toBe("EBP02-068");
     const two = base(["EBP01-073", "EBP01-074", ...monsters(8)]);
     expect(constructedFuturePlays(two.state, two.activate)).toBe("EBP01-074");
+  });
+
+  it("KotM (EBP01-075) and M.O.G.U.E.R.A. (EBP02-067) are targets too", () => {
+    for (const n of ["EBP01-075", "EBP02-067"]) {
+      const { state, activate } = base([n]);
+      expect(constructedFuturePlays(state, activate)).toBe(n);
+      expect(constructedFutureDead(state, [activate], "P1").size).toBe(0);
+    }
+  });
+
+  it("with a target to bring back, ending the main phase (pass) is dead", () => {
+    const { state } = base(["EBP02-068"]);
+    const legal = getLegalActions(state, "P1");
+    const pass = legal.find((a) => a.type === "pass") as Action;
+    expect(pass).toBeDefined();
+    expect(constructedFuturePassDead(state, legal, "P1")).toEqual(
+      new Set([pass]),
+    );
+  });
+
+  it("with no target, pass stays (today's behavior)", () => {
+    const { state } = base(["EBP02-061"]);
+    expect(
+      constructedFuturePassDead(state, getLegalActions(state, "P1"), "P1").size,
+    ).toBe(0);
+  });
+
+  it("2 battle cards: pass stays until a third battle card from hand makes 3 destroyable, then it's dead", () => {
+    const { state } = base(["EBP02-068"], 2, ["ESD01-008"]);
+    expect(
+      constructedFuturePassDead(state, getLegalActions(state, "P1"), "P1").size,
+    ).toBe(0);
+    const p1 = state.players[0] as PlayerState;
+    const third = p1.hand.find(
+      (c) => state.cards[c.cardId]?.deckCardNumber === "ESD01-008",
+    )!;
+    const play = getLegalActions(state, "P1").find(
+      // Into the empty zone 3, so there are 3 battle card stacks.
+      (a) =>
+        a.type === "playBattle" &&
+        a.cardInstanceId === third.instanceId &&
+        a.zone === 3,
+    ) as Action;
+    expect(play).toBeDefined();
+    let after = advanceToDecision(applyAction(state, play));
+    while (after.pendingChoice) {
+      const c = after.pendingChoice;
+      after = advanceToDecision(
+        applyAction(after, {
+          type: "choose",
+          player: c.player,
+          choiceId: c.id,
+          optionId: c.options[0]!.id,
+        }),
+      );
+    }
+    const legal = getLegalActions(after, "P1");
+    expect(constructedFuturePassDead(after, legal, "P1").size).toBe(1);
   });
 });

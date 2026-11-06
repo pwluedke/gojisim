@@ -198,4 +198,39 @@ describe("Paul's combo: Constructed Future → King Ghidorah (2024) → Gravity 
     }
     expect(picks).toEqual(Array(5).fill("EPR-019"));
   }, 120000);
+
+  it("Paul's rule: with a target to bring back, Hard activates Constructed Future before its turn ends", () => {
+    const { setups } = position();
+    const lists = decklistsOf(setups);
+    for (let seed = 0; seed < 3; seed++) {
+      let state = position().state;
+      const turn = state.turn;
+      let played = false;
+      for (
+        let step = 0;
+        step < 30 && state.turn === turn && state.result === null;
+        step++
+      ) {
+        const decider = state.pendingChoice?.player ?? state.turnPlayer;
+        if (decider !== "P1") break;
+        const action = decide(
+          botInput(state, "P1", lists, seededRng(`cf-now-${seed}-${step}`), {
+            iterations: 150,
+            maxMs: 1e9,
+            prune: 1,
+            rules: 1,
+          }),
+        ).action;
+        if (action.type === "activateStrategy") {
+          const card = (state.players[0] as PlayerState).hand.find(
+            (c) => c.instanceId === action.cardInstanceId,
+          );
+          if (state.cards[card?.cardId ?? -1]?.deckCardNumber === "SD05-005")
+            played = true;
+        }
+        state = advanceToDecision(applyAction(state, action));
+      }
+      expect(played, `seed ${seed}`).toBe(true);
+    }
+  }, 180000);
 });
