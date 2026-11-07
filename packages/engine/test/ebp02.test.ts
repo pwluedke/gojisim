@@ -17,6 +17,7 @@ import {
   getThreat,
   type PlayerState,
   type ZoneNumber,
+  sameColumn,
 } from "../src";
 import { setTestAbilities } from "../src/testing";
 import { testGameOptions } from "./fixtures/cards";
@@ -676,6 +677,44 @@ describe("EBP02 destroy cards (C3, T7, C2)", () => {
       "1": [966073],
       "7": [966072],
     });
+  });
+
+  it("EBP02-073 9.1.4.1 (Paul, Nov 6): a Crystals token played on your turn is a battle card, so it triggers Bloody Chainsaw in its column", () => {
+    const { state, me, opp } = setup(3);
+    // A rank 3 SpaceGodzilla (EBP02-055) now: SpaceGodzilla (EBP02-054) can be played on it (8.5.1).
+    monster(state, me, real("EBP02-055"), 3);
+    inStrategy(state, me, real("EBP02-073"));
+    // Rank 6 battle cards in every zone of the opponent's, and one rank 7 that stays.
+    for (const zone of [1, 2, 3, 4, 5, 6] as const)
+      place(state, opp, battleCard({ id: 966200 + zone, rank: 6 }), zone);
+    place(state, opp, battleCard({ id: 966207, rank: 7 }), 7);
+    // SpaceGodzilla (EBP02-054): [enter] play 2 Crystals tokens. No battle card from the hand.
+    const after = settle(
+      playMonster(state, me, inHand(state, me, real("EBP02-054"))),
+    );
+    const log = after.log.slice(state.log.length);
+    const tokenZones = log
+      .filter((e) => e.type === "place" && e.payload["from"] === "token")
+      .map((e) => Number(String(e.payload["to"]).replace("zone ", "")));
+    expect(tokenZones).toHaveLength(2);
+    const chainsaw = log.filter(
+      (e) =>
+        e.type === "destroy" && e.payload["cause"] === "EBP02-073#chainsaw",
+    );
+    expect(chainsaw.length).toBeGreaterThan(0);
+    // Every card it destroyed was in a column of a token, and the rank 7 card stays.
+    for (const e of chainsaw)
+      expect(
+        tokenZones.some((z) =>
+          sameColumn(
+            { player: me.id, zone: z as ZoneNumber },
+            { player: opp.id, zone: Number(e.payload["zone"]) as ZoneNumber },
+          ),
+        ),
+      ).toBe(true);
+    expect(Object.values(zoneCardIds(opponentOf(after, me))).flat()).toContain(
+      966207,
+    );
   });
 
   it("EBP02-079 5.13.3: destroys by how many zones your monster advanced through invasion this turn", () => {
