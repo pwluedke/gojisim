@@ -52,8 +52,8 @@ interface Setup {
   hand?: string[];
   deck?: string[];
   discard?: string[];
-  zones?: Partial<Record<ZoneNumber, string>>;
-  oppZones?: Partial<Record<ZoneNumber, string>>;
+  zones?: Partial<Record<ZoneNumber, string>> | undefined;
+  oppZones?: Partial<Record<ZoneNumber, string>> | undefined;
   oppRage?: number;
 }
 
