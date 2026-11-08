@@ -150,8 +150,11 @@ export function breaksGodCounter(
   return crystalsIn(after, meAfter) + rebuild < bonus.need;
 }
 
-/** Gravity Beam's activation, played out: whether it makes the counter it didn't make before. */
-function gravityBeamMakesCounter(
+/**
+ * An action played out (Gravity Beam, Godzilla Captured!), its choices answered with the first
+ * option: whether it makes this turn's counter that wasn't made before (7.4.3).
+ */
+export function makesCounter(
   state: GameState,
   action: Action,
   me: PlayerState,
@@ -273,7 +276,7 @@ export function cfPlanDead(
     const kgInZones = Object.values(me.zones)
       .flat()
       .some((st) => numberOf(state, st.at(-1)?.cardId ?? -1) === KG_2024);
-    if (!kgInZones || !gravityBeamMakesCounter(state, a, me)) dead.add(a);
+    if (!kgInZones || !makesCounter(state, a, me)) dead.add(a);
   }
   return dead;
 }

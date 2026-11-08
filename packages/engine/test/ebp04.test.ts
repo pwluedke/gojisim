@@ -548,6 +548,30 @@ describe("EBP04 Monster X and Kaizer Ghidorah (C4)", () => {
     },
   );
 
+  it.each(["EBP04-031", "EBP04-032"])(
+    "%s 7.4.3, Q20 (Paul, Nov 7): at 0 threat it is countered by 2 opponent battle cards totalling 0 counter power",
+    (number) => {
+      const { state, me, opp } = opponentsTurn();
+      monster(state, me, real(number), 3);
+      me.rage = 0;
+      place(state, opp, battleCard({ counterOrThreat: 0 }), 1);
+      place(state, opp, battleCard({ counterOrThreat: 0 }), 2);
+      expect(getThreat(state, me.id)).toBe(0);
+      const after = settleUntil(pass(state), "7.5.1");
+      const check = after.log.find(
+        (e) => e.type === "counterCheck" && !state.log.includes(e),
+      );
+      // A tie counts as a counter (7.4.3): 0 >= 0.
+      expect(check?.payload).toMatchObject({
+        total: 0,
+        threat: 0,
+        countered: true,
+      });
+      expect(newLogTypes(after, state)).toContain("counter");
+      expect(newLogTypes(after, state)).not.toContain("counterPrevented");
+    },
+  );
+
   it("EBP04-035 X, Q33: on enter destroys opponent battle cards one by one from the lowest zone, as many as the colors among battle cards in your discard pile", () => {
     const { state, me, opp } = setup(3);
     monster(state, me, monsterCard(4, { traits: ["Kaizer Ghidorah"] }), 3);

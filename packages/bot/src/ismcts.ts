@@ -18,6 +18,7 @@ import { constructedFutureDead } from "./cfPlay";
 import { cfPlanDead } from "./cfPlan";
 import { type CfTarget, cfTargetDead } from "./cfTarget";
 import { determinize } from "./determinize";
+import { finalWarsDead, mxPlanDead } from "./mxPlan";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
 import { deadKeys } from "./prune";
 import { applyRules } from "./rules";
@@ -62,6 +63,8 @@ export interface IsmctsSettings {
   recognizer: number;
   /** Paul's Constructed Future plan (`cfPlan.ts`), with `rules` on: 1 (the default) on, 0 off. */
   cfPlan: number;
+  /** Paul's Monster X plan (`mxPlan.ts`), with `rules` on: 1 (the default) on, 0 off. */
+  mxPlan: number;
   /** Paul's Constructed Future test, with `rules` on: which card cost discards aim at (`cfTarget.ts`). */
   cfTarget: CfTarget;
 }
@@ -82,6 +85,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   recognizer: 0,
   cfTarget: "auto",
   cfPlan: 1,
+  mxPlan: 1,
 };
 
 /** Reads ISMCTS settings from a bot's settings, with defaults. */
@@ -280,6 +284,12 @@ export function search(input: BotInput, settings: IsmctsSettings) {
           ...constructedFutureDead(first, input.legalActions, me),
           ...(settings.cfPlan > 0
             ? cfPlanDead(first, input.legalActions, me)
+            : []),
+          // Paul's Final Wars ruling (Nov 7): its picks for the highest total counter power;
+          // with mxPlan on (the default), his Monster X plan (mxPlan.ts).
+          ...finalWarsDead(first, input.legalActions, me),
+          ...(settings.mxPlan > 0
+            ? mxPlanDead(first, input.legalActions, me)
             : []),
         ]) {
           verdict.dead.add(actionKey(first, a));

@@ -1,0 +1,342 @@
+import {
+  type Action,
+  advanceToDecision,
+  applyAction,
+  type CardInstance,
+  counterPowerOf,
+  type GameState,
+  getCounterPower,
+  getRank,
+  getThreat,
+  isBattle,
+  type PlayerId,
+  type PlayerState,
+  type ZoneNumber,
+} from "@gojisim/engine";
+import { makesCounter } from "./cfPlan";
+
+/**
+ * Paul's Monster X plan (`mxPlan=1`, Nov 7, 2026), part of the Hard rules layer, active only when
+ * the bot's monster deck is Monster X. Every prune keeps one move; numbers are the plan's rules.
+ * - 1: on turn 1, a battle card into your zones comes before any other play.
+ * - 2: battle cards: one that adds a new color in your zones over higher counter power, to 4.
+ * - 3: invading, pay with a battle card of a color not yet in your discard pile, to 4.
+ * - 4: turns 1-3, rank 3 or lower battle cards before rank 4 or higher.
+ * - 7: Godzilla Final Wars only with 1 or fewer battle cards in your zones, or with every zone
+ *   full and a [final-wars] battle card left in the deck that beats the weakest of them.
+ * - 9: invade only when the invasion wins the game this turn.
+ * - 10: Godzilla Landing before the counter when the opponent's monster is in zone 7.
+ * - 11: Godzilla Captured! only when the reset makes this turn's counter, and then before it.
+ * - 13: Godzilla and its son on Monster Island only when zones 1-5 all hold battle cards.
+ * - 14: vs King Ghidorah, keep the last removal that can hit Mecha-King Ghidorah until it lands.
+ * Final Wars placement (Paul's ruling, Nov 7) is `finalWarsDead`, for every deck.
+ */
+const MONSTER_X = "Monster X";
+const FINAL_WARS = "EBP04-079";
+const FINAL_WARS_PLAY = "EBP04-079#reveal-play";
+const LANDING = "EBP01-030";
+const CAPTURED = "EBP03-079";
+const MONSTER_ISLAND = "EBP01-080";
+const MECHA_KING = "EBP02-068";
+/** Removal in the Monster X deck that can destroy Mecha-King Ghidorah (rule 14). */
+const MECHA_KING_REMOVAL = new Set([
+  "EBP01-064", // Godzilla vs. Megaguirus: the zone wipe, with 4+ battle cards
+  "EBP04-035", // Kaizer Ghidorah (rank 4): the wipe from the lowest zone
+]);
+const TARGET_COLORS = 4;
+const ZONES: readonly ZoneNumber[] = [1, 2, 3, 4, 5, 6, 7, 8];
+/** Choices a simulated action may answer before it gives up. */
+const MAX_CHOICES = 30;
+
+const cardData = (state: GameState, card: CardInstance | undefined) =>
+  card ? state.cards[card.cardId] : undefined;
+
+/** The battle card on top of each of a player's zones that holds one. */
+function battleTops(
+  state: GameState,
+  player: PlayerState,
+): { zone: ZoneNumber; card: CardInstance }[] {
+  const out: { zone: ZoneNumber; card: CardInstance }[] = [];
+  for (const zone of ZONES)
+    for (const stack of player.zones[zone]) {
+      const top = stack.at(-1);
+      if (top && isBattle(cardData(state, top))) out.push({ zone, card: top });
+    }
+  return out;
+}
+
+/** The colors among a set of cards (White counts). */
+function colorsOf(state: GameState, cards: CardInstance[]): Set<string> {
+  return new Set(cards.flatMap((c) => cardData(state, c)?.colors ?? []));
+}
+
+/** The player's turn count: 1 on their first turn (the turns alternate). */
+export function ownTurn(state: GameState): number {
+  return Math.floor((state.turn + 1) / 2);
+}
+
+/** Whether a player's monster deck is Monster X: a [monster-x] rank 1 monster. */
+export function isMonsterXDeck(state: GameState, player: PlayerState): boolean {
+  return [...player.invadingMonsterZone, ...player.monsterDeck].some((c) => {
+    const data = cardData(state, c);
+    return data?.type === "Monster" && data.name === MONSTER_X;
+  });
+}
+
+/** Plays an action out, answering its choices with the first option. */
+function playOut(state: GameState, action: Action): GameState | null {
+  try {
+    let s = advanceToDecision(applyAction(state, action));
+    for (let i = 0; i < MAX_CHOICES && s.pendingChoice && !s.result; i++) {
+      const c = s.pendingChoice;
+      const option = c.options.find((o) => o.id !== "done") ?? c.options[0];
+      if (!option) break;
+      s = advanceToDecision(
+        applyAction(s, {
+          type: "choose",
+          player: c.player,
+          choiceId: c.id,
+          optionId: option.id,
+        }),
+      );
+    }
+    return s;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Godzilla Final Wars' zone picks (Paul's ruling, Nov 7): the revealed cards go where the total
+ * counter power is highest once all are played. Each option of the pick is played out with the
+ * later picks on the weakest zone left (empty first); ties keep the most battle cards in zones.
+ */
+export function finalWarsDead(
+  state: GameState,
+  actions: readonly Action[],
+  player: PlayerId,
+): Set<Action> {
+  const dead = new Set<Action>();
+  const choice = state.pendingChoice;
+  if (
+    !choice ||
+    choice.player !== player ||
+    choice.kind !== "zone" ||
+    !choice.options.some((o) => o.abilityId === FINAL_WARS_PLAY)
+  )
+    return dead;
+  const weakest = (s: GameState): string | undefined => {
+    const c = s.pendingChoice;
+    const me = s.players.find((p) => p.id === player);
+    if (!c || !me) return undefined;
+    let best: { id: string; power: number } | null = null;
+    for (const o of c.options) {
+      const zone = Number(o.id.split(":")[1]) as ZoneNumber;
+      const tops = me.zones[zone]
+        .map((st) => st.at(-1))
+        .filter((t): t is CardInstance => !!t && isBattle(cardData(s, t)));
+      // An empty zone first: covering a card loses a battle card in zones.
+      const power =
+        tops.length === 0
+          ? -1
+          : Math.min(...tops.map((t) => getCounterPower(s, t)));
+      if (!best || power < best.power) best = { id: o.id, power };
+    }
+    return best?.id;
+  };
+  const scores = new Map<Action, [number, number]>();
+  for (const action of actions) {
+    if (action.type !== "choose") continue;
+    try {
+      let s = advanceToDecision(applyAction(state, action));
+      for (
+        let i = 0;
+        i < MAX_CHOICES &&
+        s.pendingChoice?.player === player &&
+        s.pendingChoice.kind === "zone" &&
+        s.pendingChoice.options.some((o) => o.abilityId === FINAL_WARS_PLAY);
+        i++
+      ) {
+        const id = weakest(s);
+        if (!id) break;
+        s = advanceToDecision(
+          applyAction(s, {
+            type: "choose",
+            player,
+            choiceId: s.pendingChoice.id,
+            optionId: id,
+          }),
+        );
+      }
+      const me = s.players.find((p) => p.id === player);
+      if (me)
+        scores.set(action, [counterPowerOf(s, me), battleTops(s, me).length]);
+    } catch {
+      // A pick that can't be played out stays for the search.
+    }
+  }
+  const best = [...scores.values()].reduce<[number, number] | null>(
+    (b, v) => (!b || v[0] > b[0] || (v[0] === b[0] && v[1] > b[1]) ? v : b),
+    null,
+  );
+  if (!best) return dead;
+  for (const [action, [power, cards]] of scores)
+    if (power < best[0] || (power === best[0] && cards < best[1]))
+      dead.add(action);
+  return dead;
+}
+
+/** The actions Paul's Monster X plan rules out. */
+export function mxPlanDead(
+  state: GameState,
+  actions: readonly Action[],
+  player: PlayerId,
+): Set<Action> {
+  const dead = new Set<Action>();
+  const me = state.players.find((p) => p.id === player);
+  const opponent = state.players.find((p) => p.id !== player);
+  if (!me || !opponent || !isMonsterXDeck(state, me)) return dead;
+  if (state.turnPlayer !== player || state.pendingChoice) return dead;
+  const handCard = (id: string | undefined) =>
+    me.hand.find((c) => c.instanceId === id);
+  const numberOf = (id: string | undefined) =>
+    cardData(state, handCard(id))?.deckCardNumber;
+  const strategies = (number: string) =>
+    actions.filter(
+      (a) =>
+        a.type === "activateStrategy" && numberOf(a.cardInstanceId) === number,
+    );
+  const tops = battleTops(state, me);
+  const turn = ownTurn(state);
+
+  // Rule 9: invade only when the invasion wins the game this turn.
+  const invades = actions.filter(
+    (a) => a.type === "invade" || a.type === "invadeFromDeck",
+  );
+  for (const a of invades)
+    if (playOut(state, a)?.result?.winner !== player) dead.add(a);
+  // Rule 3: pay with a battle card of a color not yet in the discard pile, up to 4 colors.
+  const discardColors = colorsOf(
+    state,
+    me.discard.filter((c) => isBattle(cardData(state, c))),
+  );
+  if (discardColors.size < TARGET_COLORS) {
+    const live = invades.filter(
+      (a): a is Extract<Action, { type: "invade" }> =>
+        a.type === "invade" && !dead.has(a),
+    );
+    const adds = (a: Extract<Action, { type: "invade" }>) => {
+      const data = cardData(state, handCard(a.cardInstanceId));
+      return (
+        isBattle(data) &&
+        (data?.colors ?? []).some((c) => !discardColors.has(c))
+      );
+    };
+    if (live.some(adds)) for (const a of live) if (!adds(a)) dead.add(a);
+  }
+
+  // Rule 1: turn 1, a battle card before any other play.
+  const plays = actions.filter(
+    (a): a is Extract<Action, { type: "playBattle" }> =>
+      a.type === "playBattle",
+  );
+  if (turn === 1 && tops.length === 0 && plays.length > 0)
+    for (const a of actions)
+      if (a.type !== "playBattle" && a.type !== "concede") dead.add(a);
+
+  // Rule 4: turns 1-3, rank 3 or lower battle cards before rank 4 or higher.
+  const rankOf = (a: Extract<Action, { type: "playBattle" }>) => {
+    const card = handCard(a.cardInstanceId);
+    return card ? (getRank(state, card) ?? 0) : 0;
+  };
+  if (turn <= 3 && plays.some((a) => rankOf(a) <= 3))
+    for (const a of plays) if (rankOf(a) >= 4) dead.add(a);
+  // Rule 2: a battle card that adds a new color in your zones, up to 4 colors.
+  const colorsNow = colorsOf(
+    state,
+    tops.map((t) => t.card),
+  );
+  if (colorsNow.size < TARGET_COLORS) {
+    const after = (a: Extract<Action, { type: "playBattle" }>) => {
+      const card = handCard(a.cardInstanceId);
+      // The played card tops its zone, on top or overloading (3.2.5, 11.5).
+      const rest = tops.filter((t) => t.zone !== a.zone).map((t) => t.card);
+      return colorsOf(state, card ? [...rest, card] : rest).size;
+    };
+    const live = plays.filter((a) => !dead.has(a));
+    if (live.some((a) => after(a) > colorsNow.size))
+      for (const a of live) if (after(a) <= colorsNow.size) dead.add(a);
+  }
+
+  // Rule 7: Final Wars with 1 or fewer battle cards in zones, or zones full of weaker cards.
+  const finalWars = strategies(FINAL_WARS);
+  if (finalWars.length > 0 && tops.length > 1) {
+    const full = ZONES.every(
+      (z) => z === me.monsterPosition || tops.some((t) => t.zone === z),
+    );
+    const weakest = Math.min(
+      ...tops.map((t) => getCounterPower(state, t.card)),
+    );
+    const colors = Math.max(colorsNow.size, 1);
+    const coverWith = me.deck
+      .map((c) => cardData(state, c))
+      .filter((d) => isBattle(d) && (d?.traits ?? []).includes("Final Wars"))
+      // A Monster X's X counter power: 3,000 a color.
+      .map((d) =>
+        (d?.counterOrThreat ?? 0) < 0
+          ? 3000 * colors
+          : (d?.counterOrThreat ?? 0),
+      );
+    if (!full || !coverWith.some((cp) => cp > weakest))
+      for (const a of finalWars) dead.add(a);
+  }
+
+  // Rule 10: Landing first when the opponent's monster is in 7 and the counter is made.
+  const counters = counterPowerOf(state, me) >= getThreat(state, opponent.id);
+  if (
+    opponent.monsterPosition === 7 &&
+    counters &&
+    strategies(LANDING).length > 0
+  )
+    for (const a of actions) if (a.type === "pass") dead.add(a);
+
+  // Rule 11: Captured! only when the reset makes this turn's counter; then before the counter.
+  for (const a of strategies(CAPTURED)) {
+    if (!makesCounter(state, a, me)) {
+      dead.add(a);
+      continue;
+    }
+    for (const b of actions) if (b.type === "pass") dead.add(b);
+  }
+
+  // Rule 13: Monster Island only when zones 1-5 all hold battle cards.
+  if (!([1, 2, 3, 4, 5] as const).every((z) => tops.some((t) => t.zone === z)))
+    for (const a of strategies(MONSTER_ISLAND)) dead.add(a);
+
+  // Rule 14: vs King Ghidorah, the last removal that can hit Mecha-King Ghidorah stays in hand
+  // until it lands.
+  const vsKingGhidorah = opponent.invadingMonsterZone.some((c) =>
+    (cardData(state, c)?.name ?? "").includes("King Ghidorah"),
+  );
+  const landed = ZONES.some((z) =>
+    opponent.zones[z].some((st) =>
+      st.some((c) => cardData(state, c)?.deckCardNumber === MECHA_KING),
+    ),
+  );
+  const removal = me.hand.filter((c) =>
+    MECHA_KING_REMOVAL.has(cardData(state, c)?.deckCardNumber ?? ""),
+  );
+  if (vsKingGhidorah && !landed && removal.length === 1) {
+    const last = removal[0]?.instanceId;
+    for (const a of actions)
+      if (
+        ("cardInstanceId" in a &&
+          a.cardInstanceId === last &&
+          // An invasion that wins (rule 9) may pay with it.
+          !(a.type === "invade" && !dead.has(a))) ||
+        (a.type === "playBattle" && a.costCardInstanceId === last)
+      )
+        dead.add(a);
+  }
+  return dead;
+}
