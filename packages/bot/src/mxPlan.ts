@@ -22,16 +22,24 @@ import { makesCounter } from "./cfPlan";
  * - 2: battle cards: one that adds a new color in your zones over higher counter power, to 4.
  * - 3: invading, pay with a battle card of a color not yet in your discard pile, to 4.
  * - 4: turns 1-3, rank 3 or lower battle cards before rank 4 or higher.
- * - 7: Godzilla Final Wars only with 1 or fewer battle cards in your zones, or with every zone
- *   full and a [final-wars] battle card left in the deck that beats the weakest of them.
+ * - 5, 6: Entangling Fear when the end-phase advance would take the monster from zone 5 to 6
+ *   (stay in zones 3-5); never on a turn it invades.
+ * - 7: Godzilla Final Wars only with 1 or fewer battle cards in your zones, or with a [final-wars]
+ *   battle card left in the deck stronger than the weakest of them (it can cover it).
+ * - 8: no rage discards, except a monster card ranked below the monster's current rank.
  * - 9: invade only when the invasion wins the game this turn.
  * - 10: Godzilla Landing before the counter when the opponent's monster is in zone 7.
  * - 11: Godzilla Captured! only when the reset makes this turn's counter, and then before it.
+ * - 12: no Evolution of the Monster X battle card into Kaizer Ghidorah while it is your only blue
+ *   battle card in your zones.
  * - 13: Godzilla and its son on Monster Island only when zones 1-5 all hold battle cards.
  * - 14: vs King Ghidorah, keep the last removal that can hit Mecha-King Ghidorah until it lands.
  * Final Wars placement (Paul's ruling, Nov 7) is `finalWarsDead`, for every deck.
  */
 const MONSTER_X = "Monster X";
+const MONSTER_X_BATTLE = "EBP04-047";
+const MONSTER_X_EVOLUTION = "EBP04-047#evolution";
+const ENTANGLING_FEAR = "EBP04-081";
 const FINAL_WARS = "EBP04-079";
 const FINAL_WARS_PLAY = "EBP04-079#reveal-play";
 const LANDING = "EBP01-030";
@@ -196,7 +204,25 @@ export function mxPlanDead(
   const me = state.players.find((p) => p.id === player);
   const opponent = state.players.find((p) => p.id !== player);
   if (!me || !opponent || !isMonsterXDeck(state, me)) return dead;
-  if (state.turnPlayer !== player || state.pendingChoice) return dead;
+  const tops = battleTops(state, me);
+  const choice = state.pendingChoice;
+  if (choice) {
+    // Rule 12: Evolution (12.6) would cover the only blue battle card in your zones.
+    const blue = tops.filter((t) =>
+      (cardData(state, t.card)?.colors ?? []).includes("Blue"),
+    );
+    if (
+      choice.player === player &&
+      choice.kind === "confirm" &&
+      choice.options.some((o) => o.abilityId === MONSTER_X_EVOLUTION) &&
+      blue.length === 1 &&
+      cardData(state, blue[0]?.card)?.deckCardNumber === MONSTER_X_BATTLE
+    )
+      for (const a of actions)
+        if (a.type === "choose" && a.optionId === "yes") dead.add(a);
+    return dead;
+  }
+  if (state.turnPlayer !== player) return dead;
   const handCard = (id: string | undefined) =>
     me.hand.find((c) => c.instanceId === id);
   const numberOf = (id: string | undefined) =>
@@ -206,7 +232,6 @@ export function mxPlanDead(
       (a) =>
         a.type === "activateStrategy" && numberOf(a.cardInstanceId) === number,
     );
-  const tops = battleTops(state, me);
   const turn = ownTurn(state);
 
   // Rule 9: invade only when the invasion wins the game this turn.
@@ -268,12 +293,9 @@ export function mxPlanDead(
       for (const a of live) if (after(a) <= colorsNow.size) dead.add(a);
   }
 
-  // Rule 7: Final Wars with 1 or fewer battle cards in zones, or zones full of weaker cards.
+  // Rule 7: Final Wars with 1 or fewer battle cards in zones, or a stronger card to cover with.
   const finalWars = strategies(FINAL_WARS);
   if (finalWars.length > 0 && tops.length > 1) {
-    const full = ZONES.every(
-      (z) => z === me.monsterPosition || tops.some((t) => t.zone === z),
-    );
     const weakest = Math.min(
       ...tops.map((t) => getCounterPower(state, t.card)),
     );
@@ -287,9 +309,32 @@ export function mxPlanDead(
           ? 3000 * colors
           : (d?.counterOrThreat ?? 0),
       );
-    if (!full || !coverWith.some((cp) => cp > weakest))
+    if (!coverWith.some((cp) => cp > weakest))
       for (const a of finalWars) dead.add(a);
   }
+
+  // Rules 5 and 6: Entangling Fear when the end-phase advance (7.5.2) would take the monster from
+  // zone 5 to 6, and then before the main phase ends; never on a turn it invades.
+  const fear = strategies(ENTANGLING_FEAR);
+  const invading = invades.some((a) => !dead.has(a));
+  const feared = me.strategyZones
+    .flat()
+    .some((x) => cardData(state, x.card)?.deckCardNumber === ENTANGLING_FEAR);
+  if (fear.length > 0 && me.monsterPosition === 5 && !invading && !feared) {
+    for (const a of actions) if (a.type === "pass") dead.add(a);
+  } else {
+    for (const a of fear) dead.add(a);
+  }
+
+  // Rule 8: no rage discards (8.4), except a monster card ranked below the monster's current rank,
+  // which can't be stacked on it any more (8.5.1).
+  const current = cardData(state, me.invadingMonsterZone.at(-1))?.rank ?? 0;
+  for (const a of actions)
+    if (
+      a.type === "gainRage" &&
+      (cardData(state, handCard(a.cardInstanceId))?.rank ?? 0) >= current
+    )
+      dead.add(a);
 
   // Rule 10: Landing first when the opponent's monster is in 7 and the counter is made.
   const counters = counterPowerOf(state, me) >= getThreat(state, opponent.id);

@@ -207,6 +207,76 @@ describe("Paul's Monster X plan (mxPlan=1)", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("rules 5 and 6: Entangling Fear when the end-phase advance would take the monster from 5 to 6, then before the main phase ends", () => {
+    const fear = (setup: Setup) => {
+      const s = position({ hand: ["EBP04-081"], ...setup });
+      const dead = mxPlanDead(s.state, s.legal, "P1");
+      const cast = s.legal.filter(
+        (a) => numberOf(s.state, s.p1, a) === "EBP04-081",
+      );
+      expect(cast.length).toBeGreaterThan(0);
+      return {
+        cast: cast.some((a) => !dead.has(a)),
+        pass: s.legal.some((a) => a.type === "pass" && !dead.has(a)),
+      };
+    };
+    expect(fear({ position: 5 })).toEqual({ cast: true, pass: false });
+    expect(fear({ position: 4 })).toEqual({ cast: false, pass: true });
+    expect(fear({ position: 6 })).toEqual({ cast: false, pass: true });
+  });
+
+  it("rule 5: one Entangling Fear in play is enough", () => {
+    const s = position({ position: 5, hand: ["EBP04-081"] });
+    s.p1.strategyZones[0] = [
+      { card: add(s.state, "EBP04-081", "P1") } as never,
+    ];
+    const legal = getLegalActions(s.state, "P1");
+    const dead = mxPlanDead(s.state, legal, "P1");
+    expect(
+      legal
+        .filter((a) => numberOf(s.state, s.p1, a) === "EBP04-081")
+        .every((a) => dead.has(a)),
+    ).toBe(true);
+    expect(legal.some((a) => a.type === "pass" && !dead.has(a))).toBe(true);
+  });
+
+  it("rule 8: rage discards only with a monster card ranked below the monster's current rank (it can't be stacked)", () => {
+    const { state, p1, legal } = position({
+      monster: "EBP04-032",
+      hand: ["EBP04-031", "EBP04-034"],
+    });
+    const dead = mxPlanDead(state, legal, "P1");
+    const rage = legal.filter((a) => a.type === "gainRage");
+    expect(
+      rage.filter((a) => !dead.has(a)).map((a) => numberOf(state, p1, a)),
+    ).toEqual(["EBP04-031"]);
+  });
+
+  it("rule 12: no Evolution of the Monster X battle card into Kaizer Ghidorah while it is the only blue battle card in zones", () => {
+    const evolve = (zones: Setup["zones"]) => {
+      const { state } = position({ zones });
+      state.pendingChoice = {
+        id: 991,
+        player: "P1",
+        kind: "confirm",
+        rule: "12.6",
+        options: ["yes", "no"].map((id) => ({
+          id,
+          cardId: null,
+          abilityId: "EBP04-047#evolution",
+        })),
+      };
+      const legal = getLegalActions(state, "P1");
+      const dead = mxPlanDead(state, legal, "P1");
+      return legal
+        .filter((a) => a.type === "choose" && !dead.has(a))
+        .map((a) => (a.type === "choose" ? a.optionId : ""));
+    };
+    expect(evolve({ 1: "EBP04-047", 2: "EBP04-057" })).toEqual(["no"]);
+    // Manda (2004) is blue too: Evolution may go ahead.
+    expect(evolve({ 1: "EBP04-047", 2: "EBP04-045" })).toEqual(["yes", "no"]);
+  });
+
   it("rule 9: an invasion that doesn't win this turn is dead", () => {
     const { state, legal } = position({ position: 3, hand: ["EBP04-057"] });
     const invades = legal.filter((a) => a.type === "invade");
@@ -228,7 +298,7 @@ describe("Paul's Monster X plan (mxPlan=1)", () => {
     expect(alive.map((a) => numberOf(state, p1, a))).toEqual(["EBP04-057"]);
   });
 
-  it("rule 7: Final Wars only with 1 or fewer battle cards in zones, or full zones it can improve", () => {
+  it("rule 7: Final Wars only with 1 or fewer battle cards in zones, or a stronger [final-wars] card in the deck to cover with", () => {
     const fw = (s: ReturnType<typeof position>) =>
       s.legal.filter(
         (a) =>
@@ -245,7 +315,15 @@ describe("Paul's Monster X plan (mxPlan=1)", () => {
       zones: { 1: "EBP04-038", 2: "EBP04-057" },
     });
     const twoDead = mxPlanDead(two.state, two.legal, "P1");
+    // The starter deck holds no [final-wars] battle card to cover them with.
     expect(fw(two).every((a) => twoDead.has(a))).toBe(true);
+    const cover = position({
+      hand: ["EBP04-079"],
+      deck: ["EBP04-068"],
+      zones: { 1: "EBP04-038", 2: "EBP04-057" },
+    });
+    const coverDead = mxPlanDead(cover.state, cover.legal, "P1");
+    expect(fw(cover).some((a) => !coverDead.has(a))).toBe(true);
     // Every zone but the monster's (7) full of rank 3 cards; a Kaizer Ghidorah left in the deck.
     const full = position({
       hand: ["EBP04-079"],
