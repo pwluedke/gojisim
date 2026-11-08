@@ -18,8 +18,16 @@ import {
   type ZoneNumber,
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
-import { ismctsSettings } from "./ismcts";
-import { finalWarsDead, isMonsterXDeck, mxPlanDead, ownTurn } from "./mxPlan";
+import { combineDead, ismctsSettings } from "./ismcts";
+import {
+  finalWarsDead,
+  invadeReason,
+  isMonsterXDeck,
+  mxPlanDead,
+  ownTurn,
+  turnsToCounter,
+  turnsToInvade,
+} from "./mxPlan";
 
 // Paul's Monster X plan (`mxPlan=1`, Nov 7, 2026) and his Final Wars ruling (Nov 7): every
 // position below is made up, on the starter decks with the cards each rule needs.
@@ -191,7 +199,9 @@ describe("Paul's Monster X plan (mxPlan=1)", () => {
     expect(
       early.legal.some(
         (a) =>
-          numberOf(early.state, early.p1, a) === "EBP02-016" && !dead.has(a),
+          a.type === "playBattle" &&
+          numberOf(early.state, early.p1, a) === "EBP02-016" &&
+          !dead.has(a),
       ),
     ).toBe(false);
     const late = position({
@@ -209,10 +219,17 @@ describe("Paul's Monster X plan (mxPlan=1)", () => {
 
   it("rules 5 and 6: Entangling Fear when the end-phase advance would take the monster from 5 to 6, then before the main phase ends", () => {
     const fear = (setup: Setup) => {
-      const s = position({ hand: ["EBP04-081"], ...setup });
+      // The opponent's zone 8 holds a battle card: no invasion this turn (rule 9).
+      const s = position({
+        hand: ["EBP04-081"],
+        oppZones: { 8: "EBP04-038" },
+        ...setup,
+      });
       const dead = mxPlanDead(s.state, s.legal, "P1");
       const cast = s.legal.filter(
-        (a) => numberOf(s.state, s.p1, a) === "EBP04-081",
+        (a) =>
+          a.type === "activateStrategy" &&
+          numberOf(s.state, s.p1, a) === "EBP04-081",
       );
       expect(cast.length).toBeGreaterThan(0);
       return {
@@ -234,7 +251,11 @@ describe("Paul's Monster X plan (mxPlan=1)", () => {
     const dead = mxPlanDead(s.state, legal, "P1");
     expect(
       legal
-        .filter((a) => numberOf(s.state, s.p1, a) === "EBP04-081")
+        .filter(
+          (a) =>
+            a.type === "activateStrategy" &&
+            numberOf(s.state, s.p1, a) === "EBP04-081",
+        )
         .every((a) => dead.has(a)),
     ).toBe(true);
     expect(legal.some((a) => a.type === "pass" && !dead.has(a))).toBe(true);
@@ -278,11 +299,81 @@ describe("Paul's Monster X plan (mxPlan=1)", () => {
   });
 
   it("rule 9: an invasion that doesn't win this turn is dead", () => {
-    const { state, legal } = position({ position: 3, hand: ["EBP04-057"] });
+    // The opponent's zone 8 holds a battle card: no invasion win in sight (d).
+    const { state, legal } = position({
+      position: 3,
+      hand: ["EBP04-057"],
+      oppZones: { 8: "EBP04-038" },
+    });
     const invades = legal.filter((a) => a.type === "invade");
     expect(invades.length).toBeGreaterThan(0);
     const dead = mxPlanDead(state, legal, "P1");
     expect(invades.every((a) => dead.has(a))).toBe(true);
+  });
+
+  it("rule 9 (b): late, with the opponent knocked back (rank 3 or 4, theirs in zone 3 or lower), an invasion stays", () => {
+    const alive = (setup: Setup) => {
+      const s = position({
+        position: 3,
+        hand: ["EBP04-057"],
+        oppZones: { 8: "EBP04-038" },
+        ...setup,
+      });
+      const dead = mxPlanDead(s.state, s.legal, "P1");
+      const invades = s.legal.filter((a) => a.type === "invade");
+      expect(invades.length).toBeGreaterThan(0);
+      expect(invadeReason(s.state, s.p1, s.p2)).toBe(
+        setup.monster === "EBP04-034" && setup.oppPosition === 3 ? "b" : null,
+      );
+      return invades.some((a) => !dead.has(a));
+    };
+    expect(alive({ monster: "EBP04-034", oppPosition: 3 })).toBe(true);
+    expect(alive({ monster: "EBP04-034", oppPosition: 5 })).toBe(false);
+    expect(alive({ monster: "EBP04-032", oppPosition: 3 })).toBe(false);
+  });
+
+  it("rule 9 (c): a race: their counter power reaches your threat at your next rank and no hand card destroys their battle cards", () => {
+    const run = (hand: string[], oppZones: Setup["oppZones"]) => {
+      const s = position({ monster: "EBP04-036", position: 3, hand, oppZones });
+      const dead = mxPlanDead(s.state, s.legal, "P1");
+      return {
+        reason: invadeReason(s.state, s.p1, s.p2),
+        alive: s.legal.some((a) => a.type === "invade" && !dead.has(a)),
+      };
+    };
+    // 3 Kaizer Ghidorah (2004) battle cards: 33,000 against the rank 4's 30,000; zone 8 is one.
+    const strong = { 1: "EBP04-068", 2: "EBP04-068", 8: "EBP04-068" } as const;
+    expect(run(["EBP04-057"], strong)).toEqual({ reason: "c", alive: true });
+    // Godzilla vs. Megaguirus in hand can destroy their battle cards.
+    expect(run(["EBP04-057", "EBP01-064"], strong)).toEqual({
+      reason: null,
+      alive: false,
+    });
+    expect(run(["EBP04-057"], { 8: "EBP04-038" })).toEqual({
+      reason: null,
+      alive: false,
+    });
+  });
+
+  it("rule 9 (d): invade when it wins in fewer of your turns than countering", () => {
+    // Zone 6, Kamacuras (2004) pays 2 icons: zone 8 this turn, out of it next turn (2 turns).
+    const fast = position({ position: 6, hand: ["EBP04-038"] });
+    expect(turnsToInvade(fast.state, fast.p1, fast.p2)).toBe(2);
+    expect(turnsToCounter(fast.state, fast.p1, fast.p2)).toBeGreaterThan(2);
+    expect(invadeReason(fast.state, fast.p1, fast.p2)).toBe("d");
+    // Their rank 4 monster, countered this turn: 1 turn by countering beats 2 by invading.
+    const slow = position({
+      position: 6,
+      hand: ["EBP04-038"],
+      oppMonster: "EBP04-036",
+      zones: { 1: "EBP04-068", 2: "EBP04-068", 3: "EBP04-068" },
+    });
+    expect(turnsToCounter(slow.state, slow.p1, slow.p2)).toBe(1);
+    const dead = mxPlanDead(slow.state, slow.legal, "P1");
+    expect(invadeReason(slow.state, slow.p1, slow.p2)).toBe(null);
+    expect(
+      slow.legal.filter((a) => a.type === "invade").every((a) => dead.has(a)),
+    ).toBe(true);
   });
 
   it("rules 9 and 3: an invasion that wins stays, paid with a battle card of a new discard color", () => {
@@ -363,7 +454,9 @@ describe("Paul's Monster X plan (mxPlan=1)", () => {
       });
       const dead = mxPlanDead(s.state, s.legal, "P1");
       const play = s.legal.filter(
-        (a) => numberOf(s.state, s.p1, a) === "EBP03-079",
+        (a) =>
+          a.type === "activateStrategy" &&
+          numberOf(s.state, s.p1, a) === "EBP03-079",
       );
       return { s, dead, play };
     };
@@ -390,7 +483,9 @@ describe("Paul's Monster X plan (mxPlan=1)", () => {
       const s = position({ hand: ["EBP01-080"], zones });
       const dead = mxPlanDead(s.state, s.legal, "P1");
       const play = s.legal.filter(
-        (a) => numberOf(s.state, s.p1, a) === "EBP01-080",
+        (a) =>
+          a.type === "activateStrategy" &&
+          numberOf(s.state, s.p1, a) === "EBP01-080",
       );
       expect(play.length).toBeGreaterThan(0);
       return play.some((a) => !dead.has(a));
@@ -481,5 +576,54 @@ describe("Godzilla Final Wars placement (Paul's ruling, Nov 7, 2026)", () => {
   it("leaves other choices alone", () => {
     const { state, legal } = position({ hand: ["EBP04-057"] });
     expect(finalWarsDead(state, legal, "P1").size).toBe(0);
+  });
+});
+
+describe("the root's dead actions: plans over the general rules (#223)", () => {
+  const actions: Action[] = [
+    { type: "gainRage", player: "P1", cardInstanceId: "c1" },
+    { type: "pass", player: "P1" },
+    { type: "concede", player: "P1" },
+  ];
+  const [rage, pass] = actions as [Action, Action];
+  const keyOf = (a: Action) => a.type;
+  const general = (a: Action) => ({
+    dead: new Set([keyOf(a)]),
+    killed: new Set([a]),
+  });
+
+  it("keeps every kill while an action other than conceding is left", () => {
+    const kept = combineDead(
+      actions,
+      keyOf,
+      new Set(),
+      { dead: new Set(), killed: new Set() },
+      new Set([rage]),
+    );
+    expect([...(kept?.dead ?? [])]).toEqual(["gainRage"]);
+  });
+
+  it("when the general rules and a plan together leave nothing, the plan wins", () => {
+    const kept = combineDead(
+      actions,
+      keyOf,
+      new Set(),
+      general(pass),
+      new Set([rage]),
+    );
+    expect([...(kept?.dead ?? [])]).toEqual(["gainRage"]);
+    expect(kept?.killed.has(pass)).toBe(false);
+  });
+
+  it("a plan that leaves nothing on its own keeps only the prune", () => {
+    expect(
+      combineDead(
+        actions,
+        keyOf,
+        new Set(),
+        general(pass),
+        new Set([rage, pass]),
+      ),
+    ).toBe(null);
   });
 });

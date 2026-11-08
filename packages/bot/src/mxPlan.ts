@@ -1,8 +1,10 @@
+import { getCardAbilities } from "@gojisim/cards";
 import {
   type Action,
   advanceToDecision,
   applyAction,
   type CardInstance,
+  cloneState,
   counterPowerOf,
   type GameState,
   getCounterPower,
@@ -27,7 +29,8 @@ import { makesCounter } from "./cfPlan";
  * - 7: Godzilla Final Wars only with 1 or fewer battle cards in your zones, or with a [final-wars]
  *   battle card left in the deck stronger than the weakest of them (it can cover it).
  * - 8: no rage discards, except a monster card ranked below the monster's current rank.
- * - 9: invade only when the invasion wins the game this turn.
+ * - 9: invade only when (a) the invasion wins the game this turn, (b) late, with the opponent
+ *   knocked back, (c) in a race you can't stop, or (d) invading wins sooner (`invadeReason`).
  * - 10: Godzilla Landing before the counter when the opponent's monster is in zone 7.
  * - 11: Godzilla Captured! only when the reset makes this turn's counter, and then before it.
  * - 12: no Evolution of the Monster X battle card into Kaizer Ghidorah while it is your only blue
@@ -194,6 +197,107 @@ export function finalWarsDead(
   return dead;
 }
 
+/** Whether a card's ability data has an effect that destroys an opponent's battle card. */
+function destroysOpponentBattle(deckCardNumber: string): boolean {
+  const data = getCardAbilities(deckCardNumber);
+  if (data.status === "manual") return false;
+  const text = JSON.stringify(data.abilities);
+  return (
+    text.includes('"effect":"destroy"') && text.includes('"owner":"opponent"')
+  );
+}
+
+/**
+ * Your threat at your next rank: the strongest next-rank monster in your monster deck put on top
+ * of a copy of the game, at 0 rage (it resets, 7.2.4); at rank 4, your monster as it is.
+ */
+function threatAtNextRank(state: GameState, me: PlayerState): number {
+  const rank = cardData(state, me.invadingMonsterZone.at(-1))?.rank ?? 0;
+  const next = me.monsterDeck.filter((c) => {
+    const data = cardData(state, c);
+    return data?.type === "Monster" && data.rank === rank + 1;
+  });
+  const threats = (next.length > 0 ? next : [null]).map((card) => {
+    const copy = cloneState(state);
+    const p = copy.players.find((x) => x.id === me.id) as PlayerState;
+    if (card) p.invadingMonsterZone = [...p.invadingMonsterZone, card];
+    p.rage = 0;
+    return getThreat(copy, me.id);
+  });
+  return Math.max(...threats);
+}
+
+/**
+ * Your turns to win by invading: each turn the invasion advances the best invasion icon in your
+ * hand, then the end phase 1 more up to zone 8 (7.5.2); it wins once an invasion steps out of
+ * zone 8 (5.13.1.1.2). Never while the opponent's zone 8 holds a battle card.
+ */
+export function turnsToInvade(
+  state: GameState,
+  me: PlayerState,
+  opponent: PlayerState,
+): number {
+  if (battleTops(state, opponent).some((t) => t.zone === 8)) return Infinity;
+  const icon = Math.max(
+    0,
+    ...me.hand.map((c) => cardData(state, c)?.invadeZones ?? 0),
+  );
+  if (icon === 0 || me.monsterPosition === null) return Infinity;
+  let zone: number = me.monsterPosition;
+  for (let turns = 1; turns <= 10; turns++) {
+    if (zone + icon > 8) return turns;
+    zone = Math.min(8, zone + icon + 1);
+  }
+  return Infinity;
+}
+
+/**
+ * Your turns to win by countering: a monster is out once its rank 4 is countered (5.15.1.2), so a
+ * rank r monster needs 5 - r more counters, one a turn, plus a turn while your counter power
+ * doesn't reach its threat yet (7.4.3).
+ */
+export function turnsToCounter(
+  state: GameState,
+  me: PlayerState,
+  opponent: PlayerState,
+): number {
+  const rank = cardData(state, opponent.invadingMonsterZone.at(-1))?.rank ?? 1;
+  const now = counterPowerOf(state, me) >= getThreat(state, opponent.id);
+  return Math.max(1, 5 - rank) + (now ? 0 : 1);
+}
+
+/**
+ * Rule 9's reasons to invade other than a win this turn (a): (b) late with the opponent knocked
+ * back (your monster rank 3 or 4, theirs in zone 3 or lower); (c) a race: their 2 or more battle
+ * cards' counter power already reaches your threat at your next rank and no card in your hand
+ * destroys their battle cards; (d) invading wins in fewer of your turns than countering. Else `null`.
+ */
+export function invadeReason(
+  state: GameState,
+  me: PlayerState,
+  opponent: PlayerState,
+): "b" | "c" | "d" | null {
+  const rank = cardData(state, me.invadingMonsterZone.at(-1))?.rank ?? 0;
+  if (
+    (rank === 3 || rank === 4) &&
+    opponent.monsterPosition !== null &&
+    opponent.monsterPosition <= 3
+  )
+    return "b";
+  // A big board: 2 or more battle cards (with 1 or fewer, Monster X can't be countered).
+  if (
+    battleTops(state, opponent).length >= 2 &&
+    counterPowerOf(state, opponent) >= threatAtNextRank(state, me) &&
+    !me.hand.some((c) =>
+      destroysOpponentBattle(cardData(state, c)?.deckCardNumber ?? ""),
+    )
+  )
+    return "c";
+  if (turnsToInvade(state, me, opponent) < turnsToCounter(state, me, opponent))
+    return "d";
+  return null;
+}
+
 /** The actions Paul's Monster X plan rules out. */
 export function mxPlanDead(
   state: GameState,
@@ -234,12 +338,13 @@ export function mxPlanDead(
     );
   const turn = ownTurn(state);
 
-  // Rule 9: invade only when the invasion wins the game this turn.
+  // Rule 9: invade only for (b), (c) or (d), or when the invasion wins the game this turn (a).
   const invades = actions.filter(
     (a) => a.type === "invade" || a.type === "invadeFromDeck",
   );
-  for (const a of invades)
-    if (playOut(state, a)?.result?.winner !== player) dead.add(a);
+  if (invadeReason(state, me, opponent) === null)
+    for (const a of invades)
+      if (playOut(state, a)?.result?.winner !== player) dead.add(a);
   // Rule 3: pay with a battle card of a color not yet in the discard pile, up to 4 colors.
   const discardColors = colorsOf(
     state,

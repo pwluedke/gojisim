@@ -108,6 +108,30 @@ export function ismctsSettings(settings: BotSettings): IsmctsSettings {
   };
 }
 
+/**
+ * The root's dead actions from the prune (`prune.ts`), Paul's general rules (`rules.ts`) and his
+ * plans (Constructed Future, Final Wars, Monster X): all of them while they leave an action that
+ * isn't conceding (#189, the search never concedes). When the general rules and a plan together
+ * leave none, the plan wins: its kills stay and the general rules' go. `null` keeps only the prune.
+ */
+export function combineDead(
+  actions: readonly Action[],
+  keyOf: (a: Action) => string,
+  prune: ReadonlySet<string>,
+  general: { dead: ReadonlySet<string>; killed: ReadonlySet<Action> },
+  plans: ReadonlySet<Action>,
+): { dead: Set<string>; killed: Set<Action> } | null {
+  const leaves = (keys: Set<string>) =>
+    actions.some((a) => a.type !== "concede" && !keys.has(keyOf(a)));
+  const planKeys = [...plans].map(keyOf);
+  const all = new Set([...prune, ...general.dead, ...planKeys]);
+  if (leaves(all))
+    return { dead: all, killed: new Set([...general.killed, ...plans]) };
+  const planOnly = new Set([...prune, ...planKeys]);
+  if (leaves(planOnly)) return { dead: planOnly, killed: new Set(plans) };
+  return null;
+}
+
 /** The card behind an instance id, wherever it is in the state. */
 function cardIdOf(state: GameState, instanceId: string): number | null {
   for (const p of state.players)
@@ -278,9 +302,11 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         const verdict = applyRules(first, input.legalActions, me, (a) =>
           actionKey(first, a),
         );
-        // Paul's Constructed Future rules (all cfTarget modes): play it only for a target; with
-        // cfPlan on (the default), his plan (cfPlan.ts).
-        for (const a of [
+        // The plans' kills (Constructed Future, Final Wars, Monster X), kept apart from the
+        // general rules' so they can win a conflict below.
+        const plans = new Set<Action>([
+          // Paul's Constructed Future rules (all cfTarget modes): play it only for a target; with
+          // cfPlan on (the default), his plan (cfPlan.ts).
           ...constructedFutureDead(first, input.legalActions, me),
           ...(settings.cfPlan > 0
             ? cfPlanDead(first, input.legalActions, me)
@@ -291,32 +317,21 @@ export function search(input: BotInput, settings: IsmctsSettings) {
           ...(settings.mxPlan > 0
             ? mxPlanDead(first, input.legalActions, me)
             : []),
-        ]) {
-          verdict.dead.add(actionKey(first, a));
-          verdict.killed.add(a);
-        }
-        for (const a of cfTargetDead(
-          first,
-          input.legalActions,
-          me,
-          settings.cfTarget,
-        )) {
-          verdict.dead.add(actionKey(first, a));
-          verdict.killed.add(a);
-        }
+          ...cfTargetDead(first, input.legalActions, me, settings.cfTarget),
+        ]);
         bonus = verdict.bonus;
-        // Both sets leave an action each; together they must too (#189: one that isn't
-        // conceding, which the search never plays).
-        const both = new Set([...dead, ...verdict.dead]);
-        if (
-          input.legalActions.some(
-            (a) => a.type !== "concede" && !both.has(actionKey(first, a)),
-          )
-        ) {
-          dead = both;
+        const keep = combineDead(
+          input.legalActions,
+          (a) => actionKey(first, a),
+          dead,
+          verdict,
+          plans,
+        );
+        if (keep) {
+          dead = keep.dead;
           avoid = new Set(
             input.legalActions.flatMap((a, i) =>
-              verdict.killed.has(a) ? [i] : [],
+              keep.killed.has(a) ? [i] : [],
             ),
           );
         }
