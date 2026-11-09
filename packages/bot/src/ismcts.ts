@@ -18,6 +18,7 @@ import { constructedFutureDead } from "./cfPlay";
 import { cfPlanDead } from "./cfPlan";
 import { type CfTarget, cfTargetDead } from "./cfTarget";
 import { determinize } from "./determinize";
+import { finalWarsDead, mxPlanVerdict } from "./mxPlan";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
 import { deadKeys } from "./prune";
 import { applyRules } from "./rules";
@@ -62,6 +63,8 @@ export interface IsmctsSettings {
   recognizer: number;
   /** Paul's Constructed Future plan (`cfPlan.ts`), with `rules` on: 1 (the default) on, 0 off. */
   cfPlan: number;
+  /** Paul's Monster X plan (`mxPlan.ts`), with `rules` on: 1 (the default) on, 0 off. */
+  mxPlan: number;
   /** Paul's Constructed Future test, with `rules` on: which card cost discards aim at (`cfTarget.ts`). */
   cfTarget: CfTarget;
 }
@@ -82,6 +85,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   recognizer: 0,
   cfTarget: "auto",
   cfPlan: 1,
+  mxPlan: 1,
 };
 
 /** Reads ISMCTS settings from a bot's settings, with defaults. */
@@ -102,6 +106,75 @@ export function ismctsSettings(settings: BotSettings): IsmctsSettings {
     ...(out as unknown as IsmctsSettings),
     ...(Object.keys(overrides).length > 0 ? { overrides } : {}),
   };
+}
+
+/**
+ * The plans' kills at the root (Constructed Future, the Final Wars ruling), kept apart from the
+ * general rules' so they can win a conflict (`combineDead`).
+ */
+function planDead(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+  settings: IsmctsSettings,
+): Set<Action> {
+  return new Set<Action>([
+    // Paul's Constructed Future rules (all cfTarget modes): play it only for a target; with
+    // cfPlan on (the default), his plan (cfPlan.ts).
+    ...constructedFutureDead(state, actions, me),
+    ...(settings.cfPlan > 0 ? cfPlanDead(state, actions, me) : []),
+    // Paul's Final Wars ruling (Nov 7): its picks for the highest total counter power.
+    ...finalWarsDead(state, actions, me),
+    ...cfTargetDead(state, actions, me, settings.cfTarget),
+  ]);
+}
+
+/**
+ * The lasting bias on a root action the Monster X plan favors (#223), in value units ([-1, 1], a
+ * win is 1). The plan's move keeps it in the root's UCB scores and its prior, so the search picks
+ * another move only when that move's value is higher by more: 0.2 is 10 points of win chance,
+ * about 2 standard errors of a move's mean after 100 play-outs.
+ */
+export const MX_PLAN_BIAS = 0.2;
+
+/**
+ * The root actions the Monster X plan favors, by key: the moves it doesn't argue against, while it
+ * argues against some and leaves a move that isn't conceding.
+ */
+export function mxPlanFavored(
+  state: GameState,
+  actions: readonly Action[],
+  player: PlayerId,
+  keyOf: (a: Action) => string,
+): Map<string, number> {
+  const against = mxPlanVerdict(state, actions, player);
+  const keep = actions.filter((a) => a.type !== "concede" && !against.has(a));
+  if (against.size === 0 || keep.length === 0) return new Map();
+  return new Map(keep.map((a) => [keyOf(a), MX_PLAN_BIAS]));
+}
+
+/**
+ * The root's dead actions from the prune (`prune.ts`), Paul's general rules (`rules.ts`) and his
+ * plans (Constructed Future, the Final Wars ruling): all of them while they leave an action that
+ * isn't conceding (#189, the search never concedes). When the general rules and a plan together
+ * leave none, the plan wins: its kills stay and the general rules' go. `null` keeps only the prune.
+ */
+export function combineDead(
+  actions: readonly Action[],
+  keyOf: (a: Action) => string,
+  prune: ReadonlySet<string>,
+  general: { dead: ReadonlySet<string>; killed: ReadonlySet<Action> },
+  plans: ReadonlySet<Action>,
+): { dead: Set<string>; killed: Set<Action> } | null {
+  const leaves = (keys: Set<string>) =>
+    actions.some((a) => a.type !== "concede" && !keys.has(keyOf(a)));
+  const planKeys = [...plans].map(keyOf);
+  const all = new Set([...prune, ...general.dead, ...planKeys]);
+  if (leaves(all))
+    return { dead: all, killed: new Set([...general.killed, ...plans]) };
+  const planOnly = new Set([...prune, ...planKeys]);
+  if (leaves(planOnly)) return { dead: planOnly, killed: new Set(plans) };
+  return null;
 }
 
 /** The card behind an instance id, wherever it is in the state. */
@@ -254,6 +327,9 @@ export function search(input: BotInput, settings: IsmctsSettings) {
   let dead = new Set<string>();
   // #175: Paul's rules' prior bonuses for root actions, by key.
   let bonus = new Map<string, number>();
+  // Paul's Monster X plan (mxPlan.ts, #223): the root actions it favors, by key, with a lasting
+  // bias on their value (`MX_PLAN_BIAS`).
+  let favored = new Map<string, number>();
   let iterations = 0;
   while (
     iterations < settings.iterations &&
@@ -274,44 +350,29 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         const verdict = applyRules(first, input.legalActions, me, (a) =>
           actionKey(first, a),
         );
-        // Paul's Constructed Future rules (all cfTarget modes): play it only for a target; with
-        // cfPlan on (the default), his plan (cfPlan.ts).
-        for (const a of [
-          ...constructedFutureDead(first, input.legalActions, me),
-          ...(settings.cfPlan > 0
-            ? cfPlanDead(first, input.legalActions, me)
-            : []),
-        ]) {
-          verdict.dead.add(actionKey(first, a));
-          verdict.killed.add(a);
-        }
-        for (const a of cfTargetDead(
-          first,
-          input.legalActions,
-          me,
-          settings.cfTarget,
-        )) {
-          verdict.dead.add(actionKey(first, a));
-          verdict.killed.add(a);
-        }
+        const plans = planDead(first, input.legalActions, me, settings);
         bonus = verdict.bonus;
-        // Both sets leave an action each; together they must too (#189: one that isn't
-        // conceding, which the search never plays).
-        const both = new Set([...dead, ...verdict.dead]);
-        if (
-          input.legalActions.some(
-            (a) => a.type !== "concede" && !both.has(actionKey(first, a)),
-          )
-        ) {
-          dead = both;
+        const keep = combineDead(
+          input.legalActions,
+          (a) => actionKey(first, a),
+          dead,
+          verdict,
+          plans,
+        );
+        if (keep) {
+          dead = keep.dead;
           avoid = new Set(
             input.legalActions.flatMap((a, i) =>
-              verdict.killed.has(a) ? [i] : [],
+              keep.killed.has(a) ? [i] : [],
             ),
           );
         }
       }
     }
+    if (iterations === 1 && settings.rules > 0 && settings.mxPlan > 0)
+      favored = mxPlanFavored(state, input.legalActions, me, (a) =>
+        actionKey(state, a),
+      );
     let node = root;
     const path: Node[] = [];
     // Selection and expansion.
@@ -331,7 +392,11 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         const child = node.children.get(key);
         if (child) child.available++;
       }
-      const untried = keyed.filter(({ key }) => !node.children.has(key));
+      const fresh = keyed.filter(({ key }) => !node.children.has(key));
+      // The plan's moves are tried first at the root.
+      const first =
+        node === root ? fresh.filter(({ key }) => favored.has(key)) : [];
+      const untried = first.length > 0 ? first : fresh;
       let next: { action: Action; key: string };
       if (untried.length > 0) {
         next = untried[Math.floor(rng() * untried.length)] as {
@@ -346,7 +411,10 @@ export function search(input: BotInput, settings: IsmctsSettings) {
           // Its static value from the side of the player who chose it, as visits store it.
           const v = evaluate(state, me, weightsOf(settings));
           // #175: a root action a rule prefers starts a little ahead (`rules.ts`).
-          const lift = node === root ? (bonus.get(next.key) ?? 0) : 0;
+          const lift =
+            node === root
+              ? (bonus.get(next.key) ?? 0) + (favored.get(next.key) ?? 0)
+              : 0;
           child.visits = settings.priorVisits;
           child.value = settings.priorVisits * ((who === me ? v : -v) + lift);
         }
@@ -357,10 +425,9 @@ export function search(input: BotInput, settings: IsmctsSettings) {
       let best = -Infinity;
       next = keyed[0] as { action: Action; key: string };
       for (const k of keyed) {
-        const score = ucb(
-          node.children.get(k.key) as Node,
-          settings.exploration,
-        );
+        const score =
+          ucb(node.children.get(k.key) as Node, settings.exploration) +
+          (node === root ? (favored.get(k.key) ?? 0) : 0);
         if (score > best) {
           best = score;
           next = k;
@@ -389,6 +456,37 @@ export interface Decision {
   search: ReturnType<typeof search> | null;
 }
 
+/**
+ * The moves a blunder pick (#132, no search) chooses among with Paul's rules on (#189): what the
+ * general rules and the plans leave, as at the search root (#223), and of those the Monster X
+ * plan's moves when it has any.
+ */
+export function blunderAllowed(
+  state: GameState,
+  legalActions: readonly Action[],
+  me: PlayerId,
+  settings: IsmctsSettings,
+): Action[] {
+  const keyOf = (a: Action) => actionKey(state, a);
+  const keep = combineDead(
+    legalActions,
+    keyOf,
+    new Set(),
+    applyRules(state, legalActions, me, keyOf),
+    planDead(state, legalActions, me, settings),
+  );
+  const kept = keep
+    ? legalActions.filter(
+        (a) => !keep.killed.has(a) && !keep.dead.has(keyOf(a)),
+      )
+    : [...legalActions];
+  const allowed = kept.length > 0 ? kept : [...legalActions];
+  if (settings.mxPlan === 0) return allowed;
+  const favored = mxPlanFavored(state, allowed, me, keyOf);
+  const planned = allowed.filter((a) => favored.has(keyOf(a)));
+  return planned.length > 0 ? planned : allowed;
+}
+
 /** Searches and picks, exactly as `ismctsBot.chooseAction` does. */
 export function decide(input: BotInput): Decision {
   const { legalActions, rng } = input;
@@ -401,18 +499,15 @@ export function decide(input: BotInput): Decision {
   const settings = ismctsSettings(input.settings);
   if (settings.blunder > 0 && rng() < settings.blunder) {
     // #189: with Paul's rules on, a blunder picks only among the moves the rules allow.
-    let allowed = [...legalActions];
-    if (settings.rules > 0) {
-      const state = determinize(input.view, input.knowledge, rng);
-      const me = input.view.viewer as PlayerId;
-      const { dead, killed } = applyRules(state, legalActions, me, (a) =>
-        actionKey(state, a),
-      );
-      const kept = allowed.filter(
-        (a) => !killed.has(a) && !dead.has(actionKey(state, a)),
-      );
-      if (kept.length > 0) allowed = kept;
-    }
+    const allowed =
+      settings.rules > 0
+        ? blunderAllowed(
+            determinize(input.view, input.knowledge, rng),
+            legalActions,
+            input.view.viewer as PlayerId,
+            settings,
+          )
+        : [...legalActions];
     return {
       action:
         settings.uniformBlunder > 0
