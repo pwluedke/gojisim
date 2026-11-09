@@ -18,7 +18,14 @@ import {
   type ZoneNumber,
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
-import { combineDead, ismctsSettings } from "./ismcts";
+import {
+  actionKey,
+  blunderAllowed,
+  combineDead,
+  ismctsSettings,
+  MX_PLAN_BIAS,
+  mxPlanFavored,
+} from "./ismcts";
 import {
   finalWarsDead,
   invadeReason,
@@ -67,15 +74,11 @@ interface Setup {
 
 /** P1's main phase with a Monster X monster deck, the rest as given. */
 function position(setup: Setup) {
-  let state = advanceToDecision(
-    startGame({
-      seed: "mx-plan",
-      decks: [
-        { id: "P1", ...official("esd01-starter.txt") },
-        { id: "P2", ...official("esd02-starter.txt") },
-      ],
-    }),
-  );
+  const decks: [PlayerSetup, PlayerSetup] = [
+    { id: "P1", ...official("esd01-starter.txt") },
+    { id: "P2", ...official("esd02-starter.txt") },
+  ];
+  let state = advanceToDecision(startGame({ seed: "mx-plan", decks }));
   while (state.turnPlayer !== "P1" || state.pendingChoice) {
     const decider = state.pendingChoice?.player ?? state.turnPlayer;
     const choice = state.pendingChoice;
@@ -117,7 +120,7 @@ function position(setup: Setup) {
   }
   p1.strategyZones = [[], []];
   p2.strategyZones = [[], []];
-  return { state, p1, p2, legal: getLegalActions(state, "P1") };
+  return { state, p1, p2, decks, legal: getLegalActions(state, "P1") };
 }
 const numberOf = (state: GameState, p1: PlayerState, a: Action) => {
   const id = "cardInstanceId" in a ? a.cardInstanceId : null;
@@ -625,5 +628,59 @@ describe("the root's dead actions: plans over the general rules (#223)", () => {
         new Set([rage, pass]),
       ),
     ).toBe(null);
+  });
+});
+
+describe("the Monster X plan as a preference (#223)", () => {
+  it("favors the moves it doesn't argue against, with MX_PLAN_BIAS; nothing when it has no opinion", () => {
+    const { state, p1, legal } = position({
+      monster: "EBP04-032",
+      hand: ["EBP04-031", "EBP04-034"],
+    });
+    const key = (a: Action) => actionKey(state, a);
+    const favored = mxPlanFavored(state, legal, "P1", key);
+    const r3 = legal.find(
+      (a) => a.type === "gainRage" && numberOf(state, p1, a) === "EBP04-034",
+    ) as Action;
+    expect(favored.has(key(r3))).toBe(false);
+    expect(
+      favored.get(key(legal.find((a) => a.type === "pass") as Action)),
+    ).toBe(MX_PLAN_BIAS);
+    const quiet = position({ hand: [] });
+    expect(
+      mxPlanFavored(quiet.state, quiet.legal, "P1", (a) =>
+        actionKey(quiet.state, a),
+      ).size,
+    ).toBe(0);
+  });
+
+  it("a blunder pick (no search) takes only a move the plan favors", () => {
+    const { state, p1, legal } = position({
+      monster: "EBP04-032",
+      hand: ["EBP04-031", "EBP04-034"],
+    });
+    const allowed = blunderAllowed(
+      state,
+      legal,
+      "P1",
+      ismctsSettings({ rules: 1 }),
+    );
+    expect(allowed.length).toBeGreaterThan(0);
+    expect(
+      allowed.some(
+        (a) => a.type === "gainRage" && numberOf(state, p1, a) === "EBP04-034",
+      ),
+    ).toBe(false);
+    // With mxPlan=0 the plan has no say.
+    expect(
+      blunderAllowed(
+        state,
+        legal,
+        "P1",
+        ismctsSettings({ rules: 1, mxPlan: 0 }),
+      ).some(
+        (a) => a.type === "gainRage" && numberOf(state, p1, a) === "EBP04-034",
+      ),
+    ).toBe(true);
   });
 });

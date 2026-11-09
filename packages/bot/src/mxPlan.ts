@@ -304,7 +304,22 @@ export function mxPlanDead(
   actions: readonly Action[],
   player: PlayerId,
 ): Set<Action> {
-  const dead = new Set<Action>();
+  return new Set(mxPlanVerdict(state, actions, player).keys());
+}
+
+/**
+ * The actions Paul's Monster X plan argues against, each with the first rule that does. The
+ * search favors the others (a preference, not a prune: `ismcts.ts`).
+ */
+export function mxPlanVerdict(
+  state: GameState,
+  actions: readonly Action[],
+  player: PlayerId,
+): Map<Action, number> {
+  const dead = new Map<Action, number>();
+  const kill = (a: Action, rule: number) => {
+    if (!dead.has(a)) dead.set(a, rule);
+  };
   const me = state.players.find((p) => p.id === player);
   const opponent = state.players.find((p) => p.id !== player);
   if (!me || !opponent || !isMonsterXDeck(state, me)) return dead;
@@ -323,7 +338,7 @@ export function mxPlanDead(
       cardData(state, blue[0]?.card)?.deckCardNumber === MONSTER_X_BATTLE
     )
       for (const a of actions)
-        if (a.type === "choose" && a.optionId === "yes") dead.add(a);
+        if (a.type === "choose" && a.optionId === "yes") kill(a, 12);
     return dead;
   }
   if (state.turnPlayer !== player) return dead;
@@ -344,7 +359,7 @@ export function mxPlanDead(
   );
   if (invadeReason(state, me, opponent) === null)
     for (const a of invades)
-      if (playOut(state, a)?.result?.winner !== player) dead.add(a);
+      if (playOut(state, a)?.result?.winner !== player) kill(a, 9);
   // Rule 3: pay with a battle card of a color not yet in the discard pile, up to 4 colors.
   const discardColors = colorsOf(
     state,
@@ -362,7 +377,7 @@ export function mxPlanDead(
         (data?.colors ?? []).some((c) => !discardColors.has(c))
       );
     };
-    if (live.some(adds)) for (const a of live) if (!adds(a)) dead.add(a);
+    if (live.some(adds)) for (const a of live) if (!adds(a)) kill(a, 3);
   }
 
   // Rule 1: turn 1, a battle card before any other play.
@@ -372,7 +387,7 @@ export function mxPlanDead(
   );
   if (turn === 1 && tops.length === 0 && plays.length > 0)
     for (const a of actions)
-      if (a.type !== "playBattle" && a.type !== "concede") dead.add(a);
+      if (a.type !== "playBattle" && a.type !== "concede") kill(a, 1);
 
   // Rule 4: turns 1-3, rank 3 or lower battle cards before rank 4 or higher.
   const rankOf = (a: Extract<Action, { type: "playBattle" }>) => {
@@ -380,7 +395,7 @@ export function mxPlanDead(
     return card ? (getRank(state, card) ?? 0) : 0;
   };
   if (turn <= 3 && plays.some((a) => rankOf(a) <= 3))
-    for (const a of plays) if (rankOf(a) >= 4) dead.add(a);
+    for (const a of plays) if (rankOf(a) >= 4) kill(a, 4);
   // Rule 2: a battle card that adds a new color in your zones, up to 4 colors.
   const colorsNow = colorsOf(
     state,
@@ -395,7 +410,7 @@ export function mxPlanDead(
     };
     const live = plays.filter((a) => !dead.has(a));
     if (live.some((a) => after(a) > colorsNow.size))
-      for (const a of live) if (after(a) <= colorsNow.size) dead.add(a);
+      for (const a of live) if (after(a) <= colorsNow.size) kill(a, 2);
   }
 
   // Rule 7: Final Wars with 1 or fewer battle cards in zones, or a stronger card to cover with.
@@ -415,7 +430,7 @@ export function mxPlanDead(
           : (d?.counterOrThreat ?? 0),
       );
     if (!coverWith.some((cp) => cp > weakest))
-      for (const a of finalWars) dead.add(a);
+      for (const a of finalWars) kill(a, 7);
   }
 
   // Rules 5 and 6: Entangling Fear when the end-phase advance (7.5.2) would take the monster from
@@ -426,9 +441,9 @@ export function mxPlanDead(
     .flat()
     .some((x) => cardData(state, x.card)?.deckCardNumber === ENTANGLING_FEAR);
   if (fear.length > 0 && me.monsterPosition === 5 && !invading && !feared) {
-    for (const a of actions) if (a.type === "pass") dead.add(a);
+    for (const a of actions) if (a.type === "pass") kill(a, 5);
   } else {
-    for (const a of fear) dead.add(a);
+    for (const a of fear) kill(a, 5);
   }
 
   // Rule 8: no rage discards (8.4), except a monster card ranked below the monster's current rank,
@@ -439,7 +454,7 @@ export function mxPlanDead(
       a.type === "gainRage" &&
       (cardData(state, handCard(a.cardInstanceId))?.rank ?? 0) >= current
     )
-      dead.add(a);
+      kill(a, 8);
 
   // Rule 10: Landing first when the opponent's monster is in 7 and the counter is made.
   const counters = counterPowerOf(state, me) >= getThreat(state, opponent.id);
@@ -448,20 +463,20 @@ export function mxPlanDead(
     counters &&
     strategies(LANDING).length > 0
   )
-    for (const a of actions) if (a.type === "pass") dead.add(a);
+    for (const a of actions) if (a.type === "pass") kill(a, 10);
 
   // Rule 11: Captured! only when the reset makes this turn's counter; then before the counter.
   for (const a of strategies(CAPTURED)) {
     if (!makesCounter(state, a, me)) {
-      dead.add(a);
+      kill(a, 11);
       continue;
     }
-    for (const b of actions) if (b.type === "pass") dead.add(b);
+    for (const b of actions) if (b.type === "pass") kill(b, 11);
   }
 
   // Rule 13: Monster Island only when zones 1-5 all hold battle cards.
   if (!([1, 2, 3, 4, 5] as const).every((z) => tops.some((t) => t.zone === z)))
-    for (const a of strategies(MONSTER_ISLAND)) dead.add(a);
+    for (const a of strategies(MONSTER_ISLAND)) kill(a, 13);
 
   // Rule 14: vs King Ghidorah, the last removal that can hit Mecha-King Ghidorah stays in hand
   // until it lands.
@@ -486,7 +501,7 @@ export function mxPlanDead(
           !(a.type === "invade" && !dead.has(a))) ||
         (a.type === "playBattle" && a.costCardInstanceId === last)
       )
-        dead.add(a);
+        kill(a, 14);
   }
   return dead;
 }
