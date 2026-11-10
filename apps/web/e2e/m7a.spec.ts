@@ -253,7 +253,7 @@ test("a godzilla-sim Export to Clipboard (no name line) saves once it's named", 
   await expectDecks(page, ["From godzilla-sim"]);
 });
 
-test("Import all keeps folders, skips a deck already saved, asks about a name clash, and reports the bad one (#167)", async ({
+test("Import all keeps full names, skips a deck already saved, asks about a name clash, and reports the bad one (#167)", async ({
   page,
 }) => {
   const all = cardsFixture("godzilla-sim-export-all.txt");
@@ -284,9 +284,10 @@ test("Import all keeps folders, skips a deck already saved, asks about a name cl
   await expect(page.getByTestId("import-all")).toBeDisabled();
   await expect(page.getByTestId("import-cancel")).toHaveText("Close [Esc]");
   await page.getByTestId("import-cancel").click();
+  // Paul, Nov 9: My decks is one list A–Z.
   await expectDecks(page, [
-    heisei,
     "Starters/Starter Deck - Godzilla Minus One",
+    heisei,
     `${heisei} (2)`,
   ]);
   await page.getByTestId("db-decks-close").click();

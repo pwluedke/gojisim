@@ -11,6 +11,8 @@ export interface DeckOption {
   kind: "official" | "random" | "mine";
   /** The deck to play; random decks depend on the game seed. */
   build: (seed: number) => NamedDeck;
+  /** A My decks deck's tags (Paul, Nov 9); none for the starters. */
+  tags?: string[];
 }
 
 function firstDeck(text: string): NamedDeck {
@@ -62,6 +64,7 @@ export function myDeckOptions(
     label: name,
     kind: "mine",
     build: () => ({ ...deck, name }),
+    ...(deck.tags?.length ? { tags: deck.tags } : {}),
   }));
 }
 

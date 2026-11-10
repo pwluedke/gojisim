@@ -11,6 +11,10 @@ export interface DeckDraft {
   name: string;
   monsterDeck: Card[];
   mainDeck: Card[];
+  /** The deck's tags (Paul, Nov 9: tags in place of folders); kept through save and export. */
+  tags?: string[];
+  /** Where the deck came from, written as a `# origin:` comment. */
+  origin?: string;
 }
 
 export type DeckZone = "monster" | "main";
@@ -109,6 +113,8 @@ export const asDeck = (draft: DeckDraft): NamedDeck => ({
   name: draft.name.trim() || "New deck",
   monsterDeck: draft.monsterDeck,
   mainDeck: draft.mainDeck,
+  ...(draft.tags?.length ? { tags: draft.tags } : {}),
+  ...(draft.origin ? { origin: draft.origin } : {}),
 });
 
 /** The draft as GojiSim deck list text (what Export writes and Import reads). */
@@ -120,6 +126,8 @@ export const draftOf = (deck: NamedDeck): DeckDraft => ({
   name: deck.name,
   monsterDeck: [...deck.monsterDeck],
   mainDeck: [...deck.mainDeck],
+  ...(deck.tags?.length ? { tags: [...deck.tags] } : {}),
+  ...(deck.origin ? { origin: deck.origin } : {}),
 });
 
 /** The name for a copy: "<name> (copy)", then "(copy 2)" … while taken. */

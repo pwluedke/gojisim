@@ -1,12 +1,13 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
 import { deckAction, myDeckNames } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
 /**
- * #181, the Deckbuilder's My decks window (Paul's layout 1): decks grouped by folder under
- * collapsible headers, a search, one Load per row and a ⋯ menu for the rest.
+ * #181, the Deckbuilder's My decks window (Paul's layout 1), as Paul changed it on Nov 9: one flat
+ * list A–Z with tag buttons above it (no folders), a search, one Load per row and a ⋯ menu for
+ * the rest; Replace with backup at the foot.
  */
 
 const starter = readFileSync(
@@ -16,8 +17,11 @@ const starter = readFileSync(
   ),
   "utf8",
 );
-const named = (name: string) =>
-  starter.replace(/^\[deck\].*$/m, `[deck] ${name}`);
+const named = (name: string, tags?: string) =>
+  starter.replace(
+    /^\[deck\].*$/m,
+    `[deck] ${name}${tags ? `\ntags: ${tags}` : ""}`,
+  );
 /** A list 6.1.1.2 rejects: one main deck card short. */
 const short = (name: string) => named(name).replace(/^4 (ESD01-\d+)$/m, "3 $1");
 
@@ -28,13 +32,12 @@ async function withDecks(page: Page) {
     .getByTestId("import-text")
     .fill(
       [
-        named("Club/Red Rage"),
-        named("Club/Blue Hoard"),
-        short("Tests/Short One"),
-        named("Rager"),
+        named("Red Rage", "Meta, Bot training"),
+        named("Blue Hoard", "Meta"),
+        short("Short One"),
+        named("Rager", "Mine"),
       ].join("\n\n"),
     );
-  // Import all keeps each deck's folder (#167).
   await page.getByTestId("import-all").click();
   await expect(page.getByTestId("import-all-result")).toContainText(
     "Saved 4 of 4 decks",
@@ -43,58 +46,121 @@ async function withDecks(page: Page) {
 }
 
 const win = (page: Page) => page.getByTestId("db-decks-window");
-const folder = (page: Page, name: string) =>
-  win(page).locator(`[data-testid="db-folder"][data-folder="${name}"]`);
 const row = (page: Page, name: string) =>
   win(page).locator(`[data-testid="db-deck"][data-deck-name="${name}"]`);
+const tag = (page: Page, name: string) =>
+  win(page).locator(`[data-testid="db-tag"][data-tag="${name}"]`);
 
-test("decks group by folder under collapsible headers, rows show the name after the folder, with Legal / Not legal", async ({
+test("decks are one flat list A–Z with their tags and Legal / Not legal; no folder headers", async ({
   page,
 }) => {
   await withDecks(page);
   await page.getByTestId("db-my-decks").click();
   await expect(page.getByTestId("db-decks-count")).toHaveText("4 decks");
-  const folders = await win(page)
+  expect(await myDeckNames(page)).toEqual([
+    "Blue Hoard",
+    "Rager",
+    "Red Rage",
+    "Short One",
+  ]);
+  // Only the starters keep a header; My decks has none.
+  const groups = await win(page)
     .getByTestId("db-folder")
     .evaluateAll((els) => els.map((e) => e.getAttribute("data-folder")));
-  expect(folders).toEqual(["Starter decks", "Club", "Tests", "No folder"]);
-  await expect(folder(page, "Club").getByRole("button").first()).toContainText(
-    "2",
+  expect(groups).toEqual(["Starter decks"]);
+  await expect(row(page, "Red Rage").getByTestId("db-row-tags")).toHaveText(
+    "Meta · Bot training",
   );
-  await expect(
-    row(page, "Club/Red Rage").getByTestId("db-deck-name"),
-  ).toHaveText("Red Rage");
-  await expect(row(page, "Club/Red Rage")).toContainText("Legal");
-  await expect(row(page, "Tests/Short One")).toContainText("Not legal");
+  await expect(row(page, "Red Rage")).toContainText("Legal");
+  await expect(row(page, "Short One")).toContainText("Not legal");
   // One visible action per row: Load (primary) and the menu button.
-  await expect(row(page, "Club/Red Rage").getByRole("button")).toHaveCount(2);
-  // A header folds its folder away and back.
-  const head = folder(page, "Club").getByRole("button").first();
-  await head.click();
-  await expect(head).toHaveAttribute("aria-expanded", "false");
-  await expect(row(page, "Club/Red Rage")).toHaveCount(0);
-  await head.click();
-  await expect(row(page, "Club/Red Rage")).toBeVisible();
+  await expect(row(page, "Red Rage").getByRole("button")).toHaveCount(2);
 });
 
-test("search matches deck and folder names, ignoring case, and opens every folder with a match", async ({
+test("tag buttons filter the list; several tags show decks with all of them; the search still works", async ({
   page,
 }) => {
   await withDecks(page);
   await page.getByTestId("db-my-decks").click();
-  await folder(page, "Club").getByRole("button").first().click();
+  // Most used first: Meta (2), then Bot training and Mine (1 each), A–Z.
+  await expect(win(page).getByTestId("db-tag")).toHaveText([
+    "Meta 2",
+    "Bot training 1",
+    "Mine 1",
+  ]);
+  await tag(page, "Meta").click();
+  await expect(tag(page, "Meta")).toHaveAttribute("aria-pressed", "true");
+  expect(await myDeckNames(page)).toEqual(["Blue Hoard", "Red Rage"]);
+  await tag(page, "Bot training").click();
+  expect(await myDeckNames(page)).toEqual(["Red Rage"]);
+  await tag(page, "Mine").click();
+  await expect(page.getByTestId("db-decks-none")).toBeVisible();
+  await tag(page, "Mine").click();
+  await tag(page, "Bot training").click();
+  await tag(page, "Meta").click();
+  // The search matches names and tags, ignoring case.
   await page.getByTestId("db-decks-search").fill("BLUE");
-  expect(await myDeckNames(page)).toEqual(["Club/Blue Hoard"]);
-  await expect(
-    folder(page, "Club").getByRole("button").first(),
-  ).toHaveAttribute("aria-expanded", "true");
-  await page.getByTestId("db-decks-search").fill("club");
-  expect(await myDeckNames(page)).toEqual(["Club/Red Rage", "Club/Blue Hoard"]);
+  expect(await myDeckNames(page)).toEqual(["Blue Hoard"]);
+  await page.getByTestId("db-decks-search").fill("mine");
+  expect(await myDeckNames(page)).toEqual(["Rager"]);
   await page.getByTestId("db-decks-search").fill("nothing like it");
   await expect(page.getByTestId("db-decks-none")).toBeVisible();
 });
 
-test("the ⋯ menu: Duplicate, Rename, Copy deck list, Export, then a red Delete; arrow keys move in it, Esc and a click outside close it", async ({
+test("Edit tags sets a deck's tags; they stay after a reload", async ({
+  page,
+}) => {
+  await withDecks(page);
+  await page.getByTestId("db-my-decks").click();
+  await deckAction(row(page, "Rager"), "db-edit-tags");
+  await row(page, "Rager").getByTestId("tags-input").fill("Mine, Old, ");
+  await row(page, "Rager").getByTestId("tags-save").click();
+  await expect(row(page, "Rager").getByTestId("db-row-tags")).toHaveText(
+    "Mine · Old",
+  );
+  await expect(win(page)).toHaveAttribute("data-decks-stored", "true");
+  await page.reload();
+  await page.getByTestId("db-my-decks").click();
+  await expect(row(page, "Rager").getByTestId("db-row-tags")).toHaveText(
+    "Mine · Old",
+  );
+});
+
+test("Replace with backup asks first, then My decks holds only the backup's decks", async ({
+  page,
+}, testInfo) => {
+  await withDecks(page);
+  await page.getByTestId("db-my-decks").click();
+  const file = testInfo.outputPath("backup.json");
+  writeFileSync(
+    file,
+    JSON.stringify({
+      app: "gojisim",
+      kind: "decks",
+      version: 1,
+      decks: [
+        { name: "Only One", list: named("Only One", "Meta") },
+        { name: "Only Two", list: named("Only Two") },
+      ],
+    }),
+  );
+  await page.getByTestId("db-replace-file").setInputFiles(file);
+  await expect(page.getByTestId("db-replace-confirm")).toHaveText(
+    "Replace all 4 with 2",
+  );
+  // Nothing changes until it's confirmed.
+  expect(await myDeckNames(page)).toHaveLength(4);
+  await page.getByTestId("db-replace-confirm").click();
+  expect(await myDeckNames(page)).toEqual(["Only One", "Only Two"]);
+  await expect(page.getByTestId("db-decks-note")).toContainText(
+    "Replaced My decks with the backup's 2 decks.",
+  );
+  await expect(win(page)).toHaveAttribute("data-decks-stored", "true");
+  await page.reload();
+  expect(await myDeckNames(page)).toEqual(["Only One", "Only Two"]);
+});
+
+test("the ⋯ menu: Duplicate, Rename, Edit tags, Copy deck list, Export, then a red Delete; arrow keys move in it, Esc and a click outside close it", async ({
   page,
 }) => {
   await withDecks(page);
@@ -106,6 +172,7 @@ test("the ⋯ menu: Duplicate, Rename, Copy deck list, Export, then a red Delete
   await expect(menu.getByRole("menuitem")).toHaveText([
     "Duplicate",
     "Rename",
+    "Edit tags",
     "Copy deck list",
     "Export",
     "Delete",
@@ -142,4 +209,22 @@ test("Import opens from the window's search row", async ({ page }) => {
   await page.getByTestId("db-my-decks").click();
   await page.getByTestId("db-decks-import").click();
   await expect(page.getByTestId("import-text")).toBeVisible();
+});
+
+test("Paul, Nov 9: the Deckbuilder edits a deck's tags; saving keeps them", async ({
+  page,
+}) => {
+  await withDecks(page);
+  await page.getByTestId("db-my-decks").click();
+  await row(page, "Rager").getByTestId("db-load").click();
+  const field = page.getByTestId("db-deck-tags");
+  await expect(field).toHaveValue("Mine");
+  await field.fill("Mine, Tournament,");
+  await field.press("Enter");
+  await expect(field).toHaveValue("Mine, Tournament");
+  await page.getByTestId("db-save").click();
+  await page.getByTestId("db-my-decks").click();
+  await expect(row(page, "Rager").getByTestId("db-row-tags")).toHaveText(
+    "Mine · Tournament",
+  );
 });

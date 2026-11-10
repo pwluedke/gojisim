@@ -388,3 +388,15 @@ form.screen .menuItem:focus-visible {
   width: 100%;
   margin-bottom: var(--space-1);
 }
+
+/* Paul, Nov 9: each seat's tag buttons, under its filter. */
+.deckTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.deckTags button[aria-pressed="true"] {
+  background: var(--color-highlight);
+  color: var(--color-highlight-text);
+}
