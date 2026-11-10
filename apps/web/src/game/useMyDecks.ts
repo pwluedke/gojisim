@@ -12,7 +12,12 @@ import {
   type UploadPlan,
   uploadPlan,
 } from "./accountSync";
-import { type DeckStore, deckStore, type SavedDeck } from "./deckStore";
+import {
+  type DeckStore,
+  deckStore,
+  type SavedDeck,
+  withTags,
+} from "./deckStore";
 
 /**
  * The player's saved decks (M7a), loaded once from IndexedDB. Every change shows at once and is
@@ -128,6 +133,17 @@ export function useMyDecks(
     if (player.current)
       void apiRef.current.deleteDeck(id, new Date().toISOString());
   };
+  /** Paul, Nov 9: a deck's tags, set here and in the account (they live in its list text). */
+  const retag = (id: string, tags: readonly string[]) => {
+    const deck = decks.find((d) => d.id === id);
+    const tagged = deck ? withTags(deck, tags) : null;
+    if (tagged) update(tagged);
+  };
+  /** Import backup's Replace: every saved deck goes (here and in the account), then these. */
+  const replaceAll = (...next: SavedDeck[]) => {
+    for (const d of decks) remove(d.id);
+    add(...next);
+  };
 
   /**
    * The upload offer's answer: the plain uploads go up; each clash as chosen (`both` keeps this
@@ -186,6 +202,8 @@ export function useMyDecks(
     rename,
     update,
     remove,
+    retag,
+    replaceAll,
     offer,
     acceptOffer,
     declineOffer,

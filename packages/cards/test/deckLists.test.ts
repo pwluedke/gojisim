@@ -6,6 +6,8 @@ import {
   type NamedDeck,
   parseAnyDeckList,
   parseDeckList,
+  deckSignature,
+  parseTags,
 } from "../src/deckLists";
 
 const sample = readFileSync(
@@ -265,5 +267,92 @@ describe("godzilla-sim exports and the godzillatcgdb deck page (M7a review)", ()
     expect(
       parseAnyDeckList(fixture("godzillatcgdb-deck-page.txt")).format,
     ).toBe("godzillatcgdb-page");
+  });
+});
+
+describe("deck tags and origin (Paul, Nov 9: one flat list with tags)", () => {
+  const text = [
+    "# a file comment before any deck",
+    "[deck] Tangler (Ian)",
+    "# origin: Run",
+    "tags: Meta, Bot training",
+    "[monster deck]",
+    "1 ESD01-001",
+    "[main deck]",
+    "2 ESD01-012",
+    "",
+    "[deck] Untagged",
+    "[monster deck]",
+    "1 ESD02-001",
+    "",
+  ].join("\n");
+
+  it("reads a deck's tags line and origin comment; a deck without them has neither", () => {
+    const { decks, errors } = parseDeckList(text);
+    expect(errors).toEqual([]);
+    expect(decks[0]).toMatchObject({
+      name: "Tangler (Ian)",
+      origin: "Run",
+      tags: ["Meta", "Bot training"],
+    });
+    expect(decks[0]?.mainDeck).toHaveLength(2);
+    expect(decks[1]?.tags).toBeUndefined();
+    expect(decks[1]?.origin).toBeUndefined();
+  });
+
+  it("writes them back, and the result reads back the same", () => {
+    const { decks } = parseDeckList(text);
+    const out = formatDeckList(decks);
+    expect(out).toContain(
+      "[deck] Tangler (Ian)\n# origin: Run\ntags: Meta, Bot training\n[monster deck]",
+    );
+    expect(parseDeckList(out).decks).toEqual(decks);
+  });
+
+  it("tags are trimmed, empty ones and repeats (any case) dropped", () => {
+    expect(parseTags(" Meta, ,meta , Bot training,Mine ")).toEqual([
+      "Meta",
+      "Bot training",
+      "Mine",
+    ]);
+  });
+
+  it("a tags line before any deck is an error; older files without tags read as before", () => {
+    expect(parseDeckList("tags: Meta\n[deck] X").errors[0]?.reason).toBe(
+      "Tags listed before a [deck] header",
+    );
+    expect(shape(parseDeckList(sample).decks)).toEqual(
+      shape(parseDeckList(sample).decks),
+    );
+    expect(parseDeckList(sample).decks.every((d) => d.tags === undefined)).toBe(
+      true,
+    );
+  });
+});
+
+describe("deck signatures and old names (Paul, Nov 9)", () => {
+  it("decks with the same cards have the same signature, prints and order ignored; others differ", () => {
+    const a = parseDeckList(
+      "[deck] A\n[monster deck]\n1 ESD01-001\n[main deck]\n2 ESD01-012+\n1 ESD01-013",
+    ).decks[0]!;
+    const b = parseDeckList(
+      "[deck] B\n[monster deck]\n1 ESD01-001\n[main deck]\n1 ESD01-013\n2 ESD01-012",
+    ).decks[0]!;
+    const c = parseDeckList(
+      "[deck] C\n[monster deck]\n1 ESD01-001\n[main deck]\n1 ESD01-013\n1 ESD01-012",
+    ).decks[0]!;
+    expect(deckSignature(a)).toBe(deckSignature(b));
+    expect(deckSignature(a)).not.toBe(deckSignature(c));
+  });
+
+  it("reads and writes # was: names", () => {
+    const text =
+      "[deck] Tangler (Ian)\n# was: local-decks/meta.txt#Run/Tangler (Ian, 1st Nov 1)\n# was: local-decks/x.txt#Y\n[monster deck]\n1 ESD01-001\n";
+    const deck = parseDeckList(text).decks[0]!;
+    expect(deck.was).toEqual([
+      "local-decks/meta.txt#Run/Tangler (Ian, 1st Nov 1)",
+      "local-decks/x.txt#Y",
+    ]);
+    expect(parseDeckList(formatDeckList([deck])).decks[0]).toEqual(deck);
   });
 });

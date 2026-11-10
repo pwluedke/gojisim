@@ -6,6 +6,8 @@ import {
   siteConfig,
   uploadsPerMinuteFrom,
 } from "../server/src/games.js";
+import { join } from "node:path";
+import { devDeckResults } from "./devDeckResults";
 import { devSignIn } from "./devSignIn";
 
 export default defineConfig({
@@ -25,6 +27,20 @@ export default defineConfig({
       name: "gojisim-dev-sign-in",
       configureServer(server) {
         server.middlewares.use(devSignIn());
+      },
+    },
+    {
+      // Paul, Nov 9: the bot results next to a deck tagged Meta, from the local `bot-reports/`,
+      // in the dev server only (Paul's Mac); the deployed server has no such route.
+      name: "gojisim-dev-deck-results",
+      configureServer(server) {
+        const root = new URL("../..", import.meta.url).pathname;
+        server.middlewares.use(
+          devDeckResults(
+            process.env["GOJISIM_BOT_REPORTS"] ?? join(root, "bot-reports"),
+            root,
+          ),
+        );
       },
     },
     {
