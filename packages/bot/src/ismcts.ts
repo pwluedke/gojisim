@@ -19,6 +19,7 @@ import { cfPlanDead } from "./cfPlan";
 import { type CfTarget, cfTargetDead } from "./cfTarget";
 import { determinize } from "./determinize";
 import { finalWarsDead, mxPlanVerdict } from "./mxPlan";
+import { mxPlanV2Verdict } from "./mxPlanV2";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
 import { deadKeys } from "./prune";
 import { applyRules } from "./rules";
@@ -63,7 +64,10 @@ export interface IsmctsSettings {
   recognizer: number;
   /** Paul's Constructed Future plan (`cfPlan.ts`), with `rules` on: 1 (the default) on, 0 off. */
   cfPlan: number;
-  /** Paul's Monster X plan (`mxPlan.ts`), with `rules` on: 1 (the default) on, 0 off. */
+  /**
+   * Paul's Monster X plan, with `rules` on: 2 (the default) v2 (`mxPlanV2.ts`, Nov 9), 1 v1
+   * (`mxPlan.ts`, Nov 7), 0 off.
+   */
   mxPlan: number;
   /** Paul's Constructed Future test, with `rules` on: which card cost discards aim at (`cfTarget.ts`). */
   cfTarget: CfTarget;
@@ -85,7 +89,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   recognizer: 0,
   cfTarget: "auto",
   cfPlan: 1,
-  mxPlan: 1,
+  mxPlan: 2,
 };
 
 /** Reads ISMCTS settings from a bot's settings, with defaults. */
@@ -139,15 +143,19 @@ export const MX_PLAN_BIAS = 0.2;
 
 /**
  * The root actions the Monster X plan favors, by key: the moves it doesn't argue against, while it
- * argues against some and leaves a move that isn't conceding.
+ * argues against some and leaves a move that isn't conceding. `version` 2 is v2, 1 is v1.
  */
 export function mxPlanFavored(
   state: GameState,
   actions: readonly Action[],
   player: PlayerId,
   keyOf: (a: Action) => string,
+  version = 2,
 ): Map<string, number> {
-  const against = mxPlanVerdict(state, actions, player);
+  const against =
+    version >= 2
+      ? mxPlanV2Verdict(state, actions, player)
+      : mxPlanVerdict(state, actions, player);
   const keep = actions.filter((a) => a.type !== "concede" && !against.has(a));
   if (against.size === 0 || keep.length === 0) return new Map();
   return new Map(keep.map((a) => [keyOf(a), MX_PLAN_BIAS]));
@@ -370,8 +378,12 @@ export function search(input: BotInput, settings: IsmctsSettings) {
       }
     }
     if (iterations === 1 && settings.rules > 0 && settings.mxPlan > 0)
-      favored = mxPlanFavored(state, input.legalActions, me, (a) =>
-        actionKey(state, a),
+      favored = mxPlanFavored(
+        state,
+        input.legalActions,
+        me,
+        (a) => actionKey(state, a),
+        settings.mxPlan,
       );
     let node = root;
     const path: Node[] = [];
@@ -482,7 +494,7 @@ export function blunderAllowed(
     : [...legalActions];
   const allowed = kept.length > 0 ? kept : [...legalActions];
   if (settings.mxPlan === 0) return allowed;
-  const favored = mxPlanFavored(state, allowed, me, keyOf);
+  const favored = mxPlanFavored(state, allowed, me, keyOf, settings.mxPlan);
   const planned = allowed.filter((a) => favored.has(keyOf(a)));
   return planned.length > 0 ? planned : allowed;
 }

@@ -132,7 +132,9 @@ const live = (legal: Action[], dead: Set<Action>) =>
 
 describe("Paul's Monster X plan (mxPlan=1)", () => {
   it("defaults to on; mxPlan=0 turns it off", () => {
-    expect(ismctsSettings({}).mxPlan).toBe(1);
+    // v2 (Nov 9) is the default; v1 stays as mxPlan=1.
+    expect(ismctsSettings({}).mxPlan).toBe(2);
+    expect(ismctsSettings({ mxPlan: "1" }).mxPlan).toBe(1);
     expect(ismctsSettings({ mxPlan: "0" }).mxPlan).toBe(0);
   });
 
@@ -638,7 +640,7 @@ describe("the Monster X plan as a preference (#223)", () => {
       hand: ["EBP04-031", "EBP04-034"],
     });
     const key = (a: Action) => actionKey(state, a);
-    const favored = mxPlanFavored(state, legal, "P1", key);
+    const favored = mxPlanFavored(state, legal, "P1", key, 1);
     const r3 = legal.find(
       (a) => a.type === "gainRage" && numberOf(state, p1, a) === "EBP04-034",
     ) as Action;
@@ -648,8 +650,12 @@ describe("the Monster X plan as a preference (#223)", () => {
     ).toBe(MX_PLAN_BIAS);
     const quiet = position({ hand: [] });
     expect(
-      mxPlanFavored(quiet.state, quiet.legal, "P1", (a) =>
-        actionKey(quiet.state, a),
+      mxPlanFavored(
+        quiet.state,
+        quiet.legal,
+        "P1",
+        (a) => actionKey(quiet.state, a),
+        1,
       ).size,
     ).toBe(0);
   });
@@ -663,7 +669,7 @@ describe("the Monster X plan as a preference (#223)", () => {
       state,
       legal,
       "P1",
-      ismctsSettings({ rules: 1 }),
+      ismctsSettings({ rules: 1, mxPlan: 1 }),
     );
     expect(allowed.length).toBeGreaterThan(0);
     expect(
