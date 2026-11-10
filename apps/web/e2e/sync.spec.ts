@@ -121,10 +121,11 @@ test("#152: at first sign-in, this browser's decks are offered once (a name clas
   await page.goto("/auth/dev?next=%2Fdecks");
 
   // The account's decks arrived; nothing of this browser's is lost.
+  // Paul, Nov 9: My decks is one list A–Z.
   await expectNames(page, [
+    "Account Blue",
     "Local Green",
     "Red Rush",
-    "Account Blue",
     "Red Rush",
   ]);
   // The window covers the page; close it to answer the offer.
