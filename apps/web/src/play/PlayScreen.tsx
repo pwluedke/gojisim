@@ -1413,15 +1413,19 @@ export function PlayScreen() {
           session.record.showOpponentHand ? "true" : undefined
         }
       >
-        {/* #211: home asks first while the game is on; once it's over it just goes. */}
-        <ThemeHeader
-          onHome={() => {
-            if (result !== null) return true;
-            setLeaving(true);
-            return false;
-          }}
-        />
         <BoardView
+          // Paul, Nov 10: the header is a block over the left panel, not a bar over the board.
+          // #211: home asks first while the game is on; once it's over it just goes.
+          header={
+            <ThemeHeader
+              block
+              onHome={() => {
+                if (result !== null) return true;
+                setLeaving(true);
+                return false;
+              }}
+            />
+          }
           model={model}
           prompt={prompt}
           actions={locked ? [] : actions}

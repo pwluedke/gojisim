@@ -7,8 +7,8 @@
 
 .layout {
   display: flex;
-  /* Under the theme's header bar, if it has one (Showa Poster). */
-  height: calc(100vh - var(--header-h));
+  /* The full height: Showa Poster's header is a block over the left column (Paul, Nov 10). */
+  height: 100vh;
 }
 
 /* The right column: the battle log, which the card preview covers while a card is previewed. */
@@ -548,10 +548,7 @@
 .handCards {
   --hand-card-h: min(100cqh / var(--hand-peek), var(--card-h) * 2);
   --hand-card-w: calc(var(--hand-card-h) * 63 / 88);
-  --raised-h: min(
-    var(--card-h) * var(--raised-scale),
-    100vh - var(--header-h) - 8px
-  );
+  --raised-h: min(var(--card-h) * var(--raised-scale), 100vh - 8px);
 }
 
 /* The hand's count, over its top-left corner. */

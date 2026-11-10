@@ -811,6 +811,7 @@ export function BoardView({
   name = (id) => id,
   log = null,
   settings = null,
+  header = null,
   step = null,
   animation = "off",
   onAnimating,
@@ -844,6 +845,8 @@ export function BoardView({
   log?: ReactNode;
   /** The settings panel (M5d). */
   settings?: ReactNode;
+  /** Paul, Nov 10: the theme's header block, at the top of the left column (Showa Poster). */
+  header?: ReactNode;
   /**
    * The shown state's action count while live, `null` in the history view (M5f): a change of
    * exactly one step animates, anything else shows at once.
@@ -1064,6 +1067,7 @@ export function BoardView({
           data-bottom={model.bottom}
         >
           <aside className={styles.leftColumn} data-testid="left-column">
+            {header}
             <section className={styles.panel} data-testid="prompt">
               <div className={styles.panelTitle}>Prompt</div>
               {prompt}

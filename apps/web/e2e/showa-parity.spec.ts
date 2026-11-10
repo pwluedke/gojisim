@@ -3,10 +3,11 @@ import { expect, type Page, test } from "@playwright/test";
 import { loadFixture } from "./helpers";
 
 /**
- * #108: Showa Poster lays out /play's board like the other themes. Its header bar, fight card,
+ * #108: Showa Poster lays out /play's board like the other themes. Its header, fight card,
  * colors and look stay; its controls, line height and the Illegal deck badge take the other
- * themes' sizes (amends decision 453). Boxes are measured from the board's top-left, since
- * Showa's 56 px header bar sits above the board.
+ * themes' sizes (amends decision 453). Boxes are measured from the board's top-left. Paul, Nov 10:
+ * Showa's header is a block at the top of the left column, so that column's panels are compared
+ * from the Prompt panel down.
  */
 
 type Box = { x: number; y: number; width: number; height: number };
@@ -82,12 +83,23 @@ for (const [width, height] of [
         (showa.boxes[id]?.[key] ?? 0) - (grey.boxes[id]?.[key] ?? 0),
         `${id} ${key}: showa ${showa.boxes[id]?.[key]}, grey ${grey.boxes[id]?.[key]}`,
       ).toBeLessThanOrEqual(by);
+    // The left column's panels, from the Prompt panel down (Showa's header block is above it).
+    const fromPrompt = (m: typeof grey, id: string) =>
+      (m.boxes[id]?.y ?? 0) - (m.boxes["prompt"]?.y ?? 0);
     for (const id of LEFT) {
       near(id, "x", 4);
       near(id, "width", 4);
-      notPast(id, "y", 12);
+      expect(
+        fromPrompt(showa, id) - fromPrompt(grey, id),
+        `${id} below the prompt: showa ${fromPrompt(showa, id)}, grey ${fromPrompt(grey, id)}`,
+      ).toBeLessThanOrEqual(12);
       notPast(id, "height", 12);
     }
+    // Showa's Prompt panel sits right under its header block.
+    const header = await box(page, "theme-header");
+    const promptTop = (showa.boxes["prompt"]?.y ?? 0) + showa.board.y;
+    expect(promptTop - (header.y + header.height)).toBeGreaterThanOrEqual(0);
+    expect(promptTop - (header.y + header.height)).toBeLessThanOrEqual(16);
     // The Test Site panel is on screen in both.
     for (const m of [grey, showa]) {
       const site = m.boxes["test-site"] as Box;

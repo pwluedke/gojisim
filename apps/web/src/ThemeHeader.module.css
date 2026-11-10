@@ -9,11 +9,27 @@
   border-bottom: 4px solid var(--color-ink);
 }
 
-/* #211: the wordmark is the home link. */
+/*
+ * Paul, Nov 10: on the board, a block over the left panel only, at its width (the column's
+ * padding is taken back), with the player under the wordmark.
+ */
+.block {
+  display: var(--header-display);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin: -6px calc(-1 * var(--space-2)) var(--space-2);
+  padding: 12px 16px 10px;
+  background: var(--color-poster-red);
+  border-bottom: 4px solid var(--color-ink);
+}
+
+/* #211: the wordmark is the home link; ゴジシム! sits under GOJISIM! (Paul, Nov 10). */
 .home {
   display: flex;
-  align-items: center;
-  gap: 14px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
   text-decoration: none;
   border-radius: 4px;
 }
@@ -31,18 +47,23 @@
   text-shadow: 3px 3px 0 var(--color-ink);
 }
 
+/* Sized so the two lines fit the 56 px bar; the block uses the same sizes. */
 .wordmark {
-  font-size: 32px;
+  font-size: 24px;
   letter-spacing: 0.02em;
   color: var(--color-panel);
 }
 
 .wordmarkJa {
-  font-size: 26px;
+  font-size: 16px;
   color: var(--color-marigold);
 }
 
 .player {
   margin-left: auto;
   color: var(--color-panel);
+}
+
+.block .player {
+  margin-left: 0;
 }
