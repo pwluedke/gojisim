@@ -40,30 +40,30 @@ import { makesCounter } from "./cfPlan";
  * Final Wars placement (Paul's ruling, Nov 7) is `finalWarsDead`, for every deck.
  */
 const MONSTER_X = "Monster X";
-const MONSTER_X_BATTLE = "EBP04-047";
-const MONSTER_X_EVOLUTION = "EBP04-047#evolution";
-const ENTANGLING_FEAR = "EBP04-081";
-const FINAL_WARS = "EBP04-079";
+export const MONSTER_X_BATTLE = "EBP04-047";
+export const MONSTER_X_EVOLUTION = "EBP04-047#evolution";
+export const ENTANGLING_FEAR = "EBP04-081";
+export const FINAL_WARS = "EBP04-079";
 const FINAL_WARS_PLAY = "EBP04-079#reveal-play";
-const LANDING = "EBP01-030";
-const CAPTURED = "EBP03-079";
-const MONSTER_ISLAND = "EBP01-080";
-const MECHA_KING = "EBP02-068";
+export const LANDING = "EBP01-030";
+export const CAPTURED = "EBP03-079";
+export const MONSTER_ISLAND = "EBP01-080";
+export const MECHA_KING = "EBP02-068";
 /** Removal in the Monster X deck that can destroy Mecha-King Ghidorah (rule 14). */
-const MECHA_KING_REMOVAL = new Set([
+export const MECHA_KING_REMOVAL = new Set([
   "EBP01-064", // Godzilla vs. Megaguirus: the zone wipe, with 4+ battle cards
   "EBP04-035", // Kaizer Ghidorah (rank 4): the wipe from the lowest zone
 ]);
-const TARGET_COLORS = 4;
-const ZONES: readonly ZoneNumber[] = [1, 2, 3, 4, 5, 6, 7, 8];
+export const TARGET_COLORS = 4;
+export const ZONES: readonly ZoneNumber[] = [1, 2, 3, 4, 5, 6, 7, 8];
 /** Choices a simulated action may answer before it gives up. */
 const MAX_CHOICES = 30;
 
-const cardData = (state: GameState, card: CardInstance | undefined) =>
+export const cardData = (state: GameState, card: CardInstance | undefined) =>
   card ? state.cards[card.cardId] : undefined;
 
 /** The battle card on top of each of a player's zones that holds one. */
-function battleTops(
+export function battleTops(
   state: GameState,
   player: PlayerState,
 ): { zone: ZoneNumber; card: CardInstance }[] {
@@ -77,7 +77,7 @@ function battleTops(
 }
 
 /** The colors among a set of cards (White counts). */
-function colorsOf(state: GameState, cards: CardInstance[]): Set<string> {
+export function colorsOf(state: GameState, cards: CardInstance[]): Set<string> {
   return new Set(cards.flatMap((c) => cardData(state, c)?.colors ?? []));
 }
 
@@ -95,7 +95,7 @@ export function isMonsterXDeck(state: GameState, player: PlayerState): boolean {
 }
 
 /** Plays an action out, answering its choices with the first option. */
-function playOut(state: GameState, action: Action): GameState | null {
+export function playOut(state: GameState, action: Action): GameState | null {
   try {
     let s = advanceToDecision(applyAction(state, action));
     for (let i = 0; i < MAX_CHOICES && s.pendingChoice && !s.result; i++) {
@@ -198,7 +198,7 @@ export function finalWarsDead(
 }
 
 /** Whether a card's ability data has an effect that destroys an opponent's battle card. */
-function destroysOpponentBattle(deckCardNumber: string): boolean {
+export function destroysOpponentBattle(deckCardNumber: string): boolean {
   const data = getCardAbilities(deckCardNumber);
   if (data.status === "manual") return false;
   const text = JSON.stringify(data.abilities);
@@ -211,7 +211,7 @@ function destroysOpponentBattle(deckCardNumber: string): boolean {
  * Your threat at your next rank: the strongest next-rank monster in your monster deck put on top
  * of a copy of the game, at 0 rage (it resets, 7.2.4); at rank 4, your monster as it is.
  */
-function threatAtNextRank(state: GameState, me: PlayerState): number {
+export function threatAtNextRank(state: GameState, me: PlayerState): number {
   const rank = cardData(state, me.invadingMonsterZone.at(-1))?.rank ?? 0;
   const next = me.monsterDeck.filter((c) => {
     const data = cardData(state, c);
