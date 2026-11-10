@@ -6,7 +6,7 @@ import {
   getMaxCopies,
 } from "@gojisim/cards";
 import { getAllCards } from "@gojisim/cards/all-cards";
-import type { NamedDeck } from "@gojisim/cards/deck-lists";
+import { type NamedDeck, parseTags } from "@gojisim/cards/deck-lists";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type SavedDeck, savedDeck } from "../game/deckStore";
 import { downloadText } from "../game/session";
@@ -987,6 +987,13 @@ function DeckPanel({
           onChange={(e) => onChange({ ...draft, name: e.target.value })}
         />
       </label>
+      <TagsField
+        tags={draft.tags ?? []}
+        onChange={(tags) => {
+          const { tags: _old, ...rest } = draft;
+          onChange(tags.length > 0 ? { ...rest, tags } : rest);
+        }}
+      />
       <section
         className={styles.legality}
         data-testid="db-legality"
@@ -1140,5 +1147,45 @@ function DeckPanel({
       </div>
       {note && <p data-testid="db-panel-note">{note}</p>}
     </aside>
+  );
+}
+
+/**
+ * Paul, Nov 9: the deck's tags, comma-separated. The text is edited freely and becomes the tags
+ * when the field loses focus (or on Enter); a draft loaded later shows its own tags.
+ */
+function TagsField({
+  tags,
+  onChange,
+}: {
+  tags: readonly string[];
+  onChange: (tags: string[]) => void;
+}) {
+  const joined = tags.join(", ");
+  const [text, setText] = useState(joined);
+  useEffect(() => setText(joined), [joined]);
+  const commit = () => {
+    const next = parseTags(text);
+    if (next.join(", ") !== joined) onChange(next);
+    else setText(joined);
+  };
+  return (
+    <label className={styles.tagsField}>
+      <span className={styles.visuallyHidden}>Deck tags</span>
+      <input
+        data-testid="db-deck-tags"
+        aria-label="Deck tags, separated by commas"
+        placeholder="Tags: Meta, Bot training"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit();
+          }
+        }}
+      />
+    </label>
   );
 }

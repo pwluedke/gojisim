@@ -1,6 +1,9 @@
 import { PRESETS } from "@gojisim/bot";
 import type { MatchMode } from "@gojisim/engine";
+import { deckSignature } from "@gojisim/cards/deck-lists";
 import { useMemo, useRef, useState } from "react";
+import { hasAllTags, tagCounts, toggleTag } from "../decks/deckTags";
+import { useDeckResults } from "../decks/useDeckResults";
 import { difficultyName, type SeatConfig } from "../game/bots";
 import {
   badgeReasons,
@@ -109,11 +112,34 @@ export function NewGame({
     });
     return playDeckOptions(mine);
   }, [my.decks]);
-  // #179: each seat's filter, narrowing its dropdown by deck or folder name as you type.
+  // #179: each seat's filter, narrowing its dropdown by deck name or tag as you type; Paul, Nov
+  // 9: each seat's tag buttons narrow it to My decks with all the chosen tags.
   const [filters, setFilters] = useState<Record<PlayerId, string>>({
     P1: "",
     P2: "",
   });
+  const [chosenTags, setChosenTags] = useState<Record<PlayerId, string[]>>({
+    P1: [],
+    P2: [],
+  });
+  const counts = useMemo(
+    () => tagCounts(options.map((o) => o.tags ?? [])),
+    [options],
+  );
+  // On Paul's Mac: the latest study-deck result against each deck tagged Meta.
+  const results = useDeckResults();
+  const resultOf = (o: DeckOption) => {
+    if (!results || !hasAllTags(o.tags ?? [], ["Meta"])) return "";
+    const label = results.get(deckSignature(o.build(0)));
+    return label ? `, ${label}` : "";
+  };
+  // The current choice always stays; the rest must match the text (name or tag) and every
+  // chosen tag (the starters have none, so a chosen tag hides them).
+  const shownFor = (id: PlayerId, o: DeckOption) =>
+    o.key === keys[id] ||
+    ((matchesDeckFilter(o.label, filters[id]) ||
+      (o.tags ?? []).some((t) => matchesDeckFilter(t, filters[id]))) &&
+      hasAllTags(o.tags ?? [], chosenTags[id]));
   const [keys, setKeys] = useState<Record<PlayerId, string>>({
     ...STARTER_PICKS,
   });
@@ -219,7 +245,7 @@ export function NewGame({
                 className={styles.deckFilter}
                 data-testid={`deck-filter-${id}`}
                 aria-label={`Filter ${id}'s decks`}
-                placeholder="Filter decks by name or folder"
+                placeholder="Filter decks by name or tag"
                 value={filters[id]}
                 onChange={(e) =>
                   setFilters((f) => ({ ...f, [id]: e.target.value }))
@@ -229,6 +255,31 @@ export function NewGame({
                   if (e.key === "Enter") e.preventDefault();
                 }}
               />
+              {counts.length > 0 && (
+                <div
+                  className={styles.deckTags}
+                  data-testid={`deck-tags-${id}`}
+                >
+                  {counts.map(({ tag }) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      data-small
+                      data-testid={`deck-tag-${id}`}
+                      data-tag={tag}
+                      aria-pressed={hasAllTags(chosenTags[id], [tag])}
+                      onClick={() =>
+                        setChosenTags((c) => ({
+                          ...c,
+                          [id]: toggleTag(c[id], tag),
+                        }))
+                      }
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className={styles.line}>
                 <label className={styles.grow}>
                   <span className={styles.srOnly}>{id} deck</span>
@@ -243,11 +294,7 @@ export function NewGame({
                       .map(({ label, options: inGroup }) => ({
                         label,
                         // The current choice stays, even when it doesn't match.
-                        shown: inGroup.filter(
-                          (o) =>
-                            o.key === keys[id] ||
-                            matchesDeckFilter(o.label, filters[id]),
-                        ),
+                        shown: inGroup.filter((o) => shownFor(id, o)),
                       }))
                       .filter(({ shown }) => shown.length > 0)
                       .map(({ label: group, shown: inGroup }) => (
@@ -263,6 +310,7 @@ export function NewGame({
                                 title={o.label}
                               >
                                 {shortLabel(o.label)}
+                                {resultOf(o)}
                                 {illegal ? " (illegal)" : ""}
                               </option>
                             );

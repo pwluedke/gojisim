@@ -2,6 +2,7 @@ import {
   formatDeckList,
   type NamedDeck,
   parseDeckList,
+  parseTags,
 } from "@gojisim/cards/deck-lists";
 import { browserIdb, runInStore } from "./db";
 
@@ -20,6 +21,27 @@ export interface SavedDeck {
   savedAt: string;
   /** #152: ISO time of its last edit (a rename too), for the account sync's newest-wins rule. */
   updatedAt?: string;
+}
+
+/** A saved deck's tags (from its list text); none when it has none or doesn't parse. */
+export function tagsOf(saved: SavedDeck): string[] {
+  return parseDeckList(saved.list).decks[0]?.tags ?? [];
+}
+
+/** The saved deck with these tags (Paul, Nov 9); `null` if its list no longer parses cleanly. */
+export function withTags(
+  saved: SavedDeck,
+  tags: readonly string[],
+): SavedDeck | null {
+  const { decks, errors } = parseDeckList(saved.list);
+  const deck = decks[0];
+  if (!deck || errors.length > 0) return null;
+  const clean = parseTags(tags.join(","));
+  const { tags: _old, ...rest } = deck;
+  return {
+    ...saved,
+    list: formatDeckList([clean.length > 0 ? { ...rest, tags: clean } : rest]),
+  };
 }
 
 /** A saved deck as a deck to play; `null` if its list no longer parses cleanly. */

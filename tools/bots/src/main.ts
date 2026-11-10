@@ -5,7 +5,7 @@ import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { BOTS, type BotSettings } from "@gojisim/bot";
 import { formatDeckList } from "@gojisim/cards/deck-lists";
-import { loadDeck, loadMetaDecks, STOP_FILE } from "./decks";
+import { defaultMetaDecks, loadDeck, loadMetaDecks, STOP_FILE } from "./decks";
 import {
   appendJournal,
   clearJournal,
@@ -32,7 +32,9 @@ import {
  * game's record; `--report <file>` names the report. A `bot-reports/STOP` file stops the run after
  * the games in progress, keeping the journal: delete it and run the same command to resume.
  *
- * `--decks meta` plays the top-tier decks in `--meta-decks <file>` (default `local-decks/meta.txt`,
+ * `--decks meta` plays the top-tier decks in `--meta-decks <file>`: by default the decks tagged Meta
+ * in the one deck list `local-decks/decks.txt` (Paul, Nov 9), or `local-decks/meta.txt` while it
+ * isn't there (both
  * gitignored): every ordered pairing, two games each with the seats swapped. Bot guards run on it.
  */
 const { values } = parseArgs({
@@ -48,7 +50,7 @@ const { values } = parseArgs({
     games: { type: "string", default: "100" },
     seed: { type: "string", default: "1" },
     decks: { type: "string", default: "official" },
-    "meta-decks": { type: "string", default: "local-decks/meta.txt" },
+    "meta-decks": { type: "string" },
     "turn-cap": { type: "string", default: String(MATCH_TURN_CAP) },
     progress: { type: "string", default: "50" },
     // Play games in N child processes (one shard each), then merge the results in game order.
@@ -123,7 +125,10 @@ if (
   );
 const meta =
   decks === "meta" && !fixed
-    ? loadMetaDecks(values["meta-decks"], values.out)
+    ? loadMetaDecks(
+        values["meta-decks"] ?? defaultMetaDecks(values.out),
+        values.out,
+      )
     : undefined;
 if (meta) options.meta = meta;
 const games = Number(values.games);

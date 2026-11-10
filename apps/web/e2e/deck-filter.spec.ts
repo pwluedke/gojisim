@@ -60,3 +60,62 @@ test("filter by a folder name, pick a deck and start a game; clearing the box sh
   await startGame(page);
   await expect(page.getByTestId("board")).toBeVisible();
 });
+
+test("Paul, Nov 9: each seat's tag buttons narrow its dropdown to decks with all the chosen tags", async ({
+  page,
+}) => {
+  const tagged = (name: string, tags: string) =>
+    starter.replace(/^\[deck\].*$/m, `[deck] ${name}\ntags: ${tags}`);
+  await page.goto("/decks");
+  await page.getByTestId("db-import").click();
+  await page
+    .getByTestId("import-text")
+    .fill(
+      [
+        tagged("Red Rage", "Meta, Bot training"),
+        tagged("Blue Hoard", "Meta"),
+        tagged("Rager", "Mine"),
+      ].join("\n\n"),
+    );
+  await page.getByTestId("import-all").click();
+  await expect(page.getByTestId("import-all-result")).toContainText(
+    "Saved 3 of 3 decks",
+  );
+  await page.getByTestId("import-cancel").click();
+  await page.getByTestId("db-my-decks").click();
+  await expect(page.getByTestId("db-decks-window")).toHaveAttribute(
+    "data-decks-stored",
+    "true",
+  );
+  await page.goto("/play?mode=bot");
+  const options = (id: string) =>
+    page
+      .getByTestId(`deck-${id}`)
+      .locator("option")
+      .evaluateAll((els) => els.map((e) => e.getAttribute("title")));
+  await expect.poll(() => options("P1")).toHaveLength(5);
+  const tagButton = (id: string, tag: string) =>
+    page.locator(`[data-testid="deck-tag-${id}"][data-tag="${tag}"]`);
+  await expect(page.getByTestId("deck-tag-P1")).toHaveText([
+    "Meta",
+    "Bot training",
+    "Mine",
+  ]);
+  await tagButton("P1", "Meta").click();
+  await expect(tagButton("P1", "Meta")).toHaveAttribute("aria-pressed", "true");
+  // The current choice (ESD01) stays; the two Meta decks follow.
+  await expect
+    .poll(() => options("P1"))
+    .toEqual(["ESD01 official", "Red Rage", "Blue Hoard"]);
+  await tagButton("P1", "Bot training").click();
+  await expect
+    .poll(() => options("P1"))
+    .toEqual(["ESD01 official", "Red Rage"]);
+  // P2's dropdown has its own tags.
+  expect(await page.getByTestId("deck-P2").locator("option").count()).toBe(5);
+  // The text filter matches tags too.
+  await tagButton("P1", "Bot training").click();
+  await tagButton("P1", "Meta").click();
+  await page.getByTestId("deck-filter-P1").fill("mine");
+  await expect.poll(() => options("P1")).toEqual(["ESD01 official", "Rager"]);
+});

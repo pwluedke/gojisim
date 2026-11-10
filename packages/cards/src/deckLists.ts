@@ -5,6 +5,41 @@ import type { Deck } from "./validate";
 /** A named deck, as in a deck list file. */
 export interface NamedDeck extends Deck {
   name: string;
+  /** The deck's tags (a `tags:` line), in place of folders; none when the line is missing. */
+  tags?: string[];
+  /** Where the deck came from (a `# origin:` comment), e.g. "Community"; kept out of its name. */
+  origin?: string;
+  /**
+   * The names it had before the merge into one list (`# was:` comments, `<file>#<name>`), so a
+   * run plan that names an old deck still finds it (the bots tool).
+   */
+  was?: string[];
+}
+
+/**
+ * A deck's card list as one string, prints ignored (a `+` number counts as its base card): two
+ * decks with the same monster deck and main deck have the same signature (Paul, Nov 9).
+ */
+export function deckSignature(deck: Deck): string {
+  const part = (cards: readonly Card[]) =>
+    cards
+      .map((c) => c.cardNumber.replace(/\+.*$/, ""))
+      .sort()
+      .join(",");
+  return `${part(deck.monsterDeck)}|${part(deck.mainDeck)}`;
+}
+
+/** A `tags:` line's tags: comma-separated, trimmed, empty ones and repeats dropped. */
+export function parseTags(text: string): string[] {
+  const seen = new Set<string>();
+  const tags: string[] = [];
+  for (const raw of text.split(",")) {
+    const tag = raw.trim();
+    if (tag === "" || seen.has(tag.toLowerCase())) continue;
+    seen.add(tag.toLowerCase());
+    tags.push(tag);
+  }
+  return tags;
 }
 
 export interface DeckListError {
@@ -54,13 +89,16 @@ export function findCardByNumber(cardNumber: string): Card | undefined {
  *
  *     # comment
  *     [deck] Folder/Deck Name
+ *     # origin: Community
+ *     tags: Meta, Bot training
  *     [monster deck]
  *     1 EBP02-024
  *     [main deck]
  *     2 EBP02-027
  *
  * Blank lines separate decks. Problems become errors with a line number; a bad line is skipped
- * and the rest of the deck still loads.
+ * and the rest of the deck still loads. Within a deck, a `# origin:` comment and a `tags:` line
+ * are read into `origin` and `tags`; files without them read as before.
  */
 export function parseDeckList(text: string): ParsedDeckList {
   const decks: NamedDeck[] = [];
@@ -78,7 +116,24 @@ export function parseDeckList(text: string): ParsedDeckList {
         text: raw,
         ...(deck ? { deck: decks.length - 1 } : {}),
       });
-    if (text === "" || text.startsWith("#")) return;
+    if (text === "") return;
+    if (text.startsWith("#")) {
+      const origin = /^#\s*origin:\s*(.*)$/i.exec(text);
+      if (deck && origin && origin[1]?.trim())
+        (deck as NamedDeck).origin = origin[1].trim();
+      const was = /^#\s*was:\s*(.*)$/i.exec(text);
+      if (deck && was && was[1]?.trim()) {
+        const named = deck as NamedDeck;
+        named.was = [...(named.was ?? []), was[1].trim()];
+      }
+      return;
+    }
+    const tags = /^tags:\s*(.*)$/i.exec(text);
+    if (tags) {
+      if (!deck) return void error("Tags listed before a [deck] header");
+      (deck as NamedDeck).tags = parseTags(tags[1] ?? "");
+      return;
+    }
 
     const header = /^\[([^\]]+)\]\s*(.*)$/.exec(text);
     if (header) {
@@ -151,6 +206,9 @@ export function formatDeckList(decks: NamedDeck[]): string {
     .map((deck) =>
       [
         `[deck] ${deck.name}`,
+        ...(deck.origin ? [`# origin: ${deck.origin}`] : []),
+        ...(deck.was ?? []).map((w) => `# was: ${w}`),
+        ...(deck.tags?.length ? [`tags: ${deck.tags.join(", ")}`] : []),
         "[monster deck]",
         ...runs(deck.monsterDeck),
         "[main deck]",

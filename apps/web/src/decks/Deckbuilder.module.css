@@ -391,6 +391,14 @@
   font-weight: bold;
 }
 
+/* Paul, Nov 9: the deck's tags, under its name. */
+.tagsField input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 2px var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
 .visuallyHidden {
   position: absolute;
   width: 1px;
