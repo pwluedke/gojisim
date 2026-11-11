@@ -56,6 +56,7 @@ function message(g: Session, seq: number, from = seq): SeatMessage {
     legal: getLegalActions(state, "P1"),
     undo: { asked: null, canAsk: false },
     canClaim: false,
+    claimAfterMs: 300_000,
     outcome: null,
     h2hEnd: null,
     names: { P1: "Ann", P2: "Bo" },

@@ -122,7 +122,7 @@ test("Play online: a refresh rejoins the same seat; the other player sees the wa
   await expect(bo.getByTestId("board")).toBeVisible();
   await expect(bo.getByTestId("turn")).toHaveText(turn ?? "");
   await expect(ann.getByTestId("online-waiting")).toHaveCount(0);
-  // Bo leaves: Ann sees she is waiting, with the claim still locked.
+  // Bo leaves: Ann sees she is waiting, with the claim locked until the claim time.
   await bo.context().close();
   await expect(ann.getByTestId("online-waiting")).toContainText(
     `Waiting for ${names.bo}`,
@@ -218,4 +218,20 @@ test("Play online: after a refresh, the history view shows earlier boards from t
     .toBeLessThan(now);
   await ann.getByTestId("back-to-live").click();
   await expect(ann.getByTestId("turn")).toHaveText(String(now));
+});
+
+test("Play online: when the other player has been gone the claim time, Claim the win ends the game", async ({
+  browser,
+}) => {
+  // Playwright's dev server sets a 4-second claim time (H2H_CLAIM_MS); the deployed one, 5 minutes.
+  const { ann, bo, names } = await startOnline(browser);
+  await bo.context().close();
+  await expect(ann.getByTestId("online-waiting")).toContainText(
+    `Waiting for ${names.bo}`,
+  );
+  await ann.getByTestId("online-claim").click({ timeout: 15_000 });
+  await expect(ann.getByTestId("game-over-line")).toHaveAttribute(
+    "data-outcome",
+    /^win/,
+  );
 });

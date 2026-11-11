@@ -15,10 +15,13 @@ export function attachDevH2h(
     devPlayerOf,
     roomsDir,
     recordsDir,
+    claimAfterMs,
   }: {
     devPlayerOf: (req: IncomingMessage) => { id: string; name: string } | null;
     roomsDir: string;
     recordsDir: string;
+    /** Playwright shortens the claim time (`H2H_CLAIM_MS`). */
+    claimAfterMs?: number | undefined;
   },
 ): H2h {
   const db = openDb(":memory:", { log: () => {} });
@@ -44,5 +47,6 @@ export function attachDevH2h(
     },
     roomsDir,
     recordsDir,
+    ...(claimAfterMs ? { claimAfterMs } : {}),
   });
 }

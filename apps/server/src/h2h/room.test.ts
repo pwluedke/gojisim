@@ -450,4 +450,24 @@ describe("head to head rooms (M9a)", () => {
     }
     expect(found).toBe(true);
   });
+
+  it("the claim time is in each message (the browser counts it down), 5 minutes unless set shorter", () => {
+    const room = newRoom();
+    expect(seatMessage(room, "P1", 0).claimAfterMs).toBe(CLAIM_AFTER_MS);
+    const short = createRoom({
+      gameId: GAME_ID,
+      seed: 1,
+      mode: "casual",
+      creator: alice,
+      now: 0,
+      claimAfterMs: 4000,
+    });
+    joinRoom(short, bob, () => "P1");
+    setConnected(short, "P1", true, 0);
+    pickFirst(short, "P1", 0);
+    setConnected(short, "P2", false, 0);
+    expect(seatMessage(short, "P1", 0).claimAfterMs).toBe(4000);
+    expect(claimWin(short, "P1", 3999).ok).toBe(false);
+    expect(claimWin(short, "P1", 4000).ok).toBe(true);
+  });
 });

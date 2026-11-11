@@ -61,6 +61,8 @@ export interface H2hOptions {
   log?: (line: string) => void;
   /** Tests run the sweep by hand. */
   sweepEveryMs?: number | null;
+  /** The dev server's e2e tests shorten the claim time (`H2H_CLAIM_MS`); default 5 minutes. */
+  claimAfterMs?: number;
 }
 
 export interface H2h {
@@ -100,6 +102,7 @@ export function attachH2h(
     now = Date.now,
     log = (line) => console.error(line),
     sweepEveryMs = SWEEP_MS,
+    claimAfterMs,
   }: H2hOptions,
 ): H2h {
   const rooms = new Map<string, Room>();
@@ -277,6 +280,7 @@ export function attachH2h(
           deck: deck.deck,
         },
         now: now(),
+        ...(claimAfterMs === undefined ? {} : { claimAfterMs }),
       });
       rooms.set(gameId, room);
       await enter(room, "P1");

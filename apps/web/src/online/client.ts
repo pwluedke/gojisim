@@ -32,6 +32,7 @@ export interface SeatMessage {
   legal: Action[];
   undo: { asked: Seat | null; canAsk: boolean };
   canClaim: boolean;
+  claimAfterMs: number;
   outcome: GameRecord["outcome"] | null;
   h2hEnd: GameRecord["h2hEnd"] | null;
   names: Record<Seat, string | null>;

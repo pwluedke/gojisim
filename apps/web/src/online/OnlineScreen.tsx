@@ -346,7 +346,8 @@ function Overlays({ play }: { play: OnlinePlay }) {
       {gone !== null && (
         <div className={styles.banner} data-testid="online-waiting">
           Waiting for {name} ({minutes(gone)})
-          {m.canClaim ? (
+          {/* The server sends nothing when the time is up, so the browser counts it. */}
+          {m.canClaim || gone >= m.claimAfterMs ? (
             <button
               type="button"
               data-primary
@@ -358,7 +359,7 @@ function Overlays({ play }: { play: OnlinePlay }) {
           ) : (
             <span className={styles.hint}>
               {" "}
-              You can claim the win after 5:00.
+              You can claim the win after {minutes(m.claimAfterMs)}.
             </span>
           )}
         </div>
