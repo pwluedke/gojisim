@@ -48,7 +48,10 @@ export function seasonCounts(db: DatabaseSync): {
   return {
     season,
     players: one("SELECT COUNT(*) AS n FROM players"),
-    games: one("SELECT COUNT(*) AS n FROM games WHERE season = ?", season),
+    games: one(
+      "SELECT COUNT(DISTINCT game_id) AS n FROM games WHERE season = ?",
+      season,
+    ),
     playersWithGames: one(
       "SELECT COUNT(DISTINCT player_id) AS n FROM games WHERE season = ?",
       season,

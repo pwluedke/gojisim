@@ -189,6 +189,27 @@ describe("pnpm feedback", () => {
     expect(lines.some((l) => l.startsWith("  Ann ("))).toBe(false);
   });
 
+  it("M9a: head to head games count apart, as human vs human, and never in the bot win rates", () => {
+    const vsBot = { file: "2026-11-11/b.json", record: won("b") };
+    const humans = {
+      P1: { kind: "human" as const, playerId: "a", playerName: "A" },
+      P2: { kind: "human" as const, playerId: "b", playerName: "B" },
+    };
+    const h2h = {
+      file: "2026-11-11/h.json",
+      record: won("h", { h2h: true, seats: humans }),
+    };
+    const left = {
+      file: "2026-11-11/l.json",
+      record: won("l", { h2h: true, seats: humans, h2hEnd: "abandoned" }),
+    };
+    const { markdown } = buildSummary([vsBot, h2h, left], options);
+    expect(markdown).toContain(
+      "- Human vs human (head to head): 2 (1 finished, 1 abandoned)",
+    );
+    expect(markdown).toContain("| Hard | 1 | 1 | 0 | 0 | 100% |");
+  });
+
   it("#92: the smoke check's games are left out: no reports, not in the game count or the win rates", () => {
     const tester = { file: "2026-10-31/t.json", record: won("t") };
     const smoke = {

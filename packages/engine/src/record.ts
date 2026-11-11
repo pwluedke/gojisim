@@ -101,6 +101,19 @@ export interface GameRecord {
    * player's games from it without running the engine). Information only.
    */
   outcome?: { winner: PlayerId | null; reason: string };
+  /**
+   * M9a: set for a head to head game (two signed-in players online). The server wrote it, not a
+   * browser, and both seats are humans with their player ids. Absent: a game against a bot.
+   * Information only. `mode` stays Casual or Tournament.
+   */
+  h2h?: true;
+  /**
+   * M9a, head to head: how the game ended when it wasn't by the rules: `"claimed"` (the other
+   * player was gone 5 minutes and this one claimed the win; the record ends with the gone
+   * player's concede) or `"abandoned"` (both gone 30 minutes; no winner, and the game is
+   * unfinished). Information only.
+   */
+  h2hEnd?: "claimed" | "abandoned";
 }
 
 /** A crash (#95): the error as `errors.ts` captured it, where the game was, and the last answer. */
@@ -197,7 +210,12 @@ export type MatchMode = "casual" | "tournament";
 
 /** One seat of a recorded game (M6d). */
 export type SeatRecord =
-  | { kind: "human" }
+  | {
+      kind: "human";
+      /** M9a, head to head: the signed-in player in this seat and their name, from the server. */
+      playerId?: string;
+      playerName?: string;
+    }
   | {
       kind: "bot";
       /** Bot name, e.g. "ismcts". */

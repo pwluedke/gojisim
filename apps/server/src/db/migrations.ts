@@ -85,6 +85,35 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX games_by_player_season ON games (player_id, season, started_at DESC);
     `,
   },
+  {
+    version: 5,
+    name: "games per player",
+    // M9a: a head to head game has two players, so `games` is keyed by (game id, player) and
+    // gets a row per player; `h2h` marks those rows (uploads can't overwrite such a game).
+    // SQLite can't change a primary key in place, so the table is copied: every existing row
+    // keeps its values (`h2h` 0), the old table is dropped and the season index is made again.
+    sql: `
+      CREATE TABLE games_v5 (
+        game_id TEXT NOT NULL,
+        player_id TEXT NOT NULL REFERENCES players(id),
+        file TEXT NOT NULL,
+        started_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        ended_at INTEGER,
+        result TEXT,
+        bot_level TEXT,
+        deck_names TEXT,
+        season TEXT NOT NULL DEFAULT 'beta',
+        h2h INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (game_id, player_id)
+      ) STRICT;
+      INSERT INTO games_v5 (game_id, player_id, file, started_at, updated_at, ended_at, result, bot_level, deck_names, season)
+        SELECT game_id, player_id, file, started_at, updated_at, ended_at, result, bot_level, deck_names, season FROM games;
+      DROP TABLE games;
+      ALTER TABLE games_v5 RENAME TO games;
+      CREATE INDEX games_by_player_season ON games (player_id, season, started_at DESC);
+    `,
+  },
 ];
 
 /** The schema version this code expects: the last migration's. */

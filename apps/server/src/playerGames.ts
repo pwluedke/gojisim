@@ -70,14 +70,14 @@ export function indexGame(
   db.prepare(
     `INSERT INTO games (game_id, player_id, file, started_at, updated_at, ended_at, result, bot_level, deck_names, season)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(game_id) DO UPDATE SET
+     ON CONFLICT(game_id, player_id) DO UPDATE SET
        file = excluded.file,
        updated_at = excluded.updated_at,
        ended_at = COALESCE(games.ended_at, excluded.ended_at),
        result = COALESCE(excluded.result, games.result),
        bot_level = excluded.bot_level,
        deck_names = excluded.deck_names
-     WHERE games.player_id = excluded.player_id`,
+     WHERE games.h2h = 0`,
   ).run(
     game.gameId,
     game.playerId,
@@ -140,4 +140,50 @@ export function playerGame(
     .prepare("SELECT * FROM games WHERE player_id = ? AND game_id = ?")
     .get(playerId, gameId) as Row | undefined;
   return row ? fromRow(row) : null;
+}
+
+/**
+ * M9a: a finished head to head game, one row per player (`h2h` 1), each with the result from
+ * that player's side. Written once, by the server, when the game ends; uploads can't change it.
+ * An abandoned game (both players gone 30 minutes) has no winner and no result.
+ */
+export function indexH2hGame(
+  db: DatabaseSync,
+  game: {
+    gameId: string;
+    file: string;
+    players: Record<"P1" | "P2", string>;
+    winner: string | null;
+    abandoned: boolean;
+    deckNames: string;
+    startedAt: number;
+  },
+  now: number,
+): void {
+  const insert = db.prepare(
+    `INSERT INTO games (game_id, player_id, file, started_at, updated_at, ended_at, result, bot_level, deck_names, season, h2h)
+     VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 1)
+     ON CONFLICT(game_id, player_id) DO NOTHING`,
+  );
+  const season = currentSeason(db);
+  for (const seat of ["P1", "P2"] as const) {
+    const result = game.abandoned
+      ? null
+      : game.winner === null
+        ? "draw"
+        : game.winner === seat
+          ? "win"
+          : "loss";
+    insert.run(
+      game.gameId,
+      game.players[seat],
+      game.file,
+      game.startedAt,
+      now,
+      now,
+      result,
+      game.deckNames,
+      season,
+    );
+  }
 }

@@ -268,7 +268,25 @@ The site can let testers in with their Discord account instead of the shared pas
 - **Games and reports (#151):** each upload from a signed-in tester carries their player id and name, written by the server, and the game is indexed for them in the database (result, date, bot level, decks). The report posts and `pnpm feedback` name the player. Testers see their own games under **My games** (`/history`) and can load one to replay it. Nobody can see, load or overwrite another player's games.
 - **My decks and Settings (#152):** they follow the tester to any browser. The server keeps a copy per player in the database, and each browser keeps its own as an offline cache. At sign-in the server's copy wins, except where that browser edited later (the newest edit wins), and a deck deleted in one browser goes from the others. The first sign-in in a browser that has its own decks offers once to upload them, asking about any deck name the account already uses for a different deck; "Not now" keeps them in that browser only. The mat image stays in each browser.
 - **Smoke check:** it signs in with `SMOKE_LOGIN_TOKEN` as the `smoke` player. The token is compared in constant time and limited to 10 wrong tries a minute per IP, and it works only with `GOJISIM_AUTH=discord`.
-- **Locally:** `pnpm dev` has a dev sign-in (`/auth/dev`) for trying the player badge. The built server has no such route.
+- **Locally:** `pnpm dev` has a dev sign-in (`/auth/dev`) for trying the player badge; `/auth/dev?as=Bob` signs in as a player named Bob, so two browsers can be two players (M9a). The built server has no such route.
+
+## Head to head (M9a)
+
+Two signed-in testers play each other online; the server runs the game. It needs Discord sign-in (`GOJISIM_AUTH=discord`); with the password gate there is no head to head. There is nothing to set up: no new variable, no Railway setting (WebSockets pass through Railway's proxy, and the service already runs one replica, which the rooms need, since they live in that one server's memory).
+
+**What runs on the first deploy with M9a:**
+
+1. The database update to version 5 ("games per player"), at start, after the usual backup to `/data/backups/gojisim-4-<time>.db`. It copies the `games` table into a new one keyed by game and player (every row and value kept, a new `h2h` column at 0), drops the old table and makes the season index again, in one transaction. The deploy log shows `backed up the database …` and then `database migrated to version 5 (games per player)`. If it fails, the server doesn't start and Railway keeps the old deploy; nothing has changed in the file.
+2. Nothing else: the rooms folder (`/data/h2h-rooms`, next to the records) is made at the first head to head game.
+
+**To undo it:** deploy the older code first: it refuses to start on a version 5 file, so also stop the service and copy the backup back over `/data/gojisim.db` (`railway ssh`), as for any database update. Head to head games played since then are then missing from My games (their records stay in `/data/records`).
+
+**How it works:**
+
+- **Rooms:** each game is a room on the server, saved after every move to `/data/h2h-rooms/<game id>.json`. A deploy restarts the server; the rooms are replayed from those files, and the players' browsers reconnect to the same seat.
+- **Only the server knows the game:** each browser gets only its own player's view of the board and its own legal moves. A move is checked against the engine's legal moves before it's played. The seed, the decks' order and the other player's hand never leave the server.
+- **Records:** a finished game's record goes in `/data/records/<day>/<game id>.json` like the uploads (marked `h2h`, with both players' ids and names), and `pnpm feedback` downloads it with the rest and counts such games as "human vs human". Both players see it under My games. Uploads can't overwrite a head to head game.
+- **Leaving:** a player gone 5 minutes lets the other claim the win; both gone 30 minutes ends the game as abandoned (no winner, the record kept). A game nobody joined is dropped after 30 minutes.
 
 ## Public launch: reset players' history (#153)
 
