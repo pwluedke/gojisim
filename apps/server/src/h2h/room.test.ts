@@ -19,6 +19,7 @@ import {
   askUndo,
   CLAIM_AFTER_MS,
   canAskUndo,
+  canCancel,
   claimWin,
   concede,
   createRoom,
@@ -449,5 +450,35 @@ describe("head to head rooms (M9a)", () => {
       }
     }
     expect(found).toBe(true);
+  });
+
+  it("M9c: a picker gone 5 minutes lets the other player make the First / Second pick (6.3.1.4)", () => {
+    const room = newRoom("casual", "P2");
+    setConnected(room, "P2", false, 1000);
+    expect(seatMessage(room, "P1", 1000).canPick).toBe(false);
+    expect(pickFirst(room, "P1", 0, 1000 + CLAIM_AFTER_MS - 1)).toEqual({
+      ok: false,
+      error: "not-your-pick",
+    });
+    expect(seatMessage(room, "P1", 1000 + CLAIM_AFTER_MS).canPick).toBe(true);
+    expect(pickFirst(room, "P1", 1, 1000 + CLAIM_AFTER_MS)).toEqual({
+      ok: true,
+    });
+    expect(room.data.record?.firstPick).toEqual({ player: "P1", card: 1 });
+    expect(phaseOf(room)).toBe("playing");
+  });
+
+  it("M9c: only the creator can cancel, and only before anyone joins", () => {
+    const room = createRoom({
+      gameId: GAME_ID,
+      seed: 1,
+      mode: "casual",
+      creator: alice,
+      now: 0,
+    });
+    expect(canCancel(room, "P1")).toBe(true);
+    expect(canCancel(room, "P2")).toBe(false);
+    joinRoom(room, bob, () => "P1");
+    expect(canCancel(room, "P1")).toBe(false);
   });
 });

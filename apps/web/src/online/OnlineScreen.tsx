@@ -272,6 +272,17 @@ function Waiting({ play }: { play: OnlinePlay }) {
       >
         {copied ? "Copied" : "Copy invite link"}
       </button>
+      <button
+        type="button"
+        data-testid="online-cancel"
+        onClick={() => {
+          void play.cancel().then((done) => {
+            if (done) window.location.assign("/online");
+          });
+        }}
+      >
+        Cancel game
+      </button>
     </Page>
   );
 }
@@ -281,7 +292,9 @@ function Pick({ play }: { play: OnlinePlay }) {
   const m = play.message;
   const [picked, setPicked] = useState<0 | 1 | null>(null);
   if (!m) return null;
-  const mine = m.picker === m.you;
+  // The picker picks; so may the other player once the picker has been gone 5 minutes (M9c).
+  const mine = m.canPick;
+  const gone = m.opponent && !m.opponent.connected;
   return (
     <Page>
       <h1 className={styles.title}>First / Second</h1>
@@ -308,6 +321,12 @@ function Pick({ play }: { play: OnlinePlay }) {
       ) : (
         <p data-testid="online-other-picks">
           {m.opponent?.name ?? "Your opponent"} is picking First / Second…
+          {gone && (
+            <span data-testid="online-picker-gone">
+              {" "}
+              They left; if they're gone 5 minutes, you can pick instead.
+            </span>
+          )}
         </p>
       )}
     </Page>
