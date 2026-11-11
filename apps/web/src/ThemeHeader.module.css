@@ -55,7 +55,7 @@
 }
 
 .wordmarkJa {
-  font-size: 16px;
+  font-size: 19px;
   color: var(--color-marigold);
 }
 
@@ -66,4 +66,5 @@
 
 .block .player {
   margin-left: 0;
+  width: 100%;
 }

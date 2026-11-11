@@ -107,3 +107,58 @@ test("the menu keeps the full-width bar, with the katakana under the English", a
   expect(Math.round(bar.height)).toBe(56);
   await stacked(page);
 });
+
+for (const [width, height] of [
+  [1440, 900],
+  [1280, 800],
+] as const)
+  test(`at ${width}×${height} a 24-character name shows whole, and My games and Sign out share one line`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height });
+    await showa(page);
+    const name = "Mechagodzilla Kiryu Fan1";
+    expect(name).toHaveLength(24);
+    await page.route("**/api/me", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "long",
+          name,
+          avatarUrl: null,
+          season: "beta",
+        }),
+      }),
+    );
+    await loadFixture(page, "hand-five");
+    const block = page.getByTestId("theme-header");
+    const shown = block.getByTestId("player-name");
+    await expect(shown).toHaveText(name);
+    // Nothing is cut off: the name isn't clipped, and everything stays inside the block.
+    const clipped = await shown.evaluate(
+      (el) =>
+        el.scrollWidth > el.clientWidth + 1 ||
+        getComputedStyle(el).textOverflow === "ellipsis",
+    );
+    expect(clipped).toBe(false);
+    const area = (await block.boundingBox()) as Box;
+    for (const id of ["player-name", "my-games", "sign-out", "beta-tag"]) {
+      const b = (await block.getByTestId(id).boundingBox()) as Box;
+      expect(b.x, id).toBeGreaterThanOrEqual(area.x - 1);
+      expect(b.x + b.width, id).toBeLessThanOrEqual(area.x + area.width + 1);
+      expect(b.y + b.height, id).toBeLessThanOrEqual(area.y + area.height + 1);
+    }
+    // My games and Sign out: one line each, side by side, under the name.
+    const games = (await block.getByTestId("my-games").boundingBox()) as Box;
+    const out = (await block.getByTestId("sign-out").boundingBox()) as Box;
+    const line = await block
+      .getByTestId("my-games")
+      .evaluate((el) => parseFloat(getComputedStyle(el).lineHeight) || 20);
+    expect(games.height).toBeLessThanOrEqual(line * 1.5);
+    expect(out.height).toBeLessThanOrEqual(line * 1.5);
+    expect(Math.abs(games.y - out.y)).toBeLessThanOrEqual(4);
+    expect(out.x).toBeGreaterThan(games.x + games.width);
+    const nameBox = (await shown.boundingBox()) as Box;
+    expect(games.y).toBeGreaterThanOrEqual(nameBox.y + nameBox.height - 1);
+  });

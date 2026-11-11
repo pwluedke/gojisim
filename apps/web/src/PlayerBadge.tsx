@@ -5,8 +5,16 @@ import styles from "./PlayerBadge.module.css";
 /**
  * The signed-in player (#150): Discord avatar (or initial), display name, and Sign out (a POST,
  * so a link elsewhere can't sign anyone out). Nothing shows without accounts (the password gate).
+ * `stacked` (Paul, Nov 10, Showa's header block on the board): the name on its own line, whole,
+ * then My games and Sign out as small links on one line under it.
  */
-export function PlayerBadge({ className }: { className?: string | undefined }) {
+export function PlayerBadge({
+  className,
+  stacked = false,
+}: {
+  className?: string | undefined;
+  stacked?: boolean;
+}) {
   const [player, setPlayer] = useState<Me | null>(null);
   useEffect(() => {
     let live = true;
@@ -18,11 +26,8 @@ export function PlayerBadge({ className }: { className?: string | undefined }) {
     };
   }, []);
   if (!player) return null;
-  return (
-    <span
-      className={`${styles.badge}${className ? ` ${className}` : ""}`}
-      data-testid="player-badge"
-    >
+  const who = (
+    <>
       {player.avatarUrl ? (
         <img className={styles.avatar} src={player.avatarUrl} alt="" />
       ) : (
@@ -39,6 +44,10 @@ export function PlayerBadge({ className }: { className?: string | undefined }) {
           Beta
         </span>
       )}
+    </>
+  );
+  const links = (
+    <>
       {/* #151: the player's own games. */}
       <a className={styles.games} href="/history" data-testid="my-games">
         My games
@@ -48,6 +57,28 @@ export function PlayerBadge({ className }: { className?: string | undefined }) {
           Sign out
         </button>
       </form>
+    </>
+  );
+  const classes = [styles.badge, stacked ? styles.stacked : "", className ?? ""]
+    .filter(Boolean)
+    .join(" ");
+  return (
+    <span className={classes} data-testid="player-badge">
+      {stacked ? (
+        <>
+          <span className={styles.who} data-testid="player-who">
+            {who}
+          </span>
+          <span className={styles.links} data-testid="player-links">
+            {links}
+          </span>
+        </>
+      ) : (
+        <>
+          {who}
+          {links}
+        </>
+      )}
     </span>
   );
 }

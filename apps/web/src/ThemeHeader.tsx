@@ -39,7 +39,7 @@ export function ThemeHeader({
         </span>
       </a>
       {/* #150: the signed-in player, at the bar's right end or under the block's wordmark. */}
-      <PlayerBadge className={styles.player} />
+      <PlayerBadge className={styles.player} stacked={block} />
     </header>
   );
 }
