@@ -65,6 +65,8 @@ export interface RoomData {
   undoAsk: SeatId | null;
   /** When the game ended (a result, a claim or an abandon). */
   endedAt: number | null;
+  /** How long a player is gone before the other may claim the win (`CLAIM_AFTER_MS`). */
+  claimAfterMs?: number;
 }
 
 export interface Presence {
@@ -93,12 +95,15 @@ export function createRoom({
   mode,
   creator,
   now,
+  claimAfterMs,
 }: {
   gameId: string;
   seed: number;
   mode: MatchMode;
   creator: SeatPlayer;
   now: number;
+  /** The dev server's e2e tests shorten it; the deployed server keeps 5 minutes. */
+  claimAfterMs?: number;
 }): Room {
   return {
     data: {
@@ -113,6 +118,7 @@ export function createRoom({
       batches: [],
       undoAsk: null,
       endedAt: null,
+      ...(claimAfterMs === undefined ? {} : { claimAfterMs }),
     },
     states: [],
     presence: {
@@ -185,7 +191,7 @@ export function canPick(room: Room, seat: SeatId, now: number): boolean {
   if (room.data.picker === seat) return true;
   return (
     room.presence[seat].connected &&
-    goneFor(room, otherSeat(seat), now) >= CLAIM_AFTER_MS
+    goneFor(room, otherSeat(seat), now) >= claimAfter(room)
   );
 }
 
@@ -414,12 +420,16 @@ export function answerUndo(
   return ok;
 }
 
+/** The room's claim time: 5 minutes, unless the dev server's tests set a shorter one. */
+export const claimAfter = (room: Room) =>
+  room.data.claimAfterMs ?? CLAIM_AFTER_MS;
+
 /** Whether `seat` may claim the win: the other player has been gone 5 minutes mid-game. */
 export function canClaim(room: Room, seat: SeatId, now: number): boolean {
   return (
     phaseOf(room) === "playing" &&
     room.presence[seat].connected &&
-    goneFor(room, otherSeat(seat), now) >= CLAIM_AFTER_MS
+    goneFor(room, otherSeat(seat), now) >= claimAfter(room)
   );
 }
 
@@ -541,6 +551,11 @@ export interface SeatMessage {
   canClaim: boolean;
   /** M9c: this seat may make the First / Second pick now (the picker, or for a gone picker). */
   canPick: boolean;
+  /**
+   * How long the opponent must be gone before the claim (ms). The server sends a message only on
+   * a change, so the browser counts `goneMs` up itself and offers the claim at this time.
+   */
+  claimAfterMs: number;
   outcome: GameRecord["outcome"] | null;
   h2hEnd: GameRecord["h2hEnd"] | null;
   /** Both players' names, and this seat's own deck name. */
@@ -584,6 +599,7 @@ export function seatMessage(
     undo: { asked: room.data.undoAsk, canAsk: canAskUndo(room, seat) },
     canClaim: canClaim(room, seat, now),
     canPick: canPick(room, seat, now),
+    claimAfterMs: claimAfter(room),
     outcome: record?.outcome ?? null,
     h2hEnd: record?.h2hEnd ?? null,
     names: {

@@ -85,6 +85,8 @@ export default defineConfig({
                   recordsDir:
                     process.env["RECORDS_DIR"] ??
                     new URL("../../records", import.meta.url).pathname,
+                  claimAfterMs:
+                    Number(process.env["H2H_CLAIM_MS"] ?? 0) || undefined,
                 },
               ),
             );

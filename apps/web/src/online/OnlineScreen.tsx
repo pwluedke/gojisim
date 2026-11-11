@@ -10,6 +10,7 @@ import {
   type DeckChoice,
   errorText,
   inviteLink,
+  type SeatMessage,
 } from "./client";
 import styles from "./Online.module.css";
 import { type OnlinePlay, useOnline } from "./useOnline";
@@ -287,14 +288,31 @@ function Waiting({ play }: { play: OnlinePlay }) {
   );
 }
 
+/**
+ * How long the other player has been gone, counted up between messages (the server sends one
+ * only on a change); `null` while they are here.
+ */
+function useGoneMs(m: SeatMessage | null): number | null {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const [at, setAt] = useState(() => Date.now());
+  useEffect(() => setAt(Date.now()), [m]);
+  if (!m?.opponent || m.opponent.connected) return null;
+  return m.opponent.goneMs + (Date.now() - at);
+}
+
 /** The First / Second pick (6.3.1.4): the picker picks a face-down card; the server says which. */
 function Pick({ play }: { play: OnlinePlay }) {
   const m = play.message;
   const [picked, setPicked] = useState<0 | 1 | null>(null);
+  const gone = useGoneMs(m);
   if (!m) return null;
-  // The picker picks; so may the other player once the picker has been gone 5 minutes (M9c).
-  const mine = m.canPick;
-  const gone = m.opponent && !m.opponent.connected;
+  // The picker picks; so may the other player once the picker has been gone the claim time
+  // (M9c), which the browser counts (the server checks it again).
+  const mine = m.canPick || (gone !== null && gone >= m.claimAfterMs);
   return (
     <Page>
       <h1 className={styles.title}>First / Second</h1>
@@ -321,10 +339,11 @@ function Pick({ play }: { play: OnlinePlay }) {
       ) : (
         <p data-testid="online-other-picks">
           {m.opponent?.name ?? "Your opponent"} is picking First / Second…
-          {gone && (
+          {gone !== null && (
             <span data-testid="online-picker-gone">
               {" "}
-              They left; if they're gone 5 minutes, you can pick instead.
+              They left ({minutes(gone)}); after {minutes(m.claimAfterMs)} you
+              can pick instead.
             </span>
           )}
         </p>
@@ -341,22 +360,25 @@ const minutes = (ms: number) => {
 /** Over the board: the opponent's presence, the claim, and undo requests. */
 function Overlays({ play }: { play: OnlinePlay }) {
   const m = play.message;
-  const [, tick] = useState(0);
-  useEffect(() => {
-    const timer = setInterval(() => tick((n) => n + 1), 1000);
-    return () => clearInterval(timer);
-  }, []);
-  // The time since the message, so the gone timer runs between messages.
-  const [at, setAt] = useState(() => Date.now());
-  useEffect(() => setAt(Date.now()), [m]);
+  const goneMs = useGoneMs(m);
   if (!m) return null;
   const name = m.opponent?.name ?? "Your opponent";
-  const gone =
-    m.phase === "playing" && m.opponent && !m.opponent.connected
-      ? m.opponent.goneMs + (Date.now() - at)
+  const gone = m.phase === "playing" ? goneMs : null;
+  const claimed =
+    m.phase === "over" && m.h2hEnd === "claimed" && m.outcome?.winner
+      ? {
+          winner: m.names[m.outcome.winner as "P1" | "P2"] ?? "A player",
+          gone: m.names[m.outcome.winner === "P1" ? "P2" : "P1"] ?? "the other",
+        }
       : null;
   return (
     <>
+      {claimed && (
+        <div className={styles.banner} data-testid="online-claimed">
+          {claimed.winner} claimed the win after {claimed.gone} was gone{" "}
+          {minutes(m.claimAfterMs)}.
+        </div>
+      )}
       {!play.connected && (
         <div className={styles.banner} data-testid="online-reconnecting">
           Reconnecting…
@@ -365,7 +387,8 @@ function Overlays({ play }: { play: OnlinePlay }) {
       {gone !== null && (
         <div className={styles.banner} data-testid="online-waiting">
           Waiting for {name} ({minutes(gone)})
-          {m.canClaim ? (
+          {/* The server sends nothing when the time is up, so the browser counts it. */}
+          {m.canClaim || gone >= m.claimAfterMs ? (
             <button
               type="button"
               data-primary
@@ -377,7 +400,7 @@ function Overlays({ play }: { play: OnlinePlay }) {
           ) : (
             <span className={styles.hint}>
               {" "}
-              You can claim the win after 5:00.
+              You can claim the win after {minutes(m.claimAfterMs)}.
             </span>
           )}
         </div>
@@ -424,9 +447,34 @@ function Overlays({ play }: { play: OnlinePlay }) {
   );
 }
 
+/**
+ * M9c: while it's this player's move and the tab isn't in front, the tab title says so, so a
+ * player waiting in another tab sees it's their turn.
+ */
+function useMoveTitle(m: SeatMessage | null) {
+  const myMove =
+    !!m &&
+    ((m.phase === "playing" && m.legal.some((a) => a.type !== "concede")) ||
+      (m.phase === "picking" && m.canPick));
+  useEffect(() => {
+    const base = document.title.replace(/^▶ Your move · /, "");
+    const show = () => {
+      document.title =
+        myMove && document.hidden ? `▶ Your move · ${base}` : base;
+    };
+    show();
+    document.addEventListener("visibilitychange", show);
+    return () => {
+      document.removeEventListener("visibilitychange", show);
+      document.title = base;
+    };
+  }, [myMove]);
+}
+
 function Game({ gameId }: { gameId: string }) {
   const play = useOnline(gameId);
   const m = play.message;
+  useMoveTitle(m);
   if (play.seat === null) {
     // Not in this game yet: the invite (a refresh of a joined game rejoins at once).
     if (!play.checked) return <Page>Connecting…</Page>;
