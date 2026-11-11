@@ -185,10 +185,13 @@ async function toMyNextTurn(page: Page) {
 }
 
 test.describe("the bot hand's count badge", () => {
+  // Paul, Nov 10: with Showa's cards at the other themes' size, 5 cards are a row at 1920×1080.
+  test.use({ viewport: { width: 1920, height: 1080 } });
+
   test("on the rightmost card of the row, at its top-right corner", async ({
     page,
   }) => {
-    // hand-ten: the bot holds 5, a row at 1440×900; the badge rides on the last card.
+    // hand-ten: the bot holds 5, a row; the badge rides on the last card.
     await loadFixture(page, "hand-ten");
     const hand = page.getByTestId("opponent-hand");
     await expect(hand).toHaveAttribute("data-mode", "row");
@@ -250,6 +253,7 @@ test.describe("the bot hand's count badge", () => {
     page,
   }) => {
     // hand-five: the bot holds 8, past the row's limit at 1440×900.
+    await page.setViewportSize({ width: 1440, height: 900 });
     await loadFixture(page, "hand-five");
     await expect(page.getByTestId("opponent-hand")).toHaveAttribute(
       "data-mode",

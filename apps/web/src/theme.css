@@ -597,9 +597,9 @@ body {
   /* Issue 163: a raised hand card is this many times the board card, never taller than the window. */
   --raised-scale: 2.75;
   --left-column-width: 260px;
+  /* Paul, Nov 10: no header bar over the board (Showa's header is a block over the left column). */
   --board-chrome: calc(
-    40px + 4 * var(--mat-gap) + 4 * var(--mat-pad) + 4 * var(--mat-frame) +
-      var(--header-h)
+    40px + 4 * var(--mat-gap) + 4 * var(--mat-pad) + 4 * var(--mat-frame)
   );
   /* The mat is 5 portrait columns plus 2 landscape ones (M5f): 5w + 2h wide, w = 63h/88. */
   --card-h: min(
