@@ -44,24 +44,8 @@ export default defineConfig({
       },
     },
     {
-      // Game collection (M13b): `GET /api/config` and `POST /api/games`, as `apps/server` serves
-      // them. Uploads go to the repository's gitignored `records/` (Playwright sets
-      // `RECORDS_DIR`); `GOJISIM_TEST_SITE=off` turns the Test Site off here too.
-      name: "gojisim-games",
-      configureServer(server) {
-        server.middlewares.use(
-          gamesMiddleware({
-            config: siteConfig(process.env),
-            recordsDir:
-              process.env["RECORDS_DIR"] ??
-              new URL("../../records", import.meta.url).pathname,
-            uploadsPerMinute: uploadsPerMinuteFrom(process.env),
-          }),
-        );
-      },
-    },
-    {
-      // M9b: head to head on the dev server's port, with the dev sign-in's players. The room
+      // M9b: head to head on the dev server's port (before the game collection, whose
+      // `/api/games/` routes would answer M9c's replay route first), with the dev sign-in's players. The room
       // module loads through Vite (it imports the engine's TypeScript source) once the server is
       // up; rooms go to a gitignored folder (Playwright sets `H2H_ROOMS_DIR`), records with the
       // uploads.
@@ -101,6 +85,23 @@ export default defineConfig({
               replay = attached.replay;
             });
         });
+      },
+    },
+    {
+      // Game collection (M13b): `GET /api/config` and `POST /api/games`, as `apps/server` serves
+      // them. Uploads go to the repository's gitignored `records/` (Playwright sets
+      // `RECORDS_DIR`); `GOJISIM_TEST_SITE=off` turns the Test Site off here too.
+      name: "gojisim-games",
+      configureServer(server) {
+        server.middlewares.use(
+          gamesMiddleware({
+            config: siteConfig(process.env),
+            recordsDir:
+              process.env["RECORDS_DIR"] ??
+              new URL("../../records", import.meta.url).pathname,
+            uploadsPerMinute: uploadsPerMinuteFrom(process.env),
+          }),
+        );
       },
     },
   ],

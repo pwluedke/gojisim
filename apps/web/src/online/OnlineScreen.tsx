@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import type { Action, BoardModel } from "@gojisim/engine";
+import { useEffect, useRef, useState } from "react";
 import { fetchMe, type Me } from "../account";
 import { accountApi } from "../game/accountSync";
 import { parseTags } from "@gojisim/cards/deck-lists";
@@ -13,6 +14,11 @@ import {
   type SeatMessage,
 } from "./client";
 import styles from "./Online.module.css";
+import {
+  applyMessage,
+  type OnlineState,
+  withHistoryBoard,
+} from "./onlineSession";
 import { type OnlinePlay, useOnline } from "./useOnline";
 
 /*
@@ -492,12 +498,80 @@ function Game({ gameId }: { gameId: string }) {
   );
 }
 
+/**
+ * M9c: My games' Replay of a finished online game, on the same board: the server sends this
+ * player's own message for the end of the game and their actions; each earlier board comes from
+ * the server when the history view asks (the record itself never leaves the server, Q42).
+ */
+function Replay({ gameId }: { gameId: string }) {
+  const [start, setStart] = useState<SeatMessage | null | "missing">(null);
+  const [game, setGame] = useState<OnlineState | null>(null);
+  const asked = useRef(new Set<number>());
+  useEffect(() => {
+    void fetch(`/api/games/${gameId}/replay`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body: { message: SeatMessage; actions: Action[] } | null) => {
+        if (!body) {
+          setStart("missing");
+          return;
+        }
+        setStart(body.message);
+        setGame(applyMessage(null, body.message, body.actions));
+      })
+      .catch(() => setStart("missing"));
+  }, [gameId]);
+  if (start === "missing")
+    return (
+      <Page>
+        <p data-testid="replay-missing">This game can't be replayed.</p>
+        <a className={styles.button} href="/history">
+          My games
+        </a>
+      </Page>
+    );
+  if (!start || !game) return <Page>Loading…</Page>;
+  const play: OnlinePlay = {
+    gameId,
+    connected: true,
+    message: start,
+    game,
+    error: null,
+    clearError: () => {},
+    seat: start.you,
+    checked: true,
+    join: async () => false,
+    pick: () => {},
+    takeAction: () => {},
+    takeChoices: () => {},
+    askUndo: () => {},
+    answerUndo: () => {},
+    claim: () => {},
+    cancel: async () => false,
+    ensureBoard: (index) => {
+      if (game.models[index] || asked.current.has(index)) return;
+      asked.current.add(index);
+      void fetch(`/api/games/${gameId}/replay/${index}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((body: { model: BoardModel } | null) => {
+          asked.current.delete(index);
+          if (body)
+            setGame((prev) =>
+              prev ? withHistoryBoard(prev, index, body.model) : prev,
+            );
+        });
+    },
+  };
+  return <PlayScreen online={play} />;
+}
+
 export function OnlineScreen() {
   const me = useMe();
-  const id = /^\/online\/([0-9a-f-]{36})\/?$/.exec(
+  const match = /^\/online\/([0-9a-f-]{36})(\/replay)?\/?$/.exec(
     window.location.pathname,
-  )?.[1];
+  );
+  const id = match?.[1];
   if (me === undefined) return <Page>Loading…</Page>;
   if (me === null) return <SignInFirst />;
+  if (id && match?.[2]) return <Replay gameId={id} />;
   return id ? <Game gameId={id} /> : <CreateGame />;
 }

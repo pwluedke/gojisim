@@ -9,6 +9,20 @@ import { playerSessionValue } from "../discordAuth.js";
 import { COOKIE } from "../gate.js";
 import { createAppServer } from "../index.js";
 import { indexH2hGame } from "../playerGames.js";
+import type { BoardModel, GameState } from "@gojisim/engine";
+import { getLegalActions } from "@gojisim/engine";
+import { resolveDeck } from "./decks.js";
+import {
+  act,
+  actionsFor,
+  concede,
+  createRoom,
+  joinRoom,
+  pickFirst,
+  type SeatMessage,
+  setConnected,
+} from "./room.js";
+import { storeRecord } from "./store.js";
 import {
   SMOKE_PLAYER_ID,
   smokePlayer,
@@ -91,7 +105,7 @@ async function serve() {
       redirect: "manual",
       headers: cookie ? { cookie } : {},
     });
-  return { db, socket, cookieOf, player, upload, get };
+  return { db, socket, cookieOf, player, upload, get, recordsDir };
 }
 
 const record = (gameId: string) => ({
@@ -203,5 +217,105 @@ describe("head to head in the app server (M9a)", () => {
         }),
       ]);
     }
+  });
+
+  it("M9c: Replay sends each player only their own seat of a finished online game; nobody else gets it", async () => {
+    const { cookieOf, player, db, get, recordsDir } = await serve();
+    const ann = player("Ann", "1");
+    const bo = player("Bo", "2");
+    const carol = player("Carol", "3");
+    // A real finished game, stored as the server stores one.
+    const deck = (set: "ESD01" | "ESD02") => {
+      const found = resolveDeck(
+        db,
+        "x",
+        { source: "official", set },
+        "casual",
+        new Date(NOW),
+      );
+      if (!found.ok) throw new Error(found.error);
+      return found.deck;
+    };
+    const gameId = "55555555-2222-4333-8444-555555555555";
+    const room = createRoom({
+      gameId,
+      seed: 9,
+      mode: "casual",
+      creator: {
+        playerId: ann.id,
+        name: "Ann",
+        deckName: "Ann deck",
+        deck: deck("ESD01"),
+      },
+      now: NOW,
+    });
+    joinRoom(
+      room,
+      { playerId: bo.id, name: "Bo", deckName: "Bo deck", deck: deck("ESD02") },
+      () => "P1",
+    );
+    setConnected(room, "P1", true, NOW);
+    pickFirst(room, "P1", 0, NOW);
+    for (let i = 0; i < 30; i++) {
+      const state = room.states.at(-1) as GameState;
+      const who = (state.pendingChoice?.player ?? state.turnPlayer) as
+        "P1" | "P2";
+      const move = getLegalActions(state, who).find(
+        (a) => a.type !== "concede",
+      );
+      act(room, who, room.data.record?.actions.length ?? 0, move, NOW);
+    }
+    concede(room, "P2", NOW);
+    await storeRecord(recordsDir, db, room, NOW);
+    const n = room.data.record?.actions.length ?? 0;
+
+    for (const [who, seat] of [
+      [ann, "P1"],
+      [bo, "P2"],
+    ] as const) {
+      const res = await get(`/api/games/${gameId}/replay`, cookieOf(who.id));
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        message: SeatMessage;
+        actions: unknown[];
+      };
+      expect(body.message.you).toBe(seat);
+      expect(body.message.phase).toBe("over");
+      expect(body.message.model?.bottom).toBe(seat);
+      expect(body.actions).toHaveLength(n);
+      expect(body.actions).toEqual(actionsFor(room, seat));
+      // Nothing of the other player's hidden cards: their hand at the end isn't in the start, and
+      // their hand after 10 actions isn't in that board (a card played later is public by then).
+      const other = seat === "P1" ? "P2" : "P1";
+      const text = JSON.stringify(body);
+      const handAt = (i: number) =>
+        (room.states[i] as GameState).players.find((p) => p.id === other)
+          ?.hand ?? [];
+      expect(handAt(n).length).toBeGreaterThan(0);
+      for (const card of handAt(n))
+        expect(text).not.toContain(`"${card.instanceId}"`);
+      const past = await get(
+        `/api/games/${gameId}/replay/10`,
+        cookieOf(who.id),
+      );
+      const board = ((await past.json()) as { model: BoardModel }).model;
+      expect(board.bottom).toBe(seat);
+      expect(board.view.turn).toBe((room.states[10] as GameState).turn);
+      for (const card of (room.states[10] as GameState).players.find(
+        (p) => p.id === other,
+      )?.hand ?? [])
+        expect(JSON.stringify(board)).not.toContain(`"${card.instanceId}"`);
+      expect(
+        (await get(`/api/games/${gameId}/replay/99999`, cookieOf(who.id)))
+          .status,
+      ).toBe(404);
+    }
+    // Not Carol's game; and the record route still refuses it (#232).
+    expect(
+      (await get(`/api/games/${gameId}/replay`, cookieOf(carol.id))).status,
+    ).toBe(404);
+    expect((await get(`/api/games/${gameId}`, cookieOf(ann.id))).status).toBe(
+      404,
+    );
   });
 });

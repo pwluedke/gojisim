@@ -74,7 +74,17 @@ export function History() {
                   {g.h2h ? " · online" : ""}
                   {g.deckNames ? ` · ${g.deckNames}` : ""}
                 </span>
-                {/* M9a: an online game's record holds the opponent's deck; it can't be loaded. */}
+                {/* M9a: an online game's record holds the opponent's deck; it can't be loaded. M9c:
+                    a finished one replays from the server, this player's boards only. */}
+                {g.h2h && g.endedAt !== null && (
+                  <a
+                    className={styles.load}
+                    href={`/online/${encodeURIComponent(g.gameId)}/replay`}
+                    data-testid="history-replay"
+                  >
+                    Replay
+                  </a>
+                )}
                 {!g.h2h && (
                   <a
                     className={styles.load}
