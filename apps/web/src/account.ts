@@ -48,6 +48,8 @@ export interface MyGame {
   result: "win" | "loss" | "draw" | null;
   botLevel: string | null;
   deckNames: string | null;
+  /** M9a: a head to head game: listed with its result, but its record can't be loaded. */
+  h2h?: boolean;
 }
 
 /** The player's games this season, newest first, and the season; `null` without accounts. */

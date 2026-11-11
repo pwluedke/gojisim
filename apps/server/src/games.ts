@@ -267,6 +267,12 @@ export function gamesMiddleware({
         return;
       }
       const game = playerGame(db, player.id, which);
+      // M9a: a head to head game's record holds both players' decks and their order, which the
+      // other player never sees (Q42), so neither player can load it here.
+      if (game?.h2h) {
+        sendJson(res, 404, { error: "h2h-record" });
+        return;
+      }
       const text = game
         ? await readFile(join(recordsDir, game.file), "utf8").catch(() => null)
         : null;

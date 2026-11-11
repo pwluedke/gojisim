@@ -70,3 +70,32 @@ test("#151: My games lists the player's games, and Load replays one in /play", a
   await expect(page.getByTestId("board")).toBeVisible();
   await expect(page.getByTestId("your-hand-count")).toHaveText("5");
 });
+
+test("M9a: an online game lists with its result and 'online', but without Load (its record holds the opponent's deck)", async ({
+  page,
+}) => {
+  await page.route("**/api/games/mine", (route) =>
+    route.fulfill({
+      json: {
+        season: "beta",
+        games: [
+          {
+            gameId: "33333333-2222-4333-8444-555555555555",
+            startedAt: Date.UTC(2026, 10, 11, 4),
+            updatedAt: Date.UTC(2026, 10, 11, 4, 30),
+            endedAt: Date.UTC(2026, 10, 11, 4, 30),
+            result: "loss",
+            botLevel: null,
+            deckNames: "ESD01 official vs ESD02 official",
+            h2h: true,
+          },
+        ],
+      },
+    }),
+  );
+  await page.goto("/history");
+  const row = page.getByTestId("history-game");
+  await expect(row).toContainText("Lost");
+  await expect(row).toContainText("online · ESD01 official vs ESD02 official");
+  await expect(row.getByTestId("history-load")).toHaveCount(0);
+});
