@@ -457,4 +457,25 @@ describe("head to head over Socket.io (M9a)", () => {
     );
     expect(saved.seed).toBe(19);
   });
+
+  it("M9c: the creator cancels an open game; its link then says it has ended", async () => {
+    const { client, dirs, h2h } = await start();
+    const alice = client("alice");
+    const bob = client("bob");
+    await Promise.all([connected(alice), connected(bob)]);
+    const { gameId } = (await ask(alice, "create", { deck: ESD01 })) as {
+      gameId: string;
+    };
+    expect(await ask(bob, "cancel", { gameId })).toEqual({
+      ok: false,
+      error: "not-in-game",
+    });
+    expect(await ask(alice, "cancel", { gameId })).toEqual({ ok: true });
+    expect(h2h.rooms.has(gameId)).toBe(false);
+    expect(existsSync(join(dirs.roomsDir, `${gameId}.json`))).toBe(false);
+    expect(await ask(bob, "peek", { gameId })).toEqual({
+      ok: false,
+      error: "no-such-game",
+    });
+  });
 });

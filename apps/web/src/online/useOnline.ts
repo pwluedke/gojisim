@@ -39,6 +39,8 @@ export interface OnlinePlay {
   askUndo: () => void;
   answerUndo: (accept: boolean) => void;
   claim: () => void;
+  /** M9c: the creator cancels a game nobody has joined. */
+  cancel: () => Promise<boolean>;
   /** Asks the server for a past board the browser hasn't got (the history view). */
   ensureBoard: (index: number) => void;
 }
@@ -130,6 +132,7 @@ export function useOnline(gameId: string): OnlinePlay {
     askUndo: () => void send("undo-ask"),
     answerUndo: (accept) => void send("undo-answer", { accept }),
     claim: () => void send("claim"),
+    cancel: async () => (await send("cancel"))?.ok === true,
     ensureBoard: (index) => {
       const current = gameRef.current;
       if (!current || current.models[index] || asked.current.has(index)) return;

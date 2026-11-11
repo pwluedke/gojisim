@@ -182,10 +182,32 @@ export function goneFor(room: Room, seat: SeatId, now: number): number {
   return p.connected ? 0 : now - p.since;
 }
 
-/** The picker picks one of the two face-down cards (6.3.1.4); the game starts. */
-export function pickFirst(room: Room, seat: SeatId, card: 0 | 1): Result {
+/**
+ * Whether `seat` may make the First / Second pick: they are the picker, or (M9c) the picker has
+ * been gone 5 minutes and `seat` is here, so a gone player can't hold the game up.
+ */
+export function canPick(room: Room, seat: SeatId, now: number): boolean {
+  if (phaseOf(room) !== "picking") return false;
+  if (room.data.picker === seat) return true;
+  return (
+    room.presence[seat].connected &&
+    goneFor(room, otherSeat(seat), now) >= claimAfter(room)
+  );
+}
+
+/**
+ * The picker picks one of the two face-down cards (6.3.1.4); the game starts. The card is read
+ * for whoever picks (the record's `firstPick.player`).
+ */
+export function pickFirst(
+  room: Room,
+  seat: SeatId,
+  card: 0 | 1,
+  now = 0,
+): Result {
   if (phaseOf(room) !== "picking") return fail("not-picking");
-  if (room.data.picker !== seat) return fail("not-your-pick");
+  if (!canPick(room, seat, now)) return fail("not-your-pick");
+  room.data.picker = seat;
   const { P1, P2 } = room.data.seats as Record<SeatId, SeatPlayer>;
   const decks: GameRecord["decks"] = [
     { id: "P1", ...P1.deck },
@@ -321,6 +343,11 @@ export function concede(room: Room, seat: SeatId, now: number): Result {
     { type: "concede", player: seat },
     now,
   );
+}
+
+/** M9c: the creator cancels a game nobody has joined yet (the caller drops the room). */
+export function canCancel(room: Room, seat: SeatId): boolean {
+  return phaseOf(room) === "waiting" && seat === "P1";
 }
 
 /** Whether `seat` may ask to undo: a Casual game whose last action is theirs and undoable. */
@@ -522,6 +549,8 @@ export interface SeatMessage {
   legal: Action[];
   undo: { asked: SeatId | null; canAsk: boolean };
   canClaim: boolean;
+  /** M9c: this seat may make the First / Second pick now (the picker, or for a gone picker). */
+  canPick: boolean;
   /**
    * How long the opponent must be gone before the claim (ms). The server sends a message only on
    * a change, so the browser counts `goneMs` up itself and offers the claim at this time.
@@ -569,6 +598,7 @@ export function seatMessage(
     legal: state && phase === "playing" ? getLegalActions(state, seat) : [],
     undo: { asked: room.data.undoAsk, canAsk: canAskUndo(room, seat) },
     canClaim: canClaim(room, seat, now),
+    canPick: canPick(room, seat, now),
     claimAfterMs: claimAfter(room),
     outcome: record?.outcome ?? null,
     h2hEnd: record?.h2hEnd ?? null,

@@ -1,6 +1,7 @@
 import type { Server as HttpServer, IncomingMessage } from "node:http";
 import { openDb } from "../db/db.js";
 import type { Player } from "../players.js";
+import { replayMiddleware } from "./replayRoute.js";
 import { attachH2h, type H2h } from "./socket.js";
 
 /*
@@ -23,12 +24,16 @@ export function attachDevH2h(
     /** Playwright shortens the claim time (`H2H_CLAIM_MS`). */
     claimAfterMs?: number | undefined;
   },
-): H2h {
+): {
+  h2h: H2h;
+  /** M9c: Replay of finished games, for the dev server's middlewares. */
+  replay: ReturnType<typeof replayMiddleware>;
+} {
   const db = openDb(":memory:", { log: () => {} });
   const add = db.prepare(
     "INSERT INTO players (id, display_name, created_at, last_seen_at) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET display_name = excluded.display_name",
   );
-  return attachH2h(server, {
+  const h2h = attachH2h(server, {
     db,
     playerOf: (req): Player | null => {
       const dev = devPlayerOf(req);
@@ -49,4 +54,13 @@ export function attachDevH2h(
     recordsDir,
     ...(claimAfterMs ? { claimAfterMs } : {}),
   });
+  const replay = replayMiddleware({
+    db,
+    recordsDir,
+    playerOf: (req) => {
+      const dev = devPlayerOf(req);
+      return dev ? { id: dev.id } : null;
+    },
+  });
+  return { h2h, replay };
 }

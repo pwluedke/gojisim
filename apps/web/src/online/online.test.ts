@@ -57,6 +57,7 @@ function message(g: Session, seq: number, from = seq): SeatMessage {
     undo: { asked: null, canAsk: false },
     canClaim: false,
     claimAfterMs: 300_000,
+    canPick: false,
     outcome: null,
     h2hEnd: null,
     names: { P1: "Ann", P2: "Bo" },

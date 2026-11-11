@@ -234,4 +234,94 @@ test("Play online: when the other player has been gone the claim time, Claim the
     "data-outcome",
     /^win/,
   );
+  // M9c: a line says what happened, so it doesn't read as a plain concession.
+  await expect(ann.getByTestId("online-claimed")).toHaveText(
+    `${names.ann} claimed the win after ${names.bo} was gone 0:04.`,
+  );
+});
+
+test("M9c: the creator can cancel a game nobody joined; its link then says it has ended", async ({
+  browser,
+}) => {
+  const run = Math.floor(Math.random() * 1e6);
+  const ann = await signedIn(browser, `Ann ${run}`, "/online");
+  await ann.getByTestId("online-create").click();
+  await expect(ann).toHaveURL(/\/online\/[0-9a-f-]{36}$/);
+  const link = await ann.getByTestId("online-link").inputValue();
+  await ann.getByTestId("online-cancel").click();
+  await expect(ann).toHaveURL(/\/online$/);
+  const bo = await signedIn(browser, `Bo ${run}`, new URL(link).pathname);
+  await expect(bo.getByTestId("online-missing")).toBeVisible();
+});
+
+test("M9c: if the player who must pick First / Second leaves, the other may pick after the claim time", async ({
+  browser,
+}) => {
+  const run = Math.floor(Math.random() * 1e6);
+  const ann = await signedIn(browser, `Ann ${run}`, "/online");
+  await ann.getByTestId("online-create").click();
+  await expect(ann).toHaveURL(/\/online\/[0-9a-f-]{36}$/);
+  const link = await ann.getByTestId("online-link").inputValue();
+  const bo = await signedIn(browser, `Bo ${run}`, new URL(link).pathname);
+  await bo.getByTestId("online-join").click();
+  const picker = await Promise.race([
+    ann
+      .getByTestId("online-pick-0")
+      .waitFor()
+      .then(() => ann),
+    bo
+      .getByTestId("online-pick-0")
+      .waitFor()
+      .then(() => bo),
+  ]);
+  const other = picker === ann ? bo : ann;
+  await picker.context().close();
+  await expect(other.getByTestId("online-picker-gone")).toBeVisible();
+  // The dev server's claim time is 4 seconds (the deployed server: 5 minutes).
+  await other.getByTestId("online-pick-0").click({ timeout: 15_000 });
+  await expect(other.getByTestId("board")).toBeVisible();
+});
+
+test("M9c: a finished online game replays for each player, their own boards only, with the history view", async ({
+  browser,
+}) => {
+  const { ann, bo } = await startOnline(browser);
+  const gameUrl = ann.url();
+  for (let i = 0; i < 2; i++) {
+    const turnPlayer = await decider(ann, bo);
+    const turn = Number(await turnPlayer.getByTestId("turn").textContent());
+    await turnPlayer.getByTestId("pass").click();
+    await turnPlayer.getByTestId("confirm-yes").click();
+    for (const page of [ann, bo])
+      await expect
+        .poll(async () => Number(await page.getByTestId("turn").textContent()))
+        .toBeGreaterThan(turn);
+  }
+  const end = await ann.getByTestId("turn").textContent();
+  await bo.getByTestId("concede").click();
+  await bo.getByTestId("confirm-yes").click();
+  await expect(ann.getByTestId("game-over-line")).toBeVisible();
+
+  await ann.goto(`${gameUrl}/replay`);
+  await expect(ann.getByTestId("board")).toBeVisible();
+  await expect(ann.getByTestId("game-over-line")).toHaveAttribute(
+    "data-outcome",
+    /^win/,
+  );
+  await ann.keyboard.press("Space");
+  await expect(ann.getByTestId("turn")).toHaveText(end ?? "");
+  // An earlier board comes from the server.
+  await ann.getByTestId("log-line").first().click();
+  await expect(ann.getByTestId("back-to-live")).toBeVisible();
+  await expect
+    .poll(async () => Number(await ann.getByTestId("turn").textContent()))
+    .toBeLessThan(Number(end));
+  // Not a game of yours: no replay.
+  const run = Math.floor(Math.random() * 1e6);
+  const carol = await signedIn(
+    browser,
+    `Carol ${run}`,
+    `${new URL(gameUrl).pathname}/replay`,
+  );
+  await expect(carol.getByTestId("replay-missing")).toBeVisible();
 });

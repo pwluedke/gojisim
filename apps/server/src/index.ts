@@ -22,6 +22,7 @@ import {
   siteConfig,
   uploadsPerMinuteFrom,
 } from "./games.js";
+import { replayMiddleware } from "./h2h/replayRoute.js";
 import { attachH2h, type H2h } from "./h2h/socket.js";
 import { reportPoster } from "./reports.js";
 import { cardImages, webApp } from "./static.js";
@@ -171,6 +172,10 @@ export function createAppServer({
     db: discord?.db,
     playerOf: requestPlayer,
   });
+  // M9c: Replay for finished head to head games (Discord sign-in only).
+  const replay = discord
+    ? replayMiddleware({ db: discord.db, recordsDir, playerOf: requestPlayer })
+    : null;
   const cards = cardImages(cardsDir);
   const app = webApp(distDir);
   const server = createServer(
@@ -209,6 +214,7 @@ export function createAppServer({
       }
       if (!(await passes((next) => account(req, res, next)))) return;
       if (!(await passes((next) => decklog(req, res, next)))) return;
+      if (replay && !(await passes((next) => replay(req, res, next)))) return;
       if (!(await passes((next) => games(req, res, next)))) return;
       if (!(await passes((next) => cards(req, res, next)))) return;
       await app(req, res);

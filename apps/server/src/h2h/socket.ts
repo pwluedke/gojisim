@@ -11,6 +11,7 @@ import {
   actionsFor,
   answerUndo,
   askUndo,
+  canCancel,
   claimWin,
   concede,
   createRoom,
@@ -349,7 +350,7 @@ export function attachH2h(
       if (!at) return { ok: false, error: "not-in-game" };
       const card = body["card"];
       if (card !== 0 && card !== 1) return { ok: false, error: "bad-card" };
-      return answer(at.room, () => pickFirst(at.room, at.seat, card));
+      return answer(at.room, () => pickFirst(at.room, at.seat, card, now()));
     });
 
     on("act", async (body) => {
@@ -382,6 +383,18 @@ export function attachH2h(
           now(),
         ),
       );
+    });
+
+    /** M9c: the creator cancels a game nobody has joined: the room and its link are gone. */
+    on("cancel", async (body) => {
+      const at = mine(body);
+      if (!at) return { ok: false, error: "not-in-game" };
+      if (!canCancel(at.room, at.seat))
+        return { ok: false, error: "no-cancel" };
+      rooms.delete(at.room.data.gameId);
+      await removeRoom(roomsDir, at.room.data.gameId);
+      joined = null;
+      return { ok: true };
     });
 
     on("concede", async (body) => {
