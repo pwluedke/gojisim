@@ -8,6 +8,7 @@ import { resolveDeck } from "./decks.js";
 import {
   abandon,
   act,
+  actionsFor,
   answerUndo,
   askUndo,
   claimWin,
@@ -24,6 +25,7 @@ import {
   seatMessage,
   seatOf,
   setConnected,
+  stepsFor,
   sweepVerdict,
 } from "./room.js";
 import { loadRooms, removeRoom, saveRoom, storeRecord } from "./store.js";
@@ -59,6 +61,8 @@ export interface H2hOptions {
   log?: (line: string) => void;
   /** Tests run the sweep by hand. */
   sweepEveryMs?: number | null;
+  /** The dev server's e2e tests shorten the claim time (`H2H_CLAIM_MS`); default 5 minutes. */
+  claimAfterMs?: number;
 }
 
 export interface H2h {
@@ -98,6 +102,7 @@ export function attachH2h(
     now = Date.now,
     log = (line) => console.error(line),
     sweepEveryMs = SWEEP_MS,
+    claimAfterMs,
   }: H2hOptions,
 ): H2h {
   const rooms = new Map<string, Room>();
@@ -108,6 +113,8 @@ export function attachH2h(
   const io = new Server(server, {
     path: "/socket.io",
     serveClient: false,
+    // Other WebSocket upgrades on the same server are left alone (the Vite dev server's own).
+    destroyUpgrade: false,
     allowRequest: (req, callback) => callback(null, sameOrigin(req)),
   });
   const hits = new Map<string, number[]>();
@@ -122,13 +129,21 @@ export function attachH2h(
   };
 
   const channel = (gameId: string, seat: SeatId) => `${gameId}:${seat}`;
-  /** Sends each seat its own state and saves the room. */
-  const changed = async (room: Room) => {
+  /**
+   * Sends each seat its own state, with the steps after the first `from` actions (the count
+   * before the change; none by default), and saves the room.
+   */
+  const changed = async (room: Room, from?: number) => {
     for (const seat of SEATS)
       if (room.data.seats[seat])
         io.to(channel(room.data.gameId, seat)).emit(
           "state",
-          seatMessage(room, seat, now()),
+          seatMessage(
+            room,
+            seat,
+            now(),
+            from === undefined ? [] : stepsFor(room, seat, from),
+          ),
         );
     if (phaseOf(room) === "over") return;
     await saveRoom(roomsDir, room);
@@ -233,10 +248,11 @@ export function attachH2h(
     /** Runs a room change; a game it ends is stored once, then every seat hears of it. */
     const answer = async (room: Room, change: () => Result) => {
       const wasOver = phaseOf(room) === "over";
+      const from = room.data.record?.actions.length ?? 0;
       const result = change();
       if (!result.ok) return result;
       if (!wasOver && phaseOf(room) === "over") await ended(room);
-      await changed(room);
+      await changed(room, from);
       return { ok: true };
     };
 
@@ -264,6 +280,7 @@ export function attachH2h(
           deck: deck.deck,
         },
         now: now(),
+        ...(claimAfterMs === undefined ? {} : { claimAfterMs }),
       });
       rooms.set(gameId, room);
       await enter(room, "P1");
@@ -306,8 +323,9 @@ export function attachH2h(
         });
         if (!result.ok) return result;
       }
-      await enter(room, seatOf(room, player.id) as SeatId);
-      return { ok: true, seat: seatOf(room, player.id) };
+      const seat = seatOf(room, player.id) as SeatId;
+      await enter(room, seat);
+      return { ok: true, seat, actions: actionsFor(room, seat) };
     });
 
     /** A refresh or a dropped connection: back into the player's own seat. */
@@ -318,7 +336,7 @@ export function attachH2h(
       const seat = room ? seatOf(room, player.id) : null;
       if (!room || !seat) return { ok: false, error: "no-such-game" };
       await enter(room, seat);
-      return { ok: true, seat };
+      return { ok: true, seat, actions: actionsFor(room, seat) };
     });
 
     on("leave", async () => {

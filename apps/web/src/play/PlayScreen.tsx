@@ -60,6 +60,7 @@ import {
 } from "../game/errors";
 import { ReportModal } from "./ReportModal";
 import { TestSitePanel } from "./TestSitePanel";
+import type { OnlinePlay } from "../online/useOnline";
 import styles from "./Board.module.css";
 import { BoardView, STEP_NAMES } from "./BoardView";
 import { ThemeHeader } from "../ThemeHeader";
@@ -204,7 +205,44 @@ interface PendingGame {
  * prompt panel (and Casual undo), the choice and search modals and the bot's move toast. It is
  * human vs bot (or two bots) only: M5h removed hotseat until M9 adds online play.
  */
-export function PlayScreen() {
+/**
+ * M9b: `useGameSession`'s answer for a head to head game: the server's session, no bot, and moves
+ * sent to the server. Undo and the record helpers that change the session locally do nothing.
+ */
+function onlineGame(
+  local: ReturnType<typeof useGameSession>,
+  online: OnlinePlay,
+): ReturnType<typeof useGameSession> {
+  const session = online.game?.session ?? null;
+  const state = session
+    ? (session.states[session.position] as GameState)
+    : null;
+  return {
+    ...local,
+    session,
+    setSession: () => {},
+    state,
+    decider: state
+      ? ((state.pendingChoice?.player ?? state.turnPlayer) as PlayerId)
+      : null,
+    botToMove: false,
+    botSeats: [],
+    humanSeats: online.seat ? [online.seat] : [],
+    startSession: () => {},
+    takeAction: online.takeAction,
+    takeChoices: (_player, optionIds, done) =>
+      online.takeChoices(optionIds, done),
+    importRecord: async () => "A head to head game can't load a record.",
+    playing: false,
+    thinking: null,
+  };
+}
+
+/**
+ * M9b: a head to head game in place of the local one: the server's session, legal actions and
+ * boards, and moves sent to the server (`online/useOnline.ts`). Without it, `/play` as before.
+ */
+export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
   const [settings, updateSettings] = useSettings();
   const [botMove, setBotMove] = useState<BotMove | null>(null);
   // Bot announcements: the lines waiting (the first shows), the action count seen last, and the
@@ -274,30 +312,35 @@ export function PlayScreen() {
   } | null>(null);
   // `/play` never shows hidden cards, so bot labels always keep private choices private.
   // Bot seats play at once, two bots included (`/play` has no Play button before a game).
-  const game = useGameSession({
+  // A game starting in this screen: a new or loaded local game, or a head to head game arriving
+  // from the server (M9b; a rejoin's earlier actions are history, like a loaded record's).
+  const onSessionStart = (next: Session) => {
+    const start = next.states[next.position] as GameState;
+    clearCapture();
+    setHistoryAt(null);
+    setSearches([]);
+    setNote(null);
+    setReporting(null);
+    setShowHand(next.record.showOpponentHand === true);
+    startResult.current = start.result;
+    seenLog.current = start.log.length;
+    // A loaded record's combos are history: no callouts for them.
+    setCallouts([]);
+    setGameOver(null);
+    lastCombo.current = next.record.actions.length;
+    setAnnouncements([]);
+    announceFrom.current = next.record.actions.length;
+    lastCount.current = next.record.actions.length;
+    soundFrom.current = next.record.actions.length;
+    heardCount.current = next.record.actions.length;
+    loadedGame.current = next.record.actions.length > 0;
+  };
+  const startedRef = useRef(onSessionStart);
+  startedRef.current = onSessionStart;
+  const local = useGameSession({
     privateLabels: () => true,
     autoPlay: "always",
-    onStart: (next: Session) => {
-      const start = next.states[next.position] as GameState;
-      clearCapture();
-      setHistoryAt(null);
-      setSearches([]);
-      setNote(null);
-      setReporting(null);
-      setShowHand(next.record.showOpponentHand === true);
-      startResult.current = start.result;
-      seenLog.current = start.log.length;
-      // A loaded record's combos are history: no callouts for them.
-      setCallouts([]);
-      setGameOver(null);
-      lastCombo.current = next.record.actions.length;
-      setAnnouncements([]);
-      announceFrom.current = next.record.actions.length;
-      lastCount.current = next.record.actions.length;
-      soundFrom.current = next.record.actions.length;
-      heardCount.current = next.record.actions.length;
-      loadedGame.current = next.record.actions.length > 0;
-    },
+    onStart: (next: Session) => startedRef.current(next),
     // While the history view or a search result is open, a bot's answer waits.
     // A combo modal holds the bot too (M5g), until it is closed.
     // The First / Second pick holds the bot on the board under it.
@@ -320,6 +363,17 @@ export function PlayScreen() {
       reporting !== null ||
       leaving,
   });
+  // M9b: a head to head game uses the server's session, legal actions and boards instead.
+  const game = online ? onlineGame(local, online) : local;
+  const onlineEpoch = online?.game?.epoch;
+  useEffect(() => {
+    const next = online?.game?.session;
+    if (next) onSessionStart(next);
+  }, [onlineEpoch]);
+  // The history view online: a past board the browser lacks comes from the server.
+  useEffect(() => {
+    if (online && historyAt !== null) online.ensureBoard(historyAt);
+  }, [online, historyAt]);
   // #151: "Load" in My games opens /play?load=<game id>: the player's own record, from the server.
   const { importRecord } = game;
   const loadedFromUrl = useRef(false);
@@ -366,20 +420,27 @@ export function PlayScreen() {
   );
   useEffect(() => setDelay(settings.botDelay), [setDelay, settings.botDelay]);
 
-  const name = (id: string) =>
-    session?.seats[id as PlayerId]?.kind === "human" ? "You" : "Bot";
+  // M9b: the other player in a head to head game goes by their name.
+  const opponentName = online?.message?.opponent?.name ?? "Opponent";
+  const name = (id: string) => {
+    const kind = session?.seats[id as PlayerId]?.kind;
+    return kind === "human" ? "You" : kind === "online" ? opponentName : "Bot";
+  };
   // Announcements name the bot "Bot" (or "Bot P1" / "Bot P2" between two bots) and the human's
   // cards "your".
   const twoBots =
     !!session && PLAYER_IDS.every((id) => session.seats[id].kind === "bot");
   const announceNames: AnnounceNames = {
-    subject: (player) => (twoBots ? `Bot ${player}` : "Bot"),
+    subject: (player) =>
+      online ? opponentName : twoBots ? `Bot ${player}` : "Bot",
     whose: (owner, actor) =>
       owner === actor
         ? "its"
         : session?.seats[owner as PlayerId]?.kind === "human"
           ? "your"
-          : `Bot ${owner}'s`,
+          : online
+            ? `${opponentName}'s`
+            : `Bot ${owner}'s`,
   };
   const liveBottom =
     state && session ? bottomPlayer(state, session.seats) : null;
@@ -454,7 +515,8 @@ export function PlayScreen() {
   useEffect(() => {
     if (!result || startResult.current || !session) return;
     startResult.current = result;
-    if (!testSite || !settings.shareGames) return;
+    // M9b: the server writes a head to head game's record itself.
+    if (!testSite || !settings.shareGames || online) return;
     void uploadRecord(session);
   }, [result]);
 
@@ -585,9 +647,14 @@ export function PlayScreen() {
   const decider = game.decider;
   const seat = decider && session ? session.seats[decider] : null;
   const human = seat?.kind === "human" && !!state && !state.result;
+  // M9b: online, the server's legal actions for this seat (the browser's board has hidden cards
+  // as placeholders, so it never computes them).
   const actions =
     decider && human && state
-      ? getLegalActions(state, decider).filter((a) => a.type !== "concede")
+      ? (online
+          ? (online.message?.legal ?? [])
+          : getLegalActions(state, decider)
+        ).filter((a) => a.type !== "concede")
       : [];
   const pass = actions.find((a) => a.type === "pass");
   // EBP03-004 (E21): an invasion paid with the deck's top card has no hand card to drag.
@@ -601,10 +668,19 @@ export function PlayScreen() {
   }, [choice?.id]);
   // Casual undo (M5e): the deciding human takes back their own last action.
   const undoFor = human && decider ? decider : null;
-  const undoable = !!undoFor && !!session && canUndoSession(session, undoFor);
+  // M9b: online, an undo is a request the other player answers (the server says when it may be
+  // asked).
+  const undoable =
+    !!undoFor &&
+    !!session &&
+    (online ? !!online.message?.undo.canAsk : canUndoSession(session, undoFor));
   const undo = () => {
     if (!session || !undoFor || !undoable) return;
     setConfirming(null);
+    if (online) {
+      online.askUndo();
+      return;
+    }
     // A confirmed multi-card pick is taken back whole (Tester fixes 1).
     game.setSession(undoConfirmed(session, undoFor as PlayerId));
   };
@@ -805,7 +881,14 @@ export function PlayScreen() {
   const shown = (
     viewing === null ? state : session.states[viewing]
   ) as GameState;
-  const model = boardModel(shown, liveBottom ?? "P1", testSite && showHand);
+  // M9b: online, the server's board for that moment (its numbers come from the real game).
+  const onlineModel = online?.game
+    ? (online.game.models[viewing ?? session.position] ??
+      online.message?.model ??
+      null)
+    : null;
+  const model =
+    onlineModel ?? boardModel(shown, liveBottom ?? "P1", testSite && showHand);
 
   // Search results and combo callouts wait for a bot announcement, like for animations.
   const search = viewing === null && !announcing ? (searches[0] ?? null) : null;
@@ -880,7 +963,7 @@ export function PlayScreen() {
             Rematch
           </button>
         )}{" "}
-        <a href="/play">New game</a>
+        <a href={online ? "/online" : "/play"}>New game</a>
       </div>
     ) : (
       <div className={styles.promptBody}>
@@ -1360,6 +1443,7 @@ export function PlayScreen() {
           settings={settings}
           updateSettings={updateSettings}
           badBotReady={!pending && badBotMove !== null}
+          botButtons={!online}
           onBadBot={() => setReporting("badBot")}
           onGoodBot={() => setReporting("goodBot")}
           reportReady={!pending}

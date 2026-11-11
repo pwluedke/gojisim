@@ -14,6 +14,10 @@ const DebugViewer = lazy(() =>
 const PlayScreen = lazy(() =>
   import("./play/PlayScreen").then((m) => ({ default: m.PlayScreen })),
 );
+// M9b: Play online (create, join and play a head to head game) shares the board's bundle.
+const OnlineScreen = lazy(() =>
+  import("./online/OnlineScreen").then((m) => ({ default: m.OnlineScreen })),
+);
 const Deckbuilder = lazy(() =>
   import("./decks/Deckbuilder").then((m) => ({ default: m.Deckbuilder })),
 );
@@ -40,6 +44,10 @@ createRoot(root).render(
       </Suspense>
     ) : path.startsWith("/history") ? (
       <History />
+    ) : path.startsWith("/online") ? (
+      <Suspense fallback={<p>Loading…</p>}>
+        <OnlineScreen />
+      </Suspense>
     ) : path.startsWith("/play") ? (
       <Suspense fallback={<p>Loading…</p>}>
         <PlayScreen />

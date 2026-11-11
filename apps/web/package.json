@@ -23,7 +23,8 @@
     "@gojisim/cards": "workspace:*",
     "@gojisim/engine": "workspace:*",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "socket.io-client": "4.8.1"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",

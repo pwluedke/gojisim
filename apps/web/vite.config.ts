@@ -8,7 +8,7 @@ import {
 } from "../server/src/games.js";
 import { join } from "node:path";
 import { devDeckResults } from "./devDeckResults";
-import { devSignIn } from "./devSignIn";
+import { devPlayerOf, devSignIn } from "./devSignIn";
 
 export default defineConfig({
   plugins: [
@@ -58,6 +58,39 @@ export default defineConfig({
             uploadsPerMinute: uploadsPerMinuteFrom(process.env),
           }),
         );
+      },
+    },
+    {
+      // M9b: head to head on the dev server's port, with the dev sign-in's players. The room
+      // module loads through Vite (it imports the engine's TypeScript source) once the server is
+      // up; rooms go to a gitignored folder (Playwright sets `H2H_ROOMS_DIR`), records with the
+      // uploads.
+      name: "gojisim-h2h",
+      configureServer(server) {
+        const http = server.httpServer;
+        if (!http) return;
+        const root = new URL("../..", import.meta.url).pathname;
+        http.once("listening", () => {
+          void server
+            .ssrLoadModule(
+              new URL("../server/src/h2h/dev.ts", import.meta.url).pathname,
+            )
+            .then((mod) =>
+              (mod as typeof import("../server/src/h2h/dev.js")).attachDevH2h(
+                http as import("node:http").Server,
+                {
+                  devPlayerOf,
+                  roomsDir:
+                    process.env["H2H_ROOMS_DIR"] ?? join(root, "records-rooms"),
+                  recordsDir:
+                    process.env["RECORDS_DIR"] ??
+                    new URL("../../records", import.meta.url).pathname,
+                  claimAfterMs:
+                    Number(process.env["H2H_CLAIM_MS"] ?? 0) || undefined,
+                },
+              ),
+            );
+        });
       },
     },
   ],

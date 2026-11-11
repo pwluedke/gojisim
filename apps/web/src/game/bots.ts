@@ -12,13 +12,17 @@ import { actionLabel } from "./labels";
 
 /** A seat in the new game form (M6d). */
 export type SeatConfig =
-  { kind: "human" } | { kind: "bot"; difficulty: number };
+  | { kind: "human" }
+  | { kind: "bot"; difficulty: number }
+  /** M9b: the other player in a head to head game, who plays from their own browser. */
+  | { kind: "online" };
 
 /** The bot every bot seat runs: ISMCTS with the difficulty slider (M6c). */
 export const SEAT_BOT = "ismcts";
 
 export function seatRecord(seat: SeatConfig): SeatRecord {
-  return seat.kind === "human"
+  // An online seat is a human in their own browser (the server writes head to head records).
+  return seat.kind !== "bot"
     ? { kind: "human" }
     : { kind: "bot", bot: SEAT_BOT, settings: { difficulty: seat.difficulty } };
 }

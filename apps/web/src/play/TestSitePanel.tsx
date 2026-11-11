@@ -36,6 +36,8 @@ export interface TestSitePanelProps {
   updateSettings: (change: Partial<Settings>) => void;
   /** Good Bot! and Bad Bot! are live once the bot has made an action. */
   badBotReady: boolean;
+  /** M9b: a head to head game has no bot, so no Good Bot! or Bad Bot! (default: shown). */
+  botButtons?: boolean;
   onBadBot: () => void;
   onGoodBot: () => void;
   /** Report bug waits while no game record exists (the First / Second pick). */
@@ -61,6 +63,7 @@ export function TestSitePanel({
   settings,
   updateSettings,
   badBotReady,
+  botButtons = true,
   onBadBot,
   onGoodBot,
   reportReady,
@@ -88,34 +91,38 @@ export function TestSitePanel({
         >
           Report bug
         </button>
-        <button
-          type="button"
-          className={styles.button}
-          data-testid="good-bot"
-          disabled={!badBotReady}
-          title={
-            badBotReady
-              ? "Tell us what the bot's last move got right"
-              : "Live once the bot has made a move"
-          }
-          onClick={onGoodBot}
-        >
-          Good Bot!
-        </button>
-        <button
-          type="button"
-          className={styles.button}
-          data-testid="bad-bot"
-          disabled={!badBotReady}
-          title={
-            badBotReady
-              ? "Tell us what the bot's last move got wrong"
-              : "Live once the bot has made a move"
-          }
-          onClick={onBadBot}
-        >
-          Bad Bot!
-        </button>
+        {botButtons && (
+          <>
+            <button
+              type="button"
+              className={styles.button}
+              data-testid="good-bot"
+              disabled={!badBotReady}
+              title={
+                badBotReady
+                  ? "Tell us what the bot's last move got right"
+                  : "Live once the bot has made a move"
+              }
+              onClick={onGoodBot}
+            >
+              Good Bot!
+            </button>
+            <button
+              type="button"
+              className={styles.button}
+              data-testid="bad-bot"
+              disabled={!badBotReady}
+              title={
+                badBotReady
+                  ? "Tell us what the bot's last move got wrong"
+                  : "Live once the bot has made a move"
+              }
+              onClick={onBadBot}
+            >
+              Bad Bot!
+            </button>
+          </>
+        )}
         <button
           type="button"
           className={`${styles.button} ${styles.testSiteWide}`}

@@ -23,22 +23,39 @@ import { type Room, type RoomData, roomFromData } from "./room.js";
 
 const GAME_ID = /^[0-9a-f-]{36}$/;
 
-export async function saveRoom(roomsDir: string, room: Room): Promise<void> {
-  const { gameId } = room.data;
-  if (!GAME_ID.test(gameId)) throw new Error(`Bad game id ${gameId}`);
-  await mkdir(roomsDir, { recursive: true });
-  const path = join(roomsDir, `${gameId}.json`);
-  const temporary = `${path}.tmp`;
-  await writeFile(temporary, JSON.stringify(room.data));
-  await rename(temporary, path);
+/**
+ * Each room's file operations run one after another (a move and a disconnect can save the same
+ * room at once), so the temporary file is never shared and the last save writes the latest data.
+ */
+const queues = new Map<string, Promise<void>>();
+function queued(gameId: string, run: () => Promise<void>): Promise<void> {
+  const next = (queues.get(gameId) ?? Promise.resolve()).then(run, run);
+  queues.set(gameId, next);
+  void next.finally(() => {
+    if (queues.get(gameId) === next) queues.delete(gameId);
+  });
+  return next;
 }
 
-export async function removeRoom(
-  roomsDir: string,
-  gameId: string,
-): Promise<void> {
-  if (!GAME_ID.test(gameId)) return;
-  await rm(join(roomsDir, `${gameId}.json`), { force: true });
+export function saveRoom(roomsDir: string, room: Room): Promise<void> {
+  const { gameId } = room.data;
+  if (!GAME_ID.test(gameId))
+    return Promise.reject(new Error(`Bad game id ${gameId}`));
+  return queued(gameId, async () => {
+    await mkdir(roomsDir, { recursive: true });
+    const path = join(roomsDir, `${gameId}.json`);
+    const temporary = `${path}.tmp`;
+    // The data as it is now, when this save runs.
+    await writeFile(temporary, JSON.stringify(room.data));
+    await rename(temporary, path);
+  });
+}
+
+export function removeRoom(roomsDir: string, gameId: string): Promise<void> {
+  if (!GAME_ID.test(gameId)) return Promise.resolve();
+  return queued(gameId, () =>
+    rm(join(roomsDir, `${gameId}.json`), { force: true }),
+  );
 }
 
 /** Every saved room, replayed; a file that can't be read or replayed is logged and skipped. */

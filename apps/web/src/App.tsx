@@ -4,7 +4,10 @@ import { PlayerBadge } from "./PlayerBadge";
 import { ThemeHeader } from "./ThemeHeader";
 import { WhatsNew } from "./WhatsNew";
 
-/** The `/` menu (M5a): Play vs bot, Debug (hotseat was removed in M5h) and What's new (#134). */
+/**
+ * The `/` menu (M5a): Play vs bot, Play online (M9b, head to head; hotseat was removed in M5h),
+ * the Deckbuilder, Debug and What's new (#134).
+ */
 export function App() {
   return (
     <div className="gojisim">
@@ -18,6 +21,13 @@ export function App() {
           data-testid="menu-play-bot"
         >
           Play vs bot
+        </a>
+        <a
+          className={styles.item}
+          href="/online"
+          data-testid="menu-play-online"
+        >
+          Play online
         </a>
         <a className={styles.item} href="/decks" data-testid="menu-decks">
           Deckbuilder
