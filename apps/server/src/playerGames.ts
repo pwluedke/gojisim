@@ -17,6 +17,8 @@ export interface GameRow {
   result: "win" | "loss" | "draw" | null;
   botLevel: string | null;
   deckNames: string | null;
+  /** M9a: a head to head game (two players; only the server writes its record). */
+  h2h: boolean;
 }
 
 type Json = Record<string, unknown>;
@@ -102,6 +104,7 @@ interface Row {
   result: GameRow["result"];
   bot_level: string | null;
   deck_names: string | null;
+  h2h: number;
 }
 
 const fromRow = (r: Row): GameRow => ({
@@ -113,6 +116,7 @@ const fromRow = (r: Row): GameRow => ({
   result: r.result,
   botLevel: r.bot_level,
   deckNames: r.deck_names,
+  h2h: r.h2h === 1,
 });
 
 /** A player's games in the current season (#153), newest first (at most `limit`). */

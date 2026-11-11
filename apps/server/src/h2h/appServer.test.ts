@@ -167,4 +167,41 @@ describe("head to head in the app server (M9a)", () => {
       200,
     );
   });
+
+  it("neither player can load a finished head to head game's record (it holds the other's deck, Q42); My games lists it", async () => {
+    const { cookieOf, player, db, get } = await serve();
+    const ann = player("Ann", "1");
+    const bo = player("Bo", "2");
+    const gameId = "44444444-2222-4333-8444-555555555555";
+    indexH2hGame(
+      db,
+      {
+        gameId,
+        file: "2026-11-11/x.json",
+        players: { P1: ann.id, P2: bo.id },
+        winner: "P2",
+        abandoned: false,
+        deckNames: "A vs B",
+        startedAt: NOW,
+      },
+      NOW,
+    );
+    for (const who of [ann, bo]) {
+      const res = await get(`/api/games/${gameId}`, cookieOf(who.id));
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ error: "h2h-record" });
+      const mine = (await (
+        await get("/api/games/mine", cookieOf(who.id))
+      ).json()) as {
+        games: { gameId: string; h2h: boolean; result: string }[];
+      };
+      expect(mine.games).toEqual([
+        expect.objectContaining({
+          gameId,
+          h2h: true,
+          result: who === ann ? "loss" : "win",
+        }),
+      ]);
+    }
+  });
 });
