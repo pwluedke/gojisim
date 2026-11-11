@@ -26,6 +26,7 @@ import {
   historyBoard,
   joinRoom,
   KEEP_FINISHED_MS,
+  openGames,
   phaseOf,
   pickCards,
   pickFirst,
@@ -500,5 +501,46 @@ describe("head to head rooms (M9a)", () => {
     expect(canCancel(room, "P2")).toBe(false);
     joinRoom(room, bob, () => "P1");
     expect(canCancel(room, "P1")).toBe(false);
+  });
+
+  it("M9d: the lobby lists listed games waiting for a second player, newest first, never your own", () => {
+    const make = (
+      gameId: string,
+      now: number,
+      listed: boolean,
+      creator = alice,
+    ) => {
+      const room = createRoom({
+        gameId,
+        seed: 1,
+        mode: "casual",
+        creator,
+        now,
+        listed,
+      });
+      setConnected(room, "P1", true, now);
+      return room;
+    };
+    const a = make("a0000000-0000-4000-8000-000000000000", 10, true);
+    const b = make("b0000000-0000-4000-8000-000000000000", 20, true, {
+      ...alice,
+      playerId: "carol",
+      name: "Carol",
+    });
+    const unlisted = make("c0000000-0000-4000-8000-000000000000", 30, false);
+    const full = make("d0000000-0000-4000-8000-000000000000", 40, true);
+    joinRoom(full, bob, () => "P1");
+    const hostGone = make("e0000000-0000-4000-8000-000000000000", 50, true);
+    setConnected(hostGone, "P1", false, 60);
+    const rooms = [a, b, unlisted, full, hostGone];
+    expect(openGames(rooms, "bob").map((g) => [g.host, g.createdAt])).toEqual([
+      ["Carol", 20],
+      ["Alice", 10],
+    ]);
+    // Alice's own game isn't offered to her; the decks never are.
+    expect(openGames(rooms, "alice").map((g) => g.host)).toEqual(["Carol"]);
+    expect(JSON.stringify(openGames(rooms, "bob"))).not.toContain(
+      "monsterDeck",
+    );
   });
 });

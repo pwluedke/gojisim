@@ -478,4 +478,39 @@ describe("head to head over Socket.io (M9a)", () => {
       error: "no-such-game",
     });
   });
+
+  it("M9d: the lobby lists a listed game to others, says when it changes, and drops it once joined", async () => {
+    const { client } = await start();
+    const alice = client("alice");
+    const bob = client("bob");
+    const carol = client("carol");
+    await Promise.all([connected(alice), connected(bob), connected(carol)]);
+    expect(await ask(bob, "lobby")).toEqual({ ok: true, games: [] });
+    const changed = new Promise<void>((resolve) =>
+      bob.once("lobby-changed", () => resolve()),
+    );
+    const { gameId } = (await ask(alice, "create", {
+      deck: ESD01,
+      listed: true,
+    })) as { gameId: string };
+    await changed;
+    // An unlisted game (another socket: one socket is in one game at a time) is link only.
+    const alice2 = client("alice");
+    await connected(alice2);
+    await ask(alice2, "create", { deck: ESD01 });
+    expect(await ask(bob, "lobby")).toEqual({
+      ok: true,
+      games: [
+        {
+          gameId,
+          host: "Alice",
+          mode: "casual",
+          createdAt: expect.any(Number),
+        },
+      ],
+    });
+    expect(await ask(alice, "lobby")).toEqual({ ok: true, games: [] });
+    await ask(carol, "join", { gameId, deck: ESD02 });
+    expect(await ask(bob, "lobby")).toEqual({ ok: true, games: [] });
+  });
 });
