@@ -114,6 +114,12 @@ export interface GameRecord {
    * unfinished). Information only.
    */
   h2hEnd?: "claimed" | "abandoned";
+  /**
+   * M9b: a report (Report bug, Monster Island Mailbox, a crash) sent from a head to head game: the
+   * game's id. The report is its own file holding the reporter's view only; the server's record of
+   * that game has the whole game. Information only.
+   */
+  h2hGameId?: string;
 }
 
 /** A crash (#95): the error as `errors.ts` captured it, where the game was, and the last answer. */

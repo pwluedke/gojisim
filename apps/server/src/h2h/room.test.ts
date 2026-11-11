@@ -13,6 +13,8 @@ import { firstPicker } from "./firstPick.js";
 import {
   ABANDON_AFTER_MS,
   act,
+  actionFor,
+  actionsFor,
   answerUndo,
   askUndo,
   CLAIM_AFTER_MS,
@@ -31,6 +33,7 @@ import {
   type SeatPlayer,
   seatMessage,
   setConnected,
+  stepsFor,
   sweepVerdict,
   abandon,
 } from "./room.js";
@@ -392,5 +395,59 @@ describe("head to head rooms (M9a)", () => {
       expect(text).not.toContain(`"${card.instanceId}"`);
     expect(historyBoard(room, "P1", 99_999)).toBeNull();
     expect(historyBoard(room, "P1", Number.NaN)).toBeNull();
+  });
+
+  it("M9b: each step carries the seat's board after it, and the other player's hidden picks read hidden", () => {
+    const room = newRoom();
+    pickFirst(room, room.data.picker ?? "P1", 0);
+    for (let i = 0; i < 60 && phaseOf(room) === "playing"; i++)
+      act(room, decider(room), seq(room), firstMove(room), i);
+    const n = seq(room);
+    for (const seat of ["P1", "P2"] as const) {
+      const steps = stepsFor(room, seat, n - 5);
+      expect(steps.map((s) => s.seq)).toEqual([n - 4, n - 3, n - 2, n - 1, n]);
+      expect(steps.every((s) => s.model.bottom === seat)).toBe(true);
+      const all = actionsFor(room, seat);
+      expect(all).toHaveLength(n);
+      room.data.record?.actions.forEach((action, i) => {
+        const before = room.states[i] as GameState;
+        const choice = before.pendingChoice;
+        const hidden =
+          action.type === "choose" &&
+          action.player !== seat &&
+          !!choice &&
+          (choice.kind === "nextMonster" || choice.private === true);
+        if (hidden) expect(all[i]).toEqual({ ...action, optionId: "hidden" });
+        else expect(all[i]).toEqual(action);
+      });
+    }
+  });
+
+  it("M9b: a private choice's pick never reaches the other player", () => {
+    const room = newRoom();
+    pickFirst(room, room.data.picker ?? "P1", 0);
+    let found = false;
+    for (let i = 0; i < 2000 && phaseOf(room) === "playing" && !found; i++) {
+      const choice = state(room).pendingChoice;
+      const move = firstMove(room);
+      const at = seq(room);
+      act(room, decider(room), at, move, i);
+      if (
+        move.type === "choose" &&
+        choice &&
+        (choice.private || choice.kind === "nextMonster")
+      ) {
+        const other = choice.player === "P1" ? "P2" : "P1";
+        expect(actionFor(room, other, at)).toMatchObject({
+          optionId: "hidden",
+        });
+        expect(actionFor(room, choice.player as "P1" | "P2", at)).toEqual(move);
+        expect(JSON.stringify(stepsFor(room, other, at))).not.toContain(
+          `"optionId":"${move.optionId}"`,
+        );
+        found = true;
+      }
+    }
+    expect(found).toBe(true);
   });
 });

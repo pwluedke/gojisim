@@ -12,6 +12,7 @@ import { playerById } from "../players.js";
 import { CLAIM_AFTER_MS } from "./room.js";
 import type { SeatMessage } from "./room.js";
 import { attachH2h, type H2h, LIMITS } from "./socket.js";
+import { saveRoom } from "./store.js";
 
 /*
  * The head to head socket (M9a) end to end: two signed-in clients over a real Socket.io
@@ -123,7 +124,7 @@ async function running(client: (p: string) => Socket, mode = "casual") {
     seat: null,
   });
   const picking = nextState(alice, (m) => m.phase === "picking");
-  expect(await ask(bob, "join", { gameId, deck: ESD02 })).toEqual({
+  expect(await ask(bob, "join", { gameId, deck: ESD02 })).toMatchObject({
     ok: true,
     seat: "P2",
   });
@@ -270,7 +271,7 @@ describe("head to head over Socket.io (M9a)", () => {
     const back = client("bob");
     await connected(back);
     const returned = nextState(alice, (m) => m.opponent?.connected === true);
-    expect(await ask(back, "rejoin", { gameId })).toEqual({
+    expect(await ask(back, "rejoin", { gameId })).toMatchObject({
       ok: true,
       seat: "P2",
     });
@@ -302,7 +303,7 @@ describe("head to head over Socket.io (M9a)", () => {
     const again = second.client("alice");
     await connected(again);
     const state = nextState(again);
-    expect(await ask(again, "rejoin", { gameId })).toEqual({
+    expect(await ask(again, "rejoin", { gameId })).toMatchObject({
       ok: true,
       seat: "P1",
     });
@@ -434,5 +435,26 @@ describe("head to head over Socket.io (M9a)", () => {
     expect(
       (await ask(alice, "create", { mode: "tournament", deck: ESD01 }))["ok"],
     ).toBe(true);
+  });
+
+  it("M9b: saves of one room at once never fail, and the file holds the latest data", async () => {
+    const { client, dirs, h2h } = await start();
+    const alice = client("alice");
+    await connected(alice);
+    const { gameId } = (await ask(alice, "create", { deck: ESD01 })) as {
+      gameId: string;
+    };
+    const room = h2h.rooms.get(gameId);
+    if (!room) throw new Error("no room");
+    await Promise.all(
+      Array.from({ length: 20 }, (_, i) => {
+        room.data.seed = i;
+        return saveRoom(dirs.roomsDir, room);
+      }),
+    );
+    const saved = JSON.parse(
+      readFileSync(join(dirs.roomsDir, `${gameId}.json`), "utf8"),
+    );
+    expect(saved.seed).toBe(19);
   });
 });

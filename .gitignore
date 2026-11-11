@@ -15,6 +15,9 @@ loop-reports/
 /local-decks/
 # Uploaded game records (M13b): players' decks, never committed.
 /records/
+# Head to head rooms in the dev server and e2e (M9b).
+/records-rooms/
+apps/web/e2e-rooms/
 apps/web/e2e-records/
 apps/web/test-results/prod-records/
 # #92: the live smoke check's report and failure screenshot

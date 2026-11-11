@@ -70,8 +70,15 @@ export async function uploadRecord(
   // #151: a finished game's result, so the server can index each player's games without
   // running the engine. The player isn't sent: the server records it from the session.
   const result = session.states.at(-1)?.result;
+  // M9b: a report from a head to head game is a file of its own, naming the game: the server
+  // keeps that game's record (and refuses uploads with its id); this one holds the reporter's
+  // view only.
+  const { h2h, ...own } = session.record;
   const record: ExportedRecord = {
-    ...session.record,
+    ...own,
+    ...(h2h && own.gameId
+      ? { gameId: crypto.randomUUID(), h2hGameId: own.gameId }
+      : {}),
     position: session.position,
     ...(smoke ? { smokeCheck: true } : {}),
     ...(result

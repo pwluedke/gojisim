@@ -22,6 +22,8 @@ export default defineConfig({
     // Uploads (M13b) go to a gitignored folder the specs read, never the repository's records/.
     env: {
       RECORDS_DIR: "e2e-records",
+      // M9b: head to head rooms, in a gitignored folder.
+      H2H_ROOMS_DIR: "e2e-rooms",
       // #123: every worker uploads from one IP to this one server; production keeps 30 a minute.
       GOJISIM_UPLOADS_PER_MINUTE: "1000",
       // #134: the What's new tag comes from a path the specs route, never GitHub's API.

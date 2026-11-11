@@ -443,6 +443,51 @@ export function abandon(room: Room, now: number): void {
   room.data.undoAsk = null;
 }
 
+/**
+ * The record's action `index` (0-based) as `seat` may know it (M9b): the other player's pick in
+ * a choice hidden from `seat` (their hand, a searched deck, their next monster; the view has no
+ * options) has its option id replaced by `"hidden"`, so instance ids of hidden cards never reach
+ * the other player.
+ */
+export function actionFor(room: Room, seat: SeatId, index: number): Action {
+  const action = (room.data.record as GameRecord).actions[index] as Action;
+  if (action.type !== "choose" || action.player === seat) return action;
+  const choice = room.states[index]?.pendingChoice;
+  const hidden =
+    !!choice &&
+    (choice.kind === "nextMonster" || choice.private === true) &&
+    choice.player !== seat;
+  return hidden ? { ...action, optionId: "hidden" } : action;
+}
+
+/** One action and the seat's board after it, for the client's log, animations and history. */
+export interface Step {
+  /** The number of actions after this one (1 for the first action). */
+  seq: number;
+  action: Action;
+  model: BoardModel;
+}
+
+/** The steps after the first `from` actions, as `seat` may know them (M9b). */
+export function stepsFor(room: Room, seat: SeatId, from: number): Step[] {
+  const record = room.data.record;
+  if (!record) return [];
+  const steps: Step[] = [];
+  for (let i = Math.max(0, from); i < record.actions.length; i++)
+    steps.push({
+      seq: i + 1,
+      action: actionFor(room, seat, i),
+      model: boardModel(room.states[i + 1] as GameState, seat),
+    });
+  return steps;
+}
+
+/** Every action so far, as `seat` may know them (a rejoining client's log and history). */
+export function actionsFor(room: Room, seat: SeatId): Action[] {
+  const n = room.data.record?.actions.length ?? 0;
+  return Array.from({ length: n }, (_, i) => actionFor(room, seat, i));
+}
+
 /** What one seat is sent after every change: only what that seat may see. */
 export interface SeatMessage {
   gameId: string;
@@ -469,12 +514,21 @@ export interface SeatMessage {
   canClaim: boolean;
   outcome: GameRecord["outcome"] | null;
   h2hEnd: GameRecord["h2hEnd"] | null;
+  /** Both players' names, and this seat's own deck name. */
+  names: Record<SeatId, string | null>;
+  yourDeckName: string | null;
+  /**
+   * The actions since the last message, each with the seat's board after it (M9b). Empty after
+   * an undo (`seq` went down) or a (re)join; the client then asks for what it lacks.
+   */
+  steps: Step[];
 }
 
 export function seatMessage(
   room: Room,
   seat: SeatId,
   now: number,
+  steps: Step[] = [],
 ): SeatMessage {
   const other = otherSeat(seat);
   const opponent = room.data.seats[other];
@@ -502,6 +556,12 @@ export function seatMessage(
     canClaim: canClaim(room, seat, now),
     outcome: record?.outcome ?? null,
     h2hEnd: record?.h2hEnd ?? null,
+    names: {
+      P1: room.data.seats.P1?.name ?? null,
+      P2: room.data.seats.P2?.name ?? null,
+    },
+    yourDeckName: room.data.seats[seat]?.deckName ?? null,
+    steps,
   };
 }
 
