@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
-import { DEV_COOKIE, devSignIn } from "./devSignIn";
+import { DEV_COOKIE, devSignIn } from "../devSignIn";
 
 /*
  * The dev sign-in's `?as=<name>` (M9a): two browsers signed in as two players, in the dev server
