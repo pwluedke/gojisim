@@ -20,7 +20,8 @@ const when = (ms: number) =>
 
 /**
  * The signed-in player's games (#151): newest first, each with its result, date, bot level and
- * decks, and Load to replay it in `/play`. Without accounts (the password gate), a note says so.
+ * decks, and Load to replay it in `/play` (not an online game, M9a). Without accounts (the
+ * password gate), a note says so.
  */
 export function History() {
   const [games, setGames] = useState<MyGame[] | null | undefined>(undefined);
@@ -70,15 +71,19 @@ export function History() {
                 <span className={styles.meta}>
                   {when(g.startedAt)}
                   {g.botLevel ? ` · vs ${g.botLevel}` : ""}
+                  {g.h2h ? " · online" : ""}
                   {g.deckNames ? ` · ${g.deckNames}` : ""}
                 </span>
-                <a
-                  className={styles.load}
-                  href={`/play?mode=bot&load=${encodeURIComponent(g.gameId)}`}
-                  data-testid="history-load"
-                >
-                  Load
-                </a>
+                {/* M9a: an online game's record holds the opponent's deck; it can't be loaded. */}
+                {!g.h2h && (
+                  <a
+                    className={styles.load}
+                    href={`/play?mode=bot&load=${encodeURIComponent(g.gameId)}`}
+                    data-testid="history-load"
+                  >
+                    Load
+                  </a>
+                )}
               </li>
             ))}
           </ul>
