@@ -55,6 +55,22 @@ const players = new WeakMap<IncomingMessage, Player>();
 export function requestPlayer(req: IncomingMessage): Player | null {
   return players.get(req) ?? null;
 }
+/**
+ * M9a: the signed-in player of a request the gate never saw (the head to head socket handshake,
+ * which Socket.io answers before the app's handler), from the same session cookie. The smoke
+ * check's player can't play head to head.
+ */
+export function cookiePlayer(
+  db: DatabaseSync,
+  secret: string,
+  req: IncomingMessage,
+  now: number,
+): Player | null {
+  const id = sessionPlayer(secret, cookieOf(req, COOKIE), now);
+  if (!id || id === SMOKE_PLAYER_ID) return null;
+  return playerById(db, id);
+}
+
 export const ROLE_CHECK_MS = 24 * 60 * 60_000;
 const OAUTH_MINUTES = 10;
 const MINUTE = 60_000;

@@ -7,7 +7,7 @@ import { expect, test } from "@playwright/test";
  */
 const PASSWORD = "e2e testers only";
 
-test("#150: /auth/dev on the production build signs no one in, with or without the password", async ({
+test("#150, M9a: /auth/dev (and ?as=) on the production build signs no one in, with or without the password", async ({
   page,
   request,
 }) => {
@@ -20,6 +20,13 @@ test("#150: /auth/dev on the production build signs no one in, with or without t
   expect((await request.get("/api/me", { maxRedirects: 0 })).status()).toBe(
     401,
   );
+  // M9a: nor does the dev sign-in's ?as=<name>.
+  const named = await request.get("/auth/dev?as=Bob&next=%2F", {
+    maxRedirects: 0,
+  });
+  expect(named.headers()["set-cookie"] ?? "").not.toContain(
+    "gojisim_dev_player",
+  );
 
   await page.goto("/login?next=%2Fplay");
   await page.getByLabel("Password").fill(PASSWORD);
@@ -29,6 +36,12 @@ test("#150: /auth/dev on the production build signs no one in, with or without t
     maxRedirects: 0,
   });
   expect(after.headers()["set-cookie"] ?? "").not.toContain(
+    "gojisim_dev_player",
+  );
+  const namedAfter = await page.request.get("/auth/dev?as=Bob&next=%2F", {
+    maxRedirects: 0,
+  });
+  expect(namedAfter.headers()["set-cookie"] ?? "").not.toContain(
     "gojisim_dev_player",
   );
   const me = await page.request.get("/api/me");

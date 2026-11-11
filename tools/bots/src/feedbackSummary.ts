@@ -309,6 +309,14 @@ export function buildSummary(
     "",
   ];
   out.push(`- Games: ${games.length} (${finished} finished)`);
+  // M9a: head to head games (two humans online) count apart; they have no bot, so no win rate.
+  const h2h = games.filter((g) => g.record.h2h);
+  if (h2h.length > 0) {
+    const abandoned = h2h.filter((g) => g.record.h2hEnd === "abandoned").length;
+    out.push(
+      `- Human vs human (head to head): ${h2h.length} (${h2h.length - abandoned} finished, ${abandoned} abandoned)`,
+    );
+  }
   out.push(
     `- ${options.all ? "Reports" : "New reports"}: ${count("bad")} Bad Bot!, ${count("good")} Good Bot!, ${count("bug")} Report bug, ${count("idea")} Monster Island Mailbox, ${count("crash")} crash` +
       (options.all ? "" : ` (${all.length - listed.length} already reviewed)`),

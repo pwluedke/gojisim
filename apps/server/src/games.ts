@@ -196,6 +196,8 @@ export interface GamesOptions {
   ) => { id: string; displayName: string } | null;
   /** #151: the database for each player's games index and history (Discord sign-in only). */
   db?: DatabaseSync | undefined;
+  /** M9a: a live head to head game's id, which an upload can't take (only the server writes it). */
+  isH2hGame?: (gameId: string) => boolean;
   now?: () => number;
   /** Where the "records folder full" line goes (default `console.error`). */
   log?: (line: string) => void;
@@ -217,6 +219,7 @@ export function gamesMiddleware({
   onStored,
   playerOf,
   db,
+  isH2hGame,
   now = Date.now,
   log = (line) => console.error(line),
 }: GamesOptions) {
@@ -327,12 +330,22 @@ export function gamesMiddleware({
       sendJson(res, 400, { error: "bad-game-id" });
       return;
     }
-    // #151: a game id that is another player's game can't be overwritten.
-    if (db && gameId && player) {
-      const owner = db
-        .prepare("SELECT player_id FROM games WHERE game_id = ?")
-        .get(gameId) as { player_id: string } | undefined;
-      if (owner && owner.player_id !== player.id) {
+    // #151: a game id that is another player's game can't be overwritten. M9a: nor can a head
+    // to head game, live or finished, whose record only the server writes (both players have
+    // its id).
+    if (gameId && isH2hGame?.(gameId)) {
+      sendJson(res, 403, { error: "h2h-game" });
+      return;
+    }
+    if (db && gameId) {
+      const rows = db
+        .prepare("SELECT player_id, h2h FROM games WHERE game_id = ?")
+        .all(gameId) as unknown as { player_id: string; h2h: number }[];
+      if (rows.some((row) => row.h2h === 1)) {
+        sendJson(res, 403, { error: "h2h-game" });
+        return;
+      }
+      if (player && rows.some((row) => row.player_id !== player.id)) {
         sendJson(res, 403, { error: "not-yours" });
         return;
       }

@@ -85,7 +85,7 @@ git checkout main && git pull && git push origin main:release
 
 Deploy only when you want testers to get what's on main; merging a PR doesn't deploy.
 
-See [docs/deploy.md](docs/deploy.md) for the setup steps, deploying and rolling back, the card image volume and how the gate works. `pnpm build`, then `node apps/server/dist/index.js` (with `GOJISIM_PASSWORD` and `SESSION_SECRET` set to try the gate) serves the built app locally; `pnpm --filter @gojisim/web e2e:prod` tests it with the gate on. In `/play`, **Report bug** (the Test Site panel, left column) uploads the current game record with the tester's note (it downloads the file when the send fails or sharing is off); "Load a game record" or `/debug` opens it. Finished games, Bad Bot! reports, Report bug notes and Monster Island Mailbox suggestions upload to `/data/records` (`RECORDS_DIR`, capped at 1 GB: past it, uploads answer 507 and the server logs it once); locally the dev server writes them to the gitignored `records/`.
+See [docs/deploy.md](docs/deploy.md) for the setup steps, deploying and rolling back, the card image volume and how the gate works. `pnpm build`, then `node apps/server/dist/index.js` (with `GOJISIM_PASSWORD` and `SESSION_SECRET` set to try the gate) serves the built app locally; `pnpm --filter @gojisim/web e2e:prod` tests it with the gate on. In `/play`, **Report bug** (the Test Site panel, left column) uploads the current game record with the tester's note (it downloads the file when the send fails or sharing is off); "Load a game record" or `/debug` opens it. Head to head (M9a, Discord sign-in only): two signed-in testers play each other through `apps/server`, which runs the engine per game (`apps/server/src/h2h/`, Socket.io on the same port); each browser gets only its own player's board, and finished games are written to the records folder by the server ([docs/deploy.md](docs/deploy.md#head-to-head-m9a)). The server is bundled with esbuild (`apps/server/build.mjs`), since it imports the engine's TypeScript source. Finished games, Bad Bot! reports, Report bug notes and Monster Island Mailbox suggestions upload to `/data/records` (`RECORDS_DIR`, capped at 1 GB: past it, uploads answer 507 and the server logs it once); locally the dev server writes them to the gitignored `records/`.
 
 ## Pausing a bot plan
 
@@ -136,7 +136,7 @@ Lines read `Author (time) [reply to Author: "first 80 characters"]: text [attach
 | `packages/cards`       | `@gojisim/cards`          | Card data                                                          |
 | `packages/engine`      | `@gojisim/engine`         | Pure TypeScript rules engine                                       |
 | `packages/bot`         | `@gojisim/bot`            | AI opponent                                                        |
-| `apps/server`          | `@gojisim/server`         | Node game server                                                   |
+| `apps/server`          | `@gojisim/server`         | Node game server (head to head rooms over Socket.io, M9a)          |
 | `apps/web`             | `@gojisim/web`            | Vite + React client                                                |
 | `tools/scraper`        | `@gojisim/scraper`        | Card data and image scraper                                        |
 | `tools/stress`         | `@gojisim/stress`         | Random-game stress test                                            |

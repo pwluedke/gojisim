@@ -82,4 +82,5 @@ export {
 } from "./setup";
 export * from "./types";
 export * from "./view";
+export * from "./boardModel";
 export * from "./combos";

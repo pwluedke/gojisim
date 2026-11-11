@@ -4,12 +4,13 @@ import {
   type Server,
   type ServerResponse,
 } from "node:http";
-import { resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { decklogMiddleware } from "./decklog.js";
 import { accountMiddleware } from "./accountData.js";
 import { openDb } from "./db/db.js";
 import {
+  cookiePlayer,
   createDiscordGate,
   type DiscordAuthOptions,
   requestPlayer,
@@ -21,6 +22,7 @@ import {
   siteConfig,
   uploadsPerMinuteFrom,
 } from "./games.js";
+import { attachH2h, type H2h } from "./h2h/socket.js";
 import { reportPoster } from "./reports.js";
 import { cardImages, webApp } from "./static.js";
 
@@ -36,6 +38,11 @@ export interface AppServerOptions {
   cardsDir?: string;
   /** Uploaded game records (M13b): the volume's `/data/records` on Railway. */
   recordsDir?: string;
+  /**
+   * M9a: saved head to head rooms (default: `h2h-rooms` next to the records folder, so
+   * `/data/h2h-rooms` on Railway). Head to head needs Discord sign-in.
+   */
+  roomsDir?: string;
   /** The records folder's size cap in bytes (default 1 GB; tests set a small one). */
   maxRecordsBytes?: number;
   /** Uploads per IP per minute (default 30; Playwright raises it, #123). */
@@ -110,6 +117,7 @@ export function createAppServer({
   distDir = fileURLToPath(new URL("../../web/dist/", import.meta.url)),
   cardsDir = fileURLToPath(new URL("../../web/public/cards/", import.meta.url)),
   recordsDir = "/data/records",
+  roomsDir = join(dirname(recordsDir), "h2h-rooms"),
   maxRecordsBytes,
   uploadsPerMinute,
   reportsWebhook,
@@ -138,6 +146,8 @@ export function createAppServer({
       : password && secret
         ? createGate({ password, secret, ...(now ? { now } : {}) })
         : null;
+  // M9a: head to head (Discord sign-in only), attached once the server exists.
+  let h2h: H2h | null = null;
   const decklog = decklogMiddleware(fetchImpl);
   const games = gamesMiddleware({
     config,
@@ -146,6 +156,7 @@ export function createAppServer({
     ...(uploadsPerMinute === undefined ? {} : { uploadsPerMinute }),
     // #151: with Discord sign-in, uploads carry the player and are indexed per player.
     ...(discord ? { playerOf: requestPlayer, db: discord.db } : {}),
+    isH2hGame: (id) => h2h?.isGame(id) ?? false,
     onStored: reportPoster({
       webhook: reportsWebhook,
       slackWebhook: slackReportsWebhook,
@@ -162,7 +173,7 @@ export function createAppServer({
   });
   const cards = cardImages(cardsDir);
   const app = webApp(distDir);
-  return createServer(
+  const server = createServer(
     safeHandler(async (req, res) => {
       // Testers only: nothing here is for search engines.
       res.setHeader("x-robots-tag", "noindex, nofollow");
@@ -203,6 +214,16 @@ export function createAppServer({
       await app(req, res);
     }),
   );
+  if (discord && secret)
+    h2h = attachH2h(server, {
+      db: discord.db,
+      playerOf: (req) =>
+        cookiePlayer(discord.db, secret, req, (now ?? Date.now)()),
+      roomsDir,
+      recordsDir,
+      ...(now ? { now } : {}),
+    });
+  return server;
 }
 
 /**
