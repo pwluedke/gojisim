@@ -41,6 +41,14 @@ export interface SeatMessage {
   steps: Step[];
 }
 
+/** M9d: an open game in the lobby. */
+export interface OpenGame {
+  gameId: string;
+  host: string;
+  mode: "casual" | "tournament";
+  createdAt: number;
+}
+
 /** What a player brings: one of their account's decks, or a starter. */
 export type DeckChoice =
   | { source: "mine"; id: string }

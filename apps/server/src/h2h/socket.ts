@@ -17,6 +17,7 @@ import {
   createRoom,
   historyBoard,
   joinRoom,
+  openGames,
   phaseOf,
   pickCards,
   pickFirst,
@@ -46,6 +47,7 @@ export const LIMITS = {
   join: 30,
   move: 300,
   history: 300,
+  lobby: 120,
 } as const;
 /** How often rooms are checked for abandoned and finished games. */
 export const SWEEP_MS = 30_000;
@@ -134,7 +136,15 @@ export function attachH2h(
    * Sends each seat its own state, with the steps after the first `from` actions (the count
    * before the change; none by default), and saves the room.
    */
+  /**
+   * M9d: sockets watching the lobby hear that the open games changed, and each asks for its own
+   * list (without its player's own games).
+   */
+  const lobbyChanged = (room: Room) => {
+    if (room.data.listed) io.to("lobby").emit("lobby-changed");
+  };
   const changed = async (room: Room, from?: number) => {
+    lobbyChanged(room);
     for (const seat of SEATS)
       if (room.data.seats[seat])
         io.to(channel(room.data.gameId, seat)).emit(
@@ -165,6 +175,7 @@ export function attachH2h(
         await changed(room);
       } else if (verdict === "drop") {
         rooms.delete(room.data.gameId);
+        lobbyChanged(room);
         await removeRoom(roomsDir, room.data.gameId);
       }
     }
@@ -282,6 +293,7 @@ export function attachH2h(
         },
         now: now(),
         ...(claimAfterMs === undefined ? {} : { claimAfterMs }),
+        listed: body["listed"] === true,
       });
       rooms.set(gameId, room);
       await enter(room, "P1");
@@ -392,9 +404,21 @@ export function attachH2h(
       if (!canCancel(at.room, at.seat))
         return { ok: false, error: "no-cancel" };
       rooms.delete(at.room.data.gameId);
+      lobbyChanged(at.room);
       await removeRoom(roomsDir, at.room.data.gameId);
       joined = null;
       return { ok: true };
+    });
+
+    /**
+     * M9d: the lobby's open games for this player; the socket then hears `lobby-changed` when
+     * they change.
+     */
+    on("lobby", async () => {
+      if (!allowed(player.id, "lobby"))
+        return { ok: false, error: "rate-limited" };
+      await socket.join("lobby");
+      return { ok: true, games: openGames(rooms.values(), player.id) };
     });
 
     on("concede", async (body) => {

@@ -67,6 +67,8 @@ export interface RoomData {
   endedAt: number | null;
   /** How long a player is gone before the other may claim the win (`CLAIM_AFTER_MS`). */
   claimAfterMs?: number;
+  /** M9d: shown in the lobby's open games while it waits for a second player. */
+  listed?: boolean;
 }
 
 export interface Presence {
@@ -96,6 +98,7 @@ export function createRoom({
   creator,
   now,
   claimAfterMs,
+  listed,
 }: {
   gameId: string;
   seed: number;
@@ -104,6 +107,8 @@ export function createRoom({
   now: number;
   /** The dev server's e2e tests shorten it; the deployed server keeps 5 minutes. */
   claimAfterMs?: number;
+  /** M9d: list it in the lobby (otherwise only its link joins it). */
+  listed?: boolean;
 }): Room {
   return {
     data: {
@@ -119,6 +124,7 @@ export function createRoom({
       undoAsk: null,
       endedAt: null,
       ...(claimAfterMs === undefined ? {} : { claimAfterMs }),
+      ...(listed ? { listed: true } : {}),
     },
     states: [],
     presence: {
@@ -343,6 +349,40 @@ export function concede(room: Room, seat: SeatId, now: number): Result {
     { type: "concede", player: seat },
     now,
   );
+}
+
+/** M9d: an open game as the lobby lists it: who made it, Casual or Tournament, and when. */
+export interface OpenGame {
+  gameId: string;
+  host: string;
+  mode: MatchMode;
+  createdAt: number;
+}
+
+/**
+ * M9d: the lobby's open games for `playerId`: listed games still waiting for a second player
+ * whose creator is here, newest first, without the player's own. The decks stay hidden.
+ */
+export function openGames(rooms: Iterable<Room>, playerId: string): OpenGame[] {
+  const open: OpenGame[] = [];
+  for (const room of rooms) {
+    const host = room.data.seats.P1;
+    if (
+      !room.data.listed ||
+      phaseOf(room) !== "waiting" ||
+      !host ||
+      host.playerId === playerId ||
+      !room.presence.P1.connected
+    )
+      continue;
+    open.push({
+      gameId: room.data.gameId,
+      host: host.name,
+      mode: room.data.mode,
+      createdAt: room.data.createdAt,
+    });
+  }
+  return open.sort((a, b) => b.createdAt - a.createdAt);
 }
 
 /** M9c: the creator cancels a game nobody has joined yet (the caller drops the room). */

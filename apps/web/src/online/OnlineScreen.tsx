@@ -11,6 +11,7 @@ import {
   type DeckChoice,
   errorText,
   inviteLink,
+  type OpenGame,
   type SeatMessage,
 } from "./client";
 import styles from "./Online.module.css";
@@ -137,13 +138,19 @@ function SignInFirst() {
 function CreateGame() {
   const [deck, setDeck] = useState<DeckOption | null>(null);
   const [mode, setMode] = useState<"casual" | "tournament">("casual");
+  // M9d: open games show in the lobby unless the player wants the link only.
+  const [listed, setListed] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const create = async () => {
     if (!deck) return;
     setBusy(true);
     const socket = connectOnline();
-    const answer = await ask(socket, "create", { mode, deck: deck.choice });
+    const answer = await ask(socket, "create", {
+      mode,
+      deck: deck.choice,
+      listed,
+    });
     socket.disconnect();
     setBusy(false);
     if (!answer.ok) {
@@ -168,6 +175,15 @@ function CreateGame() {
           <option value="tournament">Tournament (no undo, legal decks)</option>
         </select>
       </label>
+      <label className={styles.check}>
+        <input
+          type="checkbox"
+          data-testid="online-listed"
+          checked={listed}
+          onChange={(e) => setListed(e.target.checked)}
+        />
+        Show in the lobby (anyone signed in can join; otherwise only your link)
+      </label>
       {error && (
         <p className={styles.error} role="alert">
           {error}
@@ -182,7 +198,64 @@ function CreateGame() {
       >
         Create game
       </button>
+      <Lobby />
     </Page>
+  );
+}
+
+const ago = (ms: number) => {
+  const minutes = Math.floor(ms / 60_000);
+  return minutes < 1 ? "just now" : `${minutes} min ago`;
+};
+
+/**
+ * M9d: the lobby: open games other players made and are waiting in, newest first. The list
+ * refreshes when the server says it changed.
+ */
+function Lobby() {
+  const [games, setGames] = useState<OpenGame[] | null>(null);
+  useEffect(() => {
+    const socket = connectOnline();
+    const load = () =>
+      void ask(socket, "lobby").then((answer) => {
+        if (answer.ok) setGames(answer["games"] as OpenGame[]);
+      });
+    socket.on("connect", load);
+    socket.on("lobby-changed", load);
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+  return (
+    <section className={styles.lobby} data-testid="online-lobby">
+      <h2 className={styles.subtitle}>Open games</h2>
+      {games === null ? (
+        <p>Loading…</p>
+      ) : games.length === 0 ? (
+        <p data-testid="online-lobby-empty">
+          No open games. Create one, and it shows here for other players.
+        </p>
+      ) : (
+        <ul className={styles.games}>
+          {games.map((g) => (
+            <li key={g.gameId} data-testid="online-lobby-game">
+              <span>
+                <strong>{g.host}</strong> ·{" "}
+                {g.mode === "tournament" ? "Tournament" : "Casual"} ·{" "}
+                {ago(Date.now() - g.createdAt)}
+              </span>
+              <a
+                className={styles.button}
+                href={`/online/${g.gameId}`}
+                data-testid="online-lobby-join"
+              >
+                Join
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

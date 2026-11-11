@@ -144,32 +144,55 @@ test("Play online needs a signed-in player; a game link nobody made says so", as
   await expect(ann.getByTestId("online-missing")).toBeVisible();
 });
 
-/** Puts a hand card into the rage zone (a gain rage action), as `m5e.spec.ts` does. */
-async function gainRage(page: Page) {
+/**
+ * Puts a hand card into the rage zone (a gain rage action), as `m5e.spec.ts` does: a monster
+ * card in hand can (8.4.1). Without one, false. The hand may still be locked right after the turn
+ * starts (a card animation), so each card waits to be clickable.
+ */
+async function tryGainRage(page: Page): Promise<boolean> {
   const cards = page.getByTestId("hand-card");
   for (let i = 0; i < (await cards.count()); i++) {
     await cards.nth(i).click();
     const dest = page.locator(`[data-lit][data-target^="rage"]`);
     if (await dest.count()) {
       await dest.first().click();
-      return;
+      return true;
     }
     await page.keyboard.press("Escape");
   }
-  throw new Error("no hand card can gain rage");
+  return false;
+}
+
+/**
+ * The deciding player gains rage, passing turns until one holds a monster card (8.4.1). Returns
+ * that player's page and the other's.
+ */
+async function gainRageSomewhere(ann: Page, bo: Page) {
+  for (let i = 0; i < 8; i++) {
+    const me = await decider(ann, bo);
+    // The hand settles after the draw before its cards light their places.
+    await me.waitForTimeout(500);
+    if (await tryGainRage(me)) return { me, other: me === ann ? bo : ann };
+    const turn = Number(await me.getByTestId("turn").textContent());
+    await me.getByTestId("pass").click();
+    await me.getByTestId("confirm-yes").click();
+    for (const page of [ann, bo])
+      await expect
+        .poll(async () => Number(await page.getByTestId("turn").textContent()))
+        .toBeGreaterThan(turn);
+  }
+  throw new Error("no player could gain rage in 8 turns");
 }
 
 test("Play online, Casual: Undo asks the other player; Allow takes the action back, Decline keeps it", async ({
   browser,
 }) => {
   const { ann, bo } = await startOnline(browser, "casual");
-  const me = await decider(ann, bo);
-  const other = me === ann ? bo : ann;
+  const { me, other } = await gainRageSomewhere(ann, bo);
   const seat = await me.getByTestId("board").getAttribute("data-bottom");
   const rage = me.getByTestId(`rage-${seat}`);
-  const before = Number(await rage.textContent());
-  await gainRage(me);
-  await expect(rage).toHaveText(String(before + 1));
+  await expect(rage).not.toHaveText("0");
+  const before = Number(await rage.textContent()) - 1;
 
   await me.getByTestId("undo").click();
   await expect(me.getByTestId("online-undo-asked")).toBeVisible();
@@ -188,8 +211,9 @@ test("Play online, Casual: Undo asks the other player; Allow takes the action ba
 
 test("Play online, Tournament: no Undo", async ({ browser }) => {
   const { ann, bo } = await startOnline(browser, "tournament");
+  // Casual shows Undo (greyed until there is something to take back); Tournament never does.
   const me = await decider(ann, bo);
-  await gainRage(me);
+  await expect(me.getByTestId("pass")).toBeVisible();
   await expect(me.getByTestId("undo")).toHaveCount(0);
 });
 
@@ -324,4 +348,57 @@ test("M9c: a finished online game replays for each player, their own boards only
     `${new URL(gameUrl).pathname}/replay`,
   );
   await expect(carol.getByTestId("replay-missing")).toBeVisible();
+});
+
+test("M9d: the lobby shows an open game as it's made; Join from it plays; an unlisted game stays link only", async ({
+  browser,
+}) => {
+  const run = Math.floor(Math.random() * 1e6);
+  const bo = await signedIn(browser, `Bo ${run}`, "/online");
+  const lobby = bo.getByTestId("online-lobby");
+  const row = lobby
+    .getByTestId("online-lobby-game")
+    .filter({ hasText: `Ann ${run}` });
+  await expect(lobby).toBeVisible();
+  await expect(row).toHaveCount(0);
+
+  // An unlisted game never shows.
+  const zed = await signedIn(browser, `Zed ${run}`, "/online");
+  await zed.getByTestId("online-listed").uncheck();
+  await zed.getByTestId("online-create").click();
+  await expect(zed).toHaveURL(/\/online\/[0-9a-f-]{36}$/);
+
+  // Ann's listed game shows while Bo watches, without a reload.
+  const ann = await signedIn(browser, `Ann ${run}`, "/online");
+  await ann.getByTestId("online-mode").selectOption("tournament");
+  await ann.getByTestId("online-create").click();
+  await expect(ann).toHaveURL(/\/online\/[0-9a-f-]{36}$/);
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText("Tournament");
+  await expect(
+    lobby.getByTestId("online-lobby-game").filter({ hasText: `Zed ${run}` }),
+  ).toHaveCount(0);
+
+  await row.getByTestId("online-lobby-join").click();
+  await expect(bo).toHaveURL(ann.url());
+  await bo.getByTestId("online-join").click();
+  const picker = await Promise.race([
+    ann
+      .getByTestId("online-pick-0")
+      .waitFor()
+      .then(() => ann),
+    bo
+      .getByTestId("online-pick-0")
+      .waitFor()
+      .then(() => bo),
+  ]);
+  await picker.getByTestId("online-pick-0").click();
+  await expect(ann.getByTestId("board")).toBeVisible();
+  await expect(bo.getByTestId("board")).toBeVisible();
+  // Joined: it leaves the lobby.
+  const carol = await signedIn(browser, `Carol ${run}`, "/online");
+  await expect(carol.getByTestId("online-lobby")).toBeVisible();
+  await expect(
+    carol.getByTestId("online-lobby-game").filter({ hasText: `Ann ${run}` }),
+  ).toHaveCount(0);
 });
