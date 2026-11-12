@@ -31,6 +31,7 @@
     "accounts:reset-history": "node apps/server/dist/resetHistory.js",
     "smoke": "pnpm --filter @gojisim/release-notes smoke",
     "discord-digest": "pnpm --filter @gojisim/discord-notes discord-digest",
+    "discord-post": "pnpm --filter @gojisim/discord-notes discord-post",
     "release-notes": "pnpm --filter @gojisim/release-notes release-notes",
     "slack-watch": "pnpm --filter @gojisim/slack-watch slack-watch",
     "abilities:coverage": "pnpm --filter @gojisim/ability-survey coverage"
