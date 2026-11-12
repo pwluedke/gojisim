@@ -82,7 +82,7 @@ jobs:
     # installed from Ubuntu's apt mirror. The tag must match the lockfile's Playwright version
     # (checked by apps/web/src/playwrightImage.test.ts).
     container:
-      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
       options: --user 1001
     strategy:
       fail-fast: false
@@ -109,7 +109,7 @@ jobs:
     name: Production build
     runs-on: ubuntu-latest
     container:
-      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
       options: --user 1001
     steps:
       - uses: actions/checkout@v7
