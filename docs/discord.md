@@ -41,8 +41,11 @@ Treat the token and the webhook like passwords. If one leaks, reset the bot toke
 Paul posts to the GojiSim Discord's **#bugs** channel from GitHub, through the channel's webhook (`.github/workflows/discord-post.yml`). It's run by hand only; nothing else triggers it.
 
 - **How:** the `gojisim` repo → **Actions → Discord post → Run workflow**, with:
-  - `message`: the text, up to 2,000 characters (Discord's limit, counting a reply link).
+  - `message`: the text, up to 2,000 characters (Discord's limit, counting a reply link). Tag a user as `<@id>`.
   - `reply_to` (optional): the id of the #bugs message it answers. Right-click the message → **Copy Message ID**, with Developer Mode on. A webhook can't thread-reply in a text channel, so the post starts with a link to that message instead (`↪ Re: https://discord.com/channels/…`).
-- **Mentions:** never pinged. `@everyone`, roles and users show as plain text (`allowed_mentions` is empty).
-- **What the log shows:** the repo is public, so the run's log shows only Discord's HTTP status, never the message or the webhook URL. A status that isn't 2xx fails the run.
+  - `mentions` (optional): the Discord user ids the message tags, comma-separated (Paul, Nov 12). Only they are pinged, and each one must appear in the text as `<@id>`. The in-app reports in Slack #gojisim-reports show a signed-in reporter's id (`from Ian (id …)`).
+  - `edit_id` (optional): the id of a message this webhook posted, to edit it (new text and mentions) instead of posting. Only the webhook's own messages can be edited.
+- **The message id:** a post waits for Discord's answer, and the run's summary shows the new message's id, for a later `edit_id`.
+- **Mentions:** `@everyone` and roles are never pinged, and users only when listed in `mentions` (`allowed_mentions` lists those ids alone).
+- **What the log shows:** the repo is public, so the run's log shows only Discord's HTTP status and the message id, never the message or the webhook URL. A status that isn't 2xx fails the run. The code is `tools/discord-notes/src/post.ts` (`pnpm discord-post`).
 - **Setup (done):** #bugs → **Edit Channel → Integrations → Webhooks → New Webhook**, copy its URL, and store it as the repo secret `DISCORD_BUGS_WEBHOOK` (**Settings → Secrets and variables → Actions**). Treat it like a password: if it leaks, delete the webhook, make a new one and replace the secret.

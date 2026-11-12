@@ -6,7 +6,8 @@
   "scripts": {
     "discord-notes": "tsx src/main.ts",
     "typecheck": "tsc -b",
-    "discord-digest": "tsx src/digestMain.ts"
+    "discord-digest": "tsx src/digestMain.ts",
+    "discord-post": "tsx src/postMain.ts"
   },
   "devDependencies": {
     "tsx": "^4.23.15"

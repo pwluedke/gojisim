@@ -211,10 +211,14 @@ export function reportMessage(
   report: NewReport,
   game: GameContext,
   file: string,
+  /** Paul, Nov 12: the reporter's Discord id, for the Slack post, so the bug watch can tag them. */
+  discordId: string | null = null,
 ): string {
   const head = [
     `**${report.kind}**`,
-    report.reporter ? `from ${cut(report.reporter, 80)}` : null,
+    report.reporter
+      ? `from ${cut(report.reporter, 80)}${discordId ? ` (id ${discordId})` : ""}`
+      : null,
     report.when,
     report.source ? `source: ${report.source}` : null,
   ]
@@ -289,6 +293,11 @@ export interface ReportsOptions {
   bugsWebhook?: string | undefined;
   /** #214: the community Discord #bot-feedback webhook (`DISCORD_BOT_FEEDBACK_WEBHOOK`). */
   botFeedbackWebhook?: string | undefined;
+  /**
+   * Paul, Nov 12: a signed-in player's Discord id (the record's `playerId`), shown in the Slack
+   * #gojisim-reports post only. Ids aren't secret; the Discord posts don't carry it.
+   */
+  discordIdOf?: (playerId: string) => string | null;
   fetchImpl?: typeof fetch;
   log?: (line: string) => void;
 }
@@ -304,6 +313,7 @@ export function reportPoster({
   slackWebhook,
   bugsWebhook,
   botFeedbackWebhook,
+  discordIdOf,
   fetchImpl = fetch,
   log = (line) => console.warn(line),
 }: ReportsOptions) {
@@ -313,6 +323,7 @@ export function reportPoster({
       variable: "DISCORD_REPORTS_WEBHOOK",
       url: webhook?.trim(),
       body: discordBody,
+      withId: false,
       warned: false,
     },
     {
@@ -320,6 +331,7 @@ export function reportPoster({
       variable: "SLACK_REPORTS_WEBHOOK",
       url: slackWebhook?.trim(),
       body: slackBody,
+      withId: true,
       warned: false,
     },
   ];
@@ -365,13 +377,18 @@ export function reportPoster({
     const reports = newReports(record, earlier);
     if (reports.length === 0) return 0;
     const game = gameContext(record);
-    const messages = reports
-      .slice(0, POSTS_PER_UPLOAD)
-      .map((r) => reportMessage(r, game, file));
-    if (reports.length > POSTS_PER_UPLOAD)
-      messages.push(
-        `…and ${reports.length - POSTS_PER_UPLOAD} more new entries in ${code(file)} (\`pnpm feedback\`).`,
-      );
+    const playerId = str(obj(record)?.["playerId"] ?? null);
+    const discordId = playerId ? (discordIdOf?.(playerId) ?? null) : null;
+    const messagesFor = (withId: boolean) => {
+      const messages = reports
+        .slice(0, POSTS_PER_UPLOAD)
+        .map((r) => reportMessage(r, game, file, withId ? discordId : null));
+      if (reports.length > POSTS_PER_UPLOAD)
+        messages.push(
+          `…and ${reports.length - POSTS_PER_UPLOAD} more new entries in ${code(file)} (\`pnpm feedback\`).`,
+        );
+      return messages;
+    };
     let posted = 0;
     for (const target of targets) {
       if (!target.url) {
@@ -383,7 +400,7 @@ export function reportPoster({
         continue;
       }
       // One at a time, in order, within each webhook's rate limit.
-      for (const content of messages)
+      for (const content of messagesFor(target.withId))
         if (await post(target.name, target.url, target.body(content))) posted++;
     }
     const bots = botLevels(record);

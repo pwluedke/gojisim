@@ -26,6 +26,7 @@ import {
 } from "./games.js";
 import { replayMiddleware } from "./h2h/replayRoute.js";
 import { attachH2h, type H2h } from "./h2h/socket.js";
+import { playerById } from "./players.js";
 import { reportPoster } from "./reports.js";
 import { cardImages, webApp } from "./static.js";
 
@@ -172,6 +173,13 @@ export function createAppServer({
       slackWebhook: slackReportsWebhook,
       bugsWebhook,
       botFeedbackWebhook,
+      // Paul, Nov 12: the reporter's Discord id in the Slack post, from the players table.
+      ...(discord
+        ? {
+            discordIdOf: (id: string) =>
+              playerById(discord.db, id)?.discordId ?? null,
+          }
+        : {}),
       fetchImpl: reportsFetch ?? fetchImpl,
     }),
     ...(now ? { now } : {}),

@@ -456,6 +456,54 @@ describe("community posts: Report bug to #bugs, bot feedback to #bot-feedback (#
     ).toHaveLength(1);
     expect(logs.join("\n")).not.toContain("https://");
   });
+
+  it("Paul, Nov 12: the Slack post names a signed-in reporter's Discord id, so the bug watch can tag them; the Discord posts don't", async () => {
+    const SLACK = "https://hooks.slack.com/services/T0/B0/slacksecret";
+    const DISCORD = "https://discord.com/api/webhooks/1/discordsecret";
+    const calls: { url: string; body: Record<string, unknown> }[] = [];
+    const fake = (async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({
+        url: String(url),
+        body: JSON.parse(String(init?.body)) as Record<string, unknown>,
+      });
+      return new Response("ok");
+    }) as typeof fetch;
+    const asked: string[] = [];
+    const post = reportPoster({
+      webhook: DISCORD,
+      slackWebhook: SLACK,
+      bugsWebhook: BUGS,
+      discordIdOf: (id) => {
+        asked.push(id);
+        return id === "player-1" ? "266700000000000001" : null;
+      },
+      fetchImpl: fake,
+      log: () => {},
+    });
+    const signedIn = {
+      ...base,
+      playerId: "player-1",
+      playerName: "Ian",
+      bugReports: [{ ...bug, community: "named" }],
+    };
+    expect(await post(signedIn, null, "f.json")).toBe(3);
+    expect(asked).toEqual(["player-1"]);
+    expect(calls.find((c) => c.url === SLACK)?.body["text"]).toContain(
+      "from Ian (id 266700000000000001)",
+    );
+    for (const c of calls.filter((c) => c.url !== SLACK))
+      expect(JSON.stringify(c.body)).not.toContain("266700000000000001");
+    // No Discord id for the player: the post is as before.
+    calls.length = 0;
+    await post(
+      { ...base, playerId: "player-2", playerName: "Paul", bugReports: [bug] },
+      null,
+      "f.json",
+    );
+    expect(calls.find((c) => c.url === SLACK)?.body["text"]).toContain(
+      "*Report bug* · from Paul · Turn 6",
+    );
+  });
 });
 
 describe("the upload route posts to a fake webhook (#136)", () => {
