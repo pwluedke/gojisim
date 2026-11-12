@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
-import { adminIdsFrom, playersReport } from "./admin.js";
+import { adminIdsFrom, playersCsv, playersReport } from "./admin.js";
 import { centralTime, dailyPostText, dailyPostTick } from "./dailyPost.js";
 import { openDb } from "./db/db.js";
 import { playerSessionValue } from "./discordAuth.js";
@@ -23,6 +23,8 @@ const SECRET = "s".repeat(40);
 // 2026-11-12 13:00 UTC = 7:00 am Central (CST, UTC-6).
 const NOW = Date.UTC(2026, 10, 12, 13);
 const DAY = 24 * 60 * 60_000;
+// 8:30 am Central on Nov 12, 2026 (CST).
+const AT_830_NOV12 = Date.UTC(2026, 10, 12, 14, 30);
 const dist = mkdtempSync(join(tmpdir(), "gojisim-dist-"));
 writeFileSync(join(dist, "index.html"), "<title>GojiSim</title>");
 
@@ -191,6 +193,8 @@ describe("#235: the players page for admins", () => {
       wins: 1,
       losses: 2,
       botLevels: ["Easy", "Hard"],
+      // Every game tagged with its season, whatever season is shown.
+      gamesBySeason: { beta: 2, launch: 2 },
     });
     expect(all.totals).toEqual({
       players: 2,
@@ -235,6 +239,7 @@ describe("#235: the players page for admins", () => {
     expect(lines[0]).toBe(
       "Discord name,First seen,Last seen,Games vs bot,Online games,Wins,Losses,Bot levels,Season",
     );
+    // A season's CSV has no per-season columns; All seasons has them (below).
     expect(lines).toHaveLength(3);
     expect(lines).toContain(
       `Ann,${new Date(NOW - 10 * DAY).toISOString()},${new Date(NOW - 10 * DAY).toISOString()},2,0,1,1,Easy Hard,beta`,
@@ -272,7 +277,7 @@ describe("#235: the daily players post", () => {
   it("the text: totals with beta apart, and new players by name only", () => {
     const { db } = seeded();
     expect(dailyPostText(db, AT_830, NOW - 5 * DAY)).toBe(
-      'GojiSim players, 2026-11-12: 2 players · 5 games (beta 3) · 3 in the last 7 days\nNew since the last post (1): =Bo, "the" one',
+      'GojiSim players, 2026-11-12: 2 players · 5 games (beta 3 · launch 2) · 3 in the last 7 days\nNew since the last post (1): =Bo, "the" one',
     );
     expect(dailyPostText(db, AT_830, NOW)).toContain(
       "No new players since the last post.",
@@ -318,5 +323,54 @@ describe("#235: the daily players post", () => {
     ).toBe("done-today");
     expect(logs.join("\n")).not.toContain("SECRET");
     expect(logs.join("\n")).not.toContain("hooks.slack.com");
+  });
+
+  it("#235 follow-up: every game is tagged beta: shown even while all games are beta", () => {
+    const db = openDb(":memory:", { log: () => {} });
+    const ann = upsertDiscordPlayer(
+      db,
+      { discordId: "111", displayName: "Ann", avatarUrl: null },
+      NOW - DAY,
+    ).id;
+    for (const id of ["a", "b"])
+      indexGame(
+        db,
+        {
+          gameId: id,
+          playerId: ann,
+          file: "x.json",
+          record: botRecord(90, "P1"),
+        },
+        NOW - DAY,
+      );
+    expect(dailyPostText(db, AT_830, NOW)).toContain("2 games (beta 2)");
+  });
+});
+
+describe("#235 follow-up: games per season in the CSV", () => {
+  it("All seasons has a Games <season> column per season, from the seasons table; a season's CSV doesn't", () => {
+    const { db } = seeded();
+    const all = playersCsv(playersReport(db, NOW, null))
+      .trimEnd()
+      .split("\r\n");
+    expect(all[0]).toBe(
+      "Discord name,First seen,Last seen,Games vs bot,Online games,Wins,Losses,Bot levels,Games beta,Games launch,Season",
+    );
+    // Ann: 2 beta and 2 launch games; Bo: 1 of each (the online game is in launch).
+    expect(all.find((l) => l.startsWith("Ann,"))).toMatch(
+      /,Easy Hard,2,2,all$/,
+    );
+    expect(all.find((l) => l.startsWith("\"'=Bo"))).toMatch(/,Medium,1,1,all$/);
+    const launch = playersCsv(playersReport(db, NOW, "launch")).split("\r\n");
+    expect(launch[0]).not.toContain("Games beta");
+    // A new season (resetHistory --apply --season summer) appears with no games yet: a column of
+    // zeros in the CSV, and nothing in the totals' counts until it has games.
+    startSeason(db, "summer", NOW);
+    const third = playersCsv(playersReport(db, NOW, null)).split("\r\n");
+    expect(third[0]).toContain("Games beta,Games launch,Games summer,Season");
+    expect(third.find((l) => l.startsWith("Ann,"))).toMatch(/,2,2,0,all$/);
+    expect(dailyPostText(db, AT_830_NOV12, NOW)).toContain(
+      "5 games (beta 3 · launch 2)",
+    );
   });
 });

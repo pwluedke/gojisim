@@ -1,6 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { playersReport } from "./admin.js";
-import { BETA } from "./seasons.js";
+import { playersReport, seasonCounts } from "./admin.js";
 
 /*
  * #235: the daily players post to #gojisim-dev, at 8:00 am Central: the totals, and the players
@@ -44,7 +43,7 @@ function lastPostedAt(db: DatabaseSync): number | null {
   return row?.posted_at ?? null;
 }
 
-/** The post's text: totals (beta apart), and new players since `since` (names only). */
+/** The post's text: totals with the games per season, and new players since `since` (names only). */
 export function dailyPostText(
   db: DatabaseSync,
   now: number,
@@ -52,7 +51,8 @@ export function dailyPostText(
 ): string {
   const report = playersReport(db, now, null);
   const { players, games, gamesLast7Days, gamesBySeason } = report.totals;
-  const beta = gamesBySeason[BETA] ?? 0;
+  // Every season with games, in the order they started: "beta 80 · launch 40".
+  const bySeason = seasonCounts(report.seasons, gamesBySeason);
   const newPlayers = (
     db
       .prepare(
@@ -61,7 +61,7 @@ export function dailyPostText(
       .all(since) as { name: string }[]
   ).map((p) => p.name);
   const lines = [
-    `GojiSim players, ${centralTime(now).day}: ${players} players · ${games} games${beta && beta !== games ? ` (beta ${beta})` : ""} · ${gamesLast7Days} in the last 7 days`,
+    `GojiSim players, ${centralTime(now).day}: ${players} players · ${games} games${bySeason ? ` (${bySeason})` : ""} · ${gamesLast7Days} in the last 7 days`,
     newPlayers.length > 0
       ? `New since the last post (${newPlayers.length}): ${newPlayers.join(", ")}`
       : "No new players since the last post.",
