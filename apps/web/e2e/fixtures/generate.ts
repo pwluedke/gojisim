@@ -132,6 +132,20 @@ const zoneTops = (state: GameState) =>
   );
 
 const official = (): [Deck, Deck] => [esd01, esd02];
+/**
+ * Paul, Nov 11: ESD02 (blue) with 4 Manda (2004) EBP04-045 and 4 white Monster X EBP03-067 (a
+ * non-blue battle card to pay Manda's cost) in place of ESD02-011 and ESD02-012.
+ */
+const withManda: Deck = {
+  monsterDeck: esd02.monsterDeck,
+  mainDeck: esd02.mainDeck.map((c) =>
+    c.deckCardNumber === "ESD02-012"
+      ? byId(770)
+      : c.deckCardNumber === "ESD02-011"
+        ? byId(600)
+        : c,
+  ),
+};
 const randomDecks = (g: number): [Deck, Deck] =>
   g % 2
     ? [esd01, esd02]
@@ -433,6 +447,34 @@ const FIXTURES: Fixture[] = [
     note: "P1 resolves a made-up card with no ability data by hand: a manual override window",
     decks: () => [withManual, esd02],
     match: (c) => c.kind === "manual",
+  },
+  {
+    name: "manda-cost",
+    note: "Paul, Nov 11: P1 can play Manda (2004) EBP04-045 into a zone both plainly and paying with a non-blue battle card (the white Monster X), so the zone offers both",
+    decks: () => [withManda, esd02],
+    confirmSingleOption: true,
+    match: () => false,
+    matchPlay: (state) => {
+      const plays = getLegalActions(state, "P1").filter(
+        (a) =>
+          a.type === "playBattle" &&
+          state.cards[
+            state.players[0].hand.find((c) => c.instanceId === a.cardInstanceId)
+              ?.cardId ?? -1
+          ]?.deckCardNumber === "EBP04-045",
+      );
+      return plays.some(
+        (a) =>
+          a.type === "playBattle" &&
+          !a.costCardInstanceId &&
+          plays.some(
+            (b) =>
+              b.type === "playBattle" &&
+              b.zone === a.zone &&
+              b.costCardInstanceId !== undefined,
+          ),
+      );
+    },
   },
 ];
 
