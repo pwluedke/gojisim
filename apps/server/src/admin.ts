@@ -43,6 +43,11 @@ export interface PlayerRow {
   losses: number;
   /** The bot levels they played against ("Easy", "Hard", …), in order. */
   botLevels: string[];
+  /**
+   * Their games in each season, whatever season is shown (Paul: every game tagged with its
+   * season); seasons they didn't play in are left out.
+   */
+  gamesBySeason: Record<string, number>;
 }
 
 export interface PlayersReport {
@@ -56,7 +61,7 @@ export interface PlayersReport {
     /** Games counted once each (an online game has a row per player). */
     games: number;
     gamesLast7Days: number;
-    /** Games per season (all seasons), so beta shows apart from the rest. */
+    /** Games per season (all seasons), so each season shows apart, beta included. */
     gamesBySeason: Record<string, number>;
   };
   players: PlayerRow[];
@@ -100,8 +105,17 @@ export function playersReport(
     id: string;
     levels: string | null;
   })[];
-  const players = rows.map(({ id: _id, levels, ...row }) => ({
+  // Each player's games per season (all seasons), from the seasons the games carry.
+  const perSeason = new Map<string, Record<string, number>>();
+  for (const { id, season: s, n } of db
+    .prepare(
+      "SELECT player_id AS id, season, COUNT(*) AS n FROM games GROUP BY player_id, season",
+    )
+    .all() as { id: string; season: string; n: number }[])
+    perSeason.set(id, { ...perSeason.get(id), [s]: n });
+  const players = rows.map(({ id, levels, ...row }) => ({
     ...row,
+    gamesBySeason: perSeason.get(id) ?? {},
     botLevels: (levels ? levels.split(",") : []).sort(
       (a, b) => LEVEL_ORDER.indexOf(a) - LEVEL_ORDER.indexOf(b),
     ),
@@ -140,6 +154,17 @@ export function playersReport(
   };
 }
 
+/** "beta 80 · launch 40": each season with games, in the order the seasons started. */
+export function seasonCounts(
+  seasons: readonly string[],
+  counts: Record<string, number>,
+): string {
+  return seasons
+    .filter((s) => (counts[s] ?? 0) > 0)
+    .map((s) => `${s} ${counts[s]}`)
+    .join(" · ");
+}
+
 const iso = (ms: number) => new Date(ms).toISOString();
 
 /** A CSV cell: quoted when it holds a comma, a quote or a line break; a leading =+-@ is defused. */
@@ -150,7 +175,10 @@ function cell(value: string | number): string {
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-/** The table as CSV, one row per player, with the season shown in its own column. */
+/**
+ * The table as CSV, one row per player, with the season shown in its own column. In All seasons
+ * it also has one "Games <season>" column per season, in the order they started.
+ */
 export function playersCsv(report: PlayersReport): string {
   const header = [
     "Discord name",
@@ -161,6 +189,7 @@ export function playersCsv(report: PlayersReport): string {
     "Wins",
     "Losses",
     "Bot levels",
+    ...(report.season === null ? report.seasons.map((s) => `Games ${s}`) : []),
     "Season",
   ];
   const lines = report.players.map((p) =>
@@ -173,6 +202,9 @@ export function playersCsv(report: PlayersReport): string {
       p.wins,
       p.losses,
       p.botLevels.join(" "),
+      ...(report.season === null
+        ? report.seasons.map((s) => p.gamesBySeason[s] ?? 0)
+        : []),
       report.season ?? "all",
     ]
       .map(cell)

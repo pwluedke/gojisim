@@ -84,3 +84,12 @@ Accepted by Monarch in the Railway IaC review (PR #120).
 637. The restart policy isn't set, since railway.json's ON_FAILURE / 10 is Railway's default.
 638. `railway` 3.16.0 (Railway's TypeScript SDK, `railwayapp/railway-ts-sdk`) is a pinned root dev dependency: the CLI's plan and apply load the file through it.
 639. The migrate tool generated the partial name `@gojisim/server`, which Railway rejects (`[a-zA-Z0-9._-]` only); it's `gojisim-server`.
+
+Accepted by Monarch in the players page review (PR #236).
+
+659. The players page has a Season filter above the table (All seasons by default, then each season, the current one marked). In All seasons, the games total shows beta apart as a tag only while other seasons have games; with the beta filter, a "beta" tag says so. (Decision 665 replaces the tag rule.)
+660. An online game counts once in the totals, and once in each of its players' rows.
+661. Only players with a Discord id count, which leaves out the `smoke` player and the dev sign-ins, rather than a list of ids.
+662. The admin page and its API answer 404 before the sign-in gate, so a signed-out visitor never learns the page exists.
+663. The daily post is checked every minute and posts once per Central day from 8:00 on; a failed post marks the day too (no retry every minute). Its text starts "GojiSim players", since it's the server's post.
+664. CSV cells starting with `= + - @` get a leading `'`, so a name can't run as a formula in a spreadsheet.

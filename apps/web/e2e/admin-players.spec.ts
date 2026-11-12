@@ -27,6 +27,7 @@ const report = (season: string | null) => ({
       wins: 1,
       losses: 2,
       botLevels: ["Easy", "Hard"],
+      gamesBySeason: { beta: 2, launch: 2 },
     },
     {
       name: "Bo",
@@ -37,6 +38,7 @@ const report = (season: string | null) => ({
       wins: 2,
       losses: 0,
       botLevels: ["Medium"],
+      gamesBySeason: { beta: 1, launch: 1 },
     },
   ],
 });
@@ -83,7 +85,12 @@ test("#235: the players page: totals with beta apart, a sortable table, a season
   await page.goto("/admin/players");
   await expect(page.getByTestId("admin-total-players")).toHaveText("2");
   await expect(page.getByTestId("admin-total-games")).toContainText("5");
-  await expect(page.getByTestId("admin-beta-games")).toHaveText("beta 3");
+  // Every season's games, in the order they started.
+  await expect(page.getByTestId("admin-season-games")).toHaveText(
+    "(beta 3 · launch 2)",
+  );
+  const annRow = page.getByTestId("admin-row").filter({ hasText: "Ann" });
+  await expect(annRow).toContainText("beta 2 · launch 2");
   await expect(page.getByTestId("admin-total-week")).toHaveText("3");
 
   // Last seen, newest first, to start; then by name, either way, and by losses (most first).
@@ -107,7 +114,9 @@ test("#235: the players page: totals with beta apart, a sortable table, a season
   await page.getByTestId("admin-season").selectOption("beta");
   await expect(page.getByTestId("admin-total-games")).toHaveText("3");
   expect(asked).toContain("?season=beta");
-  await expect(page.getByTestId("admin-beta-games")).toHaveCount(0);
+  await expect(page.getByTestId("admin-season-games")).toHaveCount(0);
+  // A season's view has no By season column.
+  await expect(page.getByTestId("admin-sort-gamesBySeason")).toHaveCount(0);
   await expect(page.getByTestId("admin-csv")).toHaveAttribute(
     "href",
     "/api/admin/players.csv?season=beta",
@@ -121,4 +130,27 @@ test("#235: anyone but an admin gets Not found", async ({ page }) => {
   await page.goto("/admin/players");
   await expect(page.getByTestId("admin-not-found")).toBeVisible();
   await expect(page.getByTestId("admin-table")).toHaveCount(0);
+});
+
+test("#235 follow-up: every game is tagged with its season: Games 5 (beta 5) while all games are beta", async ({
+  page,
+}) => {
+  await page.route("**/api/admin/players*", (route) =>
+    route.fulfill({
+      json: {
+        ...report(null),
+        seasons: ["beta"],
+        currentSeason: "beta",
+        totals: {
+          players: 2,
+          games: 5,
+          gamesLast7Days: 3,
+          gamesBySeason: { beta: 5 },
+        },
+      },
+    }),
+  );
+  await page.goto("/admin/players");
+  await expect(page.getByTestId("admin-total-games")).toHaveText("5(beta 5)");
+  await expect(page.getByTestId("admin-season-games")).toHaveText("(beta 5)");
 });

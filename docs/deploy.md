@@ -290,14 +290,14 @@ Two signed-in testers play each other online; the server runs the game. It needs
 
 ## Players page for admins (#235)
 
-`/admin/players` lists every player (Discord name, first and last seen, games vs the bot, online games, wins, losses, the bot levels played), read live from the database, with totals, a season filter and **Download CSV**. Admins see a **Players (admin)** link on the menu. For anyone else (signed out, not an admin, or no admins set), the page and its API answer 404. The `smoke` player and dev sign-ins are never counted. It counts games only: no decks, deck names or game records.
+`/admin/players` lists every player (Discord name, first and last seen, games vs the bot, online games, wins, losses, the bot levels played), read live from the database, with totals, a season filter and **Download CSV**. Every game is tagged with its season: in All seasons the totals, each row and the CSV (one column per season) show games per season. Admins see a **Players (admin)** link on the menu. For anyone else (signed out, not an admin, or no admins set), the page and its API answer 404. The `smoke` player and dev sign-ins are never counted. It counts games only: no decks, deck names or game records.
 
 **One time, Paul's steps:**
 
 1. **Your Discord id.** In Discord, with Developer Mode on (**User Settings → Advanced**), right-click your name → **Copy User ID**.
 2. **Railway → `gojisim` → Variables → New Variable.** Name: `ADMIN_DISCORD_IDS`. Value: your id; for more admins, their ids too, separated by commas (`123,456`). Click **Apply changes**. Once the server has restarted with it, reload the menu: it shows **Players (admin)**.
 
-**The daily post.** Once a day at 8:00 am Central, the server posts to #gojisim-dev: players, games (beta apart), games in the last 7 days, and the names of players new since the last post. A restart after 8:00 posts that day's once, never twice. To turn it on:
+**The daily post.** Once a day at 8:00 am Central, the server posts to #gojisim-dev: players, games with the count per season ("beta 80 · launch 40"), games in the last 7 days, and the names of players new since the last post. A restart after 8:00 posts that day's once, never twice. To turn it on:
 
 1. api.slack.com/apps → the existing GojiSim Slack app → **Incoming Webhooks → Add New Webhook to Workspace** → pick **#gojisim-dev** → **Allow**, then copy the URL.
 2. Railway → `gojisim` → **Variables → New Variable**. Name: `SLACK_DEV_WEBHOOK_URL`. Value: the URL. Click **Apply changes**.

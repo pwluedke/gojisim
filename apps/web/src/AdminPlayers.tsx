@@ -18,6 +18,8 @@ interface PlayerRow {
   wins: number;
   losses: number;
   botLevels: string[];
+  /** Their games per season (#235 follow-up). */
+  gamesBySeason: Record<string, number>;
 }
 
 interface Report {
@@ -44,6 +46,17 @@ type Column = {
 /** "Nov 1, 2026" in the viewer's own time zone. */
 const day = (ms: number) =>
   new Date(ms).toLocaleDateString(undefined, { dateStyle: "medium" });
+
+/** "beta 80 · launch 40": each season with games, in the order the seasons started. */
+export function seasonCounts(
+  seasons: readonly string[],
+  counts: Record<string, number>,
+): string {
+  return seasons
+    .filter((s) => (counts[s] ?? 0) > 0)
+    .map((s) => `${s} ${counts[s]}`)
+    .join(" · ");
+}
 
 const COLUMNS: Column[] = [
   {
@@ -100,6 +113,23 @@ const COLUMNS: Column[] = [
 const query = (season: string) =>
   season ? `?season=${encodeURIComponent(season)}` : "";
 
+/**
+ * The table's columns: in All seasons, each player's games per season too, as one cell ("beta 3
+ * · launch 1"), sorted by their total; a season's view shows only that season's games.
+ */
+function columnsFor(report: Report): Column[] {
+  if (report.season) return COLUMNS;
+  return [
+    ...COLUMNS,
+    {
+      key: "gamesBySeason",
+      label: "By season",
+      sort: (p) => Object.values(p.gamesBySeason).reduce((a, b) => a + b, 0),
+      show: (p) => seasonCounts(report.seasons, p.gamesBySeason) || "–",
+    },
+  ];
+}
+
 export function AdminPlayers() {
   const [season, setSeason] = useState("");
   const [report, setReport] = useState<Report | null | "missing">(null);
@@ -121,7 +151,9 @@ export function AdminPlayers() {
   }, [season]);
   const rows = useMemo(() => {
     if (!report || report === "missing") return [];
-    const column = COLUMNS.find((c) => c.key === sort.key) as Column;
+    const column =
+      columnsFor(report).find((c) => c.key === sort.key) ??
+      (COLUMNS[2] as Column);
     return [...report.players].sort((a, b) => {
       const x = column.sort(a);
       const y = column.sort(b);
@@ -139,7 +171,10 @@ export function AdminPlayers() {
         </main>
       </div>
     );
-  const beta = report ? (report.totals.gamesBySeason["beta"] ?? 0) : 0;
+  const bySeason = report
+    ? seasonCounts(report.seasons, report.totals.gamesBySeason)
+    : "";
+  const columns = report ? columnsFor(report) : COLUMNS;
   return (
     <div className="gojisim">
       <ThemeHeader />
@@ -186,18 +221,15 @@ export function AdminPlayers() {
                 <dt>Games</dt>
                 <dd data-testid="admin-total-games">
                   {report.totals.games}
-                  {/* Beta apart from the rest, in the all-seasons view. */}
-                  {!report.season &&
-                    beta > 0 &&
-                    beta !== report.totals.games && (
-                      <span
-                        className={styles.beta}
-                        data-testid="admin-beta-games"
-                      >
-                        {" "}
-                        beta {beta}
-                      </span>
-                    )}
+                  {/* Every season's games, beta included, in the all-seasons view (Paul). */}
+                  {!report.season && bySeason && (
+                    <span
+                      className={styles.beta}
+                      data-testid="admin-season-games"
+                    >
+                      ({bySeason})
+                    </span>
+                  )}
                 </dd>
               </div>
               <div>
@@ -217,7 +249,7 @@ export function AdminPlayers() {
               <table className={styles.table} data-testid="admin-table">
                 <thead>
                   <tr>
-                    {COLUMNS.map((c) => (
+                    {columns.map((c) => (
                       <th
                         key={c.key}
                         aria-sort={
@@ -252,7 +284,7 @@ export function AdminPlayers() {
                       key={`${p.name}-${p.firstSeen}`}
                       data-testid="admin-row"
                     >
-                      {COLUMNS.map((c) => (
+                      {columns.map((c) => (
                         <td key={c.key}>{c.show(p)}</td>
                       ))}
                     </tr>
