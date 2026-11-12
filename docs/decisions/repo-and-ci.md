@@ -68,3 +68,19 @@ Accepted by Monarch in the decision log review (PR #125).
 648. Decisions live in `docs/decisions/` by area, whole review by whole review, numbers unchanged. A review that spans areas goes in its main area's file; the README index lists each review's file.
 649. CLAUDE.md keeps one pointer line per area, so a session reads an area's decisions before working in it.
 650. New accepted decisions go at the end of the area's file, continuing the global numbering.
+
+Accepted by Monarch in the Slack watcher review (PR #149).
+
+678. An unchecked Monarch message is printed again every 15 minutes until it's checked: often enough that a busy session can't drop it, rarely enough not to flood.
+679. Digest dedupe uses the Actions cache (posted ids, kept 48 h), not windows derived from the schedule, since GitHub's scheduled runs can start late or be skipped. A lost cache (7 days unused) only risks repeating the 10-minute overlap once.
+680. Ids are marked posted only after the whole digest goes out.
+
+Accepted by Monarch in the Discord #bugs post review (PR #203).
+
+793. The reply link's server and channel come from a GET on the webhook URL (Discord answers with `guild_id` and `channel_id`), not from repo variables.
+794. The 2,000-character limit counts the reply link.
+795. The workflow's permissions are `contents: read`, and it doesn't check out the repo.
+
+Accepted by Monarch in the hourly digest review (PR #208).
+
+804. The schedule is in UTC, set for Central standard time. In daylight time (from March) every run comes an hour later in Central.

@@ -93,3 +93,86 @@ Accepted by Monarch in the players page review (PR #236).
 662. The admin page and its API answer 404 before the sign-in gate, so a signed-out visitor never learns the page exists.
 663. The daily post is checked every minute and posts once per Central day from 8:00 on; a failed post marks the day too (no retry every minute). Its text starts "GojiSim players", since it's the server's post.
 664. CSV cells starting with `= + - @` get a leading `'`, so a name can't run as a formula in a spreadsheet.
+
+Accepted by Monarch in the players page seasons review (PR #237).
+
+665. Every game is tagged with its season. In All seasons, the totals, the daily post and each row show games per season ("beta 80 · launch 40"): each season with games, in the order the seasons started, beta included when it's the only one. This replaces decision 659's "only while other seasons have games".
+666. The table shows a player's games per season as one By season cell, sorted by their total, not a column per season, so the table doesn't widen as seasons are added. The CSV has a column per season ("Games <season>"), every season, zeros included, so a spreadsheet always has the same columns.
+667. Season names come from the `seasons` table; only `beta` is named in code, as the first season.
+
+Accepted by Monarch in the smoke check review (PR #145).
+
+668. The smoke check runs after the Release workflow (`workflow_run`) and checks the commit Paul pushed (`head_sha`). A manual run checks `release`'s current commit.
+669. "Deployed" means `/healthz` reports that commit, from `RAILWAY_GIT_COMMIT_SHA`. If Railway didn't provide it, the wait times out and the message says so.
+670. The upload step concedes the game: the game-end upload is stored and checked for 201 and `smokeCheck`. No Report bug or Mailbox entry is made.
+671. Smoke uploads are marked from the browser (`gojisim.smokeCheck` in localStorage), not by the server, and every reader of records skips them.
+672. Playwright retries the live check once; the failure report reads the last attempt.
+673. `pnpm rollback` force-pushes `release` with a lease. It's the only command that rewinds `release`, and it asks first.
+674. The spec runs in `e2e:prod` on every PR as well as live, with card art served locally (the build has none) and the local test password.
+
+Accepted by Monarch in the Slack reports review (PR #147).
+
+675. Slack gets the same text as Discord, converted (`slackText`), not a second builder, so the two channels can't drift.
+676. Escaping is all of `&<>`, then the quote marker at each line's start is restored, so a note's own `>` lines show as `> &gt; …`.
+677. The poster returns the posts that went through across both webhooks. Discord posts first, then Slack, each one at a time.
+
+Accepted by Monarch in the Discord sign-in review (PR #154).
+
+681. The role re-check after 24 hours happens on page loads (a silent Discord redirect), not on API calls, so an upload in the middle of a game never fails. A removed Tester can keep an open tab working until they reload, at most for the cookie's life.
+682. The session cookie's v2 format carries the player id. The password gate keeps v1, so switching modes signs everyone in again in the new mode.
+683. The OAuth state, PKCE verifier and return path live in a signed 10-minute cookie, so there's no server-side state.
+684. Players get a random id, with the Discord id unique beside it, so another sign-in method could be added later. The smoke player's id is `smoke`.
+685. `DISCORD_REDIRECT_URI` is optional (default `https://gojisim.somanygames.app/auth/discord/callback`), never derived from the request's Host header.
+686. Backups use `VACUUM INTO`, a consistent copy including the WAL, made only when migrations are pending on an existing file.
+687. `node:sqlite`'s ExperimentalWarning is left in the log, not hidden for every warning.
+
+Accepted by Monarch in the games linked to players review (PR #155).
+
+688. The server writes the player into the stored record (as well as the index), so files stay self-contained for `pnpm feedback` and replays, and tools don't need the database.
+689. A finished game's result comes from the client's `outcome` (display only; the server doesn't run the engine). The player never does: it always comes from the session.
+690. The client's `playerId` and `playerName` are dropped in every mode, password included.
+691. A game id already indexed to another player can't be uploaded over (403). Games from before accounts aren't in the index and stay as they were.
+692. The start time is the game's first stored upload; the end time is the first upload with a result.
+693. Smoke check games are indexed for the `smoke` player like any other; nobody else can see them.
+
+Accepted by Monarch in the account sync review (PR #156).
+
+694. The newest edit wins, by the browsers' edit times. Deletes are tombstones, so they reach the other browsers, and only a later edit brings a deck back.
+695. Settings sync without an offer: the account's copy wins, and with none yet this browser's becomes the account's. Decks get the one-time upload offer, since two browsers can hold different decks under the same name.
+696. "Not now" never deletes anything: this browser's decks stay here, unsynced. New decks saved while signed in always go to the account.
+697. A clash's default is "Keep both", the choice that can't lose a deck.
+698. Every setting syncs except the mat image (stored separately).
+
+Accepted by Monarch in the seasons review (PR #160).
+
+699. The current season is a row in `seasons` (the newest), not a variable, so the reset takes effect without a restart or deploy, and the history of seasons is kept.
+700. A game belongs to the season it started in. A beta game finished after the reset stays beta.
+701. The reset never deletes. It backs up first and needs the season's name typed back; without `--apply` it only prints counts.
+702. Only the player-facing views (history, and statistics and achievements later) filter by season. `pnpm feedback`'s metrics keep reading every record file.
+703. Season names are lowercase letters, digits and dashes (2 to 32), so they're safe in file names and easy to type over ssh.
+
+Accepted by Monarch in the community report posts review (PR #215).
+
+815. Both opt-outs are offered: "Post without my name" (the note posts anonymously) and "Don't post publicly" (it doesn't post at all), so a reporter can choose either.
+816. A report entry records the reporter's choice as `community`. A missing value means not posted publicly, since older app versions never offered the choice.
+817. The community post leaves out the bot move's battle-log label and the deck names. The issue allowed an archetype name, but the server has no archetype for a game, so none is shown.
+818. The community post uses the staff post's head format ("Report bug · from Name · Turn 6, Main phase").
+
+Accepted by Monarch in the M9a review (PR #229).
+
+864. Head to head runs in `apps/server` with Socket.io on the same port and session cookie, and needs Discord sign-in. The server is the only authority: each seat gets only its own `boardModel` and legal actions, and a move must deep-equal one of `getLegalActions` (the server applies its own copy) and carry the current action count.
+865. The First / Second picker is a random player (`firstPicker`, one function), who picks one of the two face-down cards as in `/play` (Paul's call; may change).
+866. Undo by agreement in Casual games (Paul's call): the asker's last action, or the whole confirmed pick it ended, as far as `/play`'s Casual undo may go. Any move answers an open request with no. Tournament games have no undo.
+867. Leaving (Paul's call): a player gone 5 minutes lets the other claim the win, and the record ends with the gone player's concede (so it replays). Both gone 30 minutes: abandoned, with no winner, `outcome.reason` "abandoned" and the record kept. A game that never started is dropped once everyone in it has been gone 30 minutes. A finished room stays 10 minutes, for the game-over screen and the history view.
+868. The history view asks the server for the seat's board after N actions (Paul's call: in M9).
+869. Decks: your own My decks (the server's synced copy) or an official starter. The starters are added so a new player with no decks can play, and the opponent's deck name stays hidden until the game is over (Q42).
+870. The record is marked `h2h: true`, not `mode: "h2h"`, because `mode` already holds Casual or Tournament, which online games keep (Paul's answer 2). Head to head records go in the same `<day>/` folders as uploads, not `records/h2h/`, so `pnpm feedback` and the stored-game lookup read them unchanged.
+871. `games` is keyed by (game_id, player_id) (migration 5), with `h2h` rows written only by the server.
+872. `boardModel` moves to the engine. It is pure data, not UI, so the server can build boards too.
+873. The server is bundled with esbuild, with the same `dist/` paths.
+874. Dev sign-in `?as=<name>`, dev server only (Monarch's answer 5).
+875. The open-game sweep keeps one replica's memory as the source of truth, with the volume files for restarts. Railway's single replica stays (`.railway/railway.ts` already has it).
+
+Accepted by Monarch in the h2h record fix review (PR #232).
+
+884. A head to head game's record isn't served to its players (Q42). Replaying online games would need the server to send each player's own boards, as the live history view does. That's later work.

@@ -288,3 +288,18 @@ Accepted by Monarch in the Frozen replacement crash review (PR #110).
 Accepted by Monarch in the Q45 monster-in-zones review (PR #113).
 
 619. Q45 (Paul, provisional): Gigan (1972) (EBP02-064) and M.O.G.U.E.R.A. (EBP02-067) count an invading monster with the trait standing in its master's zones, like a battle card. No other "a card ... in your / their zones" condition changes: the rest name cards that exist only as battle cards or tokens.
+
+Accepted by Monarch in the Fukuoka Tower review (PR #202).
+
+791. Text fixes for scraped cards go in `text-overrides.json` (by deck card number, so every print), and `cards.json` gets the same text.
+792. The animation audit keeps a `KNOWN_GAPS` set of game/step keys, each with its issue. Removing an entry is part of fixing that issue.
+
+Accepted by Monarch in the Constructed Future GAM condition review (PR #218).
+
+823. An effect play respects a card's own "can't be played" rule (Paul's ruling, Nov 5).
+824. When the highest card can't be played, Constructed Future plays the next-highest one that can be (Paul, Nov 5).
+825. Paul's Hard rule reads what Constructed Future would play by simulating its resolution in the bot's state. When the simulation can't follow it, the play is kept.
+
+Accepted by Monarch in the Chainsaw on Crystals review (PR #222).
+
+831. Bloody Chainsaw triggers on Crystals tokens (Paul's ruling), as the engine already does.

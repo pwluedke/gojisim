@@ -289,3 +289,146 @@ Accepted by Monarch in the Showa sizing review (PR #114).
 622. The mat's Illegal deck badge shows a reason count. The reasons are its tooltip (decision 349's wording is unchanged in the tooltip and on the new-game screen).
 623. The expanded hand overlay sits above the Test Site panel.
 624. Not changed: Showa's cards stay a little smaller than the other themes', since the header bar takes 56 px (decisions 446 and 447). The parity test compares the mats only for fit, not size.
+
+Accepted by Monarch in the Deckbuilder search review (PR #162).
+
+704. The pool is the same as the test decks': English prints of monster, battle and strategy cards, without Tokens. Rage cards aren't deck cards.
+705. A card's set for the filter is its deck card number's set (EBP01, ESD02 …), so a promo reprint counts with the card it reprints.
+706. Keywords come from the ability data (keywords and gates), not from parsing card text.
+707. The grid is windowed by hand rather than with a library: fixed 132×212 cells, so the math is simple and there's no new dependency.
+708. My decks in the Deckbuilder lists the starters without Load until #158 makes Load open a deck in the builder.
+
+Accepted by Monarch in the Deckbuilder deck panel review (PR #164).
+
+709. A clicked monster goes to the monster deck only while that rank is free, otherwise to the main deck. Dragging decides explicitly.
+710. Marked rows come from the card numbers in `validateDeck`'s reasons ("Name (NUMBER)"), so the panel marks exactly what the check names.
+711. Loading a starter opens a new, unsaved deck under the starter's name: Save adds it to My decks, and the starters stay as they are.
+712. The panel took the right column, so the hover preview became a floating panel over the grid's right edge that doesn't block clicks.
+713. Leaving asks only when the deck differs from its last save, comparing the GojiSim text.
+
+Accepted by Monarch in the deck picker review (PR #167).
+
+714. `/debug`'s picker lists Starter decks, My decks and Random test decks, in that order. `/play`'s picker lists Starter decks and My decks. The group labels are "Starter decks", "My decks" and "Random test decks".
+715. `/debug`'s Import deck list saves each deck into My decks with its full `[deck]` name, folder included. A deck with the name of a saved deck replaces that deck's list (as `/debug`'s import did before), so a second import doesn't double the list.
+716. The old `/debug` imports move once, after My decks has loaded. A deck saved with the same name and the same list (ignoring the name line) is skipped. The old key is cleared only when this browser stores decks, so nothing is lost when storage is off.
+717. Rename, Copy (plain text) and the "storage is off" note move to the Deckbuilder's My decks window. Its window shows `data-decks-stored`, so tests can wait for storage before leaving the page (as decision 295 does on `/play`).
+718. (Changed in review.) One import path, `planImport`, serves the Deckbuilder's Import all, `/debug`'s import and the move of the old imports. It keeps the full `[deck]` name (decisions 422 and 501) and skips a deck saved with the same name and list. On a clash with a different list, the Deckbuilder asks Replace / Keep both (" (2)") and `/debug` replaces. Paul's local decks come in through Deckbuilder → Import → Import all. A single-deck Import still suggests the name without its folder, and the name can be edited.
+719. Tournament's "the seat says why" message stays in the code, since an edit synced from another browser can make a picked deck illegal. Its e2e step is removed: with no import on `/play`, the UI can't put an illegal deck in a Tournament seat any more.
+
+Accepted by Monarch in the Deckbuilder layout review (PR #168).
+
+720. `−` on a card (in the grid or the detail panel) takes a copy from the main deck first, then from the monster deck.
+721. `+` stays enabled past the copy limit, because illegal decks are allowed with warnings (Paul's ruling, Oct 21, 2026). "N / 4" turns red when over the limit. Add 4 fills only up to the limit and is disabled once there, and its label shows the card's own limit ("Add 1" for a card restricted to 1).
+722. The limit shown is `getMaxCopies` for today (the restriction list in force), 4 otherwise.
+723. Rank columns stack copies of the same print into one entry with its count ("4× Godzilla (2023)"), and names wrap to two lines, so each name shows in a column about 60 px wide. A rank past 8 goes in column 8, and no rank goes in column 1.
+724. The main deck's view is stored in `localStorage` (`gojisim.deckbuilder.mainView`), per browser.
+725. The hover preview still shows while no detail is open. While one is open, the detail panel replaces it.
+726. The detail panel uses `--color-ink` (fixed at #1a1410 in themes without it) with #f6edd9 text in every theme.
+727. The arrow keys work while the detail panel is open and the focus isn't in a text field or select.
+728. Only the 6.1.1.2 under-50 reason is reworded as empty slots. Over 50 keeps the rule's own words.
+
+Accepted by Monarch in the bigger hand review (PR #169).
+
+729. Hand cards are at least 1.3 times the board card, and the board's card size reserves that room. The row grows to fill any height the mats leave, up to hand cards twice the board card.
+730. A raised hand card is 2.75 times the board card, never taller than the window minus the header and 8 px. Paul confirms the size from the screenshots.
+731. The raised card is sized with width and height, not a transform, so its card face fills it (the card face fills the lift at rest and raised). The Mecha-Check tip is placed once, when the height transition ends.
+732. Test changes: The flight sampler in `m5g.spec.ts` skips flights whose center is within 2 px of the window's bottom edge. With the bigger hand, a flight's first frames have their center on the last pixel row, where the check hit the page root rather than a covering layer. `m7a.spec.ts` waits for storage before leaving the Deckbuilder (decision 295). Under load a reload could otherwise drop a deck.
+
+Accepted by Monarch in the shared buttons review (PR #184).
+
+748. One shared style with `--btn-*` tokens per theme (`theme.css`). The global rule covers buttons without a class (`:where`, so a class always wins), and module buttons use the same tokens.
+749. Primary, danger and small are attributes: `data-primary` (existing), `data-danger` and `data-small`.
+750. The border is 1.5 px as specified. Chrome snaps border widths to whole pixels, so it shows as 1 px, and the mockup's 1.5 px renders the same way; the test checks at least 1 px in the line color.
+751. Small buttons are used only in dense lists: the Deckbuilder's − / + and view toggle, the board's Test Site panel and the Settings file picker.
+752. The board's left-column panels and the column itself have 6 px vertical spacing (was 8), so Settings open plus the Test Site still fit at 1440×900 (`showa-parity.spec.ts`).
+753. The Menu's big tiles are navigation links, not buttons, so they keep their look.
+754. Concede becomes the danger button in every theme (it was a red link outside Showa).
+
+Accepted by Monarch in the deck filter review (PR #185).
+
+755. One filter per seat, so P1's text doesn't narrow P2's list.
+756. The current choice stays listed even when it doesn't match the filter.
+757. Randomize still picks from the whole list (Starter decks and My decks), not the filtered one.
+
+Accepted by Monarch in the GAM tooltip review (PR #186).
+
+758. The need is N + 1 minus the matching cards in your discard pile (never below 0), from the play rule's `forbidden` count (`owner: you`, `area: discard`, `op: "<="`). The type comes from the rule (`Monster` for GAM); without a type it counts every card.
+759. The wording follows Mecha-Check's, without a prefix: "N more monster card(s) needed in your discard pile to play this." / "Ready to play."
+760. The tooltip is about the discard rule only; other play limits (8.2.1's rank against the opponent's monster zone) aren't part of it.
+
+Accepted by Monarch in the Rematch review (PR #187).
+
+761. Rematch takes a new random seed. Everything else comes from the last game's setup.
+762. "Show opponent's hand" (a Test Site setting turned on during a game) starts off again, as on the new-game screen.
+763. Rematch appears only for games started on the new-game screen; a loaded record has nothing to replay its setup from.
+764. Rematch uses the board's primary class (Pass's: marigold), so it takes style A from #184 once that merges.
+
+Accepted by Monarch in the My decks window review (PR #188).
+
+765. The starter decks show as the first group, "Starter decks" (Load only, no menu), and hide while you search.
+766. Folders sort A–Z, ignoring case, with "No folder" last. Decks keep My decks' order within a folder.
+767. The menu's Export downloads that deck's GojiSim list as `<name>.txt`. This is new; it existed before only for the deck panel's draft.
+768. Load and the ⋯ button are style A's small size (rows are a dense list), and Load is the primary. ✕ is a square icon button at the regular height.
+769. The folder and search helpers are pure (`decks/deckFolders.ts`), with their own unit tests.
+
+Accepted by Monarch in the card preview setting review (PR #196).
+
+779. The setting turns off every hover preview: the board, the battle log and the modals. The raised hand card is separate and stays.
+780. It's a context read inside `Preview`, not a prop at each call site.
+781. Checkbox rows in Settings are 2 px apart (margin-block 1 px), the same in every theme.
+
+Accepted by Monarch in the discard round-trip animation review (PR #204).
+
+796. Round trips come from the log (a `place` from discard, then a `destroy` of the same instance), not from the snapshots.
+797. The up-front count of destroyed cards applies only to the round trip's own player, and only in a step with a round trip. Every other step plans as before; the audit's 24 seeded games all pass.
+
+Accepted by Monarch in the deck stats review (PR #205).
+
+798. Stats fold to today's counts line by default, so the panel is no taller unless they're opened.
+799. The curve counts the main deck only (the monster deck is always ranks I to IV), stacked Strategy, Battle, Monster from the bottom, in theme colors (`--color-muted`, `--btn-primary-fill`, `--color-text`), so every theme has them.
+800. The sample hand uses `seededRng` from `@gojisim/bot` with a short random seed shown to the player, and the engine's `STARTING_HAND_SIZE`.
+
+Accepted by Monarch in the card insights review (PR #213).
+
+813. Card insights live in the card detail panel, folded and remembered. There's no separate page.
+814. "In archetypes" reads the deck recognizer's catalog (`packages/bot/data/archetypes.json`). Engines beyond archetypes would be added there later, in the same format.
+
+Accepted by Monarch in the header home link review (PR #216).
+
+819. The confirm asks only while a game in `/play` is on, the First / Second pick included. A finished game, the new-game screen and the other pages go home at once.
+820. A click with Cmd, Ctrl, Shift or the middle button opens home in a new tab and never asks, since the game stays open.
+821. The header shows only in the Showa theme (Dark, Grey and Light hide it), as before, so in those themes there's nothing to click. The Dark screenshot shows the modal itself.
+
+Accepted by Monarch in the Showa header block review (PR #228).
+
+858. On the board, Showa's header is a block at the top of the left column, at the column's width (replacing decision 446's bar over the board). The menu, new game and history keep the 56 px bar.
+859. The board's height, card size and raised-card cap no longer subtract `--header-h`. Showa's cards are the other themes' size, less only its mat frame (decision 447 stays; this replaces decision 624).
+860. The wordmark is two lines everywhere: GOJISIM! at 24 px and ゴジシム！ at 19 px under it, so both fit the 56 px bar.
+861. The bot's 5-card hand is a row where it fits and the count card otherwise, in every theme (Paul's call, option a). At 1440×900 it is now the count in Showa too, as it already was in the other themes (replacing the Oct 26 "always a row at 1440×900").
+862. Known, all themes: at 1280×800, the gap left of the mat is a few pixels narrower than one half-size card, so the bot's count card touches the mat by up to 3 px. Showa has it too now. `bot-hand.spec` notes it, and the fix (reserving the hand card in the card-size width) is its own follow-up.
+863. In the board's block, the player badge is stacked: the full name on its own line (it wraps rather than being cut), then My games and Sign out as small links on one line.
+
+Accepted by Monarch in the M9b review (PR #231).
+
+876. The online board is `/play`'s board on a display-only state from the seat's view. Hidden cards are placeholders with no card data, and the browser never computes legal actions or board numbers for an online game: those come from the server.
+877. Each change sends its steps (the seat's board after each action, and the actions). The other player's picks in choices hidden from you are redacted, so the instance ids of hidden cards never reach you.
+878. The opponent's seat kind is `online` (`SeatConfig`). It records as a human seat.
+879. The online First / Second pick is a page of its own (two face-down cards, no peeking: the seed stays on the server). The server says who goes first.
+880. Online undo is the Undo button sending a request (decision 3 of #229); the answer is a modal for the other player.
+881. Reports from an online game are separate files with `h2hGameId`. The game's record is the server's alone.
+882. `/online` and `/online/<id>`: the invite link is the game page itself, for both players.
+883. Hotseat stays out (decision 390 stands: `/play` vs a bot keeps one human seat). Online is the two-human mode. Decision 391 (two-human records load only in `/debug`) is unchanged here; loading a head to head record from My games is left for M9c.
+
+Accepted by Monarch in the M9c review (PR #233).
+
+885. A gone picker's pick passes to the other player after the claim time (the same 5 minutes as the claim).
+886. Only the creator can cancel, and only before anyone joins. A cancelled game leaves nothing behind.
+887. Replay of an online game comes from the server, one seat at a time (Monarch). The record route keeps refusing online games (#232).
+888. The tab title is the only background-tab cue (no sound or browser notification).
+
+Accepted by Monarch in the M9d review (PR #234).
+
+889. Games are listed by default (the box is ticked). Untick it for a link-only game.
+890. The lobby lists a game only while its creator waits in it. A creator who leaves takes it out of the list. The game itself stays joinable by link until the 30-minute drop.
+891. The lobby shows the host, the match type and the age: no deck, no deck name (Q42).
+892. Updates are a signal, and each browser asks for its own list, so nobody's list includes their own games.

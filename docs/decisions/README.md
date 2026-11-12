@@ -19,6 +19,8 @@ Every decision Monarch accepted in a review, numbered in the order they were mad
 
 ## Every review
 
+Decisions 668–892 were added together after the fact (Nov 11, 2026), for the reviews from PR #145 to PR #234, numbered in PR order after 667; each is its PR's final "## Decisions" text.
+
 | Numbers | Review                                                                                                                         | File                                             |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
 | 1–8     | M0 review (PR #1)                                                                                                              | [repo-and-ci.md](repo-and-ci.md)                 |
@@ -102,3 +104,54 @@ Every decision Monarch accepted in a review, numbered in the order they were mad
 | 648–650 | decision log review (PR #125)                                                                                                  | [repo-and-ci.md](repo-and-ci.md)                 |
 | 651–658 | M13c review (PR #144)                                                                                                          | [bot.md](bot.md)                                 |
 | 659–664 | players page review (PR #236)                                                                                                  | [server-and-feedback.md](server-and-feedback.md) |
+| 665–667 | players page seasons review (PR #237)                                                                                          | [server-and-feedback.md](server-and-feedback.md) |
+| 668–674 | smoke check review (PR #145)                                                                                                   | [server-and-feedback.md](server-and-feedback.md) |
+| 675–677 | Slack reports review (PR #147)                                                                                                 | [server-and-feedback.md](server-and-feedback.md) |
+| 678–680 | Slack watcher review (PR #149)                                                                                                 | [repo-and-ci.md](repo-and-ci.md)                 |
+| 681–687 | Discord sign-in review (PR #154)                                                                                               | [server-and-feedback.md](server-and-feedback.md) |
+| 688–693 | games linked to players review (PR #155)                                                                                       | [server-and-feedback.md](server-and-feedback.md) |
+| 694–698 | account sync review (PR #156)                                                                                                  | [server-and-feedback.md](server-and-feedback.md) |
+| 699–703 | seasons review (PR #160)                                                                                                       | [server-and-feedback.md](server-and-feedback.md) |
+| 704–708 | Deckbuilder search review (PR #162)                                                                                            | [web.md](web.md)                                 |
+| 709–713 | Deckbuilder deck panel review (PR #164)                                                                                        | [web.md](web.md)                                 |
+| 714–719 | deck picker review (PR #167)                                                                                                   | [web.md](web.md)                                 |
+| 720–728 | Deckbuilder layout review (PR #168)                                                                                            | [web.md](web.md)                                 |
+| 729–732 | bigger hand review (PR #169)                                                                                                   | [web.md](web.md)                                 |
+| 733–736 | bots-plan review (PR #171)                                                                                                     | [bot.md](bot.md)                                 |
+| 737–744 | Hard play rules review (PR #176)                                                                                               | [bot.md](bot.md)                                 |
+| 745–747 | bots-pause review (PR #178)                                                                                                    | [bot.md](bot.md)                                 |
+| 748–754 | shared buttons review (PR #184)                                                                                                | [web.md](web.md)                                 |
+| 755–757 | deck filter review (PR #185)                                                                                                   | [web.md](web.md)                                 |
+| 758–760 | GAM tooltip review (PR #186)                                                                                                   | [web.md](web.md)                                 |
+| 761–764 | Rematch review (PR #187)                                                                                                       | [web.md](web.md)                                 |
+| 765–769 | My decks window review (PR #188)                                                                                               | [web.md](web.md)                                 |
+| 770–776 | Hard rules gaps review (PR #190)                                                                                               | [bot.md](bot.md)                                 |
+| 777–778 | full-information setting review (PR #193)                                                                                      | [bot.md](bot.md)                                 |
+| 779–781 | card preview setting review (PR #196)                                                                                          | [web.md](web.md)                                 |
+| 782–785 | protection and Gigan review (PR #197)                                                                                          | [bot.md](bot.md)                                 |
+| 786–790 | deck recognizer review (PR #198)                                                                                               | [bot.md](bot.md)                                 |
+| 791–792 | Fukuoka Tower review (PR #202)                                                                                                 | [engine.md](engine.md)                           |
+| 793–795 | Discord #bugs post review (PR #203)                                                                                            | [repo-and-ci.md](repo-and-ci.md)                 |
+| 796–797 | discard round-trip animation review (PR #204)                                                                                  | [web.md](web.md)                                 |
+| 798–800 | deck stats review (PR #205)                                                                                                    | [web.md](web.md)                                 |
+| 801–803 | recognizer archetypes review (PR #206)                                                                                         | [bot.md](bot.md)                                 |
+| 804     | hourly digest review (PR #208)                                                                                                 | [repo-and-ci.md](repo-and-ci.md)                 |
+| 805–810 | Constructed Future card review (PR #209)                                                                                       | [cards-and-decks.md](cards-and-decks.md)         |
+| 811–812 | cfTarget review (PR #210)                                                                                                      | [bot.md](bot.md)                                 |
+| 813–814 | card insights review (PR #213)                                                                                                 | [web.md](web.md)                                 |
+| 815–818 | community report posts review (PR #215)                                                                                        | [server-and-feedback.md](server-and-feedback.md) |
+| 819–821 | header home link review (PR #216)                                                                                              | [web.md](web.md)                                 |
+| 822     | cfTarget 23one review (PR #217)                                                                                                | [bot.md](bot.md)                                 |
+| 823–825 | Constructed Future GAM condition review (PR #218)                                                                              | [engine.md](engine.md)                           |
+| 826–829 | cfPlan review (PR #220)                                                                                                        | [bot.md](bot.md)                                 |
+| 830     | cfPlan tie-break review (PR #221)                                                                                              | [bot.md](bot.md)                                 |
+| 831     | Chainsaw on Crystals review (PR #222)                                                                                          | [engine.md](engine.md)                           |
+| 832–840 | Monster X plan review (PR #223)                                                                                                | [bot.md](bot.md)                                 |
+| 841–849 | deck tags review (PR #226)                                                                                                     | [cards-and-decks.md](cards-and-decks.md)         |
+| 850–857 | Monster X plan v2 review (PR #227)                                                                                             | [bot.md](bot.md)                                 |
+| 858–863 | Showa header block review (PR #228)                                                                                            | [web.md](web.md)                                 |
+| 864–875 | M9a review (PR #229)                                                                                                           | [server-and-feedback.md](server-and-feedback.md) |
+| 876–883 | M9b review (PR #231)                                                                                                           | [web.md](web.md)                                 |
+| 884     | h2h record fix review (PR #232)                                                                                                | [server-and-feedback.md](server-and-feedback.md) |
+| 885–888 | M9c review (PR #233)                                                                                                           | [web.md](web.md)                                 |
+| 889–892 | M9d review (PR #234)                                                                                                           | [web.md](web.md)                                 |
