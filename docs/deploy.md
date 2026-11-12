@@ -288,6 +288,24 @@ Two signed-in testers play each other online; the server runs the game. It needs
 - **Records:** a finished game's record goes in `/data/records/<day>/<game id>.json` like the uploads (marked `h2h`, with both players' ids and names), and `pnpm feedback` downloads it with the rest and counts such games as "human vs human". Both players see it under My games. Uploads can't overwrite a head to head game.
 - **Leaving:** a player gone 5 minutes lets the other claim the win; both gone 30 minutes ends the game as abandoned (no winner, the record kept). A game nobody joined is dropped after 30 minutes.
 
+## Players page for admins (#235)
+
+`/admin/players` lists every player (Discord name, first and last seen, games vs the bot, online games, wins, losses, the bot levels played), read live from the database, with totals, a season filter and **Download CSV**. Admins see a **Players (admin)** link on the menu. For anyone else (signed out, not an admin, or no admins set), the page and its API answer 404. The `smoke` player and dev sign-ins are never counted. It counts games only: no decks, deck names or game records.
+
+**One time, Paul's steps:**
+
+1. **Your Discord id.** In Discord, with Developer Mode on (**User Settings → Advanced**), right-click your name → **Copy User ID**.
+2. **Railway → `gojisim` → Variables → New Variable.** Name: `ADMIN_DISCORD_IDS`. Value: your id; for more admins, their ids too, separated by commas (`123,456`). Click **Apply changes**. Once the server has restarted with it, reload the menu: it shows **Players (admin)**.
+
+**The daily post.** Once a day at 8:00 am Central, the server posts to #gojisim-dev: players, games (beta apart), games in the last 7 days, and the names of players new since the last post. A restart after 8:00 posts that day's once, never twice. To turn it on:
+
+1. api.slack.com/apps → the existing GojiSim Slack app → **Incoming Webhooks → Add New Webhook to Workspace** → pick **#gojisim-dev** → **Allow**, then copy the URL.
+2. Railway → `gojisim` → **Variables → New Variable**. Name: `SLACK_DEV_WEBHOOK_URL`. Value: the URL. Click **Apply changes**.
+
+Without the variable there is no post and no error. The URL is never logged or posted: a failed post logs only "the daily players post failed" and Slack's status, and isn't retried that day. To stop the posts, delete the variable.
+
+**What runs on the first deploy:** database update 6 ("daily posts"), after the usual backup. It adds one empty table, `daily_posts` (the day and the time of each post), and changes nothing else.
+
 ## Public launch: reset players' history (#153)
 
 During testing every game is a **beta** game: it's recorded for our metrics, and the app labels it ("Beta games don't count toward your record", a Beta tag next to your name and on My games). At public launch, start a new season, so players' history and statistics show only games from then on. Nothing is deleted: beta games stay in the database and the record files stay on the volume.

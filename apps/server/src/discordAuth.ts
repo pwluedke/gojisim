@@ -19,6 +19,7 @@ import {
   sendHtml,
   TRIES_PER_MINUTE,
 } from "./gate.js";
+import { isAdmin } from "./admin.js";
 import { currentSeason } from "./seasons.js";
 import {
   type Player,
@@ -88,6 +89,8 @@ export interface DiscordAuthOptions {
   redirectUri: string;
   /** `SMOKE_LOGIN_TOKEN`; without it `/auth/smoke` answers 404. */
   smokeToken?: string | undefined;
+  /** #235: admins' Discord ids; `/api/me` says `admin: true` for them (the menu's link). */
+  admins?: ReadonlySet<string>;
   fetchImpl?: typeof fetch;
   now?: () => number;
 }
@@ -238,6 +241,7 @@ export function createDiscordGate({
   testerRoleId,
   redirectUri,
   smokeToken,
+  admins = new Set<string>(),
   fetchImpl = fetch,
   now = Date.now,
 }: DiscordAuthOptions) {
@@ -480,6 +484,8 @@ export function createDiscordGate({
             avatarUrl: player.avatarUrl,
             // #153: the current season ("beta" until the launch reset).
             season: currentSeason(db),
+            // #235: the players page's menu link (the page checks again on every request).
+            ...(isAdmin(player, admins) ? { admin: true } : {}),
           }),
         );
         return;

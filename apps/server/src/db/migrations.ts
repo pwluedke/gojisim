@@ -114,6 +114,18 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX games_by_player_season ON games (player_id, season, started_at DESC);
     `,
   },
+  {
+    version: 6,
+    name: "daily posts",
+    // #235: the day (Central time) the daily players post went to #gojisim-dev, and when, so a
+    // restart never posts twice and "new players since the last post" has a start.
+    sql: `
+      CREATE TABLE daily_posts (
+        day TEXT PRIMARY KEY,
+        posted_at INTEGER NOT NULL
+      ) STRICT;
+    `,
+  },
 ];
 
 /** The schema version this code expects: the last migration's. */

@@ -1,5 +1,6 @@
 import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
+import { AdminPlayers } from "./AdminPlayers";
 import { App } from "./App";
 import { History } from "./History";
 // The theme's variables apply to every page, `/debug` included (M5g).
@@ -42,6 +43,8 @@ createRoot(root).render(
       <Suspense fallback={<p>Loading the cards…</p>}>
         <Deckbuilder />
       </Suspense>
+    ) : path.startsWith("/admin/players") ? (
+      <AdminPlayers />
     ) : path.startsWith("/history") ? (
       <History />
     ) : path.startsWith("/online") ? (
