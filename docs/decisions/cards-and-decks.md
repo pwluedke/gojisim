@@ -109,3 +109,24 @@ Accepted by Monarch in the dev-deck auto-load review (PR #49).
 426. Clear imported decks asks once; picks that were imports go back to the starters, and file decks stay.
 427. `.gitignore` ignores the root `/local-decks/` only, so the made-up test fixtures in `apps/web/e2e/fixtures/local-decks/` are tracked.
 428. `GOJISIM_LOCAL_DECKS` points the dev server at another deck folder (Playwright uses it); Vitest reads the fixture folder.
+
+Accepted by Monarch in the Constructed Future card review (PR #209).
+
+805. Cards announced or out in Japan only go in `data/release-dates.json` with a `legalFrom` date. Deck checks fail them before that date, like a restriction list, under the rule label "Release date".
+806. Tools that prepare for the tournament (`pnpm bots`, `bots-plan`) check deck legality on the day every card in the data is legal (`allCardsLegalFrom`).
+807. The bot's deck guess follows release dates on the game's date: before Dec 4 it doesn't guess Constructed Future among an opponent's hidden cards. Bots-tool games use today's date, so the paused `run-mx` resumes with the same guesses.
+808. "If 3 cards are destroyed this way" counts only cards actually destroyed. A card a replacement sends elsewhere instead (ESD01-011 to the bottom of the deck) isn't one of the 3, so nothing is played.
+809. The card text writes the destroy icon as `[destroy]` in both places ("If 3 cards are [destroy] this way"), as the official English texts do ("this card is [destroy]"). `[destroyed]` read as an unknown icon.
+810. The SP image is the official site's `SD05-005_2.png`. Its rarity is SP and the normal print's is SD, as the English starters use.
+
+Accepted by Monarch in the deck tags review (PR #226).
+
+841. A deck's tags are a `tags:` line in its deck list text; its origin and old names are `# origin:` and `# was:` comments. Tags compare ignoring case, keep their first spelling, and repeats and empty tags are dropped. A file without them reads as before.
+842. Tags are stored in the saved deck's list text, so the account sync carries them unchanged.
+843. My decks is one list A–Z, with no folder grouping (replacing #181's folders). Only the Starter decks keep a header. The search matches names and tags; several tag buttons show decks with all of them (AND).
+844. Replace with backup asks first ("Replace all N with M"), then removes every saved deck (and its account copy) and adds the backup's decks.
+845. In the `/play` picker, each seat has its own tag buttons. The current pick always stays listed; with a tag chosen, the starters (which have no tags) are hidden like any deck without it.
+846. Deck results come from the dev server only (`/api/dev/deck-results`): the latest report per opponent card list, from every run plan in `bot-reports/`. A matchup with the same deck on both sides (a level check, a mirror) is left out. The label is the study deck's name after its last "/" and its win rate, shown only for decks tagged Meta.
+847. The bots tool's top-tier set is the decks tagged Meta in `local-decks/decks.txt`. A tagged file gives its Meta decks; a file with no tags at all gives every deck. `local-decks/meta.txt` stays the default while `decks.txt` doesn't exist.
+848. A deck spec whose file or name is gone resolves through a `# was: <file>#<name>` line in `decks.txt` (paths compared relative to the repo). A spec whose old file still has the deck reads that file, as before.
+849. Decisions 422 and 425 (a deck's folder from its name; file decks hiding browser decks) no longer apply: names are flat, and there are no file decks in the app.
