@@ -203,8 +203,10 @@ function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
             zone,
             onTop: true,
           });
-    // M2: with the rank reduced for an optional cost, paid with a hand card (EBP04-045). Offered
-    // only when the plain play can't be made; copies of one card pay alike, so one each.
+    // M2: with the rank reduced for an optional cost, paid with a hand card (EBP04-045, ESC01-001).
+    // "You may": offered whenever the reduced rank can be played, beside the plain play when that
+    // can be made too (Paul, Nov 11: discarding the card can be the point, e.g. EBP03-067 playing
+    // itself when discarded). Copies of one card pay alike, so one each.
     const costly =
       data.type === "Battle" && printed !== null && !rule.forbidden
         ? costPlays(state, card, playerId)
@@ -212,7 +214,6 @@ function mainPhaseActions(state: GameState, playerId: PlayerId): Action[] {
     if (
       costly &&
       printed !== null &&
-      printed - rule.reduction > opponentZone &&
       printed - rule.reduction - costly.reduction <= opponentZone
     ) {
       const payIds = new Set<number>();
