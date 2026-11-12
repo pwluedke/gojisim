@@ -19,7 +19,7 @@ Every decision Monarch accepted in a review, numbered in the order they were mad
 
 ## Every review
 
-Decisions 668–892 were added together after the fact (Nov 11, 2026), for the reviews from PR #145 to PR #234, numbered in PR order after 667; each is its PR's final "## Decisions" text.
+Decisions 668–892 were added together after the fact (Nov 11, 2026), for the reviews from PR #145 to PR #234, numbered in PR order after 667 (#237's accepted 665–667, which this added too); each is its PR's final "## Decisions" text. 893 follows for PR #239.
 
 | Numbers | Review                                                                                                                         | File                                             |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
@@ -155,3 +155,4 @@ Decisions 668–892 were added together after the fact (Nov 11, 2026), for the r
 | 884     | h2h record fix review (PR #232)                                                                                                | [server-and-feedback.md](server-and-feedback.md) |
 | 885–888 | M9c review (PR #233)                                                                                                           | [web.md](web.md)                                 |
 | 889–892 | M9d review (PR #234)                                                                                                           | [web.md](web.md)                                 |
+| 893     | Manda cost play review (PR #239)                                                                                               | [engine.md](engine.md)                           |

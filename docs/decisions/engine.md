@@ -303,3 +303,7 @@ Accepted by Monarch in the Constructed Future GAM condition review (PR #218).
 Accepted by Monarch in the Chainsaw on Crystals review (PR #222).
 
 831. Bloody Chainsaw triggers on Crystals tokens (Paul's ruling), as the engine already does.
+
+Accepted by Monarch in the Manda cost play review (PR #239).
+
+893. An optional play cost that reduces a card's rank (EBP04-045's and ESC01-001's `costCardInstanceId`) is offered whenever the reduced rank can be played, beside the plain play when that's legal too ("you may", Paul's report, Nov 11). It's still one action per different paying card. This replaces decision 432's and decision 503's "offered only when the plain play can't be made / is too high".
