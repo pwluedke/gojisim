@@ -8,6 +8,8 @@ export interface Me {
   avatarUrl: string | null;
   /** #153: the current season ("beta" during testing); absent from older servers. */
   season?: string;
+  /** #235: an admin (the players page's menu link); the page's API checks on every request. */
+  admin?: boolean;
 }
 
 /** The player from `/api/me`'s answer, or `null` for anything else. */
@@ -20,6 +22,7 @@ export function meFrom(body: unknown): Me | null {
     name: b["name"],
     avatarUrl: typeof b["avatarUrl"] === "string" ? b["avatarUrl"] : null,
     ...(typeof b["season"] === "string" ? { season: b["season"] } : {}),
+    ...(b["admin"] === true ? { admin: true } : {}),
   };
 }
 

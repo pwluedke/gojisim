@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { indexGame, indexH2hGame, playerGames } from "../playerGames.js";
 import { seasonCounts } from "../seasons.js";
 import { openDb, schemaVersion } from "./db.js";
-import { MIGRATIONS } from "./migrations.js";
+import { LATEST_VERSION, MIGRATIONS } from "./migrations.js";
 
 /*
  * M9a, migration 5 ("games per player"): `games` keyed by (game_id, player_id). This runs on the
@@ -55,7 +55,8 @@ describe("migration 5, games per player (M9a)", () => {
 
     const lines: string[] = [];
     const db = openDb(file, { log: (line) => lines.push(line) });
-    expect(schemaVersion(db)).toBe(5);
+    // To the latest version (migration 5 and any after it).
+    expect(schemaVersion(db)).toBe(LATEST_VERSION);
     expect(lines.some((l) => l.includes("backed up the database"))).toBe(true);
     expect(readdirSync(join(dir, "backups")).length).toBe(1);
     expect(rows(db)).toEqual(old.map((row) => ({ ...row, h2h: 0 })));

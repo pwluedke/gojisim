@@ -6,6 +6,8 @@ import {
 } from "node:http";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { adminIdsFrom, adminMiddleware, isAdminPath } from "./admin.js";
+import { startDailyPost } from "./dailyPost.js";
 import { decklogMiddleware } from "./decklog.js";
 import { accountMiddleware } from "./accountData.js";
 import { openDb } from "./db/db.js";
@@ -69,6 +71,11 @@ export interface AppServerOptions {
   discord?: Omit<DiscordAuthOptions, "fetchImpl" | "now" | "secret">;
   /** The Discord sign-in's `fetch` (tests pass a fake Discord); defaults to `fetchImpl`. */
   discordFetch?: typeof fetch;
+  /**
+   * #235: the Discord ids of the admins (`ADMIN_DISCORD_IDS`), who see `/admin/players`; none
+   * by default, and then the page and its API answer 404 for everyone.
+   */
+  admins?: ReadonlySet<string>;
   /** The Test Site switch (M13b, `GOJISIM_TEST_SITE`); on by default. */
   config?: SiteConfig;
   now?: () => number;
@@ -129,6 +136,7 @@ export function createAppServer({
   discord,
   discordFetch,
   config = { testSite: true },
+  admins = new Set<string>(),
   commit = null,
   now,
 }: AppServerOptions = {}): Server {
@@ -142,6 +150,7 @@ export function createAppServer({
           ...discord,
           secret,
           fetchImpl: discordFetch ?? fetchImpl,
+          admins,
           ...(now ? { now } : {}),
         })
       : password && secret
@@ -176,6 +185,15 @@ export function createAppServer({
   const replay = discord
     ? replayMiddleware({ db: discord.db, recordsDir, playerOf: requestPlayer })
     : null;
+  const admin = adminMiddleware({
+    db: discord?.db,
+    admins,
+    playerOf: (req) =>
+      discord && secret
+        ? cookiePlayer(discord.db, secret, req, (now ?? Date.now)())
+        : null,
+    ...(now ? { now } : {}),
+  });
   const cards = cardImages(cardsDir);
   const app = webApp(distDir);
   const server = createServer(
@@ -205,6 +223,10 @@ export function createAppServer({
         });
         return passed;
       };
+      // #235: the admin page and its API answer 404 to anyone but an admin, signed out too, so
+      // they run before the sign-in gate (which would answer a signed-out visitor otherwise).
+      if (isAdminPath(path) && !(await passes((next) => admin(req, res, next))))
+        return;
       if (gate && !(await passes((next) => gate(req, res, next)))) return;
       // #150: without Discord sign-in there's no player (the Discord gate answers it itself).
       if (path === "/api/me") {
@@ -322,6 +344,7 @@ if (
     botFeedbackWebhook: process.env.DISCORD_BOT_FEEDBACK_WEBHOOK,
     commit: process.env.RAILWAY_GIT_COMMIT_SHA || null,
     config: siteConfig(process.env),
+    admins: adminIdsFrom(process.env),
   }).listen(port, () => {
     console.log(
       `GojiSim server listening on http://localhost:${port}${discord ? " (Discord sign-in on)" : process.env.GOJISIM_PASSWORD ? " (password gate on)" : ""}`,
@@ -329,4 +352,10 @@ if (
     // Again after the listening line, so it is next to the last line the deploy check reads.
     if (warning) console.warn(warning);
   });
+  // #235: the daily players post to #gojisim-dev (Discord sign-in only; skipped without a webhook).
+  if (discord)
+    startDailyPost({
+      db: discord.db,
+      webhook: process.env.SLACK_DEV_WEBHOOK_URL?.trim() || undefined,
+    });
 }
