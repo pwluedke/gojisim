@@ -92,6 +92,20 @@ describe("ESC01-001 Godzilla (1954)", () => {
     checkInvariants(after);
   });
 
+  it("8.2.1, 10.5.4 (Paul, Nov 11): when rank 8 can be played as it is, the cost play is offered beside it", () => {
+    const { state, me, opp, godzilla1954 } = start();
+    opp.monsterPosition = 8;
+    const pay = inHand(state, me, godzilla(2));
+    const plays = playsOf(state, me, godzilla1954);
+    expect(plays.some((a) => !("costCardInstanceId" in a))).toBe(true);
+    expect(
+      plays.some(
+        (a) =>
+          "costCardInstanceId" in a && a.costCardInstanceId === pay.instanceId,
+      ),
+    ).toBe(true);
+  });
+
   it("8.2.1: a card without the [godzilla] trait can't pay", () => {
     const { state, me, godzilla1954 } = start();
     inHand(state, me, battleCard({ traits: ["Mothra"] }));

@@ -436,6 +436,72 @@ describe("EBP04-045 Manda (2004): M2 play cost", () => {
     );
   });
 
+  it('8.2.1, 10.5.4 (Paul, Nov 11): with the plain play legal too, the cost play is offered beside it ("you may")', () => {
+    const { state, me, manda, pay } = start(["Red"]);
+    // The opponent's monster in zone 3: the rank 3 plain play is legal now.
+    (state.players.find((p) => p.id !== me.id) as PlayerState).monsterPosition =
+      3;
+    const plays = getLegalActions(state, me.id).filter(
+      (a) => a.type === "playBattle" && a.cardInstanceId === manda.instanceId,
+    );
+    const plain = plays.filter((a) => !("costCardInstanceId" in a));
+    const costly = plays.filter(
+      (a) =>
+        "costCardInstanceId" in a && a.costCardInstanceId === pay.instanceId,
+    );
+    expect(plain.length).toBeGreaterThan(0);
+    expect(costly.length).toBe(plain.length);
+  });
+
+  it("Paul's line (Nov 11): Manda paid with the white Monster X (EBP03-067), which plays itself from the discard pile and destroys the opponent's lowest battle card", () => {
+    const { state, me, opp } = setup(4);
+    // Turn 1 going second: the opponent's monster in zone 3, so a rank 5 can't be played (8.2.1).
+    opp.monsterPosition = 3;
+    me.hand = [];
+    // A red battle card already in a zone: with Manda (blue) that's 2 colors, EBP03-067's condition.
+    place(state, me, battleCard({ rank: 1, colors: ["Red"] }), 1);
+    const target = place(
+      state,
+      opp,
+      battleCard({ rank: 1, colors: ["Green"] }),
+      2,
+    );
+    const manda = inHand(state, me, real("EBP04-045"));
+    const monsterX = inHand(state, me, real("EBP03-067"));
+    const plays = getLegalActions(state, me.id).filter(
+      (a) => a.type === "playBattle" && a.cardInstanceId === manda.instanceId,
+    );
+    // The rank 5 Monster X has no play of its own here.
+    expect(
+      getLegalActions(state, me.id).some(
+        (a) =>
+          a.type === "playBattle" && a.cardInstanceId === monsterX.instanceId,
+      ),
+    ).toBe(false);
+    const line = plays.find(
+      (a) =>
+        a.type === "playBattle" &&
+        a.costCardInstanceId === monsterX.instanceId &&
+        a.zone === 2,
+    );
+    expect(line).toBeDefined();
+    const after = settle(applyAction(state, line as never));
+    const mine = Object.values(zoneCardIds(self(after, me))).flat();
+    expect(mine).toContain(real("EBP04-045").id);
+    // 10.5.4: discarding it as the cost triggers its play from the discard pile.
+    expect(mine).toContain(real("EBP03-067").id);
+    expect(
+      self(after, me).discard.some((c) => c.instanceId === monsterX.instanceId),
+    ).toBe(false);
+    // And the opponent's lowest ranked battle card is destroyed.
+    expect(
+      Object.values(self(after, opp).zones)
+        .flat(2)
+        .some((c) => c.instanceId === target.instanceId),
+    ).toBe(false);
+    checkInvariants(after);
+  });
+
   it("8.2.1: a blue card can't pay; with no payment the rank 3 card can't be played", () => {
     const { state, me, manda } = start(["Blue"]);
     expect(

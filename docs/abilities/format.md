@@ -595,7 +595,7 @@ The 15 promo cards with their own deck card numbers: EPR-005 and PR-014 (Heat Ra
 
 ESC01's 6 cards, all with pieces built in earlier sets. ESC01 is 6 of 6; 382 of 388 cards are implemented, and only FC01 is left.
 
-- ESC01-001's optional discard of a [godzilla] card is a play cost like EBP04-045's (`costCardInstanceId`, M2): offered only when the plain play is too high, and any card type with the Godzilla trait can pay.
+- ESC01-001's optional discard of a [godzilla] card is a play cost like EBP04-045's (`costCardInstanceId`, M2): offered whenever the reduced rank can be played, beside the plain play when that is legal too ("you may", Paul, Nov 11, 2026), and any card type with the Godzilla trait can pay.
 - ESC01-002 plays the card from the discard pile, binds it, and evolves it (E18); its Evolution search may find nothing (5.8.1.2), and the played card stays.
 - ESC01-005's "reveal the top card ... and send it to your discard pile" is a mill (decision 312); the destroy reads the milled card's printed rank through a value reference, and an empty deck destroys nothing.
 - ESC01-006's "you may discard your entire hand" is an optional ability whose first effect is the discard, since the rage counts the cards "discarded by this effect"; it adds 1 rage per strategy card, one change per card (decision 334).
