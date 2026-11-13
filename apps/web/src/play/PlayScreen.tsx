@@ -383,7 +383,8 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
     if (!id || loadedFromUrl.current) return;
     loadedFromUrl.current = true;
     void fetchMyGame(id).then((text) => {
-      if (text) void importRecord(new File([text], "game.json"));
+      // #244: with autoPlay, as the setup screen's Load does, so a bot seat carries on.
+      if (text) void importRecord(new File([text], "game.json"), true);
     });
   }, [importRecord]);
   const { session, state } = game;
