@@ -14,12 +14,14 @@ import {
   type PlayerState,
   startGame,
   type ZoneNumber,
+  hasFlag,
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
 import {
   blockingPlays,
   cardRulesDead,
   enterAwakening,
+  hasRevenge,
   losesWithoutStrategy,
   reachZone,
   recursFromDiscard,
@@ -802,6 +804,131 @@ describe(
       };
       expect(held(3)).toBe(true);
       expect(held(6)).toBe(false);
+    });
+
+    it("rule 16 (#290, 10.5.2.2.1): King Ghidorah (1991) EBP02-049's destroy mode, with no rank 5 or lower battle card to hit, isn't picked while the hand discard does something", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opponent = state.players[1] as PlayerState;
+      opponent.monsterPosition = 2;
+      // P1's monster: King Ghidorah ranks 1-3; a second rank 3 from hand goes on top, 3 under it.
+      p1.invadingMonsterZone = [
+        add(state, real("EBP02-047"), "P1"),
+        add(state, real("EBP02-048"), "P1"),
+        add(state, real("EBP02-049"), "P1"),
+      ];
+      p1.hand = [add(state, real("EBP02-049"), "P1")];
+      // The opponent: 6 cards in hand, and only a rank 7 battle card in their zones.
+      opponent.hand = Array.from({ length: 6 }, () =>
+        add(state, real("ESD01-016"), "P2"),
+      );
+      for (const z of [1, 2, 3, 4, 5, 6, 7, 8] as const) opponent.zones[z] = [];
+      opponent.zones[1] = [[add(state, real("EBP01-073"), "P2")]];
+      const play = getLegalActions(state, "P1").find(
+        (a) => a.type === "playMonster",
+      );
+      if (!play) throw new Error("King Ghidorah (1991) can't be stacked here");
+      let s = advanceToDecision(applyAction(state, play));
+      for (
+        let i = 0;
+        i < 4 && s.pendingChoice && s.pendingChoice.kind !== "option";
+        i++
+      ) {
+        const c = s.pendingChoice;
+        s = advanceToDecision(
+          applyAction(s, {
+            type: "choose",
+            player: c.player,
+            choiceId: c.id,
+            optionId: c.options[0]!.id,
+          }),
+        );
+      }
+      expect(s.pendingChoice?.kind).toBe("option");
+      const legal = getLegalActions(s, "P1");
+      const mode = (i: number) =>
+        legal.find((a) => a.type === "choose" && a.optionId === String(i))!;
+      const dead = cardRulesDead(s, legal, "P1");
+      expect(dead.has(mode(0))).toBe(true);
+      expect(dead.has(mode(1))).toBe(false);
+    });
+
+    it("#289: Mecha-King Ghidorah EBP02-068 in the opponent's monster column blocks their invasion, so rule 7 takes it over zone 8; it isn't stacked on your own Mecha-King there while zone 1 or 2 is empty", () => {
+      const setup = () => {
+        const { state, p1 } = withGodzilla1995();
+        const opponent = state.players[1] as PlayerState;
+        opponent.monsterPosition = 6;
+        // P1's monster in zone 4, so zones 1 and 2 are open to play in.
+        p1.monsterPosition = 4;
+        // 9 King Ghidorah cards in the discard pile: Mecha-King at rank 23 - 18 = 5.
+        p1.discard = Array.from({ length: 9 }, () =>
+          add(state, real("EBP02-047"), "P1"),
+        );
+        p1.hand = [add(state, real("EBP02-068"), "P1")];
+        for (const z of [1, 2, 3, 4, 5, 6, 7, 8] as const) p1.zones[z] = [];
+        return { state, p1 };
+      };
+      const { state } = setup();
+      const legal = getLegalActions(state, "P1");
+      const plays = legal.filter(
+        (a): a is Extract<typeof a, { type: "playBattle" }> =>
+          a.type === "playBattle",
+      );
+      expect(plays.length).toBeGreaterThan(0);
+      const column = plays.filter((a) => {
+        const after = advanceToDecision(applyAction(state, a));
+        const top = after.players[1]!.invadingMonsterZone.at(-1)!;
+        return hasFlag(after, top, "cannotInvade");
+      });
+      expect(column.length).toBeGreaterThan(0);
+      const dead = cardRulesDead(state, legal, "P1");
+      for (const a of column) expect(dead.has(a)).toBe(false);
+      for (const a of plays) if (a.zone === 8) expect(dead.has(a)).toBe(true);
+
+      // Stacking: your own Mecha-King already in that column, zone 2 empty.
+      const zone = column[0]!.zone;
+      const second = setup();
+      second.p1.zones[zone] = [[add(second.state, real("EBP02-068"), "P1")]];
+      const legal2 = getLegalActions(second.state, "P1");
+      const dead2 = cardRulesDead(second.state, legal2, "P1");
+      for (const a of legal2)
+        if (a.type === "playBattle" && a.zone === zone)
+          expect(dead2.has(a)).toBe(true);
+      expect(
+        legal2.some(
+          (a) =>
+            a.type === "playBattle" &&
+            (a.zone === 1 || a.zone === 2) &&
+            a.zone !== zone &&
+            !dead2.has(a),
+        ),
+      ).toBe(true);
+    });
+
+    it("rule 17 (#288, 11.3): Dorat EBP02-058 [revenge] goes ahead of your own monster, where its advance crushes it, an empty zone first, never zone 8; nothing is played on top of your own Dorat while another zone is open", () => {
+      expect(hasRevenge("EBP02-058")).toBe(true);
+      expect(hasRevenge("EBP02-068")).toBe(false);
+      const { state, p1 } = withGodzilla1995();
+      // The opponent's monster out of zone 8's reach (rule 7 stays out).
+      (state.players[1] as PlayerState).monsterPosition = 3;
+      p1.monsterPosition = 3;
+      for (const z of [1, 2, 3, 4, 5, 6, 7, 8] as const) p1.zones[z] = [];
+      p1.hand = [add(state, real("EBP02-058"), "P1")];
+      const legal = getLegalActions(state, "P1");
+      const plays = legal.filter(
+        (a): a is Extract<typeof a, { type: "playBattle" }> =>
+          a.type === "playBattle",
+      );
+      expect(plays.some((a) => a.zone > 3 && a.zone < 8)).toBe(true);
+      const dead = cardRulesDead(state, legal, "P1");
+      for (const a of plays)
+        expect(dead.has(a)).toBe(!(a.zone > 3 && a.zone < 8));
+      // Over your own Dorat (zone 4): no, while zone 5 is open.
+      p1.zones[4] = [[add(state, real("EBP02-058"), "P1")]];
+      const legal2 = getLegalActions(state, "P1");
+      const dead2 = cardRulesDead(state, legal2, "P1");
+      for (const a of legal2)
+        if (a.type === "playBattle" && a.zone === 4)
+          expect(dead2.has(a)).toBe(true);
     });
   },
 );
