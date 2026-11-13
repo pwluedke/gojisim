@@ -27,6 +27,10 @@ import { columnCard } from "./rules";
  *    EBP02-068: no invading, +3000) goes in that column when it can; otherwise in zone 1 or 2 (the
  *    columns the opponent's monster walks through, zones 4 to 7). An empty zone over stacking on
  *    your own card, and never the zone straight ahead of your own monster (its next advance).
+ * 4. #259: a card that plays itself from the discard pile (King Ghidorah (1998) EBP03-063) comes
+ *    back whenever there's an empty zone (its optional play is answered yes), into an empty zone;
+ *    and a destroy of the opponent's cards leaves their recurring cards for last (they come back),
+ *    taking a card that stays gone when it can.
  */
 
 type Json = Record<string, unknown>;
@@ -197,6 +201,109 @@ function columnPlays(
   return dead;
 }
 
+/** Rule 4: whether a card has an ability that plays itself from the discard pile. */
+export function recursFromDiscard(deckCardNumber: string): boolean {
+  return getCardAbilities(deckCardNumber).abilities.some((ability) => {
+    const a = ability as unknown as Json;
+    const where = a["activeIn"];
+    return (
+      Array.isArray(where) &&
+      where.includes("discard") &&
+      nested(a).some(
+        (p) =>
+          p["effect"] === "play" &&
+          p["from"] === "discard" &&
+          (p["filter"] as Json | undefined)?.["this"] === true,
+      )
+    );
+  });
+}
+
+/** The card the resolving ability belongs to, or `undefined`. */
+const sourceOf = (state: GameState) =>
+  state.resolution
+    ? state.cards[state.resolution.standby.sourceCardId]
+    : undefined;
+
+/** Rule 4: the answers that keep a recurring card in the discard or stack it, and the destroys that waste a pick on one. */
+function recurringPlays(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const choice = state.pendingChoice;
+  const player = state.players.find((p) => p.id === me);
+  const opponent = state.players.find((p) => p.id !== me);
+  if (!player || !opponent) return [];
+  if (!choice) {
+    // From the hand too: a recurring card into an empty zone when one is open.
+    const recurringPlay = (
+      a: Action,
+    ): a is Extract<Action, { type: "playBattle" }> => {
+      if (a.type !== "playBattle") return false;
+      const c = player.hand.find((h) => h.instanceId === a.cardInstanceId);
+      const data = c ? state.cards[c.cardId] : undefined;
+      return !!data && recursFromDiscard(data.deckCardNumber);
+    };
+    const plays = actions.filter(recurringPlay);
+    const intoEmpty = (a: Extract<Action, { type: "playBattle" }>) =>
+      player.zones[a.zone].length === 0;
+    return plays.some(intoEmpty) ? plays.filter((a) => !intoEmpty(a)) : [];
+  }
+  if (choice.player !== me) return [];
+  const answers = actions.filter(
+    (a): a is Extract<Action, { type: "choose" }> => a.type === "choose",
+  );
+  const emptyZones = ([1, 2, 3, 4, 5, 6, 7, 8] as ZoneNumber[]).filter(
+    (z) => z !== player.monsterPosition && player.zones[z].length === 0,
+  );
+  const source = sourceOf(state);
+  const recurring = !!source && recursFromDiscard(source.deckCardNumber);
+  // Its optional play from the discard pile: yes while there's an empty zone.
+  if (choice.kind === "confirm" && recurring && emptyZones.length > 0)
+    return answers.filter((a) => a.optionId === "no");
+  // Where it goes: an empty zone when there is one.
+  if (choice.kind === "zone" && recurring && emptyZones.length > 0) {
+    const empty = answers.filter((a) =>
+      emptyZones.some((z) => a.optionId === `${me}:${z}`),
+    );
+    return empty.length > 0 ? answers.filter((a) => !empty.includes(a)) : [];
+  }
+  // A destroy among the opponent's cards: a recurring one only when nothing else is destroyed.
+  if (choice.kind === "target") {
+    const card = (id: string) => {
+      for (const stacks of Object.values(opponent.zones))
+        for (const stack of stacks)
+          for (const c of stack)
+            if (c.instanceId === id) return state.cards[c.cardId];
+      return undefined;
+    };
+    // A destroyed card leaves the opponent's zones (its discard-pile copy gets a new instance id).
+    const destroys = (a: Action) => {
+      if (a.type !== "choose") return false;
+      try {
+        const after = advanceToDecision(applyAction(state, a));
+        const theirs = after.players.find((p) => p.id === opponent.id);
+        return !Object.values(theirs?.zones ?? {}).some((stacks) =>
+          stacks.some((stack) =>
+            stack.some((c) => c.instanceId === a.optionId),
+          ),
+        );
+      } catch {
+        return false;
+      }
+    };
+    const targets = answers.filter((a) => card(a.optionId));
+    const wasted = targets.filter((a) => {
+      const c = card(a.optionId);
+      return !!c && recursFromDiscard(c.deckCardNumber) && destroys(a);
+    });
+    const better = targets.some((a) => !wasted.includes(a) && destroys(a));
+    return better ? wasted : [];
+  }
+  return [];
+}
+
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
 export function cardRulesDead(
   state: GameState,
@@ -230,5 +337,6 @@ export function cardRulesDead(
   }
   for (const action of invadeIntoBlocker(state, actions, me)) dead.add(action);
   for (const action of columnPlays(state, actions, me)) dead.add(action);
+  for (const action of recurringPlays(state, actions, me)) dead.add(action);
   return dead;
 }

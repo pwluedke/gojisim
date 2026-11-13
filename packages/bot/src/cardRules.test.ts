@@ -14,7 +14,11 @@ import {
   type ZoneNumber,
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
-import { cardRulesDead, losesWithoutStrategy } from "./cardRules";
+import {
+  cardRulesDead,
+  losesWithoutStrategy,
+  recursFromDiscard,
+} from "./cardRules";
 import { difficultySettings, PRESETS } from "./difficulty";
 import { botInput, decklistsOf, seededRng } from "./input";
 import { decide } from "./ismcts";
@@ -277,5 +281,74 @@ describe("Paul's card-play rules (Nov 12), Medium and Hard", () => {
     const stacked = mechaKing(5, 1);
     stacked.p1.zones[1] = [[add(stacked.state, real("ESD01-016"), "P1")]];
     expect(stacked.zonesLeft()).toEqual([2]);
+  });
+
+  it("#259: King Ghidorah (1998) EBP03-063 plays itself from the discard pile, read from its ability data", () => {
+    expect(recursFromDiscard("EBP03-063")).toBe(true);
+    expect(recursFromDiscard("EBP02-068")).toBe(false);
+    expect(recursFromDiscard("ESD01-016")).toBe(false);
+  });
+
+  it("#259: from the hand, a recurring card goes in an empty zone, not on your own card", () => {
+    const { state, p1 } = withGodzilla1995();
+    // Rank 1, so it can be played anywhere (8.2.1): the test is where.
+    p1.hand = [add(state, { ...real("EBP03-063"), rank: 1 }, "P1")];
+    p1.zones[1] = [[add(state, real("ESD01-016"), "P1")]];
+    const legal = getLegalActions(state, "P1");
+    const dead = cardRulesDead(state, legal, "P1");
+    const plays = legal.filter((a) => a.type === "playBattle");
+    expect(plays.length).toBeGreaterThan(1);
+    for (const a of plays)
+      if (a.type === "playBattle") expect(dead.has(a)).toBe(a.zone === 1);
+  });
+
+  it("#259, 7.2.3: with its monster card played (zone 4 or beyond), it comes back from the discard: No is left out while a zone is empty", () => {
+    const { state, p1 } = withGodzilla1995();
+    p1.hand = [add(state, real("ESD01-007"), "P1")];
+    p1.discard.push(add(state, real("EBP03-063"), "P1"));
+    let s = state;
+    const play = getLegalActions(s, "P1").find(
+      (a) => a.type === "playMonster",
+    )!;
+    s = advanceToDecision(applyAction(s, play));
+    // Its [enter] and the King Ghidorah card's ask may come in either order: answer up to it.
+    for (let i = 0; i < 5 && s.pendingChoice?.kind !== "confirm"; i++) {
+      const next = getLegalActions(s, "P1").find((a) => a.type === "choose");
+      if (!next) break;
+      s = advanceToDecision(applyAction(s, next));
+    }
+    expect(s.pendingChoice).toMatchObject({ kind: "confirm" });
+    const legal = getLegalActions(s, "P1");
+    const dead = cardRulesDead(s, legal, "P1");
+    const answer = (id: string) =>
+      legal.find((a) => a.type === "choose" && a.optionId === id)!;
+    expect(dead.has(answer("no"))).toBe(true);
+    expect(dead.has(answer("yes"))).toBe(false);
+  });
+
+  it("#259, 5.12: a destroy of the opponent's cards leaves their recurring King Ghidorah (1998) while another target is there", () => {
+    const { state, p1 } = withGodzilla1995();
+    const opp = state.players[1] as PlayerState;
+    p1.hand = [add(state, real("EBP02-018"), "P1")];
+    p1.rage = 2;
+    // Low ranks, so neither breaks 11.3 where it stands (the rule reads the ability, not the rank).
+    const kg = add(state, { ...real("EBP03-063"), rank: 1 }, "P2");
+    const other = add(state, { ...real("ESD02-011"), rank: 1 }, "P2");
+    // Their monster in zone 5, clear of both cards (11.3).
+    opp.monsterPosition = 5;
+    opp.zones[1] = [[kg]];
+    opp.zones[2] = [[other]];
+    let s = state;
+    const activate = getLegalActions(s, "P1").find(
+      (a) => a.type === "activateStrategy",
+    )!;
+    s = advanceToDecision(applyAction(s, activate));
+    expect(s.pendingChoice?.kind).toBe("target");
+    const legal = getLegalActions(s, "P1");
+    const dead = cardRulesDead(s, legal, "P1");
+    const target = (id: string) =>
+      legal.find((a) => a.type === "choose" && a.optionId === id)!;
+    expect(dead.has(target(kg.instanceId))).toBe(true);
+    expect(dead.has(target(other.instanceId))).toBe(false);
   });
 });
