@@ -23,6 +23,7 @@ import { mxPlanV2Verdict } from "./mxPlanV2";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
 import { deadKeys } from "./prune";
 import { cardRulesDead, rescuedPlays } from "./cardRules";
+import { wranglerVerdict } from "./wranglerPlan";
 import { applyRules } from "./rules";
 import type { Bot, BotInput, BotSettings, Decklist } from "./types";
 
@@ -65,6 +66,8 @@ export interface IsmctsSettings {
   recognizer: number;
   /** Paul, Nov 12: 1 applies the card-play rules (`cardRules.ts`), also on with `rules`. */
   cardRules: number;
+  /** #276: 1 (the default) applies the Wrangler plan (`wranglerPlan.ts`), with `rules` on. */
+  wranglerPlan: number;
   /** Paul's Constructed Future plan (`cfPlan.ts`), with `rules` on: 1 (the default) on, 0 off. */
   cfPlan: number;
   /**
@@ -91,6 +94,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   rules: 0,
   recognizer: 0,
   cardRules: 0,
+  wranglerPlan: 1,
   cfTarget: "auto",
   cfPlan: 1,
   mxPlan: 2,
@@ -431,6 +435,28 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         (a) => actionKey(state, a),
         settings.mxPlan,
       );
+    // #276: the Wrangler plan, a preference like the Monster X plan, that frees what its line
+    // needs from Paul's rules' holds.
+    if (iterations === 1 && settings.rules > 0 && settings.wranglerPlan > 0) {
+      const first = state;
+      const { against, rescued } = wranglerVerdict(
+        first,
+        input.legalActions,
+        me,
+        input.knowledge.decks[me],
+      );
+      for (const a of rescued) dead.delete(actionKey(first, a));
+      avoid = new Set(
+        [...avoid].filter((i) => !rescued.has(input.legalActions[i] as Action)),
+      );
+      if (against.size > 0)
+        for (const a of input.legalActions)
+          if (a.type !== "concede" && !against.has(a))
+            favored.set(
+              actionKey(first, a),
+              Math.max(favored.get(actionKey(first, a)) ?? 0, MX_PLAN_BIAS),
+            );
+    }
     let node = root;
     const path: Node[] = [];
     // Selection and expansion.

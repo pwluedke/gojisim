@@ -476,6 +476,52 @@
           "cards": ["EBP03-070"]
         }
       ]
+    },
+    {
+      "name": "Red Counter (Wrangler)",
+      "rankOne": ["EBP01-001"],
+      "core": [
+        {
+          "cards": ["EBP01-075"]
+        },
+        {
+          "cards": ["EBP01-073"]
+        },
+        {
+          "cards": ["ESC01-004"]
+        },
+        {
+          "cards": ["EBP01-030"]
+        },
+        {
+          "cards": ["EBP03-004"]
+        },
+        {
+          "cards": ["EBP01-015"]
+        },
+        {
+          "cards": ["EBP01-002", "EBP01-003"],
+          "count": [6, 8]
+        },
+        {
+          "cards": ["ESD01-005", "ESD01-006", "EBP01-009"],
+          "count": [8, 12]
+        }
+      ],
+      "common": [
+        {
+          "cards": ["EBP04-078"]
+        },
+        {
+          "cards": ["EBP02-018"]
+        },
+        {
+          "cards": ["EBP01-008"]
+        },
+        {
+          "cards": ["EBP01-004"]
+        }
+      ]
     }
   ]
 }
