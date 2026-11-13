@@ -9,7 +9,7 @@ import {
   sameColumn,
   type ZoneNumber,
 } from "@gojisim/engine";
-import { columnCard } from "./rules";
+import { columnCard, counterMadeWith, counterOnly, counters } from "./rules";
 
 /**
  * Card-play rules for Medium and Hard (Paul, Nov 12), on with `cardRules` (from Medium up) or
@@ -31,6 +31,9 @@ import { columnCard } from "./rules";
  *    back whenever there's an empty zone (its optional play is answered yes), into an empty zone;
  *    and a destroy of the opponent's cards leaves their recurring cards for last (they come back),
  *    taking a card that stays gone when it can.
+ * 5. #254: a counter-only strategy (Godzilla vs. Destoroyah EBP01-062: +10,000 total counter power)
+ *    is played only when it's needed: not while the counter is already made without it (7.4.3),
+ *    and not when even with it (and the others in hand) the counter isn't made.
  */
 
 type Json = Record<string, unknown>;
@@ -304,6 +307,65 @@ function recurringPlays(
   return [];
 }
 
+/** Rule 5: whether the counter is made after `action` (its own further choices not taken). */
+function madeAfter(state: GameState, action: Action, me: PlayerId): boolean {
+  try {
+    return counterMadeWith(state, action, me);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Rule 5: counter-only strategy plays that aren't needed, or not enough: from the hand, or an
+ * answer that activates one (Destoroyah Perfect Form EBP01-060's [enter], from the discard pile).
+ */
+function spentCounters(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  if (state.turnPlayer !== me) return [];
+  const player = state.players.find((p) => p.id === me);
+  if (!player) return [];
+  const inStrategy = (s: GameState, cardId: number) =>
+    s.players
+      .find((p) => p.id === me)
+      ?.strategyZones.some((z) => z.some((x) => x.card.cardId === cardId)) ??
+    false;
+  let plays: Action[];
+  if (state.pendingChoice) {
+    if (state.pendingChoice.player !== me) return [];
+    const options = new Map(
+      state.pendingChoice.options.map((o) => [o.id, o.cardId]),
+    );
+    plays = actions.filter((a) => {
+      if (a.type !== "choose") return false;
+      const cardId = options.get(a.optionId);
+      if (cardId === null || cardId === undefined) return false;
+      if (!counterOnly(state.cards[cardId])) return false;
+      // An answer that puts it in a strategy zone activates it.
+      try {
+        return (
+          !inStrategy(state, cardId) &&
+          inStrategy(advanceToDecision(applyAction(state, a)), cardId)
+        );
+      } catch {
+        return false;
+      }
+    });
+  } else
+    plays = actions.filter((a) => {
+      if (a.type !== "activateStrategy") return false;
+      const c = player.hand.find((h) => h.instanceId === a.cardInstanceId);
+      return counterOnly(c ? state.cards[c.cardId] : undefined);
+    });
+  if (plays.length === 0) return [];
+  // Already made without it: keep it.
+  if (counters(state, me)) return plays;
+  return plays.filter((a) => !madeAfter(state, a, me));
+}
+
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
 export function cardRulesDead(
   state: GameState,
@@ -338,5 +400,6 @@ export function cardRulesDead(
   for (const action of invadeIntoBlocker(state, actions, me)) dead.add(action);
   for (const action of columnPlays(state, actions, me)) dead.add(action);
   for (const action of recurringPlays(state, actions, me)) dead.add(action);
+  for (const action of spentCounters(state, actions, me)) dead.add(action);
   return dead;
 }

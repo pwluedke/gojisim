@@ -4,6 +4,8 @@ import { parseDeckList } from "@gojisim/cards/deck-lists";
 import { getAllCards } from "@gojisim/cards/test-decks";
 import {
   advanceToDecision,
+  counterPowerOf,
+  getThreat,
   applyAction,
   type CardInstance,
   type GameState,
@@ -350,5 +352,50 @@ describe("Paul's card-play rules (Nov 12), Medium and Hard", () => {
       legal.find((a) => a.type === "choose" && a.optionId === id)!;
     expect(dead.has(target(kg.instanceId))).toBe(true);
     expect(dead.has(target(other.instanceId))).toBe(false);
+  });
+
+  /**
+   * #254: Godzilla vs. Destoroyah EBP01-062 (+10,000 total counter power with a Destoroyah battle
+   * card in your zones) in hand, Destoroyah Perfect Form EBP01-060 in your zone 1, and a battle
+   * card in zone 2 worth `extra` more than the counter power needs to reach the threat.
+   */
+  function destoroyah(extra: number) {
+    const { state, p1 } = withGodzilla1995();
+    const opp = state.players[1] as PlayerState;
+    p1.hand = [add(state, real("EBP01-062"), "P1")];
+    p1.zones[1] = [[add(state, real("EBP01-060"), "P1")]];
+    // A threat well above the board's counter power (3.4.5: +5,000 per rage).
+    opp.rage = 6;
+    const need = getThreat(state, opp.id) - counterPowerOf(state, p1);
+    expect(need).toBeGreaterThan(20000);
+    p1.zones[2] = [
+      [
+        add(
+          state,
+          {
+            ...real("ESD02-011"),
+            rank: 1,
+            counterOrThreat: Math.max(0, need + extra),
+          },
+          "P1",
+        ),
+      ],
+    ];
+    const legal = getLegalActions(state, "P1");
+    const play = legal.find((a) => a.type === "activateStrategy");
+    if (!play) throw new Error("no activation");
+    return cardRulesDead(state, legal, "P1").has(play);
+  }
+
+  it("#254, 7.4.3: Godzilla vs. Destoroyah is kept while the counter is already made without it", () => {
+    expect(destoroyah(0)).toBe(true);
+  });
+
+  it("#254: it's played when its +10,000 makes the counter", () => {
+    expect(destoroyah(-5000)).toBe(false);
+  });
+
+  it("#254: it's kept when even with it the counter isn't made", () => {
+    expect(destoroyah(-20000)).toBe(true);
   });
 });
