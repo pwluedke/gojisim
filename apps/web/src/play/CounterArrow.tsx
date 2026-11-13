@@ -20,10 +20,15 @@ const boxOf = (testId: string): Box | null => {
  */
 export function arrowPath(badge: Box, rage: Box): string {
   const x = (badge.left + badge.right) / 2;
+  // #292 (Paul, Nov 13): the tip reaches a little into the Rage zone.
+  const into = Math.min(ARROW_INTO, (rage.bottom - rage.top) / 4);
   return badge.top > rage.bottom
-    ? `M ${x} ${badge.top} L ${x} ${rage.bottom}`
-    : `M ${x} ${badge.bottom} L ${x} ${rage.top}`;
+    ? `M ${x} ${badge.top} L ${x} ${rage.bottom - into}`
+    : `M ${x} ${badge.bottom} L ${x} ${rage.top + into}`;
 }
+
+/** How far the arrow's tip reaches into the opponent's Rage zone, in px. */
+const ARROW_INTO = 22;
 
 /**
  * #292 (Paul, Nov 13): a player's total counter power, in their mat's row nearest the center line,

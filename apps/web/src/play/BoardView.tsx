@@ -18,6 +18,7 @@ import type {
   ZoneNumber,
 } from "@gojisim/engine";
 import {
+  type CSSProperties,
   type ReactNode,
   useEffect,
   useLayoutEffect,
@@ -329,16 +330,18 @@ function isBase(card: Card | undefined): boolean {
   );
 }
 
-/**
- * #292 (Paul, Nov 13): how far zone 8 sits toward zone 7's row, in rows; Strategy 1 and the Rage
- * zone start there too, so the three line up at their top edges. 0.6 leaves Strategy 2 room under
- * Strategy 1 above the monster deck.
- */
-const ZONE8_LIFT = 0.6;
-/** One row's height on the mat, for the offsets below. */
-const ROW = "(var(--card-h) + var(--mat-gap))";
-/** #292: the gap between Strategy 1 and Strategy 2, drawn close together. */
-const STRATEGY_GAP = "6px";
+/** #292: the mat's lengths, as CSS: a card's width and height, the gap, zone 7's drop. */
+const W = "var(--card-w)";
+const H = "var(--card-h)";
+const G = "var(--mat-gap)";
+const S = "var(--mat-stagger)";
+/** The left edge of portrait column `c`. */
+const COL = (c: number) => `${c} * (${W} + ${G})`;
+/** The mat's inside: 7 portrait columns wide, zone 8's card plus zone 7's drop and a row deep. */
+const MAT_W = `7 * ${W} + 6 * ${G}`;
+const MAT_H = `${S} + 2 * ${H} + ${G}`;
+/** Where zone 8's arrows meet it, in rows of `H + G` (zone 7's row is 1): it starts `S` higher. */
+const ZONE8_ROW = 0.37;
 
 /** One area of a player's mat. */
 type MatArea =
@@ -351,8 +354,13 @@ type MatArea =
   | { kind: "monsterDeck" };
 
 /**
- * The official playmat (Paul's request, Oct 23, 2026): 7 columns by 3 rows per side, in the
- * owner's own coordinates, row 0 nearest the center line. Cells not listed are empty.
+ * The official playmat (Paul's request, Oct 23, 2026; #292, Nov 13: its layout and proportions),
+ * in the owner's own coordinates, the top edge nearest the center line. Every area has its box
+ * (x, y, width, height, as CSS); `col`, `row` and `rows` name its place for tests (row 0 the top
+ * band, 1 zones 7 and 6, 2 the bottom row). Top band: Strategy 1 and 2 stacked landscape, the
+ * Rage zone beside them as tall as both, zone 8; zones 7 and 6 and the deck start `S` lower,
+ * the counter power above zones 7 and 6; the bottom row is the monster deck, zones 1-5 and the
+ * discard pile.
  */
 const MAT: readonly {
   area: MatArea;
@@ -360,24 +368,14 @@ const MAT: readonly {
   row: number;
   cols?: number;
   rows?: number;
-  /** How far the cell sits toward the next row, in rows (drawn there; the grid cell stays). */
-  lift?: number;
-  /** A CSS length the cell is drawn away from the center line by, in place of `lift`. */
-  offset?: string;
-  /** Its card sits at the cell's edge nearest the center line, not centered (strategy zones). */
-  near?: boolean;
-  /** How much of the cell, in rows, is cut from its edge nearest the center line. */
-  trim?: number;
+  box: readonly [x: string, y: string, w: string, h: string];
 }[] = [
-  // #292 (Paul, Nov 13): Strategy 1, the Rage zone and zone 8 line up at their top edges, zone 8
-  // just above zone 7 (staggered, as on the official playmat); the Rage zone is that much
-  // shorter; Strategy 2 sits right under Strategy 1.
   {
     area: { kind: "strategy", index: 1 },
     col: 0,
     row: 0,
-    lift: ZONE8_LIFT,
-    near: true,
+    rows: 2,
+    box: ["0px", "0px", H, W],
   },
   {
     area: { kind: "rage" },
@@ -385,30 +383,57 @@ const MAT: readonly {
     row: 0,
     cols: 2,
     rows: 2,
-    trim: ZONE8_LIFT,
+    box: [`${H} + ${G}`, "0px", `3 * ${W} + ${G} - ${H}`, `2 * ${W} + ${G}`],
   },
-  { area: { kind: "zone", zone: 8 }, col: 3, row: 0, lift: ZONE8_LIFT },
+  {
+    area: { kind: "zone", zone: 8 },
+    col: 3,
+    row: 0,
+    rows: 2,
+    box: [COL(3), "0px", W, H],
+  },
   // #292: the counter power, centered above and between zones 7 and 6.
-  { area: { kind: "counter" }, col: 4, row: 0, cols: 2 },
+  {
+    area: { kind: "counter" },
+    col: 4,
+    row: 0,
+    cols: 2,
+    box: [COL(4), "0px", `2 * ${W} + ${G}`, S],
+  },
   {
     area: { kind: "strategy", index: 2 },
     col: 0,
     row: 1,
-    offset: `calc(var(--card-w) + ${STRATEGY_GAP} - ${1 - ZONE8_LIFT} * ${ROW})`,
-    near: true,
+    box: ["0px", `${W} + ${G}`, H, W],
   },
-  { area: { kind: "zone", zone: 7 }, col: 4, row: 1 },
-  { area: { kind: "zone", zone: 6 }, col: 5, row: 1 },
-  { area: { kind: "deck" }, col: 6, row: 1 },
-  { area: { kind: "monsterDeck" }, col: 0, row: 2 },
+  { area: { kind: "zone", zone: 7 }, col: 4, row: 1, box: [COL(4), S, W, H] },
+  { area: { kind: "zone", zone: 6 }, col: 5, row: 1, box: [COL(5), S, W, H] },
+  { area: { kind: "deck" }, col: 6, row: 1, box: [COL(6), S, W, H] },
+  {
+    area: { kind: "monsterDeck" },
+    col: 0,
+    row: 2,
+    box: [COL(0), `${S} + ${H} + ${G}`, W, H],
+  },
   ...([1, 2, 3, 4, 5] as const).map((zone) => ({
     area: { kind: "zone", zone } as const,
     col: zone,
     row: 2,
+    box: [COL(zone), `${S} + ${H} + ${G}`, W, H] as const,
   })),
-  { area: { kind: "discard" }, col: 6, row: 2 },
-  // E20 (EBP03-013): a third strategy zone, only once a player has one.
-  { area: { kind: "strategy", index: 3 }, col: 6, row: 0 },
+  {
+    area: { kind: "discard" },
+    col: 6,
+    row: 2,
+    box: [COL(6), `${S} + ${H} + ${G}`, W, H],
+  },
+  // E20 (EBP03-013): a third strategy zone, only once a player has one, above the deck.
+  {
+    area: { kind: "strategy", index: 3 },
+    col: 6,
+    row: 0,
+    box: [`${MAT_W} - ${H}`, "0px", H, W],
+  },
 ];
 
 function StrategyZone({
@@ -615,12 +640,19 @@ function MatCell({
 
 /** Where each zone sits in `MAT`, for the path arrows. */
 const ZONE_AT = new Map(
-  MAT.flatMap(({ area, col, row, lift = 0 }) =>
+  MAT.flatMap(({ area, col, row }) =>
     area.kind === "zone"
-      ? [[area.zone, { col, row: row + lift }] as const]
+      ? [[area.zone, { col, row: area.zone === 8 ? ZONE8_ROW : row }] as const]
       : [],
   ),
 );
+
+/** #292: how far a zone's top sits from the mat's center-line edge, as CSS (all zones are a card tall). */
+function zoneTop(zone: ZoneNumber): string {
+  if (zone === 8) return "0px";
+  if (zone === 6 || zone === 7) return S;
+  return `${S} + ${H} + ${G}`;
+}
 
 /**
  * The playmat's arrows, as (from, to) zone pairs. Path arrows (solid) follow the monster's path
@@ -671,7 +703,8 @@ function MatArrow({
       style={{
         // Counter arrows sit a quarter card to the side, clear of the 5 to 6 path arrow.
         left: `calc(50% - ${dx / 2} * (var(--card-w) + var(--mat-gap)) + ${kind === "counter" ? sign / 4 : 0} * var(--card-w))`,
-        top: `calc(50% - ${dy / 2} * (var(--card-h) + var(--mat-gap)))`,
+        // #292: zones sit at their real heights (zone 7's drop, the rows), in CSS.
+        top: `calc(50% - ${sign} * ((${zoneTop(to)}) - (${zoneTop(from)})) / 2)`,
         rotate: `${angle}deg`,
       }}
       data-testid={`${kind}-arrow`}
@@ -680,6 +713,24 @@ function MatArrow({
       aria-hidden
     />
   );
+}
+
+/**
+ * An area's place on its mat: its box, from the padding edge; on the opponent's mat, turned 180°.
+ */
+function place(
+  side: "opp" | "you",
+  [x, y, w, h]: readonly [string, string, string, string],
+): CSSProperties {
+  const left = side === "you" ? x : `${MAT_W} - (${x}) - (${w})`;
+  const top = side === "you" ? y : `${MAT_H} - (${y}) - (${h})`;
+  return {
+    position: "absolute",
+    left: `calc(var(--mat-pad) + ${left})`,
+    top: `calc(var(--mat-pad) + ${top})`,
+    width: `calc(${w})`,
+    height: `calc(${h})`,
+  };
 }
 
 /**
@@ -732,17 +783,13 @@ function Mat({
         />
       )}
       {warning && warning.length > 0 && (
-        // Casual games play illegal decks with a warning for the whole game, in the free strip
-        // above zone 8 (#292: zone 8 sits lower, toward zone 7).
+        // Casual games play illegal decks with a warning for the whole game, above the deck
+        // (#292).
         <div
           className={styles.deckWarning}
           data-testid={`deck-warning-${player.id}`}
           title={warning.join("\n")}
-          style={
-            side === "you"
-              ? { gridColumn: "4", gridRow: "1" }
-              : { gridColumn: "4", gridRow: "3", alignSelf: "end" }
-          }
+          style={place(side, [COL(6), "0px", W, S])}
         >
           <strong>Illegal deck</strong>
           {/* #108: the count only, so it fits its one-card cell in every theme; the tooltip
@@ -755,89 +802,56 @@ function Mat({
       {MAT.filter(
         ({ area }) =>
           area.kind !== "strategy" || area.index <= player.strategyZones.length,
-      ).map(
-        ({
-          area,
-          col,
-          row,
-          cols = 1,
-          rows = 1,
-          lift = 0,
-          offset,
-          near,
-          trim,
-        }) => {
-          const c = side === "you" ? col : 6 - (col + cols - 1);
-          const r = side === "you" ? row : 2 - (row + rows - 1);
-          // The opponent's mat is turned: its offsets go up the page, its center-line edge is the
-          // bottom.
-          const sign = side === "you" ? 1 : -1;
-          const by = offset ?? (lift ? `${lift} * ${ROW}` : null);
-          return (
-            <div
-              key={`${area.kind}-${col}-${row}`}
-              className={
-                area.kind === "strategy"
-                  ? `${styles.matCell} ${styles.matCellStrategy}`
-                  : area.kind === "monsterDeck" ||
-                      area.kind === "deck" ||
-                      area.kind === "discard"
-                    ? `${styles.matCell} ${styles.matCellNarrow}`
-                    : styles.matCell
-              }
-              style={{
-                gridColumn: `${c + 1} / span ${cols}`,
-                gridRow: `${r + 1} / span ${rows}`,
-                ...(by ? { translate: `0 calc(${sign} * (${by}))` } : {}),
-                ...(near
-                  ? { alignItems: side === "you" ? "flex-start" : "flex-end" }
-                  : {}),
-                ...(trim
-                  ? {
-                      [side === "you" ? "marginTop" : "marginBottom"]:
-                        `calc(${trim} * ${ROW})`,
-                    }
-                  : {}),
-              }}
-              data-testid="mat-cell"
-              data-area={
-                area.kind === "zone"
-                  ? `Z${area.zone}`
-                  : area.kind === "strategy"
-                    ? `Strategy ${area.index}`
-                    : area.kind
-              }
-              data-col={c}
-              data-row={r}
-              data-rows={rows}
-            >
-              <MatCell
-                model={model}
-                player={player}
-                area={area}
-                glowColor={color}
-              />
-              {area.kind === "zone" &&
-                [
-                  ...PATH.filter(([, to]) => to === area.zone).map(
-                    ([from]) => [from, "path"] as const,
-                  ),
-                  ...COUNTER.filter(([, to]) => to === area.zone).map(
-                    ([from]) => [from, "counter"] as const,
-                  ),
-                ].map(([from, kind]) => (
-                  <MatArrow
-                    key={`${kind}-${from}`}
-                    from={from}
-                    to={area.zone}
-                    flip={side === "opp"}
-                    kind={kind}
-                  />
-                ))}
-            </div>
-          );
-        },
-      )}
+      ).map(({ area, col, row, cols = 1, rows = 1, box }) => {
+        const c = side === "you" ? col : 6 - (col + cols - 1);
+        const r = side === "you" ? row : 2 - (row + rows - 1);
+        return (
+          <div
+            key={`${area.kind}-${col}-${row}`}
+            className={
+              area.kind === "strategy"
+                ? `${styles.matCell} ${styles.matCellStrategy}`
+                : styles.matCell
+            }
+            style={place(side, box)}
+            data-testid="mat-cell"
+            data-area={
+              area.kind === "zone"
+                ? `Z${area.zone}`
+                : area.kind === "strategy"
+                  ? `Strategy ${area.index}`
+                  : area.kind
+            }
+            data-col={c}
+            data-row={r}
+            data-rows={rows}
+          >
+            <MatCell
+              model={model}
+              player={player}
+              area={area}
+              glowColor={color}
+            />
+            {area.kind === "zone" &&
+              [
+                ...PATH.filter(([, to]) => to === area.zone).map(
+                  ([from]) => [from, "path"] as const,
+                ),
+                ...COUNTER.filter(([, to]) => to === area.zone).map(
+                  ([from]) => [from, "counter"] as const,
+                ),
+              ].map(([from, kind]) => (
+                <MatArrow
+                  key={`${kind}-${from}`}
+                  from={from}
+                  to={area.zone}
+                  flip={side === "opp"}
+                  kind={kind}
+                />
+              ))}
+          </div>
+        );
+      })}
     </div>
   );
 }

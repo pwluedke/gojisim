@@ -591,27 +591,47 @@ body {
    * Issue 163: your hand's cards are at least this many times the board card (the board leaves room
    * for them), and the row takes any height the mats leave, so it starts right under your mat.
    */
-  --hand-scale: 1.3;
+  --hand-scale: 1.4;
   /* Issue 163: a raised hand card is this many times the board card, never taller than the window. */
   --raised-scale: 2.75;
   --left-column-width: 260px;
   /* Paul, Nov 10: no header bar over the board (Showa's header is a block over the left column). */
+  /*
+   * #292 (Paul, Nov 13): the official playmat's layout, 7 portrait columns wide (7w + 6 gaps, so
+   * 441/88 card heights) and zone 8's card plus zone 7's drop (w + 6 px) and a row deep (2h + w +
+   * 6 px + a gap: 2.716 card heights). Cards are as large as the height or the width allows; the
+   * width keeps the bot hand some room (and its gap) beside the opponent's mat (460/88).
+   */
   --board-chrome: calc(
-    40px + 4 * var(--mat-gap) + 4 * var(--mat-pad) + 4 * var(--mat-frame)
+    40px + 12px + 2 * var(--mat-gap) + 4 * var(--mat-pad) + 4 * var(--mat-frame)
   );
-  /* The mat is 5 portrait columns plus 2 landscape ones (M5f): 5w + 2h wide, w = 63h/88. */
+  /* The board's width for the mat: the window less the side columns, paddings, gaps and frames. */
+  --mat-room: calc(
+    100vw - var(--left-column-width) - var(--right-column-width) - 2 *
+      var(--space-4) - 2px - 6 * var(--mat-gap) - 2 * var(--mat-pad) - 2 *
+      var(--mat-frame)
+  );
   --card-h: min(
-    (100vh - var(--board-chrome)) / (6 + var(--hand-scale) * var(--hand-peek)),
-    (
-      (
-          100vw - var(--left-column-width) - var(--right-column-width) - 2 *
-            var(--space-4) - 2px - 6 * var(--mat-gap) - 2 * var(--mat-pad) - 2 *
-            var(--mat-frame)
-        ) *
-        88 / 491
-    )
+    (100vh - var(--board-chrome)) /
+      (5.432 + var(--hand-scale) * var(--hand-peek)),
+    (var(--mat-room) - 2 * var(--space-2)) * 88 / 460
   );
   --card-w: calc(var(--card-h) * 63 / 88);
+  /*
+   * #292: how far zones 7 and 6 and the deck start below zone 8's top: a card's width and 6 px,
+   * plus half of any height the width-limited cards leave, so the hand row keeps its size.
+   */
+  --mat-stagger: calc(
+    var(--card-w) + 6px +
+      max(
+        0px,
+        (
+            100vh - var(--board-chrome) - var(--card-h) *
+              (5.432 + var(--hand-scale) * var(--hand-peek))
+          ) /
+          2
+      )
+  );
   /* Wide enough for the card preview, which opens over this column. */
   --side-column-width: clamp(260px, 20vw, 380px);
   /* The battle log column (M5d), or a thin strip while it is collapsed (M5f). */

@@ -87,14 +87,13 @@
  * glows in the turn player's monster colors (M5f), set inline.
  */
 .mat {
+  /* #292: the official playmat's layout; each area is placed on it (`MAT`, `place`). */
+  box-sizing: content-box;
+  width: calc(7 * var(--card-w) + 6 * var(--mat-gap));
+  height: calc(var(--mat-stagger) + 2 * var(--card-h) + var(--mat-gap));
   position: relative;
-  display: grid;
-  grid-template-columns: var(--card-h) repeat(5, var(--card-w)) var(--card-h);
-  grid-template-rows: repeat(3, var(--card-h));
-  gap: var(--mat-gap);
   /* The zones keep clear of the mat's edge; the glow is on the border, outside this padding. */
   padding: var(--mat-pad);
-  justify-content: center;
   /* As wide as its grid plus the padding, so the glow and the mat image frame the zones. */
   align-self: center;
   border-radius: var(--radius);
@@ -223,6 +222,10 @@
 .layer {
   position: absolute;
   inset: -1px;
+  /* #292: a card sits centered in its card area, which can be taller than the card. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .zoneMonster {
@@ -231,8 +234,9 @@
 
 .monster {
   position: relative;
-  width: 100%;
-  height: 100%;
+  /* #292: the card's size, centered in its zone's card area (which can be taller). */
+  width: var(--card-w);
+  height: var(--card-h);
   border-radius: var(--radius);
 }
 
@@ -2016,20 +2020,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* Just above zones 7 and 6: the cell's edge away from the center line. */
-  justify-content: flex-end;
+  /* #292 (Paul, Nov 13): centered in the space above zones 7 and 6. */
+  justify-content: center;
   width: 100%;
   height: 100%;
-  padding-bottom: 2px;
   font-family: var(--font-heading);
   font-size: var(--font-size-lg);
-  color: var(--color-muted);
-}
-
-.mat[data-side="opp"] .counterBadge {
-  justify-content: flex-start;
-  padding-top: 2px;
-  padding-bottom: 0;
+  color: var(--color-text);
 }
 
 .counterGroup {
@@ -2039,13 +2036,12 @@
 }
 
 .counterBadgeLit {
-  color: var(--color-text);
+  font-weight: bold;
 }
 
 .counterBadgeLabel {
   font-family: var(--font-body);
   font-size: var(--font-size-sm);
-  color: var(--color-muted);
 }
 
 /* Over the page, under the zone prompt (45) and modals; it takes no pointer. */

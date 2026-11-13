@@ -455,8 +455,10 @@ test("a strategy card in a strategy zone fills its landscape slot, uncropped", a
   const box = await placed.boundingBox();
   const zone = await page.getByTestId("zone-P1-1").boundingBox();
   if (!slot || !box || !zone) throw new Error("no box");
-  // The slot is landscape: a card height wide and a card width tall.
-  expect(Math.abs(slot.width - zone.height)).toBeLessThanOrEqual(2);
+  // The slot is landscape: a card height wide and a card width tall (a zone is a card wide; #292:
+  // its card area can be taller than the card).
+  const cardH = (zone.width * 88) / 63;
+  expect(Math.abs(slot.width - cardH)).toBeLessThanOrEqual(2);
   expect(Math.abs(slot.height - zone.width)).toBeLessThanOrEqual(2);
   // The card fills its slot's full width.
   expect(Math.abs(box.width - slot.width)).toBeLessThanOrEqual(2);

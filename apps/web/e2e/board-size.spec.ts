@@ -123,10 +123,10 @@ for (const [width, height] of [
       // #163: the hand's cards are their own size, at least 1.3 times the board's, at most twice.
       expect(hand.height).toBeGreaterThanOrEqual(board.height * 1.3 - 1);
       expect(hand.height).toBeLessThanOrEqual(board.height * 2 + 1);
-      // Mat cells are card-sized too.
+      // Mat cells are a card wide; #292: as tall as the window allows, never shorter than a card.
       const z1 = await page.getByTestId("zone-P1-1").boundingBox();
       expect(Math.abs((z1?.width ?? 0) - board.width)).toBeLessThanOrEqual(1);
-      expect(Math.abs((z1?.height ?? 0) - board.height)).toBeLessThanOrEqual(1);
+      expect(z1?.height ?? 0).toBeGreaterThanOrEqual(board.height - 1);
       await noScroll(page);
     });
 

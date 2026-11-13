@@ -106,11 +106,17 @@ for (const [width, height] of [
       expect(x).toBeLessThan(badge.x + badge.width);
       expect(x).toBeGreaterThan(rage.x);
       expect(x).toBeLessThan(rage.x + rage.width);
-      // It spans the gap between the number and the Rage zone, and only that gap.
+      // It spans the gap between the number and the Rage zone, its tip a little into the Rage
+      // zone (Paul, Nov 13).
       const top = Math.min(badge.y, rage.y + rage.height);
       const bottom = Math.max(badge.y + badge.height, rage.y);
-      expect(arrow.y).toBeGreaterThanOrEqual(top - 6);
-      expect(arrow.y + arrow.height).toBeLessThanOrEqual(bottom + 6);
+      expect(arrow.y).toBeGreaterThanOrEqual(top - 30);
+      expect(arrow.y + arrow.height).toBeLessThanOrEqual(bottom + 30);
+      const tipInside =
+        rage.y > badge.y
+          ? arrow.y + arrow.height > rage.y + 8
+          : arrow.y < rage.y + rage.height - 8;
+      expect(tipInside).toBe(true);
       // Nothing covers the number.
       const n = await box(page.getByTestId(`counter-power-${id}`));
       const hit = await page.evaluate(
@@ -138,7 +144,7 @@ for (const [width, height] of [
   });
 }
 
-test("zone 8 sits just above zone 7 (staggered, not a full row up), mirrored on the opponent's mat", async ({
+test("zone 8 sits above zone 7, staggered by about two thirds of a card as on the official playmat, mirrored on the opponent's mat", async ({
   page,
 }) => {
   await yourTurn(page);
@@ -150,8 +156,9 @@ test("zone 8 sits just above zone 7 (staggered, not a full row up), mirrored on 
     const z7 = await box(page.getByTestId(`zone-${id}-7`));
     // Toward the center line by under half a card, so it overlaps zone 7's row.
     const lift = side === "you" ? z7.y - z8.y : z8.y - z7.y;
-    expect(lift).toBeGreaterThan(0);
-    expect(lift).toBeLessThan(z7.height / 2);
+    // The official playmat: zone 7 starts about two thirds of a card below zone 8's top.
+    expect(lift).toBeGreaterThan(z7.height / 2);
+    expect(lift).toBeLessThan(z7.height * 0.8);
   }
 });
 
@@ -187,7 +194,7 @@ for (const [width, height] of [
       const gap =
         side === "you" ? s2.y - (s1.y + s1.height) : s1.y - (s2.y + s2.height);
       expect(gap).toBeGreaterThanOrEqual(0);
-      expect(gap).toBeLessThan(12);
+      expect(gap).toBeLessThan(17);
       expect(overlaps(s2, deck)).toBe(false);
       // The number: centered between zones 7 and 6, between them and the center line.
       const between =
