@@ -635,5 +635,57 @@ describe(
       p1.zones[8] = [[add(state, { ...real("ESD01-008"), rank: 1 }, "P1")]];
       expect(activation()).toBe(false);
     });
+
+    /**
+     * Paul, Nov 12 (Ian): the opponent's King Ghidorah (1991) EBP02-047 monster in their zone 6; your
+     * zone 8 held by a rank 4 battle card; Mechagodzilla (1993) ESD02-012 (rank 7) in hand.
+     */
+    function versusKingGhidorah(trait: "King Ghidorah" | "Godzilla") {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      opp.invadingMonsterZone.push(
+        add(
+          state,
+          trait === "King Ghidorah" ? real("EBP02-047") : real("ESD02-004"),
+          "P2",
+        ),
+      );
+      opp.monsterPosition = 7;
+      p1.zones[8] = [[add(state, { ...real("ESD01-008"), rank: 4 }, "P1")]];
+      p1.hand = [add(state, real("ESD02-012"), "P1")];
+      return state;
+    }
+
+    it("rule 11 (Paul, Nov 12): against a green opponent (it can run Godzilla vs. King Ghidorah) in reach of zone 7, a rank 4 zone 8 blocker doesn't count: a rank 7+ one is looked for", () => {
+      const kg = versusKingGhidorah("King Ghidorah");
+      expect(
+        blockingPlays(kg, getLegalActions(kg, "P1"), "P1").size,
+      ).toBeGreaterThan(0);
+      // Against a blue monster (no Godzilla vs. King Ghidorah), the rank 4 blocker holds.
+      const other = versusKingGhidorah("Godzilla");
+      expect(
+        blockingPlays(other, getLegalActions(other, "P1"), "P1").size,
+      ).toBe(0);
+    });
+
+    it("rule 2 (Paul, Nov 12): from zone 7, Godzilla vs. King Ghidorah EBP02-071 (awakening 6: destroy rank 6 or lower) clears the zone 8 blocker before the winning invasion", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      p1.monsterPosition = 7;
+      p1.hand = [
+        add(state, real("EBP02-071"), "P1"),
+        // Icon 2: from zone 7 the invasion goes 7 to 8, then wins (5.13.1.1.2).
+        add(state, real("EBP01-073"), "P1"),
+      ];
+      opp.zones[8] = [[add(state, { ...real("ESD02-011"), rank: 4 }, "P2")]];
+      const legal = getLegalActions(state, "P1");
+      const dead = cardRulesDead(state, legal, "P1");
+      expect(legal.some((a) => a.type === "invade")).toBe(true);
+      for (const a of legal)
+        if (a.type === "invade") expect(dead.has(a)).toBe(true);
+      expect(
+        legal.some((a) => a.type === "activateStrategy" && !dead.has(a)),
+      ).toBe(true);
+    });
   },
 );

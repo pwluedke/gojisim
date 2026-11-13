@@ -5,6 +5,7 @@ import {
   applyAction,
   type GameState,
   getLegalActions,
+  getRank,
   type PlayerId,
   sameColumn,
   type ZoneNumber,
@@ -26,10 +27,12 @@ import type { Decklist } from "./types";
  * 1. #255: a monster card that loses the game with no card in your strategy zones (Godzilla (1995)
  *    EBP03-013: "if there are no cards in your strategy zones, you lose") is played only when,
  *    once played, you have a strategy card in play or can play one this turn.
- * 2. #246: in your zone 8 with the opponent's zone 8 occupied, when a play this turn can clear it
- *    and leave the invasion, clear it first: no invading into the blocker (it spends the turn's
- *    invasion, 8.6.2) and no passing; and inside that play, the answers that clear it (the
- *    blocker as the target, the option that destroys it).
+ * 2. #246: in your zone 8 (Paul, Nov 12: or zone 6 or 7, when the invasion can then reach it) with
+ *    the opponent's zone 8 occupied, when a play this turn can clear it and leave an invasion
+ *    that wins, clear it first: no invading into the blocker (it spends the turn's invasion,
+ *    8.6.2) and no passing; and inside that play, the answers that clear it (the blocker as the
+ *    target, the option that destroys it). From zone 7 that's King Ghidorah's line: Godzilla vs.
+ *    King Ghidorah EBP02-071 at awakening 6 destroys a rank 6 or lower blocker, then the invasion.
  * 3. #258: a card that works in the same column as the opponent's monster (Mecha-King Ghidorah
  *    EBP02-068: no invading, +3000) goes in that column when it can; otherwise in zone 1 or 2 (the
  *    columns the opponent's monster walks through, zones 4 to 7). An empty zone over stacking on
@@ -60,6 +63,10 @@ import type { Decklist } from "./types";
  * 10. #275: a play that advances the opponent's monster (Godzilla Landing EBP01-030) is made only
  *    when, after it, you can still make the counter this turn or have your zone 8 blocked (or can
  *    block it): pushing their monster toward zone 8 otherwise hands them the invasion win.
+ * 11. Paul, Nov 12 (Ian): against an opponent who can legally run Godzilla vs. King Ghidorah
+ *    EBP02-071 (a green deck) and whose monster can reach zone 7 (zone 5 or beyond), a zone 8
+ *    blocker of rank 6 or lower doesn't count (its awakening 6 destroys it), for rules 7, 9 and
+ *    10: it takes rank 7 or higher.
  */
 
 type Json = Record<string, unknown>;
@@ -137,7 +144,11 @@ function clearsZone8(state: GameState, action: Action, me: PlayerId): boolean {
         .filter((a) => a.type === "choose")
         .some((a) => reaches(advanceToDecision(applyAction(s, a))));
     if (choice) return false;
-    return s.turnPlayer === me && zone8Empty(s, me) && canInvade(s, me);
+    if (s.turnPlayer !== me || !zone8Empty(s, me)) return false;
+    // An invasion that wins now (5.13.1.1.2): from zone 8 any; from 6 or 7, one that reaches it.
+    return getLegalActions(s, me).some(
+      (a) => a.type === "invade" && winsNow(s, a, me),
+    );
   };
   try {
     return reaches(advanceToDecision(applyAction(state, action)));
@@ -158,7 +169,7 @@ function invadeIntoBlocker(
   const player = state.players.find((p) => p.id === me);
   if (
     state.turnPlayer !== me ||
-    player?.monsterPosition !== 8 ||
+    (player?.monsterPosition ?? 0) < 6 ||
     zone8Empty(state, me) ||
     state.turnFlags.invasionUsed
   )
@@ -455,13 +466,31 @@ const BLOCK_BUDGET = 400;
 /** Rule 7's search depth (own plays in a row). */
 const BLOCK_DEPTH = 5;
 
-const blocked = (state: GameState, me: PlayerId) =>
-  state.players
-    .find((p) => p.id === me)
-    ?.zones[8].some((stack) => {
-      const top = stack[stack.length - 1];
-      return top ? state.cards[top.cardId]?.type === "Battle" : false;
-    }) ?? false;
+/**
+ * Rule 11 (Paul, Nov 12): the rank a zone 8 blocker needs to hold: 7 against an opponent who can
+ * legally run Godzilla vs. King Ghidorah EBP02-071 (a green invading monster, public) and whose
+ * monster is in zone 5 or beyond (its awakening 6 destroys a rank 6 or lower blocker); else any.
+ */
+function blockerRankNeeded(state: GameState, me: PlayerId): number {
+  const opponent = state.players.find((p) => p.id !== me);
+  const top = opponent?.invadingMonsterZone.at(-1);
+  const card = top ? state.cards[top.cardId] : undefined;
+  const green = card?.colors.includes("Green") ?? false;
+  return green && (opponent?.monsterPosition ?? 0) >= 5 ? 7 : 0;
+}
+
+const blocked = (state: GameState, me: PlayerId) => {
+  const need = blockerRankNeeded(state, me);
+  return (
+    state.players
+      .find((p) => p.id === me)
+      ?.zones[8].some((stack) => {
+        const top = stack[stack.length - 1];
+        if (!top || state.cards[top.cardId]?.type !== "Battle") return false;
+        return need === 0 || (getRank(state, top) ?? 0) >= need;
+      }) ?? false
+  );
+};
 
 /**
  * Rule 7: the plays that start a way to put a battle card in your open zone 8 this turn, while the
@@ -514,34 +543,31 @@ function playsReaching(
     a.type === "playBattle" ||
     a.type === "activateStrategy" ||
     a.type === "playMonster";
-  const reaches = (s: GameState, depth: number): boolean => {
-    if (budget-- <= 0 || s.result || s.turnPlayer !== me) return false;
+  const step = (s: GameState, a: Action) => {
+    try {
+      return advanceToDecision(applyAction(s, a));
+    } catch {
+      return null;
+    }
+  };
+  // The bot's own answers are tried every way (an overload's keep, 11.5; a target), within the
+  // budget, like rule 2's look; a play counts one step of the depth.
+  const reaches = (s: GameState | null, depth: number): boolean => {
+    if (!s || budget-- <= 0 || s.result) return false;
+    const choice = s.pendingChoice;
+    if (choice?.player === me)
+      return getLegalActions(s, me)
+        .filter((a) => a.type === "choose")
+        .some((a) => reaches(step(s, a), depth));
+    if (choice || s.turnPlayer !== me) return false;
     if (goal(s)) return true;
     if (depth === 0) return false;
     return getLegalActions(s, me)
       .filter(playable)
-      .some((a) => {
-        try {
-          return reaches(
-            settleOwnChoices(advanceToDecision(applyAction(s, a)), me),
-            depth - 1,
-          );
-        } catch {
-          return false;
-        }
-      });
+      .some((a) => reaches(step(s, a), depth - 1));
   };
-  for (const a of actions.filter(playable)) {
-    try {
-      const after = settleOwnChoices(
-        advanceToDecision(applyAction(state, a)),
-        me,
-      );
-      if (reaches(after, BLOCK_DEPTH - 1)) found.add(a);
-    } catch {
-      continue;
-    }
-  }
+  for (const a of actions.filter(playable))
+    if (reaches(step(state, a), BLOCK_DEPTH - 1)) found.add(a);
   return found;
 }
 
