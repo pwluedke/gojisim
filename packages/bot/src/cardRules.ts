@@ -9,7 +9,13 @@ import {
   sameColumn,
   type ZoneNumber,
 } from "@gojisim/engine";
-import { columnCard, counterMadeWith, counterOnly, counters } from "./rules";
+import {
+  boostedZones,
+  columnCard,
+  counterMadeWith,
+  counterOnly,
+  counters,
+} from "./rules";
 import type { Decklist } from "./types";
 
 /**
@@ -43,6 +49,9 @@ import type { Decklist } from "./types";
  *    where another rule holds them (#265: the held monster cards whose rage discards make
  *    Godzilla Against Mechagodzilla playable), and every other move waits (passing too), but an
  *    invasion that wins now.
+ * 8. #272: a battle card whose ability works only in some zones (Godzilla, King of the Monsters
+ *    EBP01-075: protected in zones 1-5) is played in one of them when it can be (Paul's rule 6
+ *    only leans that way, as a prior). Blocking an open zone 8 (rule 7) still comes first.
  */
 
 type Json = Record<string, unknown>;
@@ -483,6 +492,33 @@ export function blockingPlays(
   return found;
 }
 
+/** Rule 8: plays of zone-limited cards outside their zones, while a play inside them is legal. */
+function zoneLimitedPlays(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  if (state.pendingChoice) return [];
+  const player = state.players.find((p) => p.id === me);
+  if (!player) return [];
+  const dead: Action[] = [];
+  const byCard = new Map<string, Extract<Action, { type: "playBattle" }>[]>();
+  for (const a of actions)
+    if (a.type === "playBattle")
+      byCard.set(a.cardInstanceId, [
+        ...(byCard.get(a.cardInstanceId) ?? []),
+        a,
+      ]);
+  for (const [id, plays] of byCard) {
+    const c = player.hand.find((h) => h.instanceId === id);
+    const zones = boostedZones(c ? state.cards[c.cardId] : undefined);
+    if (zones.length === 0) continue;
+    if (!plays.some((a) => zones.includes(a.zone))) continue;
+    for (const a of plays) if (!zones.includes(a.zone)) dead.push(a);
+  }
+  return dead;
+}
+
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
 export function cardRulesDead(
   state: GameState,
@@ -521,6 +557,7 @@ export function cardRulesDead(
   for (const action of recurringPlays(state, actions, me)) dead.add(action);
   for (const action of spentCounters(state, actions, me)) dead.add(action);
   for (const action of slowInvasions(state, actions, me, own)) dead.add(action);
+  for (const action of zoneLimitedPlays(state, actions, me)) dead.add(action);
   // Rule 7: a way to block zone 8 is taken: every other move waits (but an invasion that wins
   // now), and it outranks the others' holds.
   const blocks = blockingPlays(state, actions, me);

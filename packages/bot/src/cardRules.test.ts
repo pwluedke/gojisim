@@ -541,5 +541,25 @@ describe(
         blockingPlays(held.state, getLegalActions(held.state, "P1"), "P1").size,
       ).toBe(0);
     });
+
+    it("#272: Godzilla, King of the Monsters EBP01-075 (protected in zones 1-5) goes in zones 1-5 when it can", () => {
+      const { state, p1 } = withGodzilla1995();
+      // Their monster far back, so your zone 8 isn't threatened (rule 7 stays out of it).
+      (state.players[1] as PlayerState).monsterPosition = 3;
+      p1.monsterPosition = 6;
+      const card = add(state, { ...real("EBP01-075"), rank: 1 }, "P1");
+      p1.hand = [card];
+      const legal = getLegalActions(state, "P1");
+      const dead = cardRulesDead(state, legal, "P1");
+      const left = legal
+        .filter((a) => a.type === "playBattle" && !dead.has(a))
+        .map((a) => (a.type === "playBattle" ? a.zone : 0))
+        .sort();
+      expect(left.length).toBeGreaterThan(0);
+      for (const z of left) expect(z).toBeLessThanOrEqual(5);
+      expect(legal.some((a) => a.type === "playBattle" && a.zone === 7)).toBe(
+        true,
+      );
+    });
   },
 );
