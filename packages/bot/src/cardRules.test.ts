@@ -21,6 +21,7 @@ import {
   cardRulesDead,
   enterAwakening,
   losesWithoutStrategy,
+  reachZone,
   recursFromDiscard,
   rescuedPlays,
   slowCounterDeck,
@@ -760,6 +761,47 @@ describe(
       };
       expect(early(3)).toBe(true);
       expect(early(4)).toBe(false);
+    });
+
+    it("rule 14 (#263): on turns 1-2 a rage discard that isn't needed is left out, and passing is freed; from turn 3 nothing changes", () => {
+      const at = (turn: number) => {
+        const { state, p1 } = withGodzilla1995();
+        state.turn = turn;
+        (state.players[1] as PlayerState).monsterPosition = 2;
+        p1.hand = [add(state, real("EBP01-008"), "P1")];
+        const legal = getLegalActions(state, "P1");
+        const rage = legal.filter((a) => a.type === "gainRage");
+        expect(rage.length).toBeGreaterThan(0);
+        return {
+          dead: rage.every((a) => cardRulesDead(state, legal, "P1").has(a)),
+          passFreed: [...rescuedPlays(state, legal, "P1")].some(
+            (a) => a.type === "pass",
+          ),
+        };
+      };
+      expect(at(1)).toEqual({ dead: true, passFreed: true });
+      expect(at(2)).toEqual({ dead: true, passFreed: true });
+      expect(at(3)).toEqual({ dead: false, passFreed: false });
+    });
+
+    it("rule 15 (#264): Godzilla (1954) EBP01-004 (on reaching zone 8, destroy all) isn't stacked while the monster can't reach zone 8 this turn; from zone 6 it can (invasion to 7, end-phase advance to 8)", () => {
+      expect(reachZone("EBP01-004")).toBe(8);
+      expect(reachZone("ESD01-004")).toBeNull();
+      const held = (at: ZoneNumber) => {
+        const { state, p1 } = withGodzilla1995();
+        p1.monsterPosition = at;
+        (state.players[1] as PlayerState).monsterPosition = 2;
+        p1.hand = [
+          add(state, real("EBP01-004"), "P1"),
+          add(state, real("ESD01-016"), "P1"),
+        ];
+        const legal = getLegalActions(state, "P1");
+        const stack = legal.find((a) => a.type === "playMonster");
+        if (!stack) throw new Error("Godzilla (1954) can't be stacked here");
+        return cardRulesDead(state, legal, "P1").has(stack);
+      };
+      expect(held(3)).toBe(true);
+      expect(held(6)).toBe(false);
     });
   },
 );
