@@ -21,7 +21,8 @@ export const PRESETS = { easy: 20, medium: 55, hard: 90 } as const;
  * M13c (#75): from Hard up, new search nodes start with `HARD_PRIOR_VISITS` virtual visits at
  * their static evaluation; Easy and Medium keep none. #175: from Hard up, Paul's play rules act at
  * the root (`rules.ts`). #191: from Hard up, the deck recognizer draws the opponent's hidden cards
- * toward a recognized archetype (`recognizer.ts`).
+ * toward a recognized archetype (`recognizer.ts`). Paul, Nov 12: from Medium up, the card-play rules
+ * (`cardRules.ts`), without the rest of Paul's rules.
  */
 export function difficultySettings(difficulty: number): {
   iterations: number;
@@ -32,6 +33,7 @@ export function difficultySettings(difficulty: number): {
   priorVisits: number;
   rules: number;
   recognizer: number;
+  cardRules: number;
 } {
   const t = Math.max(0, Math.min(100, difficulty)) / 100;
   const round = (x: number) => Math.round(x * 1000) / 1000;
@@ -44,6 +46,8 @@ export function difficultySettings(difficulty: number): {
     priorVisits: difficulty >= PRESETS.hard ? HARD_PRIOR_VISITS : 0,
     rules: difficulty >= PRESETS.hard ? 1 : 0,
     recognizer: difficulty >= PRESETS.hard ? 1 : 0,
+    // Paul, Nov 12: the card-play rules from Medium up (`cardRules.ts`); Hard has them with `rules`.
+    cardRules: difficulty >= PRESETS.medium ? 1 : 0,
   };
 }
 

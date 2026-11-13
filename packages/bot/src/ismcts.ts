@@ -22,6 +22,7 @@ import { finalWarsDead, mxPlanVerdict } from "./mxPlan";
 import { mxPlanV2Verdict } from "./mxPlanV2";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
 import { deadKeys } from "./prune";
+import { cardRulesDead } from "./cardRules";
 import { applyRules } from "./rules";
 import type { Bot, BotInput, BotSettings } from "./types";
 
@@ -62,6 +63,8 @@ export interface IsmctsSettings {
   rules: number;
   /** #191: 1 draws the opponent's hidden cards toward a recognized archetype (`recognizer.ts`). */
   recognizer: number;
+  /** Paul, Nov 12: 1 applies the card-play rules (`cardRules.ts`), also on with `rules`. */
+  cardRules: number;
   /** Paul's Constructed Future plan (`cfPlan.ts`), with `rules` on: 1 (the default) on, 0 off. */
   cfPlan: number;
   /**
@@ -87,6 +90,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   priorVisits: 0,
   rules: 0,
   recognizer: 0,
+  cardRules: 0,
   cfTarget: "auto",
   cfPlan: 1,
   mxPlan: 2,
@@ -377,6 +381,28 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         }
       }
     }
+    // Paul, Nov 12: the card-play rules (Medium and Hard), while they leave a move that isn't
+    // conceding.
+    if (iterations === 1 && (settings.cardRules > 0 || settings.rules > 0)) {
+      const first = state;
+      const unsafe = cardRulesDead(first, input.legalActions, me);
+      const keys = new Set([
+        ...dead,
+        ...[...unsafe].map((a) => actionKey(first, a)),
+      ]);
+      if (
+        unsafe.size > 0 &&
+        input.legalActions.some(
+          (a) => a.type !== "concede" && !keys.has(actionKey(first, a)),
+        )
+      ) {
+        dead = keys;
+        avoid = new Set([
+          ...avoid,
+          ...input.legalActions.flatMap((a, i) => (unsafe.has(a) ? [i] : [])),
+        ]);
+      }
+    }
     if (iterations === 1 && settings.rules > 0 && settings.mxPlan > 0)
       favored = mxPlanFavored(
         state,
@@ -468,6 +494,17 @@ export interface Decision {
   search: ReturnType<typeof search> | null;
 }
 
+/** The moves the card-play rules allow (`cardRules.ts`), or all of them when they'd leave none. */
+function cardRulesSafe(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const unsafe = cardRulesDead(state, actions, me);
+  const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
+  return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
+}
+
 /**
  * The moves a blunder pick (#132, no search) chooses among with Paul's rules on (#189): what the
  * general rules and the plans leave, as at the search root (#223), and of those the Monster X
@@ -492,7 +529,9 @@ export function blunderAllowed(
         (a) => !keep.killed.has(a) && !keep.dead.has(keyOf(a)),
       )
     : [...legalActions];
-  const allowed = kept.length > 0 ? kept : [...legalActions];
+  const safe = cardRulesSafe(state, kept, me);
+  const allowed =
+    safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
   if (settings.mxPlan === 0) return allowed;
   const favored = mxPlanFavored(state, allowed, me, keyOf, settings.mxPlan);
   const planned = allowed.filter((a) => favored.has(keyOf(a)));
@@ -510,7 +549,8 @@ export function decide(input: BotInput): Decision {
     };
   const settings = ismctsSettings(input.settings);
   if (settings.blunder > 0 && rng() < settings.blunder) {
-    // #189: with Paul's rules on, a blunder picks only among the moves the rules allow.
+    // #189: with Paul's rules on, a blunder picks only among the moves the rules allow; with
+    // the card-play rules (Medium), never a move they leave out.
     const allowed =
       settings.rules > 0
         ? blunderAllowed(
@@ -519,7 +559,13 @@ export function decide(input: BotInput): Decision {
             input.view.viewer as PlayerId,
             settings,
           )
-        : [...legalActions];
+        : settings.cardRules > 0
+          ? cardRulesSafe(
+              determinize(input.view, input.knowledge, rng),
+              legalActions,
+              input.view.viewer as PlayerId,
+            )
+          : [...legalActions];
     return {
       action:
         settings.uniformBlunder > 0
