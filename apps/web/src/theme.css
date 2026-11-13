@@ -152,6 +152,8 @@
     radial-gradient(rgb(26 20 16 / 10%) 1.2px, transparent 1.5px) 0 0 / 9px 9px,
     #e7f0ee;
   --header-display: flex;
+  /* #279: the header shows the player, so a page doesn't show it again. */
+  --page-player-display: none;
   /* The mat border's width, counted in the card size (`--board-chrome`). */
   --mat-frame: 3px;
   --concede-padding: 4px 8px;
@@ -283,6 +285,7 @@
   --mat-opp-shadow: none;
   --mat-opp-bg: none;
   --header-display: none;
+  --page-player-display: block;
   /* The mat border's width, counted in the card size (`--board-chrome`). */
   --mat-frame: 0px;
   --concede-padding: 0;
@@ -412,6 +415,7 @@
   --mat-opp-shadow: none;
   --mat-opp-bg: none;
   --header-display: none;
+  --page-player-display: block;
   /* The mat border's width, counted in the card size (`--board-chrome`). */
   --mat-frame: 0px;
   --concede-padding: 0;
@@ -541,6 +545,7 @@
   --mat-opp-shadow: none;
   --mat-opp-bg: none;
   --header-display: none;
+  --page-player-display: block;
   /* The mat border's width, counted in the card size (`--board-chrome`). */
   --mat-frame: 0px;
   --concede-padding: 0;

@@ -1,11 +1,17 @@
 .history {
   max-width: 640px;
   margin: 6vh auto;
+  /* #279: a 16px gutter on a phone, so the panel's border stays on screen. */
+  margin-inline: max(16px, calc((100% - 640px) / 2));
   padding: var(--space-6);
   background: var(--color-panel);
   border: var(--panel-border-width) solid var(--color-panel-border);
   border-radius: var(--radius);
   box-shadow: var(--panel-shadow);
+}
+
+.player {
+  display: var(--page-player-display, block);
 }
 
 .title {

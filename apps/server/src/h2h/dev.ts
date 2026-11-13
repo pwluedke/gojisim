@@ -1,24 +1,23 @@
-import type { Server as HttpServer, IncomingMessage } from "node:http";
-import { openDb } from "../db/db.js";
-import type { Player } from "../players.js";
+import type { Server as HttpServer } from "node:http";
+import type { DevAccounts } from "../devAccounts.js";
 import { replayMiddleware } from "./replayRoute.js";
 import { attachH2h, type H2h } from "./socket.js";
 
 /*
  * Head to head in the Vite dev server (M9b, local work and the e2e tests): the same rooms and
- * socket on the dev server's port, with an in-memory database and the dev sign-in's players
- * (`/auth/dev?as=<name>`). `vite.config.ts` loads it in `configureServer`, which a build never
+ * socket on the dev server's port, with the dev accounts (#279: the dev sign-in's players and the
+ * database My games reads, `devAccounts.ts`). `vite.config.ts` loads it in `configureServer`, which a build never
  * runs; the deployed server attaches `socket.ts` itself with Discord sign-in.
  */
 export function attachDevH2h(
   server: HttpServer,
   {
-    devPlayerOf,
+    accounts,
     roomsDir,
     recordsDir,
     claimAfterMs,
   }: {
-    devPlayerOf: (req: IncomingMessage) => { id: string; name: string } | null;
+    accounts: DevAccounts;
     roomsDir: string;
     recordsDir: string;
     /** Playwright shortens the claim time (`H2H_CLAIM_MS`). */
@@ -29,27 +28,10 @@ export function attachDevH2h(
   /** M9c: Replay of finished games, for the dev server's middlewares. */
   replay: ReturnType<typeof replayMiddleware>;
 } {
-  const db = openDb(":memory:", { log: () => {} });
-  const add = db.prepare(
-    "INSERT INTO players (id, display_name, created_at, last_seen_at) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET display_name = excluded.display_name",
-  );
+  const { db } = accounts;
   const h2h = attachH2h(server, {
     db,
-    playerOf: (req): Player | null => {
-      const dev = devPlayerOf(req);
-      if (!dev) return null;
-      const now = Date.now();
-      add.run(dev.id, dev.name, now, now);
-      return {
-        id: dev.id,
-        discordId: null,
-        displayName: dev.name,
-        avatarUrl: null,
-        createdAt: now,
-        lastSeenAt: now,
-        rolesCheckedAt: null,
-      };
-    },
+    playerOf: accounts.playerOf,
     roomsDir,
     recordsDir,
     ...(claimAfterMs ? { claimAfterMs } : {}),
@@ -58,8 +40,8 @@ export function attachDevH2h(
     db,
     recordsDir,
     playerOf: (req) => {
-      const dev = devPlayerOf(req);
-      return dev ? { id: dev.id } : null;
+      const player = accounts.playerOf(req);
+      return player ? { id: player.id } : null;
     },
   });
   return { h2h, replay };
