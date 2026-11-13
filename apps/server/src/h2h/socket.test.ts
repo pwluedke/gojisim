@@ -513,4 +513,58 @@ describe("head to head over Socket.io (M9a)", () => {
     await ask(carol, "join", { gameId, deck: ESD02 });
     expect(await ask(bob, "lobby")).toEqual({ ok: true, games: [] });
   });
+
+  it("#251: at game over, a rematch offer and a yes (one keeps their deck, one picks another) make a new game for the same seats, First / Second picked again", async () => {
+    const { client } = await start();
+    const { alice, bob, gameId } = await running(client);
+    const over = nextState(alice, (m) => m.phase === "over");
+    await ask(bob, "concede", { gameId });
+    expect((await over).rematch).toMatchObject({ by: null, canOffer: true });
+    const offered = nextState(bob, (m) => m.rematch.by === "P1");
+    expect(await ask(alice, "rematch", { gameId, deck: "keep" })).toEqual({
+      ok: true,
+    });
+    expect((await offered).rematch.youReady).toBe(false);
+    const made = [
+      nextState(alice, (m) => m.rematch.gameId !== null),
+      nextState(bob, (m) => m.rematch.gameId !== null),
+    ];
+    expect(await ask(bob, "rematch", { gameId, deck: ESD01 })).toEqual({
+      ok: true,
+    });
+    const [a, b] = await Promise.all(made);
+    const next = a?.rematch.gameId as string;
+    expect(next).not.toBe(gameId);
+    expect(b?.rematch.gameId).toBe(next);
+    // The new game: the same seats, at the First / Second pick, Bob with his new deck.
+    const picking = nextState(bob, (m) => m.gameId === next);
+    expect(await ask(bob, "rejoin", { gameId: next })).toMatchObject({
+      ok: true,
+      seat: "P2",
+    });
+    const m = await picking;
+    expect(m.phase).toBe("picking");
+    expect(m.yourDeckName).toBe("ESD01 official");
+    expect(m.names).toEqual({ P1: "Alice", P2: "Bob" });
+    expect(await ask(alice, "rejoin", { gameId: next })).toMatchObject({
+      ok: true,
+      seat: "P1",
+    });
+  });
+
+  it("#251: a decline tells the offerer; a rematch during the game is refused", async () => {
+    const { client } = await start();
+    const { alice, bob, gameId } = await running(client);
+    expect(await ask(alice, "rematch", { gameId, deck: "keep" })).toEqual({
+      ok: false,
+      error: "no-rematch",
+    });
+    const over = nextState(alice, (m) => m.phase === "over");
+    await ask(bob, "concede", { gameId });
+    await over;
+    await ask(alice, "rematch", { gameId, deck: "keep" });
+    const declined = nextState(alice, (m) => m.rematch.declined === "P2");
+    expect(await ask(bob, "rematch-decline", { gameId })).toEqual({ ok: true });
+    expect((await declined).rematch.gameId).toBeNull();
+  });
 });

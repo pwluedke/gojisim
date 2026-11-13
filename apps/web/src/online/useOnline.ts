@@ -43,6 +43,10 @@ export interface OnlinePlay {
   cancel: () => Promise<boolean>;
   /** Asks the server for a past board the browser hasn't got (the history view). */
   ensureBoard: (index: number) => void;
+  /** #251: offers or accepts a rematch, with the same deck (`"keep"`) or another. */
+  rematch: (deck: DeckChoice | "keep") => void;
+  /** #251: declines the other player's rematch offer. */
+  declineRematch: () => void;
 }
 
 export function useOnline(gameId: string): OnlinePlay {
@@ -133,6 +137,8 @@ export function useOnline(gameId: string): OnlinePlay {
     answerUndo: (accept) => void send("undo-answer", { accept }),
     claim: () => void send("claim"),
     cancel: async () => (await send("cancel"))?.ok === true,
+    rematch: (deck) => void send("rematch", { deck }),
+    declineRematch: () => void send("rematch-decline"),
     ensureBoard: (index) => {
       const current = gameRef.current;
       if (!current || current.models[index] || asked.current.has(index)) return;
