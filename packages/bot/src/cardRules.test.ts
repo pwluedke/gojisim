@@ -21,6 +21,7 @@ import {
   cardRulesDead,
   losesWithoutStrategy,
   recursFromDiscard,
+  rescuedPlays,
   slowCounterDeck,
 } from "./cardRules";
 import type { Decklist } from "./types";
@@ -560,6 +561,62 @@ describe(
       expect(legal.some((a) => a.type === "playBattle" && a.zone === 7)).toBe(
         true,
       );
+    });
+
+    it("#274: under threat, with Godzilla, King of the Monsters (+3000 per rage) on the board, the rage discards that make the counter are freed from Paul's rule 2 holds", () => {
+      const { state, p1 } = exposed();
+      // Zone 8 already blocked, so it's the counter that matters, not rule 7.
+      p1.zones[8] = [
+        [
+          add(
+            state,
+            { ...real("ESD02-011"), rank: 1, counterOrThreat: 0 },
+            "P1",
+          ),
+        ],
+      ];
+      p1.zones[1] = [[add(state, { ...real("EBP01-075"), rank: 1 }, "P1")]];
+      p1.hand = p1.hand.filter(
+        (c) => state.cards[c.cardId]?.type === "Monster",
+      );
+      const opp = state.players[1] as PlayerState;
+      // A big threat, then counter power filled to 4000 short: two more rage (+6000 on
+      // EBP01-075, 3000 each) make the counter.
+      opp.rage = 0;
+      while (getThreat(state, opp.id) - counterPowerOf(state, p1) < 10000)
+        opp.rage++;
+      const filler = add(
+        state,
+        { ...real("ESD01-008"), rank: 1, counterOrThreat: 0 },
+        "P1",
+      );
+      p1.zones[2] = [[filler]];
+      // The filler's printed counter power, set so the counter is 4000 short (its own bonuses
+      // counted as they stand).
+      const short = getThreat(state, opp.id) - counterPowerOf(state, p1) - 4000;
+      const setFiller = (value: number) => {
+        state.cards = {
+          ...state.cards,
+          [filler.cardId]: {
+            ...(state.cards[filler.cardId] as Card),
+            counterOrThreat: value,
+          },
+        };
+      };
+      // A card with no ability: its printed counter power is all it adds.
+      setFiller(short);
+      const gap = getThreat(state, opp.id) - counterPowerOf(state, p1);
+      expect(gap).toBeGreaterThan(0);
+      expect(gap).toBeLessThanOrEqual(6000);
+      const legal = getLegalActions(state, "P1");
+      const rescued = rescuedPlays(state, legal, "P1");
+      // The rage discards (and a monster play, +1 rage by 8.5.1.1) are ways to make it.
+      expect([...rescued].some((a) => a.type === "gainRage")).toBe(true);
+      expect(
+        [...rescued].every(
+          (a) => a.type === "gainRage" || a.type === "playMonster",
+        ),
+      ).toBe(true);
     });
   },
 );

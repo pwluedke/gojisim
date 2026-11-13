@@ -52,6 +52,11 @@ import type { Decklist } from "./types";
  * 8. #272: a battle card whose ability works only in some zones (Godzilla, King of the Monsters
  *    EBP01-075: protected in zones 1-5) is played in one of them when it can be (Paul's rule 6
  *    only leans that way, as a prior). Blocking an open zone 8 (rule 7) still comes first.
+ * 9. #274: with the opponent's monster in reach of your zone 8 and the counter not made yet, the
+ *    plays that start a way to make it this turn (rage discards count: Godzilla, King of the
+ *    Monsters EBP01-075 gains +3000 counter power per rage) are freed from the holds of Paul's
+ *    rule 2. Unlike rule 7 it forces nothing: the search still picks, and the card rules'
+ *    placements stand.
  */
 
 type Json = Record<string, unknown>;
@@ -424,7 +429,25 @@ function winsNow(state: GameState, action: Action, me: PlayerId): boolean {
   }
 }
 
-/** Rule 7's search budget (states visited) for a way to block zone 8 this turn. */
+/**
+ * Rules 7 and 9: the plays freed from Paul's rules' holds: a block's (rule 7), else the counter's
+ * (rule 9) that the card rules themselves don't leave out.
+ */
+export function rescuedPlays(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+  own?: Decklist,
+): Set<Action> {
+  const blocks = blockingPlays(state, actions, me);
+  if (blocks.size > 0) return blocks;
+  const dead = cardRulesDead(state, actions, me, own);
+  return new Set(
+    [...counterPlays(state, actions, me)].filter((a) => !dead.has(a)),
+  );
+}
+
+/** Rules 7 and 9's search budget (states visited) for a way to reach their goal this turn. */
 const BLOCK_BUDGET = 400;
 /** Rule 7's search depth (own plays in a row). */
 const BLOCK_DEPTH = 5;
@@ -447,14 +470,41 @@ export function blockingPlays(
   me: PlayerId,
 ): Set<Action> {
   const opponent = state.players.find((p) => p.id !== me);
-  const found = new Set<Action>();
   if (
     state.pendingChoice ||
     state.turnPlayer !== me ||
     blocked(state, me) ||
     (opponent?.monsterPosition ?? 1) < 6
   )
-    return found;
+    return new Set();
+  return playsReaching(state, actions, me, (s) => blocked(s, me));
+}
+
+/** Rule 9: the plays that start a way to make the counter this turn, while it isn't made. */
+export function counterPlays(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Set<Action> {
+  const opponent = state.players.find((p) => p.id !== me);
+  if (
+    state.pendingChoice ||
+    state.turnPlayer !== me ||
+    (opponent?.monsterPosition ?? 1) < 6 ||
+    counters(state, me)
+  )
+    return new Set();
+  return playsReaching(state, actions, me, (s) => counters(s, me));
+}
+
+/** Rules 7 and 9: the first plays of the short sequences of own plays that reach `goal` this turn. */
+function playsReaching(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+  goal: (s: GameState) => boolean,
+): Set<Action> {
+  const found = new Set<Action>();
   let budget = BLOCK_BUDGET;
   const playable = (a: Action) =>
     a.type === "gainRage" ||
@@ -463,7 +513,7 @@ export function blockingPlays(
     a.type === "playMonster";
   const reaches = (s: GameState, depth: number): boolean => {
     if (budget-- <= 0 || s.result || s.turnPlayer !== me) return false;
-    if (blocked(s, me)) return true;
+    if (goal(s)) return true;
     if (depth === 0) return false;
     return getLegalActions(s, me)
       .filter(playable)
@@ -559,7 +609,7 @@ export function cardRulesDead(
   for (const action of slowInvasions(state, actions, me, own)) dead.add(action);
   for (const action of zoneLimitedPlays(state, actions, me)) dead.add(action);
   // Rule 7: a way to block zone 8 is taken: every other move waits (but an invasion that wins
-  // now), and it outranks the others' holds.
+  // now), and it outranks the others' holds. (Rule 9 only frees holds, in `rescuedPlays`.)
   const blocks = blockingPlays(state, actions, me);
   if (blocks.size > 0) {
     for (const a of actions)
