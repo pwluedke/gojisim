@@ -71,6 +71,36 @@ test("#151: My games lists the player's games, and Load replays one in /play", a
   await expect(page.getByTestId("your-hand-count")).toHaveText("5");
 });
 
+test("#244: a game against the bot loaded from My games carries on: after the player's turn, the bot takes its own, never 'Paused'", async ({
+  page,
+}) => {
+  await page.route(`**/api/games/${GAME}`, (route) =>
+    route.fulfill({ contentType: "application/json", body: record }),
+  );
+  // The fixture: P1 (human) at its play timing, P2 a Medium bot.
+  await page.goto(`/play?mode=bot&load=${GAME}`);
+  await expect(page.getByTestId("prompt-step")).toContainText("your turn");
+  const turn = Number(await page.getByTestId("turn").textContent());
+  // Pass (and confirm) until P1's turn ends.
+  const deadline = Date.now() + 60_000;
+  while (!(await page.getByTestId("bot-thinking").isVisible())) {
+    if (Date.now() > deadline) throw new Error("P1's turn didn't end");
+    const yes = page.getByTestId("confirm-yes");
+    const pass = page.getByTestId("pass");
+    if (await yes.isVisible()) await yes.click();
+    else if (await pass.isVisible()) await pass.click();
+    else await page.waitForTimeout(100);
+  }
+  await expect(page.getByTestId("bot-thinking")).not.toContainText("Paused");
+  // The bot played its turn: it's P1's turn again, two turns on.
+  await expect
+    .poll(async () => Number(await page.getByTestId("turn").textContent()), {
+      timeout: 60_000,
+    })
+    .toBe(turn + 2);
+  await expect(page.getByTestId("prompt-step")).toContainText("your turn");
+});
+
 test("M9a: an online game lists with its result and 'online', but without Load (its record holds the opponent's deck)", async ({
   page,
 }) => {
