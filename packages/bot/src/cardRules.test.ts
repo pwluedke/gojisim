@@ -930,5 +930,40 @@ describe(
         if (a.type === "playBattle" && a.zone === 4)
           expect(dead2.has(a)).toBe(true);
     });
+
+    it("#289 (Keldroc's record): Mecha-King Ghidorah EBP02-068 still goes in the opponent monster's column when your own Dorat (rule 17's [revenge]) is there, and not to zone 8", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opponent = state.players[1] as PlayerState;
+      opponent.monsterPosition = 6;
+      p1.monsterPosition = 4;
+      p1.discard = Array.from({ length: 9 }, () =>
+        add(state, real("EBP02-047"), "P1"),
+      );
+      p1.hand = [add(state, real("EBP02-068"), "P1")];
+      for (const z of [1, 2, 3, 4, 5, 6, 7, 8] as const) p1.zones[z] = [];
+      const first = getLegalActions(state, "P1").filter(
+        (a): a is Extract<typeof a, { type: "playBattle" }> =>
+          a.type === "playBattle",
+      );
+      const column = first.find((a) => {
+        const top = advanceToDecision(
+          applyAction(state, a),
+        ).players[1]!.invadingMonsterZone.at(-1)!;
+        return hasFlag(
+          advanceToDecision(applyAction(state, a)),
+          top,
+          "cannotInvade",
+        );
+      });
+      if (!column) throw new Error("no column zone");
+      // Your own Dorat in the column zone and in zone 8.
+      p1.zones[column.zone] = [[add(state, real("EBP02-058"), "P1")]];
+      p1.zones[8] = [[add(state, real("EBP02-058"), "P1")]];
+      const legal = getLegalActions(state, "P1");
+      const dead = cardRulesDead(state, legal, "P1");
+      for (const a of legal)
+        if (a.type === "playBattle")
+          expect(dead.has(a)).toBe(a.zone !== column.zone);
+    });
   },
 );

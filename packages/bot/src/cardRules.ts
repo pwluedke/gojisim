@@ -88,7 +88,8 @@ import type { Decklist } from "./types";
  *    card to hit) isn't picked while another mode does something.
  * 17. #288 (Keldroc, Nov 13): a [revenge] card (Dorat EBP02-058) goes where it gets destroyed:
  *    ahead of your own monster, whose advance crushes it (11.3), an empty zone first, never zone 8;
- *    and nothing goes on top of your own [revenge] card while another zone is open.
+ *    and nothing goes on top of your own [revenge] card while another zone is open (but a column
+ *    card, which rule 3 places: Mecha-King Ghidorah in the opponent monster's column, #289).
  */
 
 type Json = Record<string, unknown>;
@@ -311,9 +312,10 @@ function revengePlays(
       ]);
   for (const plays of byCard.values()) {
     const first = plays[0];
-    const revenge =
-      first !== undefined &&
-      hasRevenge(dataOf(first.cardInstanceId)?.deckCardNumber ?? "");
+    const data = first ? dataOf(first.cardInstanceId) : undefined;
+    // A column card's zone is rule 3's call (its column outweighs the card it covers).
+    if (columnCard(data)) continue;
+    const revenge = hasRevenge(data?.deckCardNumber ?? "");
     const ahead = (z: ZoneNumber) => z > at && z < 8;
     const tiers: ((z: ZoneNumber) => boolean)[] = revenge
       ? [(z) => ahead(z) && empty(z), (z) => ahead(z) && !coversRevenge(z)]
