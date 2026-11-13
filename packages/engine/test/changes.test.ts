@@ -25,16 +25,22 @@ const kinds = (state: GameState, instanceId: string) =>
   cardChanges(state, instanceId).map((c) => c.label);
 
 describe("cardChanges (M5d change badge)", () => {
-  it("12.5.2: a Burst play shows its rank change and the end-phase discard", () => {
+  it("12.5.2: a Burst play shows its rank change and the end-phase discard (and #245: the play's +1 rage as threat)", () => {
     const state = atPlayTiming();
     const me = turnPlayer(state);
     monster(state, me, real("ESD01-002"), 2); // rank II
     const after = playMonster(state, inHand(state, me, real("ESD01-006")));
+    const rage = turnPlayer(after).rage;
     expect(cardChanges(after, top(turnPlayer(after)).instanceId)).toEqual([
       {
         kind: "burst",
         label: "Burst R2→R3 · discard at end phase",
         detail: "Burst R2→R3 · discard at end phase (12.5.2)",
+      },
+      {
+        kind: "threat",
+        label: `Threat +${5000 * rage}`,
+        detail: `Threat +${5000 * rage} from ${rage} rage (3.4.5)`,
       },
     ]);
   });
@@ -54,7 +60,7 @@ describe("cardChanges (M5d change badge)", () => {
     expect(cardChanges(state, elsewhere.instanceId)).toEqual([]);
   });
 
-  it("10.8.1: a rank modifier (test fixture ability) and a threat modifier (ESD01-003 with 2 rage)", () => {
+  it("10.8.1, 3.4.5: a rank modifier (test fixture ability), and a threat tag with every addition (ESD01-003's +5000 with 2 rage, and the rage's +10000)", () => {
     const state = atPlayTiming();
     const me = turnPlayer(state);
     const source = battleCard({ id: 970001 });
@@ -81,11 +87,33 @@ describe("cardChanges (M5d change badge)", () => {
       me.rage = 2;
       expect(kinds(state, godzilla.instanceId)).toEqual([
         "Rank +1",
-        "Threat +5000",
+        "Threat +15000",
       ]);
+      expect(
+        cardChanges(state, godzilla.instanceId).find((c) => c.kind === "threat")
+          ?.detail,
+      ).toBe(
+        "Threat +5000 from continuous effects (10.8.1), +10000 from 2 rage (3.4.5)",
+      );
     } finally {
       setTestAbilities(source.deckCardNumber, null);
     }
+  });
+
+  it("#245, 3.4.5: rage alone makes a threat tag on the invading monster, and none on a card that isn't the invading monster", () => {
+    const state = atPlayTiming();
+    const me = turnPlayer(state);
+    const godzilla = monster(state, me, real("ESD01-002"), 2);
+    me.rage = 1;
+    expect(cardChanges(state, godzilla.instanceId)).toEqual([
+      {
+        kind: "threat",
+        label: "Threat +5000",
+        detail: "Threat +5000 from 1 rage (3.4.5)",
+      },
+    ]);
+    const card = place(state, me, battleCard({ id: 970003 }), 4);
+    expect(cardChanges(state, card.instanceId)).toEqual([]);
   });
 
   it("5.16.1: a card that cannot engage, and 5.17: a card played through Evolution", () => {
