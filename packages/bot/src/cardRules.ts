@@ -67,6 +67,9 @@ import type { Decklist } from "./types";
  *    EBP02-071 (a green deck) and whose monster can reach zone 7 (zone 5 or beyond), a zone 8
  *    blocker of rank 6 or lower doesn't count (its awakening 6 destroys it), for rules 7, 9 and
  *    10: it takes rank 7 or higher.
+ * 12. #130 (Tuscancow): an Evolution's pick (12.6.2) of a card no stronger than the one it stacks
+ *    on (counter power not higher: Battra (Larva) onto Battra (Larva)) is left out while a stronger
+ *    one or "done" is there.
  */
 
 type Json = Record<string, unknown>;
@@ -630,6 +633,36 @@ function unsafeAdvances(
   return dead;
 }
 
+/** Rule 12: Evolution picks no stronger than the card they'd stack on. */
+function weakEvolutions(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const choice = state.pendingChoice;
+  if (
+    choice?.player !== me ||
+    choice.kind !== "target" ||
+    choice.rule !== "12.6.2"
+  )
+    return [];
+  const base = sourceOf(state);
+  const floor = base?.counterOrThreat ?? null;
+  if (floor === null) return [];
+  const options = new Map(choice.options.map((o) => [o.id, o.cardId]));
+  const weak = actions.filter((a) => {
+    if (a.type !== "choose") return false;
+    const cardId = options.get(a.optionId);
+    if (cardId === null || cardId === undefined) return false;
+    const card = state.cards[cardId];
+    return (card?.counterOrThreat ?? 0) <= floor;
+  });
+  // Something stays: a stronger pick, or "done".
+  return actions.some((a) => a.type === "choose" && !weak.includes(a))
+    ? weak
+    : [];
+}
+
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
 export function cardRulesDead(
   state: GameState,
@@ -670,6 +703,7 @@ export function cardRulesDead(
   for (const action of slowInvasions(state, actions, me, own)) dead.add(action);
   for (const action of zoneLimitedPlays(state, actions, me)) dead.add(action);
   for (const action of unsafeAdvances(state, actions, me)) dead.add(action);
+  for (const action of weakEvolutions(state, actions, me)) dead.add(action);
   // Rule 7: a way to block zone 8 is taken: every other move waits (but an invasion that wins
   // now), and it outranks the others' holds. (Rule 9 only frees holds, in `rescuedPlays`.)
   const blocks = blockingPlays(state, actions, me);

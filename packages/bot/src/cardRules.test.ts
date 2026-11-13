@@ -687,5 +687,56 @@ describe(
         legal.some((a) => a.type === "activateStrategy" && !dead.has(a)),
       ).toBe(true);
     });
+
+    it("rule 12 (#130, 12.6.2): an Evolution's pick no stronger than the evolving card (Battra (Larva) onto Battra (Larva)) is left out; Battra (Imago) and done stay", () => {
+      const { state } = withGodzilla1995();
+      const larva = real("ESD02-008");
+      const imago = real("ESD02-011");
+      state.cards = { ...state.cards, [larva.id]: larva, [imago.id]: imago };
+      // The Evolution of a Battra (Larva) in play, at its pick (as the engine asks it).
+      state.resolution = {
+        standby: {
+          standbyId: "s1",
+          abilityId: "ESD02-008#evolution",
+          sourceInstanceId: "c-larva",
+          sourceCardId: larva.id,
+          master: "P1",
+          timestamp: 0,
+          event: { seq: 0, type: "phase", player: "P1", payload: {} },
+        },
+        stage: "main",
+        path: [0],
+        bindings: {},
+        chosen: [],
+        zonePicks: [],
+        answer: null,
+        replacementPicks: [],
+        subject: null,
+      };
+      state.pendingChoice = {
+        id: 99,
+        player: "P1",
+        kind: "target",
+        rule: "12.6.2",
+        options: [
+          {
+            id: "c-other-larva",
+            cardId: larva.id,
+            abilityId: "ESD02-008#evolution",
+          },
+          { id: "c-imago", cardId: imago.id, abilityId: "ESD02-008#evolution" },
+          { id: "done", cardId: null, abilityId: "ESD02-008#evolution" },
+        ],
+      };
+      const pick = (optionId: string) => ({
+        type: "choose" as const,
+        player: "P1" as const,
+        choiceId: 99,
+        optionId,
+      });
+      const actions = [pick("c-other-larva"), pick("c-imago"), pick("done")];
+      const dead = cardRulesDead(state, actions, "P1");
+      expect([...dead]).toEqual([actions[0]]);
+    });
   },
 );
