@@ -125,9 +125,6 @@ const CLEAR_BUDGET = 200;
 const zone8Empty = (state: GameState, me: PlayerId) =>
   (state.players.find((p) => p.id !== me)?.zones[8].length ?? 1) === 0;
 
-const canInvade = (state: GameState, me: PlayerId) =>
-  getLegalActions(state, me).some((a) => a.type === "invade");
-
 /**
  * Rule 2: whether `action` can leave the opponent's zone 8 empty with the invasion still to come
  * this turn: its own choices tried every way (a small search, `CLEAR_BUDGET` states), as the
