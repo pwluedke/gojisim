@@ -72,9 +72,20 @@ test("Play vs bot: both mats copy the official playmat, the opponent's rotated 1
     "rage",
     "Strategy 2",
   ]);
-  expect(await matRow(page, "opp", 2)).toEqual(["Z8", "rage", "Strategy 1"]);
+  // #292: the counter power badge sits in the row nearest the center line, right of center.
+  expect(await matRow(page, "opp", 2)).toEqual([
+    "counter",
+    "Z8",
+    "rage",
+    "Strategy 1",
+  ]);
   // Your mat, from the center line down.
-  expect(await matRow(page, "you", 0)).toEqual(["Strategy 1", "rage", "Z8"]);
+  expect(await matRow(page, "you", 0)).toEqual([
+    "Strategy 1",
+    "rage",
+    "Z8",
+    "counter",
+  ]);
   expect(await matRow(page, "you", 1)).toEqual([
     "Strategy 2",
     "rage",

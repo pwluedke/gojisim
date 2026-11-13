@@ -2007,30 +2007,60 @@
 }
 
 /*
- * The counter power bar in the rage zone (every theme, Oct 26, 2026): it fills by counter power
- * against the opponent's threat, with the threat line marked; Showa Poster fills it with red and
- * marigold stripes in an ink frame.
+ * #292 (Paul, Nov 13): each player's counter power in a badge in their mat's row nearest the
+ * center line, under the opponent's Rage zone, with an arrow across the center line to it. The
+ * turn player's badge and arrow glow (the turn glow's color, the accent with the glow off); the
+ * other's are dim.
  */
-.counterBar {
-  position: relative;
-  height: 12px;
-  margin-top: var(--space-1);
-  border: 2px solid var(--color-bar-frame);
-  background: var(--color-bar-track);
-}
-
-.counterFill {
+.counterBadge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
   height: 100%;
-  background: var(--bar-fill);
+  overflow: hidden;
+  border: 2px dashed var(--color-cell-outline);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  font-family: var(--font-heading);
+  /* Five digits fit the card's width in every theme. */
+  font-size: var(--font-size-lg);
 }
 
-.counterMarker {
-  position: absolute;
-  top: -5px;
-  bottom: -5px;
-  width: 3px;
-  margin-left: -1px;
-  background: var(--color-bar-marker);
+.counterBadgeLit {
+  border-width: 3px;
+  border-style: solid;
+}
+
+.counterBadgeLabel {
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+}
+
+/* Over the page, under the zone prompt (45) and modals; it takes no pointer. */
+.counterArrowSvg {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  width: 100vw;
+  height: 100vh;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.counterPathLit,
+.counterPathDim {
+  fill: none;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.counterPathDim {
+  stroke: var(--color-muted);
+  opacity: 0.45;
 }
 
 /*

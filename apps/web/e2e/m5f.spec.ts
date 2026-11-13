@@ -501,8 +501,9 @@ for (const [width, height] of [
       const mat = await page.getByTestId(`mat-${side}`).boundingBox();
       if (!mat) throw new Error(`no mat ${side}`);
       const cells = page.getByTestId(`mat-${side}`).getByTestId("mat-cell");
-      // 8 zones, 2 strategy zones, the Rage zone, the deck, monster deck and discard pile.
-      expect(await cells.count()).toBe(14);
+      // 8 zones, 2 strategy zones, the Rage zone, the deck, monster deck and discard pile, and
+      // the counter power badge (#292).
+      expect(await cells.count()).toBe(15);
       for (const cell of await cells.all()) {
         const box = await cell.boundingBox();
         if (!box) throw new Error("no cell box");
