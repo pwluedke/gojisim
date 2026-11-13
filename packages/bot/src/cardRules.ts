@@ -9,6 +9,7 @@ import {
   type PlayerId,
   sameColumn,
   type ZoneNumber,
+  hasFlag,
 } from "@gojisim/engine";
 import {
   boostedZones,
@@ -37,6 +38,8 @@ import type { Decklist } from "./types";
  *    EBP02-068: no invading, +3000) goes in that column when it can; otherwise in zone 1 or 2 (the
  *    columns the opponent's monster walks through, zones 4 to 7). An empty zone over stacking on
  *    your own card, and never the zone straight ahead of your own monster (its next advance).
+ *    #289: never on top of your own column card in that column while zone 1 or 2 has room; and a
+ *    card that stops the opponent's monster invading counts as rule 7's zone 8 block.
  * 4. #259: a card that plays itself from the discard pile (King Ghidorah (1998) EBP03-063) comes
  *    back whenever there's an empty zone (its optional play is answered yes), into an empty zone;
  *    and a destroy of the opponent's cards leaves their recurring cards for last (they come back),
@@ -83,6 +86,9 @@ import type { Decklist } from "./types";
  * 16. #290 (Keldroc, Nov 13): a mode that does something. At a "choose one" (10.5.2.2.1), a mode
  *    that changes nothing (King Ghidorah (1991) EBP02-049's destroy with no rank 5 or lower battle
  *    card to hit) isn't picked while another mode does something.
+ * 17. #288 (Keldroc, Nov 13): a [revenge] card (Dorat EBP02-058) goes where it gets destroyed:
+ *    ahead of your own monster, whose advance crushes it (11.3), an empty zone first, never zone 8;
+ *    and nothing goes on top of your own [revenge] card while another zone is open.
  */
 
 type Json = Record<string, unknown>;
@@ -238,15 +244,82 @@ function columnPlays(
     const inColumn = (z: ZoneNumber) =>
       oppAt !== null &&
       sameColumn({ player: me, zone: z }, { player: opponent.id, zone: oppAt });
+    // #289: covering your own column card there gains nothing (the new one does the same).
+    const ownColumnCard = (z: ZoneNumber) =>
+      player.zones[z].some((stack) =>
+        columnCard(state.cards[stack[stack.length - 1]?.cardId ?? -1]),
+      );
     const tiers: ((z: ZoneNumber) => boolean)[] = [
       (z) => inColumn(z) && empty(z),
-      (z) => inColumn(z),
+      (z) => inColumn(z) && !ownColumnCard(z),
       (z) => (z === 1 || z === 2) && empty(z),
       (z) => z === 1 || z === 2,
     ];
     const safe = plays.filter((a) => a.zone !== ahead);
     const best = tiers
       .map((tier) => safe.filter((a) => tier(a.zone)))
+      .find((t) => t.length > 0);
+    if (!best) continue;
+    for (const a of plays) if (!best.includes(a)) dead.push(a);
+  }
+  return dead;
+}
+
+/** Rule 17: whether a card has [revenge] (it pays off when it's destroyed from the field). */
+export function hasRevenge(deckCardNumber: string): boolean {
+  return getCardAbilities(deckCardNumber).abilities.some(
+    (ability) =>
+      ability.kind === "keyword" &&
+      (ability as unknown as Json)["keyword"] !== undefined &&
+      ((ability as unknown as Json)["keyword"] as Json)["name"] === "revenge",
+  );
+}
+
+/**
+ * Rule 17: plays that waste a [revenge] card. It goes where it gets destroyed: ahead of your own
+ * monster (its advance crushes it, 11.3), an empty zone first, never zone 8. And no card goes on
+ * top of your own [revenge] card while another zone is open (covered, it never pays off).
+ */
+function revengePlays(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const player = state.players.find((p) => p.id === me);
+  if (!player || state.pendingChoice || player.monsterPosition === null)
+    return [];
+  const at = player.monsterPosition;
+  const dataOf = (id: string) => {
+    const c = player.hand.find((h) => h.instanceId === id);
+    return c ? state.cards[c.cardId] : undefined;
+  };
+  const empty = (z: ZoneNumber) => player.zones[z].length === 0;
+  const coversRevenge = (z: ZoneNumber) =>
+    player.zones[z].some((stack) =>
+      hasRevenge(
+        state.cards[stack[stack.length - 1]?.cardId ?? -1]?.deckCardNumber ??
+          "",
+      ),
+    );
+  const dead: Action[] = [];
+  const byCard = new Map<string, Extract<Action, { type: "playBattle" }>[]>();
+  for (const a of actions)
+    if (a.type === "playBattle")
+      byCard.set(a.cardInstanceId, [
+        ...(byCard.get(a.cardInstanceId) ?? []),
+        a,
+      ]);
+  for (const plays of byCard.values()) {
+    const first = plays[0];
+    const revenge =
+      first !== undefined &&
+      hasRevenge(dataOf(first.cardInstanceId)?.deckCardNumber ?? "");
+    const ahead = (z: ZoneNumber) => z > at && z < 8;
+    const tiers: ((z: ZoneNumber) => boolean)[] = revenge
+      ? [(z) => ahead(z) && empty(z), (z) => ahead(z) && !coversRevenge(z)]
+      : [(z) => !coversRevenge(z)];
+    const best = tiers
+      .map((tier) => plays.filter((a) => tier(a.zone)))
       .find((t) => t.length > 0);
     if (!best) continue;
     for (const a of plays) if (!best.includes(a)) dead.push(a);
@@ -502,6 +575,11 @@ function blockerRankNeeded(state: GameState, me: PlayerId): number {
 }
 
 const blocked = (state: GameState, me: PlayerId) => {
+  // #289: the opponent's monster can't invade at all (Mecha-King Ghidorah EBP02-068 in its column).
+  const top = state.players
+    .find((p) => p.id !== me)
+    ?.invadingMonsterZone.at(-1);
+  if (top && hasFlag(state, top, "cannotInvade")) return true;
   const need = blockerRankNeeded(state, me);
   return (
     state.players
@@ -906,6 +984,7 @@ export function cardRulesDead(
   for (const action of earlyRage(state, actions, me)) dead.add(action);
   for (const action of heldMonsters(state, actions, me)) dead.add(action);
   for (const action of idleModes(state, actions, me)) dead.add(action);
+  for (const action of revengePlays(state, actions, me)) dead.add(action);
   // Rule 7: a way to block zone 8 is taken: every other move waits (but an invasion that wins
   // now), and it outranks the others' holds. (Rule 9 only frees holds, in `rescuedPlays`.)
   const blocks = blockingPlays(state, actions, me);
