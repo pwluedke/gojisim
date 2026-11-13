@@ -1320,6 +1320,8 @@ describe("#249 (Paul, Nov 12): tokens go into empty or occupied zones", () => {
     expect(zones["1"]).toEqual([crystals]);
     expect(zones["4"]).toEqual([crystals]);
     expect(zones["2"]).toEqual([966302]);
+  });
+});
 
 describe("#250: a token zone choice lists the zones already picked", () => {
   it("9.1.2: placing 2 Crystals (EBP02-054 [enter]), the second pick carries the first zone and the token; the first carries none", () => {
