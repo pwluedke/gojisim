@@ -383,7 +383,8 @@ export function search(input: BotInput, settings: IsmctsSettings) {
     }
     // Paul, Nov 12: the card-play rules (Medium and Hard), while they leave a move that isn't
     // conceding.
-    if (iterations === 1 && (settings.cardRules > 0 || settings.rules > 0)) {
+    // `cardRules` (on from Medium up) alone switches them, so a check can turn them off at Hard.
+    if (iterations === 1 && settings.cardRules > 0) {
       const first = state;
       const unsafe = cardRulesDead(
         first,

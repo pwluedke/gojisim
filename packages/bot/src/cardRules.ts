@@ -73,6 +73,13 @@ import type { Decklist } from "./types";
  * 13. #131 (Tuscancow): a battle card whose [enter] needs Awakening N (Super-X ESD02-009: zone 4)
  *    waits while your monster is short of N and an invasion this turn takes it there: invade
  *    first, then play it (combos.md #7, the Cadmium Barrage order).
+ * 14. #263 (Paul, Nov 12): no rage discards on turns 1-2 unless the rage is needed (it's on a
+ *    way to the counter or to a zone 8 block); passing is freed from Paul's rule 3 then.
+ * 15. #264 (Paul, Nov 12): play into your monster cards' abilities. A monster card whose ability
+ *    fires on reaching a zone (Godzilla (1954) EBP01-004: on advancing into zone 8, destroy all
+ *    battle cards) isn't stacked on a turn your monster can't reach that zone (its invasion, then
+ *    the end-phase advance), unless the stack is needed now (it's on a way to the counter) or it's
+ *    the only play besides passing.
  */
 
 type Json = Record<string, unknown>;
@@ -456,12 +463,21 @@ export function rescuedPlays(
   me: PlayerId,
   own?: Decklist,
 ): Set<Action> {
-  const blocks = blockingPlays(state, actions, me);
-  if (blocks.size > 0) return blocks;
   const dead = cardRulesDead(state, actions, me, own);
-  return new Set(
+  const blocks = blockingPlays(state, actions, me);
+  if (blocks.size > 0) {
+    // As in `cardRulesDead`: the ways the card rules leave standing, or all of them.
+    const kept = [...blocks].filter((a) => !dead.has(a));
+    return new Set(kept.length > 0 ? kept : blocks);
+  }
+  const freed = new Set(
     [...counterPlays(state, actions, me)].filter((a) => !dead.has(a)),
   );
+  // Rule 14: with the early rage discards held, passing is allowed (Paul's rule 3 forbids it
+  // while a monster card can go to rage).
+  if (earlyRage(state, actions, me).length > 0)
+    for (const a of actions) if (a.type === "pass") freed.add(a);
+  return freed;
 }
 
 /** Rules 7 and 9's search budget (states visited) for a way to reach their goal this turn. */
@@ -711,6 +727,93 @@ function earlyAwakenings(
   });
 }
 
+/** Rule 14: the turns (game turns) in which rage discards wait until they're needed. */
+const EARLY_RAGE_TURNS = 2;
+
+/** Rule 14: early rage discards that aren't on a way to the counter or a block. */
+function earlyRage(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  if (state.pendingChoice || state.turnPlayer !== me) return [];
+  if (state.turn > EARLY_RAGE_TURNS) return [];
+  const rages = actions.filter((a) => a.type === "gainRage");
+  if (rages.length === 0) return [];
+  // Needed: on a way to the counter (while it isn't made yet) or to a zone 8 block.
+  const needed = new Set([
+    ...(counters(state, me)
+      ? []
+      : playsReaching(state, actions, me, (s) => counters(s, me))),
+    ...blockingPlays(state, actions, me),
+  ]);
+  return rages.filter((a) => !needed.has(a));
+}
+
+/** Rule 15: the zone a monster card's ability fires on reaching ("advanced" into it), or `null`. */
+export function reachZone(deckCardNumber: string): number | null {
+  for (const ability of getCardAbilities(deckCardNumber).abilities) {
+    const trigger = (ability as unknown as Json)["trigger"] as Json | undefined;
+    if (
+      trigger?.["on"] === "advanced" &&
+      trigger["whose"] === "this" &&
+      typeof trigger["toZone"] === "number"
+    )
+      return trigger["toZone"];
+  }
+  return null;
+}
+
+/** Rule 15: monster plays whose reach-a-zone ability can't fire this turn, and that aren't needed. */
+function heldMonsters(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  if (state.pendingChoice || state.turnPlayer !== me) return [];
+  const player = state.players.find((p) => p.id === me);
+  const at = player?.monsterPosition ?? null;
+  if (!player || at === null) return [];
+  const plays = actions.filter((a) => {
+    if (a.type !== "playMonster") return false;
+    const c = player.hand.find((h) => h.instanceId === a.cardInstanceId);
+    const data = c ? state.cards[c.cardId] : undefined;
+    return data ? reachZone(data.deckCardNumber) !== null : false;
+  });
+  if (plays.length === 0) return [];
+  // The furthest the monster gets this turn: its best invasion, then the end-phase advance.
+  let reach: number = at;
+  for (const a of actions) {
+    if (a.type !== "invade") continue;
+    try {
+      const pos = advanceToDecision(applyAction(state, a)).players.find(
+        (p) => p.id === me,
+      )?.monsterPosition;
+      if (typeof pos === "number") reach = Math.max(reach, pos);
+    } catch {
+      continue;
+    }
+  }
+  reach += 1;
+  const others = actions.filter(
+    (a) => a.type !== "pass" && a.type !== "concede" && !plays.includes(a),
+  );
+  if (others.length === 0) return [];
+  // Needed now: on a way to the counter, while it isn't made yet.
+  const needed = counters(state, me)
+    ? new Set<Action>()
+    : playsReaching(state, actions, me, (s) => counters(s, me));
+  return plays.filter((a) => {
+    const c = player.hand.find(
+      (h) => a.type === "playMonster" && h.instanceId === a.cardInstanceId,
+    );
+    const zone = c
+      ? reachZone(state.cards[c.cardId]?.deckCardNumber ?? "")
+      : null;
+    return zone !== null && reach < zone && !needed.has(a);
+  });
+}
+
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
 export function cardRulesDead(
   state: GameState,
@@ -753,13 +856,18 @@ export function cardRulesDead(
   for (const action of unsafeAdvances(state, actions, me)) dead.add(action);
   for (const action of weakEvolutions(state, actions, me)) dead.add(action);
   for (const action of earlyAwakenings(state, actions, me)) dead.add(action);
+  for (const action of earlyRage(state, actions, me)) dead.add(action);
+  for (const action of heldMonsters(state, actions, me)) dead.add(action);
   // Rule 7: a way to block zone 8 is taken: every other move waits (but an invasion that wins
   // now), and it outranks the others' holds. (Rule 9 only frees holds, in `rescuedPlays`.)
   const blocks = blockingPlays(state, actions, me);
   if (blocks.size > 0) {
+    // The ways the other card rules leave standing; all of them only when they leave none.
+    const kept = [...blocks].filter((a) => !dead.has(a));
+    const taken = new Set(kept.length > 0 ? kept : blocks);
     for (const a of actions)
-      if (!blocks.has(a) && !winsNow(state, a, me)) dead.add(a);
-    for (const a of blocks) dead.delete(a);
+      if (!taken.has(a) && !winsNow(state, a, me)) dead.add(a);
+    for (const a of taken) dead.delete(a);
   }
   return dead;
 }
