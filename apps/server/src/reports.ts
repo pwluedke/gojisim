@@ -258,6 +258,90 @@ export function communityMessage(
   return cut(`${head}\n${quote(cut(text, NOTE_MAX))}`, MESSAGE_MAX);
 }
 
+/** A deck as "count name card-number" lines, in deck order; entries that aren't cards are left out. */
+function listLines(cards: unknown): string[] {
+  const counts = new Map<string, { name: string; count: number }>();
+  for (const card of list(cards)) {
+    const number = str(card["cardNumber"]);
+    const name = str(card["name"]);
+    if (!number || !name) continue;
+    const seen = counts.get(number);
+    if (seen) seen.count++;
+    else counts.set(number, { name, count: 1 });
+  }
+  return [...counts].map(([number, c]) => `${c.count} ${c.name} ${number}`);
+}
+
+/** One deck: its heading, then the monster deck and the main deck. */
+function deckBlock(
+  heading: string,
+  deck: { monsterDeck?: unknown; mainDeck?: unknown },
+): string | null {
+  const monster = listLines(deck.monsterDeck);
+  const main = listLines(deck.mainDeck);
+  if (monster.length === 0 && main.length === 0) return null;
+  const total = (lines: string[]) =>
+    lines.reduce((n, l) => n + Number(l.split(" ")[0]), 0);
+  return [
+    heading,
+    `Monster deck (${total(monster)})`,
+    ...monster,
+    `Main deck (${total(main)})`,
+    ...main,
+  ].join("\n");
+}
+
+/** The reporter's own deck in a head to head game (`h2h/reportDeck.ts`). */
+export type ReporterDeckOf = (
+  h2hGameId: string,
+  playerId: string,
+) => Promise<{
+  name: string;
+  deckName: string;
+  deck: { monsterDeck: unknown; mainDeck: unknown };
+} | null>;
+
+/**
+ * Paul, Nov 12: the full deck lists for the Slack #gojisim-reports post, which only Paul reads.
+ * A game vs the bot: both decks. A head to head game: the reporter's own deck only (Q42), which
+ * the server holds (the browser's copy has no lists). Never in a Discord post or anywhere else.
+ */
+export async function deckLists(
+  record: unknown,
+  reporterDeckOf?: ReporterDeckOf,
+): Promise<string | null> {
+  const r = obj(record);
+  if (!r) return null;
+  const h2hGameId = str(r["h2hGameId"]);
+  if (h2hGameId) {
+    const playerId = str(r["playerId"]);
+    const own =
+      playerId && reporterDeckOf
+        ? await reporterDeckOf(h2hGameId, playerId)
+        : null;
+    return own
+      ? deckBlock(`${own.name || "Reporter"}: ${own.deckName}`, own.deck)
+      : null;
+  }
+  const seats = obj(r["seats"]) ?? {};
+  const names = obj(r["deckNames"]) ?? {};
+  const blocks = list(r["decks"]).flatMap((deck) => {
+    const id = str(deck["id"]);
+    if (!id) return [];
+    const seat = obj(seats[id]);
+    const who =
+      seat?.["kind"] === "bot"
+        ? `Bot ${id}`
+        : (str(seat?.["playerName"]) ?? str(r["playerName"]) ?? `Player ${id}`);
+    const block = deckBlock(
+      `${id} · ${who}: ${str(names[id]) ?? "Mystery Deck"}`,
+      deck,
+    );
+    return block ? [block] : [];
+  });
+  return blocks.length > 0 ? blocks.join("\n\n") : null;
+}
+
 /** The webhook body: mentions off, so no tester's note can ping anyone. */
 export const discordBody = (content: string) => ({
   content,
@@ -298,6 +382,8 @@ export interface ReportsOptions {
    * #gojisim-reports post only. Ids aren't secret; the Discord posts don't carry it.
    */
   discordIdOf?: (playerId: string) => string | null;
+  /** Paul, Nov 12: a head to head reporter's own deck, for the Slack post's deck lists. */
+  reporterDeckOf?: ReporterDeckOf;
   fetchImpl?: typeof fetch;
   log?: (line: string) => void;
 }
@@ -314,6 +400,7 @@ export function reportPoster({
   bugsWebhook,
   botFeedbackWebhook,
   discordIdOf,
+  reporterDeckOf,
   fetchImpl = fetch,
   log = (line) => console.warn(line),
 }: ReportsOptions) {
@@ -324,6 +411,7 @@ export function reportPoster({
       url: webhook?.trim(),
       body: discordBody,
       withId: false,
+      withDecks: false,
       warned: false,
     },
     {
@@ -332,6 +420,7 @@ export function reportPoster({
       url: slackWebhook?.trim(),
       body: slackBody,
       withId: true,
+      withDecks: true,
       warned: false,
     },
   ];
@@ -379,10 +468,17 @@ export function reportPoster({
     const game = gameContext(record);
     const playerId = str(obj(record)?.["playerId"] ?? null);
     const discordId = playerId ? (discordIdOf?.(playerId) ?? null) : null;
-    const messagesFor = (withId: boolean) => {
+    // Paul, Nov 12: the full deck lists, in the Slack post only (a code block after the report).
+    const decks = targets.some((t) => t.withDecks && t.url)
+      ? await deckLists(record, reporterDeckOf)
+      : null;
+    const messagesFor = (withId: boolean, withDecks: boolean) => {
       const messages = reports
         .slice(0, POSTS_PER_UPLOAD)
-        .map((r) => reportMessage(r, game, file, withId ? discordId : null));
+        .map((r) => reportMessage(r, game, file, withId ? discordId : null))
+        .map((m) =>
+          withDecks && decks ? `${m}\n**Decks**\n\`\`\`\n${decks}\n\`\`\`` : m,
+        );
       if (reports.length > POSTS_PER_UPLOAD)
         messages.push(
           `…and ${reports.length - POSTS_PER_UPLOAD} more new entries in ${code(file)} (\`pnpm feedback\`).`,
@@ -400,7 +496,7 @@ export function reportPoster({
         continue;
       }
       // One at a time, in order, within each webhook's rate limit.
-      for (const content of messagesFor(target.withId))
+      for (const content of messagesFor(target.withId, target.withDecks))
         if (await post(target.name, target.url, target.body(content))) posted++;
     }
     const bots = botLevels(record);

@@ -25,6 +25,7 @@ import {
   uploadsPerMinuteFrom,
 } from "./games.js";
 import { replayMiddleware } from "./h2h/replayRoute.js";
+import { reporterDeck } from "./h2h/reportDeck.js";
 import { attachH2h, type H2h } from "./h2h/socket.js";
 import { playerById } from "./players.js";
 import { reportPoster } from "./reports.js";
@@ -180,6 +181,11 @@ export function createAppServer({
               playerById(discord.db, id)?.discordId ?? null,
           }
         : {}),
+      // Paul, Nov 12: a head to head reporter's own deck, for the Slack post's deck lists.
+      reporterDeckOf: (gameId, playerId) =>
+        h2h
+          ? reporterDeck(h2h.rooms, discord?.db, recordsDir, gameId, playerId)
+          : Promise.resolve(null),
       fetchImpl: reportsFetch ?? fetchImpl,
     }),
     ...(now ? { now } : {}),
