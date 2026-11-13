@@ -15,12 +15,17 @@ import {
   claimWin,
   concede,
   createRoom,
+  declineRematch,
   historyBoard,
   joinRoom,
   openGames,
   phaseOf,
   pickCards,
   pickFirst,
+  offerRematch,
+  type Rematch,
+  rematchPlayers,
+  type SeatPlayer,
   type Result,
   type Room,
   SEATS,
@@ -439,6 +444,62 @@ export function attachH2h(
       return answer(at.room, () =>
         answerUndo(at.room, at.seat, body["accept"] === true, now()),
       );
+    });
+
+    /**
+     * #251: a rematch at game over, offered or accepted with the deck this player brings:
+     * `deck: "keep"` for the same one, or a deck choice as in `create`. Both yes: the new game
+     * (the same seats, First / Second picked again), and both seats hear its id.
+     */
+    on("rematch", async (body) => {
+      const at = mine(body);
+      if (!at) return { ok: false, error: "not-in-game" };
+      if (!allowed(player.id, "create"))
+        return { ok: false, error: "rate-limited" };
+      const { room, seat } = at;
+      const kept = room.data.seats[seat];
+      if (!kept) return { ok: false, error: "no-rematch" };
+      let brings: SeatPlayer = { ...kept, name: player.displayName };
+      if (body["deck"] !== "keep") {
+        const deck = resolveDeck(
+          db,
+          player.id,
+          body["deck"],
+          room.data.mode,
+          new Date(now()),
+        );
+        if (!deck.ok) return deck;
+        brings = { ...brings, deckName: deck.deckName, deck: deck.deck };
+      }
+      const result = offerRematch(room, seat, brings);
+      if (!result.ok) return result;
+      const seats = rematchPlayers(room);
+      if (seats) {
+        const gameId = randomUUID();
+        const next = createRoom({
+          gameId,
+          seed: randomInt(2 ** 31),
+          mode: room.data.mode,
+          creator: seats.P1,
+          now: now(),
+          ...(claimAfterMs === undefined ? {} : { claimAfterMs }),
+        });
+        joinRoom(next, seats.P2);
+        rooms.set(gameId, next);
+        await saveRoom(roomsDir, next);
+        (room.data.rematch as Rematch).gameId = gameId;
+      }
+      await changed(room);
+      return { ok: true };
+    });
+
+    on("rematch-decline", async (body) => {
+      const at = mine(body);
+      if (!at) return { ok: false, error: "not-in-game" };
+      const result = declineRematch(at.room, at.seat);
+      if (!result.ok) return result;
+      await changed(at.room);
+      return { ok: true };
     });
 
     on("claim", async (body) => {

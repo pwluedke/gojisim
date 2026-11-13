@@ -69,6 +69,24 @@ export interface RoomData {
   claimAfterMs?: number;
   /** M9d: shown in the lobby's open games while it waits for a second player. */
   listed?: boolean;
+  /** #251: a rematch offered at game over. */
+  rematch?: Rematch;
+}
+
+/**
+ * #251 (Paul's report, Nov 12): a rematch at game over. Either player offers it with the deck they
+ * bring (theirs again, or another); the other accepts with theirs, or declines. With both decks
+ * in, the server makes the new game (`gameId`), the same two players, First / Second picked again.
+ */
+export interface Rematch {
+  /** Who offered it. */
+  by: SeatId;
+  /** Each seat that said yes, with the deck it brings. */
+  ready: Partial<Record<SeatId, SeatPlayer>>;
+  /** Who declined the last offer (either may offer again). */
+  declined: SeatId | null;
+  /** The new game, once both said yes. */
+  gameId: string | null;
 }
 
 export interface Presence {
@@ -339,6 +357,55 @@ export function pickCards(
 }
 
 /** 1.2.3: either player may concede at any time while the game runs. */
+/** #251: whether `seat` may offer or accept a rematch now: the game is over, both players were in it. */
+export function canRematch(room: Room, seat: SeatId): boolean {
+  return (
+    phaseOf(room) === "over" &&
+    !!room.data.seats.P1 &&
+    !!room.data.seats.P2 &&
+    !room.data.rematch?.gameId &&
+    !room.data.rematch?.ready[seat]
+  );
+}
+
+/**
+ * #251: `seat` says yes to a rematch with `player` (its name and the deck it brings): an offer,
+ * or the answer to the other player's. Both yes: `rematchPlayers` gives the new game's seats.
+ */
+export function offerRematch(
+  room: Room,
+  seat: SeatId,
+  player: SeatPlayer,
+): Result {
+  if (!canRematch(room, seat)) return fail("no-rematch");
+  const open = room.data.rematch;
+  if (!open || open.declined !== null || !open.ready[otherSeat(seat)])
+    room.data.rematch = {
+      by: seat,
+      ready: { [seat]: player },
+      declined: null,
+      gameId: null,
+    };
+  else open.ready[seat] = player;
+  return ok;
+}
+
+/** #251: `seat` declines the other player's rematch offer. */
+export function declineRematch(room: Room, seat: SeatId): Result {
+  const open = room.data.rematch;
+  if (!open || open.by === seat || open.declined !== null || open.gameId)
+    return fail("no-rematch");
+  open.declined = seat;
+  open.ready = {};
+  return ok;
+}
+
+/** #251: the new game's seats once both said yes (the same seats as this game), else `null`. */
+export function rematchPlayers(room: Room): Record<SeatId, SeatPlayer> | null {
+  const ready = room.data.rematch?.ready;
+  return ready?.P1 && ready.P2 ? { P1: ready.P1, P2: ready.P2 } : null;
+}
+
 export function concede(room: Room, seat: SeatId, now: number): Result {
   if (phaseOf(room) !== "playing") return fail("not-playing");
   const record = room.data.record as GameRecord;
@@ -602,6 +669,17 @@ export interface SeatMessage {
   names: Record<SeatId, string | null>;
   yourDeckName: string | null;
   /**
+   * #251: the rematch at game over: who offered it, whether this seat said yes, who declined,
+   * and the new game once both said yes. `canOffer`: this seat may offer or accept now.
+   */
+  rematch: {
+    by: SeatId | null;
+    youReady: boolean;
+    declined: SeatId | null;
+    gameId: string | null;
+    canOffer: boolean;
+  };
+  /**
    * The actions since the last message, each with the seat's board after it (M9b). Empty after
    * an undo (`seq` went down) or a (re)join; the client then asks for what it lacks.
    */
@@ -647,6 +725,13 @@ export function seatMessage(
       P2: room.data.seats.P2?.name ?? null,
     },
     yourDeckName: room.data.seats[seat]?.deckName ?? null,
+    rematch: {
+      by: room.data.rematch?.by ?? null,
+      youReady: !!room.data.rematch?.ready[seat],
+      declined: room.data.rematch?.declined ?? null,
+      gameId: room.data.rematch?.gameId ?? null,
+      canOffer: canRematch(room, seat),
+    },
     steps,
   };
 }

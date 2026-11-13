@@ -38,6 +38,14 @@ export interface SeatMessage {
   h2hEnd: GameRecord["h2hEnd"] | null;
   names: Record<Seat, string | null>;
   yourDeckName: string | null;
+  /** #251: the rematch at game over (`room.ts`). */
+  rematch: {
+    by: Seat | null;
+    youReady: boolean;
+    declined: Seat | null;
+    gameId: string | null;
+    canOffer: boolean;
+  };
   steps: Step[];
 }
 

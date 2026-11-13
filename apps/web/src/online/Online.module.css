@@ -81,6 +81,32 @@
   box-shadow: var(--panel-shadow);
 }
 
+/* #251: the rematch panel at game over, at the bottom, clear of the game-over modal. */
+.rematch {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 55;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3, 12px);
+  max-width: min(640px, calc(100vw - 32px));
+  padding: 12px 16px;
+  background: var(--color-panel);
+  border: var(--panel-border-width) solid var(--color-panel-border);
+  border-radius: var(--radius);
+  box-shadow: var(--panel-shadow);
+}
+
+.rematch p {
+  width: 100%;
+  margin: 0;
+  text-align: center;
+}
+
 .hint {
   font-size: var(--font-size-sm);
   opacity: 0.8;

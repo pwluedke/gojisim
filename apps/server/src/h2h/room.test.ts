@@ -23,6 +23,7 @@ import {
   claimWin,
   concede,
   createRoom,
+  declineRematch,
   historyBoard,
   joinRoom,
   KEEP_FINISHED_MS,
@@ -30,6 +31,8 @@ import {
   phaseOf,
   pickCards,
   pickFirst,
+  offerRematch,
+  rematchPlayers,
   type Room,
   roomFromData,
   type SeatPlayer,
@@ -542,5 +545,62 @@ describe("head to head rooms (M9a)", () => {
     expect(JSON.stringify(openGames(rooms, "bob"))).not.toContain(
       "monsterDeck",
     );
+  });
+});
+
+describe("#251: a rematch at game over", () => {
+  const finished = () => {
+    const room = newRoom();
+    pickFirst(room, room.data.picker ?? "P1", 0);
+    concede(room, "P1", 5);
+    return room;
+  };
+  const other = {
+    ...bob,
+    deckName: "Bob's other deck",
+    deck: starter("ESD01"),
+  };
+
+  it("only once the game is over: either player offers with a deck, the other accepts with theirs", () => {
+    const playing = newRoom();
+    pickFirst(playing, playing.data.picker ?? "P1", 0);
+    expect(offerRematch(playing, "P1", alice).ok).toBe(false);
+    const room = finished();
+    expect(seatMessage(room, "P2", 6).rematch).toMatchObject({
+      by: null,
+      canOffer: true,
+    });
+    expect(offerRematch(room, "P1", alice).ok).toBe(true);
+    // Offered once: not again, and nothing starts until the other says yes.
+    expect(offerRematch(room, "P1", alice).ok).toBe(false);
+    expect(rematchPlayers(room)).toBeNull();
+    expect(seatMessage(room, "P2", 6).rematch).toMatchObject({
+      by: "P1",
+      youReady: false,
+      canOffer: true,
+    });
+    // Bob accepts with another deck: the new game's seats, same seats, Bob's new deck.
+    expect(offerRematch(room, "P2", other).ok).toBe(true);
+    expect(rematchPlayers(room)).toEqual({ P1: alice, P2: other });
+  });
+
+  it("a decline clears the offer; either may offer again", () => {
+    const room = finished();
+    expect(declineRematch(room, "P2").ok).toBe(false);
+    offerRematch(room, "P1", alice);
+    // The offerer can't decline their own offer.
+    expect(declineRematch(room, "P1").ok).toBe(false);
+    expect(declineRematch(room, "P2").ok).toBe(true);
+    expect(seatMessage(room, "P1", 6).rematch).toMatchObject({
+      by: "P1",
+      declined: "P2",
+      youReady: false,
+      canOffer: true,
+    });
+    expect(rematchPlayers(room)).toBeNull();
+    // Bob offers after all; Alice accepts.
+    expect(offerRematch(room, "P2", bob).ok).toBe(true);
+    expect(offerRematch(room, "P1", alice).ok).toBe(true);
+    expect(rematchPlayers(room)).toEqual({ P1: alice, P2: bob });
   });
 });

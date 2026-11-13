@@ -146,6 +146,24 @@ const withManda: Deck = {
         : c,
   ),
 };
+/**
+ * #250: SpaceGodzilla monsters (rank I to IV, each making Crystals), and Biollante Plant Beast
+ * Form EBP02-035 (2 Tentacles tokens) in place of ESD02-011 and ESD02-012, so P1 places several
+ * tokens at once.
+ */
+const tokenMakers: Deck = {
+  monsterDeck: [byId(377), byId(379), byId(381), byId(387)],
+  mainDeck: esd02.mainDeck.map((c) =>
+    c.deckCardNumber === "ESD02-012" || c.deckCardNumber === "ESD02-011"
+      ? byId(343)
+      : c,
+  ),
+};
+/** P1 is placing tokens played at once, with one already placed (#250). */
+const pickedToken = (name: string) => (c: PendingChoice, state: GameState) =>
+  c.kind === "zone" &&
+  c.rule === "9.1.2" &&
+  (c.picked ?? []).some((p) => state.cards[p.cardId]?.name === name);
 const randomDecks = (g: number): [Deck, Deck] =>
   g % 2
     ? [esd01, esd02]
@@ -447,6 +465,20 @@ const FIXTURES: Fixture[] = [
     note: "P1 resolves a made-up card with no ability data by hand: a manual override window",
     decks: () => [withManual, esd02],
     match: (c) => c.kind === "manual",
+  },
+  {
+    name: "token-crystals",
+    note: "#250: P1 places 2 or more Crystals tokens at once, with one already placed",
+    decks: () => [tokenMakers, esd01],
+    confirmSingleOption: true,
+    match: pickedToken("Crystals"),
+  },
+  {
+    name: "token-tentacles",
+    note: "#250: P1 places 2 Tentacles tokens (Biollante Plant Beast Form EBP02-035), with one already placed",
+    decks: () => [tokenMakers, esd01],
+    confirmSingleOption: true,
+    match: pickedToken("Tentacles"),
   },
   {
     name: "manda-cost",

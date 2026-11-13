@@ -119,6 +119,37 @@
 }
 
 /* A custom mat image (M5f) behind the zone grid; cells get a light backing to stay readable. */
+/*
+ * #250: a zone already picked for a token while the choice goes on: the token, faded, with its
+ * name, over the zone. It doesn't take clicks, so the zone's own choice still works.
+ */
+.pickedToken {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  border: 2px dashed var(--color-accent);
+  border-radius: var(--radius);
+  pointer-events: none;
+}
+
+.pickedToken img {
+  width: 70%;
+  opacity: 0.75;
+}
+
+.pickedToken span {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius);
+  background: var(--color-chip);
+  color: var(--color-chip-text);
+  font-size: 11px;
+}
+
 .matImage {
   position: absolute;
   inset: 0;

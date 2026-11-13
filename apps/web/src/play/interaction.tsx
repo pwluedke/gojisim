@@ -23,6 +23,8 @@ export interface Interaction {
   previewCard: (card: Card | null) => void;
   /** Zones lit for a zone choice (M5c), by `<player>:<zone>`, with the action each one takes. */
   zoneChoice: ReadonlyMap<string, Action>;
+  /** #250: zones already picked for tokens played at once, by `<player>:<zone>`, with the token. */
+  picked?: ReadonlyMap<string, Card>;
   /** Where the bot's last move landed (M5c), as `<player>|<destination>`, shown briefly. */
   highlight: ReadonlySet<string>;
   /** Sends an action (a zone choice). */
