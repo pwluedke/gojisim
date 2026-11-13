@@ -70,13 +70,20 @@ for (const { fixture, kind, heading } of KINDS)
       await expect(page.getByTestId("choice-option")).toHaveCount(2);
   });
 
-test("choice: zone options light the zones on the mat, with a banner in the Prompt panel instead of a modal", async ({
+test("choice: zone options light the zones on the mat, with a banner beside your mat (#242) instead of a modal", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await loadFixture(page, "zone");
   await expect(page.getByTestId("choice-modal")).toHaveCount(0);
-  const banner = page.getByTestId("prompt").getByTestId("choice-banner");
+  const banner = page.getByTestId("beside-prompt").getByTestId("choice-banner");
+  // #242: not in the Prompt panel, which only points to it.
+  await expect(
+    page.getByTestId("prompt").getByTestId("choice-banner"),
+  ).toHaveCount(0);
+  await expect(page.getByTestId("prompt-choice")).toContainText(
+    "beside your mat",
+  );
   await expect(banner).toHaveAttribute("data-kind", "zone");
   await expect(banner.getByTestId("choice-heading")).toHaveText(
     /^You are choosing a zone for /,
@@ -102,6 +109,16 @@ test("choice: zone options light the zones on the mat, with a banner in the Prom
         log.y + log.height <= box.y,
     ).toBe(true);
   const zones = page.locator("[data-zone-choice]");
+  // #242: it covers no zone the choice offers (each lit zone's middle is clickable).
+  for (let i = 0; i < (await zones.count()); i++) {
+    const zone = await zones.nth(i).boundingBox();
+    if (box && zone)
+      expect(
+        zone.x + zone.width / 2 > box.x + box.width ||
+          zone.y + zone.height / 2 > box.y + box.height ||
+          zone.y + zone.height / 2 < box.y,
+      ).toBe(true);
+  }
   const options = page
     .getByTestId("choice-banner")
     .getByTestId("choice-option");
@@ -112,6 +129,49 @@ test("choice: zone options light the zones on the mat, with a banner in the Prom
   await zones.first().click();
   await expect(page.locator(`[data-zone-choice="${key}"]`)).toHaveCount(0);
 });
+
+for (const [w, h] of [
+  [1280, 800],
+  [1440, 900],
+  [1920, 1080],
+] as const)
+  test(`#242 (Paul, Nov 12): at ${w}×${h} the zone prompt is beside your mat, not wholly inside the sidebar, and on top`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: w, height: h });
+    await loadFixture(page, "zone");
+    const prompt = page.getByTestId("beside-prompt");
+    const box = await prompt.boundingBox();
+    const sidebar = await page.getByTestId("left-column").boundingBox();
+    const mat = await page.getByTestId("mat-you").boundingBox();
+    expect(box && sidebar && mat).toBeTruthy();
+    if (!box || !sidebar || !mat) return;
+    // It reaches past the sidebar's edge, and its top is level with your mat.
+    expect(box.x + box.width).toBeGreaterThan(sidebar.x + sidebar.width);
+    expect(Math.abs(box.y - mat.y)).toBeLessThan(4);
+    // Nothing covers it: its heading is the top element where it shows.
+    const heading = prompt.getByTestId("choice-heading");
+    const at = await heading.boundingBox();
+    if (at)
+      expect(
+        await page.evaluate(
+          ([x, y]) =>
+            document
+              .elementFromPoint(x as number, y as number)
+              ?.closest('[data-testid="beside-prompt"]') !== null,
+          [at.x + 4, at.y + at.height / 2],
+        ),
+      ).toBe(true);
+    // A number key still answers it: the zone option 1 names is no longer offered.
+    const first = await prompt
+      .getByTestId("choice-option")
+      .first()
+      .textContent();
+    const zone = /zone (\d)$/.exec(first ?? "")?.[1];
+    expect(zone).toBeTruthy();
+    await page.keyboard.press("1");
+    await expect(page.locator(`[data-zone-choice$=":${zone}"]`)).toHaveCount(0);
+  });
 
 test("Tester fixes 1: discarding down selects cards (number keys or clicks), deselects, then Confirm sends them in order", async ({
   page,
@@ -339,4 +399,20 @@ test("key number badges sit in the middle of the card, clear of the rank and the
   await page.getByTestId("choice-option").first().click();
   await expect(page.getByTestId("choice-select-order")).toHaveText("1");
   await badgesCentered(page);
+});
+
+test("#242: a token's zone choice (Crystals, 9.1.2) shows beside your mat too", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await loadFixture(page, "token-crystals");
+  const banner = page.getByTestId("beside-prompt").getByTestId("choice-banner");
+  await expect(banner).toHaveAttribute("data-kind", "zone");
+  // The heading names the card making the token (SpaceGodzilla).
+  await expect(banner.getByTestId("choice-heading")).toContainText(
+    "SpaceGodzilla",
+  );
+  await expect(
+    page.getByTestId("prompt").getByTestId("choice-banner"),
+  ).toHaveCount(0);
 });

@@ -826,6 +826,7 @@ const collisions: CollisionDetection = (args) => {
 export function BoardView({
   model,
   prompt,
+  beside = null,
   actions = [],
   locked = true,
   onAction = () => {},
@@ -853,6 +854,11 @@ export function BoardView({
   model: BoardModel;
   /** The prompt panel's content (M5c: the step, Pass, turn flags, Concede, the bot's state). */
   prompt: ReactNode;
+  /**
+   * #242 (Paul, Nov 12): a placement prompt (a zone choice) beside your mat, at its left edge:
+   * over the gap and, where the window is narrow, the sidebar's edge, never wholly inside it.
+   */
+  beside?: ReactNode;
   /** The bottom player's legal actions (M5b); empty while they can't act. */
   actions?: readonly Action[];
   /** True while the bottom player can't act (a bot decides, or the game is over). */
@@ -1140,15 +1146,22 @@ export function BoardView({
               />
             </div>
             <div className={styles.centerLine} />
-            <Mat
-              model={model}
-              player={you}
-              opponent={opp.id}
-              side="you"
-              glow={glowFor(you)}
-              mat={mat}
-              warning={deckWarnings[you.id]}
-            />
+            <div className={styles.youMat}>
+              {beside && (
+                <div className={styles.beside} data-testid="beside-prompt">
+                  {beside}
+                </div>
+              )}
+              <Mat
+                model={model}
+                player={you}
+                opponent={opp.id}
+                side="you"
+                glow={glowFor(you)}
+                mat={mat}
+                warning={deckWarnings[you.id]}
+              />
+            </div>
             <Hand
               model={model}
               player={you}
