@@ -10,6 +10,7 @@ import {
   type ZoneNumber,
 } from "@gojisim/engine";
 import { columnCard, counterMadeWith, counterOnly, counters } from "./rules";
+import type { Decklist } from "./types";
 
 /**
  * Card-play rules for Medium and Hard (Paul, Nov 12), on with `cardRules` (from Medium up) or
@@ -34,6 +35,9 @@ import { columnCard, counterMadeWith, counterOnly, counters } from "./rules";
  * 5. #254: a counter-only strategy (Godzilla vs. Destoroyah EBP01-062: +10,000 total counter power)
  *    is played only when it's needed: not while the counter is already made without it (7.4.3),
  *    and not when even with it (and the others in hand) the counter isn't made.
+ * 6. #248: a slow counter deck (`SLOW_DECK_MONSTERS` or fewer monster cards in its main deck, Ian:
+ *    the Wrangler has 4) doesn't invade unless the invasion wins the game now: it hasn't the
+ *    threat to live in the high zones, and an invasion ends its turn in reach of a push.
  */
 
 type Json = Record<string, unknown>;
@@ -366,11 +370,43 @@ function spentCounters(
   return plays.filter((a) => !madeAfter(state, a, me));
 }
 
+/** Rule 6: at most this many monster cards in the main deck makes a slow counter deck (Ian, Nov 12). */
+export const SLOW_DECK_MONSTERS = 4;
+
+/** Rule 6: whether a decklist is a slow counter deck. */
+export function slowCounterDeck(deck: Decklist | undefined): boolean {
+  return (
+    !!deck &&
+    deck.mainDeck.filter((c) => c.type === "Monster").length <=
+      SLOW_DECK_MONSTERS
+  );
+}
+
+/** Rule 6: a slow counter deck's invasions that don't win now. */
+function slowInvasions(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+  own: Decklist | undefined,
+): Action[] {
+  if (state.pendingChoice || !slowCounterDeck(own)) return [];
+  return actions.filter((a) => {
+    if (a.type !== "invade" && a.type !== "invadeFromDeck") return false;
+    try {
+      return advanceToDecision(applyAction(state, a)).result?.winner !== me;
+    } catch {
+      return true;
+    }
+  });
+}
+
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
 export function cardRulesDead(
   state: GameState,
   actions: readonly Action[],
   me: PlayerId,
+  /** The bot's own decklist (rule 6), when known. */
+  own?: Decklist,
 ): Set<Action> {
   const dead = new Set<Action>();
   for (const action of actions) {
@@ -401,5 +437,6 @@ export function cardRulesDead(
   for (const action of columnPlays(state, actions, me)) dead.add(action);
   for (const action of recurringPlays(state, actions, me)) dead.add(action);
   for (const action of spentCounters(state, actions, me)) dead.add(action);
+  for (const action of slowInvasions(state, actions, me, own)) dead.add(action);
   return dead;
 }

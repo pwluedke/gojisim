@@ -20,7 +20,9 @@ import {
   cardRulesDead,
   losesWithoutStrategy,
   recursFromDiscard,
+  slowCounterDeck,
 } from "./cardRules";
+import type { Decklist } from "./types";
 import { difficultySettings, PRESETS } from "./difficulty";
 import { botInput, decklistsOf, seededRng } from "./input";
 import { decide } from "./ismcts";
@@ -414,5 +416,49 @@ describe("Paul's card-play rules (Nov 12), Medium and Hard", () => {
 
   it("#254: it's kept when even with it the counter isn't made", () => {
     expect(destoroyah(-20000)).toBe(true);
+  });
+
+  /** A decklist with `monsters` monster cards in its 50-card main deck. */
+  const deckWith = (monsters: number): Decklist => ({
+    monsterDeck: [],
+    mainDeck: [
+      ...Array.from({ length: monsters }, () => real("ESD01-004")),
+      ...Array.from({ length: 50 - monsters }, () => real("ESD01-016")),
+    ],
+  });
+
+  it("#248: a slow counter deck has 4 or fewer monster cards in its main deck (the Wrangler has 4)", () => {
+    expect(slowCounterDeck(deckWith(4))).toBe(true);
+    expect(slowCounterDeck(deckWith(5))).toBe(false);
+    expect(slowCounterDeck(undefined)).toBe(false);
+  });
+
+  it("#248, 8.6: a slow counter deck doesn't invade, unless the invasion wins now", () => {
+    const { state, p1 } = withGodzilla1995();
+    p1.hand = [add(state, real("ESD01-016"), "P1")];
+    p1.monsterPosition = 2;
+    const invasions = () => {
+      const legal = getLegalActions(state, "P1");
+      return { legal, invade: legal.filter((a) => a.type === "invade") };
+    };
+    const early = invasions();
+    expect(early.invade.length).toBeGreaterThan(0);
+    for (const a of early.invade) {
+      expect(cardRulesDead(state, early.legal, "P1", deckWith(4)).has(a)).toBe(
+        true,
+      );
+      expect(cardRulesDead(state, early.legal, "P1", deckWith(20)).has(a)).toBe(
+        false,
+      );
+    }
+    // In zone 8 with the opponent's zone 8 open, the invasion wins (5.13.1.1.2): it stays.
+    p1.monsterPosition = 8;
+    (state.players[1] as PlayerState).zones[8] = [];
+    const winning = invasions();
+    expect(winning.invade.length).toBeGreaterThan(0);
+    for (const a of winning.invade)
+      expect(
+        cardRulesDead(state, winning.legal, "P1", deckWith(4)).has(a),
+      ).toBe(false);
   });
 });

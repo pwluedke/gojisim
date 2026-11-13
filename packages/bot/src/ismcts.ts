@@ -24,7 +24,7 @@ import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
 import { deadKeys } from "./prune";
 import { cardRulesDead } from "./cardRules";
 import { applyRules } from "./rules";
-import type { Bot, BotInput, BotSettings } from "./types";
+import type { Bot, BotInput, BotSettings, Decklist } from "./types";
 
 /**
  * Single-observer information-set MCTS (M6c). Each iteration samples a determinization (M6a) and
@@ -385,7 +385,12 @@ export function search(input: BotInput, settings: IsmctsSettings) {
     // conceding.
     if (iterations === 1 && (settings.cardRules > 0 || settings.rules > 0)) {
       const first = state;
-      const unsafe = cardRulesDead(first, input.legalActions, me);
+      const unsafe = cardRulesDead(
+        first,
+        input.legalActions,
+        me,
+        input.knowledge.decks[me],
+      );
       const keys = new Set([
         ...dead,
         ...[...unsafe].map((a) => actionKey(first, a)),
@@ -499,8 +504,9 @@ function cardRulesSafe(
   state: GameState,
   actions: readonly Action[],
   me: PlayerId,
+  own?: Decklist,
 ): Action[] {
-  const unsafe = cardRulesDead(state, actions, me);
+  const unsafe = cardRulesDead(state, actions, me, own);
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
   return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
 }
@@ -515,6 +521,8 @@ export function blunderAllowed(
   legalActions: readonly Action[],
   me: PlayerId,
   settings: IsmctsSettings,
+  /** The bot's own decklist, for the card-play rules (rule 6). */
+  own?: Decklist,
 ): Action[] {
   const keyOf = (a: Action) => actionKey(state, a);
   const keep = combineDead(
@@ -529,7 +537,7 @@ export function blunderAllowed(
         (a) => !keep.killed.has(a) && !keep.dead.has(keyOf(a)),
       )
     : [...legalActions];
-  const safe = cardRulesSafe(state, kept, me);
+  const safe = cardRulesSafe(state, kept, me, own);
   const allowed =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
   if (settings.mxPlan === 0) return allowed;
@@ -558,12 +566,14 @@ export function decide(input: BotInput): Decision {
             legalActions,
             input.view.viewer as PlayerId,
             settings,
+            input.knowledge.decks[input.view.viewer as PlayerId],
           )
         : settings.cardRules > 0
           ? cardRulesSafe(
               determinize(input.view, input.knowledge, rng),
               legalActions,
               input.view.viewer as PlayerId,
+              input.knowledge.decks[input.view.viewer as PlayerId],
             )
           : [...legalActions];
     return {
