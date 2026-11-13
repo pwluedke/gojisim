@@ -1322,3 +1322,22 @@ describe("#249 (Paul, Nov 12): tokens go into empty or occupied zones", () => {
     expect(zones["2"]).toEqual([966302]);
   });
 });
+
+describe("#250: a token zone choice lists the zones already picked", () => {
+  it("9.1.2: placing 2 Crystals (EBP02-054 [enter]), the second pick carries the first zone and the token; the first carries none", () => {
+    const { state, me } = setup(3);
+    monster(state, me, real("EBP02-055"), 3);
+    // 10.4.3.2: the [enter] Crystals first.
+    const first = choose(
+      playMonster(state, me, inHand(state, me, real("EBP02-054"))),
+      (id) => id === "s1",
+    );
+    expect(first.pendingChoice).toMatchObject({ kind: "zone", rule: "9.1.2" });
+    expect(first.pendingChoice?.picked).toBeUndefined();
+    const zone = first.pendingChoice?.options[0]?.id ?? "";
+    const second = choose(first, (id) => id === zone);
+    expect(second.pendingChoice?.picked).toEqual([
+      { zone, cardId: getTokenCard("Crystals").id },
+    ]);
+  });
+});

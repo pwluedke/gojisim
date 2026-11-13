@@ -317,6 +317,11 @@ export interface PendingChoice {
   options: ChoiceOption[];
   /** The options are hidden cards only `player` may see (a hand, a searched deck). */
   private?: true;
+  /**
+   * #250: a zone choice for tokens played at once: the zones already picked (`<player>:<zone>`)
+   * and the token going there, so the board can show them until every token is placed.
+   */
+  picked?: { zone: string; cardId: number }[];
 }
 
 export interface GameResult {
