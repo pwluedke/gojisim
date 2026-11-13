@@ -20,6 +20,7 @@ export const BOT_DEPENDENCIES: readonly string[] = [
 ];
 
 export * from "./baseline";
+export * from "./cardRules";
 export * from "./deckGuess";
 export * from "./determinize";
 export * from "./difficulty";
