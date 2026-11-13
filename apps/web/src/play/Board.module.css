@@ -378,14 +378,6 @@
   font-weight: bold;
 }
 
-.chipUp {
-  color: var(--color-modifier-up-on-chip);
-}
-
-.chipDown {
-  color: var(--color-modifier-down-on-chip);
-}
-
 .cardBack,
 .cardBackSmall {
   flex: none;

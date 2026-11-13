@@ -519,14 +519,25 @@ export function cardChanges(
     ["rank", "Rank", "Rank"],
     ["threat", "Threat", "Threat"],
   ] as const;
+  // #245 (Paul, Nov 12): the invading monster's threat tag holds every addition, rage's
+  // +5,000 per point (3.4.5) too, so the card itself shows only its printed threat.
+  const invading = topOf(player.invadingMonsterZone)?.instanceId === instanceId;
   for (const [stat, short, long] of stats) {
-    const amount = modifierTotal(state, card, stat);
-    if (amount !== 0)
-      changes.push({
-        kind: stat,
-        label: `${short} ${signed(amount)}`,
-        detail: `${long} ${signed(amount)} from continuous effects (10.8.1)`,
-      });
+    const modifiers = modifierTotal(state, card, stat);
+    const rage = stat === "threat" && invading ? RAGE_THREAT * player.rage : 0;
+    const amount = modifiers + rage;
+    if (amount === 0) continue;
+    const parts = [
+      modifiers !== 0
+        ? `${signed(modifiers)} from continuous effects (10.8.1)`
+        : null,
+      rage !== 0 ? `${signed(rage)} from ${player.rage} rage (3.4.5)` : null,
+    ].filter(Boolean);
+    changes.push({
+      kind: stat,
+      label: `${short} ${signed(amount)}`,
+      detail: `${long} ${parts.join(", ")}`,
+    });
   }
   for (const status of card.statuses ?? [])
     changes.push({ kind: status, ...STATUS_CHANGES[status] });

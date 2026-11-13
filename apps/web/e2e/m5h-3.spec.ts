@@ -185,7 +185,7 @@ for (const theme of ["showa", "dark", "grey", "light"] as const)
     expect(results.violations).toEqual([]);
   });
 
-test("#19 a destroy modal shows a boosted card's modified counter power, matching the board", async ({
+test("#19, #245: a destroy modal shows a boosted card as the board does: the printed counter power at the bottom, the boost as a CP tag", async ({
   page,
 }) => {
   await loadFixture(page, "destroy-boosted");
@@ -193,19 +193,31 @@ test("#19 a destroy modal shows a boosted card's modified counter power, matchin
   await expect(modal).toHaveAttribute("data-kind", "target");
   const boosted = modal
     .getByTestId("choice-option")
-    .filter({ has: page.getByTestId("counter-power-modifier") })
+    .filter({
+      has: page.locator(
+        '[data-testid="change-chip"][data-kind="counterPower"]',
+      ),
+    })
     .first();
   await expect(boosted).toBeVisible();
   const id = (await boosted.getAttribute("data-option")) ?? "";
-  const inModal = await boosted.getByTestId("counter-power-chip").textContent();
-  const onBoard = await page
-    .locator(
-      `[data-testid="card"][data-instance-id="${id}"] [data-testid="counter-power-chip"]`,
-    )
-    .textContent();
-  expect(inModal?.trim()).toBe(onBoard?.trim());
-  // The printed value plus a signed modifier, as on the board.
-  expect(inModal?.trim()).toMatch(/^\d+ [+-]\d+$/);
+  const card = page.locator(`[data-testid="card"][data-instance-id="${id}"]`);
+  for (const what of ["counter-power-chip", "change-chip"]) {
+    const inModal = await boosted.getByTestId(what).first().textContent();
+    const onBoard = await card.getByTestId(what).first().textContent();
+    expect(inModal?.trim()).toBe(onBoard?.trim());
+  }
+  // The bottom is the printed number alone; the tag is the signed addition.
+  expect(
+    (await boosted.getByTestId("counter-power-chip").textContent())?.trim(),
+  ).toMatch(/^\d+$/);
+  expect(
+    (
+      await boosted
+        .locator('[data-testid="change-chip"][data-kind="counterPower"]')
+        .textContent()
+    )?.trim(),
+  ).toMatch(/^CP [+-]\d+$/);
 });
 
 const next = () =>
