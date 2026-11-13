@@ -17,6 +17,17 @@ import type { Decklist } from "./types";
  * Godzilla Against Mechagodzilla (a battle card) for its rage reset, never paid for an invasion.
  * The line waits until Despair can hit Mecha-King: its rank 3 needs your monster in zone 3 or
  * later (8.3.1), and it reaches only zones at or before your monster's.
+ *
+ * Line 2 (#274 point 1, Ian; the archetype alone): churn through the deck by raging a lot. From
+ * game turn 3 (card rule 14 decides turns 1-2), the rage discards are freed from Paul's rules'
+ * holds and favored over passing, but for the held key cards (`HELD`), which stay. Line 1 goes
+ * first when it's on.
+ *
+ * Line 3 (Ian's report of Nov 12; needs Godzilla (2023) ESD01-002 and Godzilla (2004)): with
+ * ESD01-002 the top monster card, invade paying with Godzilla (2004). The invasion's two zones
+ * fire ESD01-002's [invading] search twice, so one card becomes two monster cards for rage. Until
+ * then no pass, no stack (it would cover ESD01-002) and no rage for Godzilla (2004). It goes
+ * ahead of line 2, after line 1.
  */
 
 export const DESPAIR = "EBP02-018";
@@ -36,6 +47,17 @@ const CORE_NEEDED = 3;
 const DESPAIR_RAGE = 2;
 /** Despair's rank: your monster in zone 3 or later to play it (8.3.1). */
 const DESPAIR_RANK = 3;
+/** Line 2: the first game turn it churns on (card rule 14 decides turns 1-2). */
+export const CHURN_FROM_TURN = 3;
+/**
+ * Line 2: monster cards held, not discarded for rage. Godzilla (2004) EBP01-008 (Ian's example:
+ * its [enter] advances the opponent's monster) and Godzilla (1954) EBP01-004 (its zone 8 wipe,
+ * card rule 15).
+ */
+export const HELD = new Set(["EBP01-008", "EBP01-004"]);
+/** Line 3's cards: Godzilla (2004), and the rank 2 Godzilla (2023) whose [invading] searches. */
+export const GODZILLA_2004 = "EBP01-008";
+export const FETCHER = "ESD01-002";
 
 type Card = GameState["cards"][number];
 
@@ -70,6 +92,30 @@ const handCard = (
   return c ? state.cards[c.cardId] : undefined;
 };
 
+/**
+ * Line 3: the invasions paying with Godzilla (2004) while Godzilla (2023) ESD01-002 is the top
+ * monster card (its [invading] search, once a zone, fetches rank 3 Godzilla (2023) to rage); gated
+ * on both cards in the bot's own lists.
+ */
+function fetchLine(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+  own: Decklist | undefined,
+): Action[] {
+  if (!own) return [];
+  if (!own.monsterDeck.some((c) => c.deckCardNumber === FETCHER)) return [];
+  if (!own.mainDeck.some((c) => c.deckCardNumber === GODZILLA_2004)) return [];
+  const player = state.players.find((p) => p.id === me);
+  const top = player?.invadingMonsterZone.at(-1);
+  if (!top || state.cards[top.cardId]?.deckCardNumber !== FETCHER) return [];
+  return actions.filter(
+    (a) =>
+      a.type === "invade" &&
+      handCard(state, me, a.cardInstanceId)?.deckCardNumber === GODZILLA_2004,
+  );
+}
+
 /** The moves the plan argues against, and the ones it frees from Paul's rules' holds. */
 export function wranglerVerdict(
   state: GameState,
@@ -79,12 +125,12 @@ export function wranglerVerdict(
 ): { against: Set<Action>; rescued: Set<Action> } {
   const against = new Set<Action>();
   const rescued = new Set<Action>();
-  if (!isWranglerDeck(own) || !wranglerLines(own).despair)
-    return { against, rescued };
+  if (!isWranglerDeck(own)) return { against, rescued };
   const player = state.players.find((p) => p.id === me);
   const opponent = state.players.find((p) => p.id !== me);
   if (!player || !opponent || state.turnPlayer !== me)
     return { against, rescued };
+  const despairLine = wranglerLines(own).despair;
   const at = player.monsterPosition ?? 0;
   // Mecha-King Ghidorah where Despair reaches: at or before your monster's zone.
   const mechaKings = Object.entries(opponent.zones).flatMap(([zone, stacks]) =>
@@ -99,7 +145,7 @@ export function wranglerVerdict(
   );
   const choice = state.pendingChoice;
   // At Despair's target pick: Mecha-King Ghidorah.
-  if (choice?.player === me && choice.kind === "target") {
+  if (despairLine && choice?.player === me && choice.kind === "target") {
     const source = state.resolution
       ? state.cards[state.resolution.standby.sourceCardId]
       : undefined;
@@ -111,34 +157,67 @@ export function wranglerVerdict(
     return { against, rescued };
   }
   if (choice) return { against, rescued };
-  // Godzilla Against Mechagodzilla stays for its rage reset: not paid for an invasion.
-  for (const a of actions)
-    if (
-      a.type === "invade" &&
-      handCard(state, me, a.cardInstanceId)?.deckCardNumber === GAM
-    )
-      against.add(a);
   const despairInHand = player.hand.some(
     (c) => state.cards[c.cardId]?.deckCardNumber === DESPAIR,
   );
-  if (mechaKings.length === 0 || !despairInHand || at < DESPAIR_RANK)
-    return { against, rescued };
-  if (player.rage < DESPAIR_RAGE) {
-    // To 2 rage first: the rage discards (but GAM), freed from Paul's rule 2 holds.
-    for (const a of actions) {
-      if (a.type === "gainRage" && !against.has(a)) rescued.add(a);
-      else if (a.type !== "concede") against.add(a);
-    }
-  } else
+  if (despairLine) {
+    // Godzilla Against Mechagodzilla stays for its rage reset: not paid for an invasion.
     for (const a of actions)
       if (
-        a.type !== "concede" &&
-        !(
-          a.type === "activateStrategy" &&
-          handCard(state, me, a.cardInstanceId)?.deckCardNumber === DESPAIR
-        )
+        a.type === "invade" &&
+        handCard(state, me, a.cardInstanceId)?.deckCardNumber === GAM
       )
         against.add(a);
+  }
+  if (
+    despairLine &&
+    mechaKings.length > 0 &&
+    despairInHand &&
+    at >= DESPAIR_RANK
+  ) {
+    if (player.rage < DESPAIR_RAGE) {
+      // To 2 rage first: the rage discards, freed from Paul's rule 2 holds.
+      for (const a of actions) {
+        if (a.type === "gainRage") rescued.add(a);
+        else if (a.type !== "concede") against.add(a);
+      }
+    } else
+      for (const a of actions)
+        if (
+          a.type !== "concede" &&
+          !(
+            a.type === "activateStrategy" &&
+            handCard(state, me, a.cardInstanceId)?.deckCardNumber === DESPAIR
+          )
+        )
+          against.add(a);
+  } else if (fetchLine(state, actions, me, own).length > 0) {
+    // Line 3: invade paying with Godzilla (2004) while the rank 2 Godzilla (2023) is on top.
+    const pay = new Set(fetchLine(state, actions, me, own));
+    for (const a of actions)
+      if (
+        a.type === "pass" ||
+        a.type === "playMonster" ||
+        (a.type === "invade" && !pay.has(a)) ||
+        (a.type === "gainRage" &&
+          handCard(state, me, a.cardInstanceId)?.deckCardNumber ===
+            GODZILLA_2004)
+      )
+        against.add(a);
+  } else if (state.turn >= CHURN_FROM_TURN) {
+    // Line 2: churn. The rage discards but the held key cards are freed and favored over passing.
+    const churn = actions.filter(
+      (a) =>
+        a.type === "gainRage" &&
+        !HELD.has(handCard(state, me, a.cardInstanceId)?.deckCardNumber ?? ""),
+    );
+    if (churn.length > 0) {
+      for (const a of churn) rescued.add(a);
+      for (const a of actions)
+        if (a.type === "pass" || (a.type === "gainRage" && !churn.includes(a)))
+          against.add(a);
+    }
+  }
   // Never argue against everything.
   if (actions.every((a) => a.type === "concede" || against.has(a)))
     against.clear();
