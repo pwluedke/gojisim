@@ -70,6 +70,9 @@ import type { Decklist } from "./types";
  * 12. #130 (Tuscancow): an Evolution's pick (12.6.2) of a card no stronger than the one it stacks
  *    on (counter power not higher: Battra (Larva) onto Battra (Larva)) is left out while a stronger
  *    one or "done" is there.
+ * 13. #131 (Tuscancow): a battle card whose [enter] needs Awakening N (Super-X ESD02-009: zone 4)
+ *    waits while your monster is short of N and an invasion this turn takes it there: invade
+ *    first, then play it (combos.md #7, the Cadmium Barrage order).
  */
 
 type Json = Record<string, unknown>;
@@ -663,6 +666,51 @@ function weakEvolutions(
     : [];
 }
 
+/** Rule 13: the Awakening zone a card's [enter] needs, or `null`. */
+export function enterAwakening(deckCardNumber: string): number | null {
+  for (const ability of getCardAbilities(deckCardNumber).abilities) {
+    const a = ability as unknown as Json;
+    if ((a["trigger"] as Json | undefined)?.["on"] !== "enter") continue;
+    const gate = ((a["gates"] as Json[] | undefined) ?? []).find(
+      (g) => g["gate"] === "awakening",
+    );
+    if (typeof gate?.["zone"] === "number") return gate["zone"];
+  }
+  return null;
+}
+
+/** Rule 13: plays of Awakening-[enter] cards before the invasion that would wake them. */
+function earlyAwakenings(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  if (state.pendingChoice || state.turnPlayer !== me) return [];
+  const player = state.players.find((p) => p.id === me);
+  const at = player?.monsterPosition ?? null;
+  if (!player || at === null) return [];
+  const invasions = actions.filter((a) => a.type === "invade");
+  if (invasions.length === 0) return [];
+  // How far an invasion this turn takes the monster (the best of them).
+  let reach: number = at;
+  for (const a of invasions) {
+    try {
+      const after = advanceToDecision(applyAction(state, a));
+      const pos = after.players.find((p) => p.id === me)?.monsterPosition;
+      if (typeof pos === "number") reach = Math.max(reach, pos);
+    } catch {
+      continue;
+    }
+  }
+  return actions.filter((a) => {
+    if (a.type !== "playBattle") return false;
+    const c = player.hand.find((h) => h.instanceId === a.cardInstanceId);
+    const data = c ? state.cards[c.cardId] : undefined;
+    const need = data ? enterAwakening(data.deckCardNumber) : null;
+    return need !== null && at < need && reach >= need;
+  });
+}
+
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
 export function cardRulesDead(
   state: GameState,
@@ -704,6 +752,7 @@ export function cardRulesDead(
   for (const action of zoneLimitedPlays(state, actions, me)) dead.add(action);
   for (const action of unsafeAdvances(state, actions, me)) dead.add(action);
   for (const action of weakEvolutions(state, actions, me)) dead.add(action);
+  for (const action of earlyAwakenings(state, actions, me)) dead.add(action);
   // Rule 7: a way to block zone 8 is taken: every other move waits (but an invasion that wins
   // now), and it outranks the others' holds. (Rule 9 only frees holds, in `rescuedPlays`.)
   const blocks = blockingPlays(state, actions, me);

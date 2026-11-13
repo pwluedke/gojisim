@@ -19,6 +19,7 @@ import { describe, expect, it } from "vitest";
 import {
   blockingPlays,
   cardRulesDead,
+  enterAwakening,
   losesWithoutStrategy,
   recursFromDiscard,
   rescuedPlays,
@@ -737,6 +738,28 @@ describe(
       const actions = [pick("c-other-larva"), pick("c-imago"), pick("done")];
       const dead = cardRulesDead(state, actions, "P1");
       expect([...dead]).toEqual([actions[0]]);
+    });
+
+    it("rule 13 (#131): Super-X ESD02-009 ([enter] needs Awakening 4) waits while an invasion can take the monster from zone 3 to 4; in zone 4 it's played", () => {
+      expect(enterAwakening("ESD02-009")).toBe(4);
+      expect(enterAwakening("ESD01-016")).toBeNull();
+      const early = (at: ZoneNumber) => {
+        const { state, p1 } = withGodzilla1995();
+        p1.monsterPosition = at;
+        // Their monster far back: no zone 8 threat (rule 7 stays out).
+        (state.players[1] as PlayerState).monsterPosition = 3;
+        p1.hand = [
+          add(state, { ...real("ESD02-009"), rank: 1 }, "P1"),
+          add(state, real("ESD01-016"), "P1"),
+        ];
+        const legal = getLegalActions(state, "P1");
+        const dead = cardRulesDead(state, legal, "P1");
+        const plays = legal.filter((a) => a.type === "playBattle");
+        expect(plays.length).toBeGreaterThan(0);
+        return plays.every((a) => dead.has(a));
+      };
+      expect(early(3)).toBe(true);
+      expect(early(4)).toBe(false);
     });
   },
 );
