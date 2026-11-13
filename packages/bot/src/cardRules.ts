@@ -44,8 +44,8 @@ import type { Decklist } from "./types";
  * 5. #254: a counter-only strategy (Godzilla vs. Destoroyah EBP01-062: +10,000 total counter power)
  *    is played only when it's needed: not while the counter is already made without it (7.4.3),
  *    and not when even with it (and the others in hand) the counter isn't made.
- * 6. #248: a slow counter deck (`SLOW_DECK_MONSTERS` or fewer monster cards in its main deck, Ian:
- *    the Wrangler has 4) doesn't invade unless the invasion wins the game now: it hasn't the
+ * 6. #248: a slow counter deck (`SLOW_DECK_MONSTERS` or fewer monster cards in its main deck: the
+ *    Tangler the bot played in Ian's reports has 4) doesn't invade unless the invasion wins the game now: it hasn't the
  *    threat to live in the high zones, and an invasion ends its turn in reach of a push.
  * 7. #265: with your zone 8 open and the opponent's monster in reach of it (zone 6 or beyond),
  *    when some plays this turn put a battle card in your zone 8, take one: those plays stay even

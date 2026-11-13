@@ -454,7 +454,7 @@ describe(
       ],
     });
 
-    it("#248: a slow counter deck has 4 or fewer monster cards in its main deck (the Wrangler has 4)", () => {
+    it("#248: a slow counter deck has 4 or fewer monster cards in its main deck (the Tangler the bot played in #248 has 4)", () => {
       expect(slowCounterDeck(deckWith(4))).toBe(true);
       expect(slowCounterDeck(deckWith(5))).toBe(false);
       expect(slowCounterDeck(undefined)).toBe(false);
