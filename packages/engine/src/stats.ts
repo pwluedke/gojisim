@@ -35,15 +35,40 @@ interface ActiveModifier {
 }
 
 /**
- * Set while modifiers are being collected. Conditions and selectors read stats too (a rank
- * filter, for example); inside that evaluation they see printed values, so an ability cannot
- * depend on itself (10.8.1.6).
+ * Set while modifiers are being collected, and inside a filter's own nested reads. Conditions and
+ * selectors read stats too (a rank filter, for example); there they see printed values, so an
+ * ability cannot depend on itself (10.8.1.6).
  */
 let collecting = false;
 
 /**
+ * #257 (Paul, Nov 12; amends decision 132): while a modifier's target filter is read ("your rank 5
+ * or lower battle cards"), the card whose ability it is. The filter sees the card's current values
+ * (10.8.1): every other modifier in force applies, this card's own never do. One level deep: what
+ * those other modifiers' own filters read is printed. A play-cost reduction (`playRule`) is never
+ * a rank modifier, so a card in a zone has its printed rank there (Paul: Mecha-King EBP02-068).
+ */
+let filterSource: string | null = null;
+
+/** Enters a modifier's target filter (#257); `leaveFilter` restores what it returns. */
+function enterFilter(context: Context) {
+  const saved = { collecting, filterSource };
+  if (filterSource === null) filterSource = context.sourceInstanceId;
+  else collecting = true;
+  return saved;
+}
+
+function leaveFilter(saved: {
+  collecting: boolean;
+  filterSource: string | null;
+}) {
+  collecting = saved.collecting;
+  filterSource = saved.filterSource;
+}
+
+/**
  * Continuous modifiers in force (10.8): every active card's continuous abilities whose gates are
- * open (Q7, Q9) and whose condition holds.
+ * open (Q7, Q9) and whose condition holds. Inside a filter (#257), not the filter's own card's.
  */
 function activeModifiers(state: GameState): ActiveModifier[] {
   if (collecting) return [];
@@ -68,7 +93,9 @@ function activeModifiers(state: GameState): ActiveModifier[] {
           found.push({ modifier, context });
       }
     }
-    return found;
+    return filterSource === null
+      ? found
+      : found.filter((m) => m.context.sourceInstanceId !== filterSource);
   } finally {
     collecting = false;
   }
@@ -115,7 +142,7 @@ export function flagsOn(state: GameState, card: CardInstance): FlagModifier[] {
         found.push(f.modifier);
   for (const { modifier, context } of activeModifiers(state)) {
     if (!("flag" in modifier) || !("target" in modifier)) continue;
-    collecting = true;
+    const saved = enterFilter(context);
     try {
       if (
         select(context, modifier.target).some(
@@ -124,7 +151,7 @@ export function flagsOn(state: GameState, card: CardInstance): FlagModifier[] {
       )
         found.push(modifier);
     } finally {
-      collecting = false;
+      leaveFilter(saved);
     }
   }
   return found;
@@ -178,7 +205,7 @@ export function playAllowed(
   if (!anyModifier(state, isFlag("cannotPlay"))) return true;
   for (const { modifier, context } of activeModifiers(state)) {
     if (!("flag" in modifier) || modifier.flag !== "cannotPlay") continue;
-    collecting = true;
+    const saved = enterFilter(context);
     try {
       const who =
         modifier.player === "any" ||
@@ -205,7 +232,7 @@ export function playAllowed(
       )
         return false;
     } finally {
-      collecting = false;
+      leaveFilter(saved);
     }
   }
   return true;
@@ -247,7 +274,7 @@ export function invasionPayable(
     player,
     "cannotPayInvasionWith",
   )) {
-    collecting = true;
+    const saved = enterFilter(context);
     try {
       if (
         select(context, { ...modifier.what, area: "hand" }).some(
@@ -256,7 +283,7 @@ export function invasionPayable(
       )
         return false;
     } finally {
-      collecting = false;
+      leaveFilter(saved);
     }
   }
   return true;
@@ -273,7 +300,7 @@ export function playRankReduction(
   for (const { modifier, context } of activeModifiers(state)) {
     if (!("stat" in modifier) || modifier.stat !== "playRankReduction")
       continue;
-    collecting = true;
+    const saved = enterFilter(context);
     try {
       if (
         select(context, modifier.target).some(
@@ -282,7 +309,7 @@ export function playRankReduction(
       )
         total += amountOf(context, modifier.amount);
     } finally {
-      collecting = false;
+      leaveFilter(saved);
     }
   }
   return total;
@@ -311,7 +338,7 @@ function modifierTotal(
   let total = boostTotal(state, card, stat);
   for (const { modifier, context } of activeModifiers(state)) {
     if (!("stat" in modifier) || modifier.stat !== stat) continue;
-    collecting = true;
+    const saved = enterFilter(context);
     try {
       if (
         select(context, modifier.target).some(
@@ -320,7 +347,7 @@ function modifierTotal(
       )
         total += amountOf(context, modifier.amount);
     } finally {
-      collecting = false;
+      leaveFilter(saved);
     }
   }
   return total;
