@@ -272,6 +272,23 @@ describe("Paul's card-play rules (Nov 12), Medium and Hard", () => {
     expect(mechaKing(4, 6).zonesLeft()).toEqual([1]);
   });
 
+  it("#247: Mechagodzilla (1993) ESD02-012's column bonus (+3000) counts too: it goes in the opponent's monster column", () => {
+    const { state, p1 } = withGodzilla1995();
+    p1.hand = [];
+    p1.monsterPosition = 7;
+    (state.players[1] as PlayerState).monsterPosition = 3;
+    const card = add(state, { ...real("ESD02-012"), rank: 1 }, "P1");
+    p1.hand.push(card);
+    const legal = getLegalActions(state, "P1");
+    const dead = cardRulesDead(state, legal, "P1");
+    // Their zone 3 faces your 3 and 8; 8 is straight ahead of your monster in 7.
+    expect(
+      legal
+        .filter((a) => a.type === "playBattle" && !dead.has(a))
+        .map((a) => (a.type === "playBattle" ? a.zone : 0)),
+    ).toEqual([3]);
+  });
+
   it("#258: with the column out of reach (their monster in zone 1 faces your 5 and 6: your monster's zone and the one straight ahead), zone 1 or 2", () => {
     expect(mechaKing(5, 1).zonesLeft()).toEqual([1, 2]);
   });
