@@ -6,7 +6,10 @@ import {
   type GameState,
   getLegalActions,
   type PlayerId,
+  sameColumn,
+  type ZoneNumber,
 } from "@gojisim/engine";
+import { columnCard } from "./rules";
 
 /**
  * Card-play rules for Medium and Hard (Paul, Nov 12), on with `cardRules` (from Medium up) or
@@ -20,6 +23,10 @@ import {
  *    and leave the invasion, clear it first: no invading into the blocker (it spends the turn's
  *    invasion, 8.6.2) and no passing; and inside that play, the answers that clear it (the
  *    blocker as the target, the option that destroys it).
+ * 3. #258: a card that works in the same column as the opponent's monster (Mecha-King Ghidorah
+ *    EBP02-068: no invading, +3000) goes in that column when it can; otherwise in zone 1 or 2 (the
+ *    columns the opponent's monster walks through, zones 4 to 7). An empty zone over stacking on
+ *    your own card, and never the zone straight ahead of your own monster (its next advance).
  */
 
 type Json = Record<string, unknown>;
@@ -142,6 +149,54 @@ function invadeIntoBlocker(
     : [];
 }
 
+/**
+ * Rule 3: plays of same-column cards away from the best zones there are: the opponent's monster
+ * column, else zone 1 or 2; empty before stacked; never straight ahead of the own monster.
+ */
+function columnPlays(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const player = state.players.find((p) => p.id === me);
+  const opponent = state.players.find((p) => p.id !== me);
+  if (!player || !opponent || state.pendingChoice) return [];
+  const oppAt = opponent.monsterPosition;
+  const ahead =
+    player.monsterPosition === null ? null : player.monsterPosition + 1;
+  const dead: Action[] = [];
+  const cardOf = (id: string) => {
+    const c = player.hand.find((h) => h.instanceId === id);
+    return c ? state.cards[c.cardId] : undefined;
+  };
+  const byCard = new Map<string, Extract<Action, { type: "playBattle" }>[]>();
+  for (const a of actions)
+    if (a.type === "playBattle" && columnCard(cardOf(a.cardInstanceId)))
+      byCard.set(a.cardInstanceId, [
+        ...(byCard.get(a.cardInstanceId) ?? []),
+        a,
+      ]);
+  for (const plays of byCard.values()) {
+    const empty = (z: ZoneNumber) => player.zones[z].length === 0;
+    const inColumn = (z: ZoneNumber) =>
+      oppAt !== null &&
+      sameColumn({ player: me, zone: z }, { player: opponent.id, zone: oppAt });
+    const tiers: ((z: ZoneNumber) => boolean)[] = [
+      (z) => inColumn(z) && empty(z),
+      (z) => inColumn(z),
+      (z) => (z === 1 || z === 2) && empty(z),
+      (z) => z === 1 || z === 2,
+    ];
+    const safe = plays.filter((a) => a.zone !== ahead);
+    const best = tiers
+      .map((tier) => safe.filter((a) => tier(a.zone)))
+      .find((t) => t.length > 0);
+    if (!best) continue;
+    for (const a of plays) if (!best.includes(a)) dead.push(a);
+  }
+  return dead;
+}
+
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
 export function cardRulesDead(
   state: GameState,
@@ -174,5 +229,6 @@ export function cardRulesDead(
     if (!strategyCovered(after, me)) dead.add(action);
   }
   for (const action of invadeIntoBlocker(state, actions, me)) dead.add(action);
+  for (const action of columnPlays(state, actions, me)) dead.add(action);
   return dead;
 }

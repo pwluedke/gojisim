@@ -11,6 +11,7 @@ import {
   type PlayerSetup,
   type PlayerState,
   startGame,
+  type ZoneNumber,
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
 import { cardRulesDead, losesWithoutStrategy } from "./cardRules";
@@ -230,5 +231,51 @@ describe("Paul's card-play rules (Nov 12), Medium and Hard", () => {
     );
     const legal = getLegalActions(state, "P1");
     expect(cardRulesDead(state, legal, "P1").size).toBe(0);
+  });
+
+  /**
+   * #258: Mecha-King Ghidorah EBP02-068 in P1's hand (its rank lowered, so it can be played
+   * anywhere: the test is where), P1's monster in `mine`, the opponent's in `theirs`.
+   */
+  function mechaKing(mine: ZoneNumber, theirs: ZoneNumber) {
+    const { state, p1 } = withGodzilla1995();
+    p1.hand = [];
+    p1.monsterPosition = mine;
+    (state.players[1] as PlayerState).monsterPosition = theirs;
+    const card = add(state, { ...real("EBP02-068"), rank: 1 }, "P1");
+    p1.hand.push(card);
+    const zonesLeft = () => {
+      const legal = getLegalActions(state, "P1");
+      const dead = cardRulesDead(state, legal, "P1");
+      return legal
+        .filter(
+          (a) =>
+            a.type === "playBattle" &&
+            a.cardInstanceId === card.instanceId &&
+            !dead.has(a),
+        )
+        .map((a) => (a.type === "playBattle" ? a.zone : 0))
+        .sort();
+    };
+    return { state, p1, zonesLeft };
+  }
+
+  it("#258, 4.4.5.5: Mecha-King goes in the opponent's monster column (their zone 4 faces your zone 2)", () => {
+    expect(mechaKing(5, 4).zonesLeft()).toEqual([2]);
+    // Their zone 6 faces your zone 1.
+    expect(mechaKing(4, 6).zonesLeft()).toEqual([1]);
+  });
+
+  it("#258: with the column out of reach (their monster in zone 1 faces your 5 and 6: your monster's zone and the one straight ahead), zone 1 or 2", () => {
+    expect(mechaKing(5, 1).zonesLeft()).toEqual([1, 2]);
+  });
+
+  it("#258: never the zone straight ahead of your own monster; an empty zone before stacking", () => {
+    // Their monster in zone 3 faces your 3 and 8; yours in 7, so 8 is straight ahead: zone 3.
+    expect(mechaKing(7, 3).zonesLeft()).toEqual([3]);
+    // Zone 1 holds your card: with the column out of reach, empty zone 2 over stacking on it.
+    const stacked = mechaKing(5, 1);
+    stacked.p1.zones[1] = [[add(stacked.state, real("ESD01-016"), "P1")]];
+    expect(stacked.zonesLeft()).toEqual([2]);
   });
 });
