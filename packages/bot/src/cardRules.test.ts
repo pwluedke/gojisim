@@ -164,4 +164,71 @@ describe("Paul's card-play rules (Nov 12), Medium and Hard", () => {
         expect(picked).not.toEqual(action);
       }
   });
+
+  /**
+   * #246: P1 in its zone 8; the opponent's zone 8 holds a rank 4 battle card, and a rank 3 one is
+   * in zone 1. In hand: Godzilla 2000: Millennium EBP02-038 (destroy 1 of the opponent's rank 5
+   * or lower battle cards) and Heat Ray ESD01-016 to pay for the invasion.
+   */
+  function blockedZone8() {
+    const { state, p1 } = withGodzilla1995();
+    p1.hand = [];
+    p1.monsterPosition = 8;
+    const opp = state.players[1] as PlayerState;
+    const blocker = add(state, { ...real("ESD02-011"), rank: 4 }, "P2");
+    const other = add(state, { ...real("ESD02-012"), rank: 3 }, "P2");
+    opp.zones[8] = [[blocker]];
+    opp.zones[1] = [[other]];
+    p1.hand.push(
+      add(state, real("EBP02-038"), "P1"),
+      add(state, real("ESD01-016"), "P1"),
+    );
+    return { state, blocker, other };
+  }
+
+  it("#246, 8.6.2: in zone 8 behind a blocker a play can destroy, no invading into it and no pass; the clearing play stays", () => {
+    const { state } = blockedZone8();
+    const legal = getLegalActions(state, "P1");
+    const dead = cardRulesDead(state, legal, "P1");
+    expect(legal.filter((a) => a.type === "invade").length).toBeGreaterThan(0);
+    for (const a of legal)
+      if (a.type === "invade" || a.type === "pass")
+        expect(dead.has(a)).toBe(true);
+    expect(
+      legal.some((a) => a.type === "activateStrategy" && !dead.has(a)),
+    ).toBe(true);
+  });
+
+  it("#246: inside the clearing play, only the answers that clear zone 8 stay (the blocker as the target)", () => {
+    const { state, blocker, other } = blockedZone8();
+    let s = state;
+    const activate = getLegalActions(s, "P1").find(
+      (a) => a.type === "activateStrategy",
+    )!;
+    s = advanceToDecision(applyAction(s, activate));
+    // Answer until the target pick, taking any answer that keeps the blocker reachable.
+    for (let i = 0; i < 5 && s.pendingChoice?.kind !== "target"; i++) {
+      const legal = getLegalActions(s, "P1");
+      const dead = cardRulesDead(s, legal, "P1");
+      const keep = legal.find((a) => a.type === "choose" && !dead.has(a))!;
+      s = advanceToDecision(applyAction(s, keep));
+    }
+    expect(s.pendingChoice?.kind).toBe("target");
+    const legal = getLegalActions(s, "P1");
+    const dead = cardRulesDead(s, legal, "P1");
+    const target = (id: string) =>
+      legal.find((a) => a.type === "choose" && a.optionId === id)!;
+    expect(dead.has(target(blocker.instanceId))).toBe(false);
+    expect(dead.has(target(other.instanceId))).toBe(true);
+  });
+
+  it("#246: with nothing that can clear it, invading and passing stay (no rule to apply)", () => {
+    const { state } = blockedZone8();
+    const p1 = state.players[0] as PlayerState;
+    p1.hand = p1.hand.filter(
+      (c) => state.cards[c.cardId]?.cardNumber !== "EBP02-038",
+    );
+    const legal = getLegalActions(state, "P1");
+    expect(cardRulesDead(state, legal, "P1").size).toBe(0);
+  });
 });
