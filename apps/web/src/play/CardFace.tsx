@@ -1,7 +1,7 @@
 import { type Card, getCardAbilities } from "@gojisim/cards";
 import type { CardChange, CardInstance } from "@gojisim/engine";
 import type { ReactNode } from "react";
-import { printedWithCurrent } from "../game/printed";
+import { printedText } from "../game/printed";
 import styles from "./Board.module.css";
 import { useInteraction } from "./interaction";
 
@@ -25,8 +25,8 @@ export function CardBack({
 /**
  * One card: the full printed card image (the 300 px thumb) at the board's one card size
  * (`--card-w` by `--card-h`, M5b fix). Nothing is written under or over it except overlay chips:
- * counter power (printed value plus the colored modifier, PR #24 pattern) for a battle card on the
- * mat, threat for the invading monster, "×N" for a stack, and a manual badge. Hovering it opens
+ * printed counter power for a battle card on the mat, printed threat for the invading monster
+ * (#245: every addition is a change tag at the top), "×N" for a stack, and a manual badge. Hovering it opens
  * the preview panel, where the card is read large.
  *
  * M5d: every change in force on the card (`cardChanges`: Burst, stat modifiers, statuses, how it
@@ -117,8 +117,10 @@ export function CardFace({
 }
 
 /**
- * A card's overlay chips (shared by the board and the choice modal, M5h #19): counter power
- * (printed plus the colored modifier), the change badge, extra marks and threat.
+ * A card's overlay chips (shared by the board and the choice modal, M5h #19): the printed counter
+ * power, the change badge, extra marks and the printed threat. #245 (Paul, Nov 12): the numbers at
+ * the bottom are the printed ones and never change; every addition is a change tag ("CP +3000",
+ * "Threat +10000", rage included). `counterPower` and `threat` say which chip the card shows.
  */
 export function CardChips({
   data,
@@ -134,25 +136,11 @@ export function CardChips({
   extra?: ReactNode;
 }) {
   const printed = data.counterOrThreat;
-  const { text, modifier } =
-    printed === null
-      ? { text: "", modifier: 0 }
-      : printedWithCurrent(printed, counterPower);
   return (
     <>
       {counterPower !== undefined && printed !== null && (
         <span className={styles.chip} data-testid="counter-power-chip">
-          {text}
-          {modifier !== 0 && (
-            <span
-              className={modifier > 0 ? styles.chipUp : styles.chipDown}
-              data-testid="counter-power-modifier"
-            >
-              {" "}
-              {modifier > 0 ? "+" : ""}
-              {modifier}
-            </span>
-          )}
+          {printedText(printed)}
         </span>
       )}
       {changes.length > 0 && (
@@ -175,9 +163,9 @@ export function CardChips({
         </div>
       )}
       {extra}
-      {threat !== undefined && (
+      {threat !== undefined && printed !== null && (
         <span className={styles.chip} data-testid="threat-chip">
-          Threat {threat}
+          Threat {printedText(printed)}
         </span>
       )}
     </>

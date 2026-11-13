@@ -48,8 +48,6 @@
   --color-backdrop: rgb(26 20 16 / 55%);
   --color-chip: rgb(26 20 16 / 90%);
   --color-chip-text: #fbf4e4;
-  --color-modifier-up-on-chip: #f4b323;
-  --color-modifier-down-on-chip: #ff9b8f;
   --color-center-line: #1a1410;
   --color-accent: #1f6f7c;
   --color-modifier-up: #1f6f7c;
@@ -143,12 +141,13 @@
   --tag-border: 2px solid #1a1410;
   --tag-transform: skewX(-10deg);
   --mat-you-border: 3px solid #d7261e;
-  --mat-you-shadow: 5px 5px 0 #d7261e;
+  /* #243 (Paul, Nov 12): no drop shadow on either mat; the borders stay. */
+  --mat-you-shadow: none;
   --mat-you-bg:
     radial-gradient(rgb(26 20 16 / 10%) 1.2px, transparent 1.5px) 0 0 / 9px 9px,
     #fbede0;
   --mat-opp-border: 3px solid #1a1410;
-  --mat-opp-shadow: 5px 5px 0 #1a1410;
+  --mat-opp-shadow: none;
   --mat-opp-bg:
     radial-gradient(rgb(26 20 16 / 10%) 1.2px, transparent 1.5px) 0 0 / 9px 9px,
     #e7f0ee;
@@ -190,8 +189,6 @@
   --color-backdrop: rgb(20 24 33 / 45%);
   --color-chip: rgb(20 24 33 / 85%);
   --color-chip-text: #ffffff;
-  --color-modifier-up-on-chip: #7cc4ff;
-  --color-modifier-down-on-chip: #ff9b8f;
   --color-center-line: #1d2330;
   --color-accent: #0066cc;
   --color-modifier-up: #0066cc;
@@ -322,8 +319,6 @@
   --color-backdrop: rgb(20 24 33 / 55%);
   --color-chip: rgb(20 24 33 / 85%);
   --color-chip-text: #ffffff;
-  --color-modifier-up-on-chip: #7cc4ff;
-  --color-modifier-down-on-chip: #ff9b8f;
   --color-center-line: #1d2330;
   --color-accent: #00336f;
   --color-modifier-up: #00336f;
@@ -453,8 +448,6 @@
   --color-backdrop: rgb(0 0 0 / 60%);
   --color-chip: rgb(0 0 0 / 80%);
   --color-chip-text: #ffffff;
-  --color-modifier-up-on-chip: #7cc4ff;
-  --color-modifier-down-on-chip: #ff9b8f;
   --color-center-line: #c9ced8;
   --color-accent: #6cb6ff;
   --color-modifier-up: #6cb6ff;

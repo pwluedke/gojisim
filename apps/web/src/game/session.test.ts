@@ -74,6 +74,15 @@ describe("confirmSingleOption seats (M5d, renamed in M5e)", () => {
     expect(loaded.record.confirmSingleOption).toEqual(["P1"]);
     expect(loaded.states[0]?.confirmSingleOption).toEqual(["P1"]);
   });
+
+  it("#244: a game loaded from My games keeps its game id, so finishing it replaces its upload (no second row)", () => {
+    const session = newSession(1, decks(), {
+      P1: { kind: "human" },
+      P2: { kind: "bot", difficulty: 55 },
+    });
+    const loaded = sessionFromRecord(JSON.stringify(session.record));
+    expect(loaded.record.gameId).toBe(session.record.gameId);
+  });
 });
 
 describe("First / Second pick and Casual undo (M5e)", () => {

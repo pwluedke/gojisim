@@ -156,3 +156,4 @@ Decisions 668–892 were added together after the fact (Nov 11, 2026), for the r
 | 885–888 | M9c review (PR #233)                                                                                                           | [web.md](web.md)                                 |
 | 889–892 | M9d review (PR #234)                                                                                                           | [web.md](web.md)                                 |
 | 893     | Manda cost play review (PR #239)                                                                                               | [engine.md](engine.md)                           |
+| 894–895 | Discord mentions review (PR #253)                                                                                              | [server-and-feedback.md](server-and-feedback.md) |
