@@ -5,8 +5,10 @@ import {
   type GameState,
   getRank,
   getThreat,
+  hasFlag,
   type PlayerState,
 } from "../src";
+import { setTestAbilities } from "../src/testing";
 import {
   choose,
   godzilla,
@@ -590,6 +592,87 @@ describe("EBP03 Sacred Guardian Beasts (3.2: cards under the monster)", () => {
     );
     expect(zoneCardIds(self(after, me))).toEqual({});
     expect(zoneCardIds(opponentOf(after, me))).toEqual({});
+  });
+
+  describe("#257 (Paul, Nov 12): rank filters read current rank (10.8.1; amends decision 132)", () => {
+    /** Your Thousand-Year (7 under: its -3 on your turn) vs Monster Island EBP01-080 in the opponent's strategy zone. */
+    const thousandYearVsIsland = () => {
+      const { state, me, opp } = setup(1);
+      monster(state, me, real("EBP03-029"), 1);
+      under(
+        state,
+        me,
+        [1, 2, 3, 4, 5, 6, 7].map(() => monsterCard(1)),
+      );
+      inStrategy(state, opp, real("EBP01-080"));
+      return { state, me, opp };
+    };
+
+    it("10.8.1, 5.12: Thousand-Year's lasting -3 brings a rank 7 card into Monster Island's 'rank 5 or lower', so its destroy-all spares it; a rank 9 card (now 6) is destroyed", () => {
+      const { state, me, opp } = thousandYearVsIsland();
+      const seven = place(state, opp, battleCard({ id: 962571, rank: 7 }), 1);
+      const nine = place(state, opp, battleCard({ id: 962572, rank: 9 }), 2);
+      expect(getRank(state, seven)).toBe(4);
+      expect(hasFlag(state, seven, "cannotBeDestroyedByOpponent")).toBe(true);
+      expect(hasFlag(state, nine, "cannotBeDestroyedByOpponent")).toBe(false);
+      const after = settle(
+        choose(invade(state, me, invader(state, me)), (id) => id === "0"),
+      );
+      expect(zoneCardIds(opponentOf(after, me))).toEqual({ "1": [962571] });
+    });
+
+    it("Paul's distinction: a play-cost reduction is not lasting. Mecha-King Ghidorah EBP02-068 in a zone is rank 23 again, so Monster Island never covers it", () => {
+      const { state, opp } = thousandYearVsIsland();
+      // King Ghidorah cards in the discard pile would lower it to play it (playRule), not in a zone.
+      for (let i = 0; i < 9; i++) inDiscard(state, opp, real("EBP02-045"));
+      const mechaKing = place(state, opp, real("EBP02-068"), 1);
+      // Thousand-Year's -3 still applies: 23 - 3.
+      expect(getRank(state, mechaKing)).toBe(20);
+      expect(hasFlag(state, mechaKing, "cannotBeDestroyedByOpponent")).toBe(
+        false,
+      );
+    });
+
+    it("10.8.1.6: a filter never counts its own card's modifier (a card that lowers ranks by 3 and protects rank 5 or lower doesn't protect a rank 7 card itself)", () => {
+      const source = strategyCard({ id: 962573 });
+      setTestAbilities(source.deckCardNumber, {
+        deckCardNumber: source.deckCardNumber,
+        status: "implemented",
+        abilities: [
+          {
+            kind: "continuous",
+            id: "lower-and-protect",
+            modifiers: [
+              {
+                stat: "rank",
+                target: { owner: "you", area: "zones", type: "Battle" },
+                amount: -3,
+              },
+              {
+                flag: "cannotBeDestroyedByOpponent",
+                target: {
+                  owner: "you",
+                  area: "zones",
+                  type: "Battle",
+                  rank: { op: "<=", value: 5 },
+                },
+              },
+            ],
+          },
+        ],
+      });
+      try {
+        const { state, me } = setup(1);
+        inStrategy(state, me, source);
+        const seven = place(state, me, battleCard({ id: 962574, rank: 7 }), 2);
+        expect(getRank(state, seven)).toBe(4);
+        expect(hasFlag(state, seven, "cannotBeDestroyedByOpponent")).toBe(
+          false,
+        );
+      } finally {
+        setTestAbilities(source.deckCardNumber, null);
+      }
+    });
   });
 
   it("EBP03-029 5.7.2: or each player discards down to 2 (E11)", () => {
