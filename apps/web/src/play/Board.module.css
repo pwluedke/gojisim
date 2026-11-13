@@ -102,9 +102,9 @@
 }
 
 /*
- * Showa Poster frames each mat (none in the other themes): yours red with a red offset shadow, the
- * opponent's ink on a sea tint, both over paper halftone. The turn glow, set inline, replaces the
- * shadow while it shows, and an uploaded mat image covers the background.
+ * Showa Poster frames each mat (none in the other themes): yours red, the opponent's ink on a sea
+ * tint, both over paper halftone, with no drop shadow (#243). The turn glow is set inline, and an
+ * uploaded mat image covers the background.
  */
 .mat[data-side="you"] {
   border: var(--mat-you-border);
@@ -407,14 +407,6 @@
 .modifierDown {
   color: var(--color-modifier-down);
   font-weight: bold;
-}
-
-.chipUp {
-  color: var(--color-modifier-up-on-chip);
-}
-
-.chipDown {
-  color: var(--color-modifier-down-on-chip);
 }
 
 .cardBack,

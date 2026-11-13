@@ -1287,6 +1287,40 @@ describe("Paul's rulings Q36 to Q39 (Oct 24, 2026)", () => {
   });
 });
 
+describe("#249 (Paul, Nov 12): tokens go into empty or occupied zones", () => {
+  /** SpaceGodzilla EBP02-054 played on a rank 3 one in zone 3, with your zones 1 and 2 occupied, at its [enter] Crystals choice. */
+  const atCrystals = () => {
+    const { state, me } = setup(3);
+    monster(state, me, real("EBP02-055"), 3);
+    place(state, me, battleCard({ id: 966301 }), 1);
+    place(state, me, battleCard({ id: 966302 }), 2);
+    // 10.4.3.2: the [enter] Crystals first.
+    const after = choose(
+      playMonster(state, me, inHand(state, me, real("EBP02-054"))),
+      (id) => id === "s1",
+    );
+    return { after, me };
+  };
+  const zonesOffered = (state: GameState) =>
+    (state.pendingChoice?.options ?? []).map((o) => o.id.split(":")[1]);
+
+  it("5.11.4, 9.1.2, 5.11.1.2: a Crystals token can go to an occupied zone as well as an empty one, never the invading monster's zone", () => {
+    const { after } = atCrystals();
+    expect(after.pendingChoice).toMatchObject({ kind: "zone", rule: "9.1.2" });
+    expect(zonesOffered(after)).toEqual(["1", "2", "4", "5", "6", "7", "8"]);
+  });
+
+  it("5.11.1.3: two tokens played at once go to different zones; 11.5.1: the token played onto a card keeps the token (placed last) and destroys the card", () => {
+    const { after, me } = atCrystals();
+    const second = choose(after, (id) => id.endsWith(":1"));
+    expect(zonesOffered(second)).toEqual(["2", "4", "5", "6", "7", "8"]);
+    const done = settle(choose(second, (id) => id.endsWith(":4")));
+    const zones = zoneCardIds(self(done, me));
+    const crystals = getTokenCard("Crystals").id;
+    expect(zones["1"]).toEqual([crystals]);
+    expect(zones["4"]).toEqual([crystals]);
+    expect(zones["2"]).toEqual([966302]);
+
 describe("#250: a token zone choice lists the zones already picked", () => {
   it("9.1.2: placing 2 Crystals (EBP02-054 [enter]), the second pick carries the first zone and the token; the first carries none", () => {
     const { state, me } = setup(3);

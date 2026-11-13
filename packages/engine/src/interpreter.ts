@@ -3156,7 +3156,8 @@ function perform(state: GameState, effect: Effect): Outcome {
     }
     case "createToken": {
       // E6 (9.1.2, 5.11.4): a token appears in a zone of the effect's master, who owns it
-      // (9.1.2.1). Zones as for an effect play: not the monster's, empty first (Q3, Q5).
+      // (9.1.2.1). Not the monster's zone (5.11.1.2, Q5). #249 (Paul, Nov 12): an empty or an
+      // occupied zone (11.5 resolves an overload); Q3's empty-zones-first is for other effect plays.
       const me = getPlayer(state, ctx.master);
       const token = getTokenCard(effect.name);
       // The token joins the catalog the first time one is made (shared catalog: replaced, not
@@ -3191,10 +3192,9 @@ function perform(state: GameState, effect: Effect): Outcome {
               zones.push(Number(picked.split(":")[1]) as ZoneNumber);
             continue;
           }
+          // Tokens played at once go to different zones while there are enough (5.11.1.3).
           let legal = allowed.filter((z) => !zones.includes(z));
           if (legal.length === 0) legal = allowed;
-          const empty = legal.filter((z) => me.zones[z].length === 0);
-          if (empty.length > 0) legal = empty;
           if (legal.length === 0) {
             r.zonePicks.push("none");
             continue;

@@ -86,7 +86,7 @@ describe("/play board model (M5a)", () => {
     ).toBe("P1");
   });
 
-  it("battle cards show printed counter power plus a colored modifier (PR #24 pattern)", () => {
+  it("#245: battle cards show the printed counter power at the bottom and the boost as a CP tag", () => {
     const state = game();
     const p1 = state.players[0];
     const city = getAllCards().find(
@@ -102,11 +102,13 @@ describe("/play board model (M5a)", () => {
     )
       .replace(/<!-- -->/g, "")
       .replace(/<[^>]+>/g, "|");
-    // The zone 8 City of Tokyo: printed 0, then +5000 from the one in zone 1 (Awakening 6).
-    expect(html).toContain("|0| +5000|");
+    // The zone 8 City of Tokyo: printed 0 at the bottom, and +5000 from the one in zone 1
+    // (Awakening 6) as a tag.
+    expect(html).toContain("|0|||CP +5000|");
+    expect(html).not.toContain("+5000|||0|");
   });
 
-  it("decision 373: Monster X's printed X shows as X, with its current value as X = 12000, never -1 or +1", () => {
+  it("decision 373, #245: Monster X's printed X shows as X on the board with its value as a CP +12000 tag, and as X = 12000 in the preview; never -1 or +1", () => {
     const state = game();
     const p1 = state.players[0];
     const base = (number: string) => {
@@ -156,7 +158,7 @@ describe("/play board model (M5a)", () => {
     const board = text(
       renderToStaticMarkup(<BoardView model={model} prompt={null} />),
     );
-    expect(board).toContain("|X = 12000|");
+    expect(board).toContain("|X|||CP +12000|");
     const preview = text(
       renderToStaticMarkup(<Preview model={model} instanceId="c990010" />),
     );

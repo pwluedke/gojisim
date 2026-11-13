@@ -176,3 +176,8 @@ Accepted by Monarch in the M9a review (PR #229).
 Accepted by Monarch in the h2h record fix review (PR #232).
 
 884. A head to head game's record isn't served to its players (Q42). Replaying online games would need the server to send each player's own boards, as the live history view does. That's later work.
+
+Accepted by Monarch in the Discord mentions review (PR #253).
+
+894. The Discord post workflow fails when a `mentions` id isn't tagged as `<@id>` in the message. A listed id the text doesn't tag is a typo, and nobody would be pinged.
+895. The reporter's Discord id goes in the Slack #gojisim-reports post only. The staff Discord #reports post and the community #bugs and #bot-feedback posts stay as they were.
