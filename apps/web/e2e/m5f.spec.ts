@@ -396,6 +396,37 @@ test.describe("turn glow", () => {
     await vsBot(page, 2);
     expect(await glowing(page)).toEqual([]);
   });
+
+  /** A mat's computed box shadow and border width. */
+  const frame = (page: Page, side: string) =>
+    page.getByTestId(`mat-${side}`).evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { shadow: s.boxShadow, border: s.borderTopWidth };
+    });
+
+  test("#243 (Paul, Nov 12): Showa mats have no drop shadow, glowing or not, and keep their borders", async ({
+    page,
+  }) => {
+    // Showa is the default theme. No glow: neither mat has a shadow.
+    await settings(page, { turnGlow: false });
+    await vsBot(page, 2);
+    for (const side of ["you", "opp"])
+      expect(await frame(page, side)).toEqual({
+        shadow: "none",
+        border: "3px",
+      });
+  });
+
+  test("#243: with the glow on, only the glowing mat has a shadow (the glow); the other mat has none", async ({
+    page,
+  }) => {
+    await vsBot(page, 4);
+    await expect
+      .poll(() => glowing(page))
+      .toEqual([expect.stringMatching(/^you:/)]);
+    expect((await frame(page, "you")).shadow).not.toBe("none");
+    expect(await frame(page, "opp")).toEqual({ shadow: "none", border: "3px" });
+  });
 });
 
 test("a strategy card in a strategy zone fills its landscape slot, uncropped", async ({

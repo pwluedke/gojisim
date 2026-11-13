@@ -143,12 +143,13 @@
   --tag-border: 2px solid #1a1410;
   --tag-transform: skewX(-10deg);
   --mat-you-border: 3px solid #d7261e;
-  --mat-you-shadow: 5px 5px 0 #d7261e;
+  /* #243 (Paul, Nov 12): no drop shadow on either mat; the borders stay. */
+  --mat-you-shadow: none;
   --mat-you-bg:
     radial-gradient(rgb(26 20 16 / 10%) 1.2px, transparent 1.5px) 0 0 / 9px 9px,
     #fbede0;
   --mat-opp-border: 3px solid #1a1410;
-  --mat-opp-shadow: 5px 5px 0 #1a1410;
+  --mat-opp-shadow: none;
   --mat-opp-bg:
     radial-gradient(rgb(26 20 16 / 10%) 1.2px, transparent 1.5px) 0 0 / 9px 9px,
     #e7f0ee;
