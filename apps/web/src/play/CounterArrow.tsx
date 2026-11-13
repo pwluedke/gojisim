@@ -15,8 +15,8 @@ const boxOf = (testId: string): Box | null => {
 };
 
 /**
- * The arrow from a counter power badge to the opponent's Rage zone, across the center line: from
- * the badge's edge facing the other mat to the Rage zone's facing edge, at the badge's middle.
+ * The arrow from a counter power number to the opponent's Rage zone, across the center line: from
+ * the number's edge facing the other mat to the Rage zone's facing edge, at the number's middle.
  */
 export function arrowPath(badge: Box, rage: Box): string {
   const x = (badge.left + badge.right) / 2;
@@ -45,17 +45,18 @@ export function CounterBadge({
   return (
     <div
       className={`${styles.counterBadge}${lit ? ` ${styles.counterBadgeLit}` : ""}`}
-      style={
-        lit
-          ? { borderColor: color, boxShadow: `0 0 10px 2px ${color}` }
-          : undefined
-      }
+      style={lit ? { textShadow: `0 0 8px ${color}` } : undefined}
       data-testid={`counter-badge-${player}`}
       data-turn={lit ? "true" : "false"}
       title="Counter power: the total of this player's zones' top battle cards, against the opponent's threat (7.4.3)"
     >
-      <span className={styles.counterBadgeLabel}>Counter power</span>
-      <strong data-testid={`counter-power-${player}`}>{power}</strong>
+      <span
+        className={styles.counterGroup}
+        data-testid={`counter-group-${player}`}
+      >
+        <span className={styles.counterBadgeLabel}>Counter power</span>
+        <strong data-testid={`counter-power-${player}`}>{power}</strong>
+      </span>
     </div>
   );
 }
@@ -85,7 +86,8 @@ export function CounterArrows({
         [you, opponent],
         [opponent, you],
       ] as const) {
-        const badge = boxOf(`counter-badge-${id}`);
+        // From the label and number, not their cell.
+        const badge = boxOf(`counter-group-${id}`);
         const rage = boxOf(`rage-zone-${other}`);
         if (badge && rage) next[id] = arrowPath(badge, rage);
       }

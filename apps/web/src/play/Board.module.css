@@ -2016,22 +2016,30 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
+  /* Just above zones 7 and 6: the cell's edge away from the center line. */
+  justify-content: flex-end;
   width: 100%;
   height: 100%;
-  overflow: hidden;
-  border: 2px dashed var(--color-cell-outline);
-  border-radius: var(--radius);
-  background: var(--color-panel);
+  padding-bottom: 2px;
   font-family: var(--font-heading);
-  /* Five digits fit the card's width in every theme. */
   font-size: var(--font-size-lg);
+  color: var(--color-muted);
+}
+
+.mat[data-side="opp"] .counterBadge {
+  justify-content: flex-start;
+  padding-top: 2px;
+  padding-bottom: 0;
+}
+
+.counterGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .counterBadgeLit {
-  border-width: 3px;
-  border-style: solid;
+  color: var(--color-text);
 }
 
 .counterBadgeLabel {
