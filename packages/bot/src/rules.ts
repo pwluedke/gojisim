@@ -180,7 +180,7 @@ export function statBoostZones(card: Card | undefined): ZoneNumber[] {
 // The board
 
 /** Whether `player`'s counter succeeds now (7.4.3: total counter power at least the threat). */
-function counters(state: GameState, player: PlayerId): boolean {
+export function counters(state: GameState, player: PlayerId): boolean {
   const [me, opponent] = players(state, player);
   return counterPowerOf(state, me) >= getThreat(state, opponent.id);
 }
@@ -228,7 +228,7 @@ function stackWanted(state: GameState, me: PlayerState): boolean {
 }
 
 /** Rule 4: the counter is made with this strategy and the counter-only ones still playable. */
-function counterMadeWith(
+export function counterMadeWith(
   state: GameState,
   action: Action,
   player: PlayerId,

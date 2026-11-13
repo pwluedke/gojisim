@@ -4,6 +4,8 @@ import { parseDeckList } from "@gojisim/cards/deck-lists";
 import { getAllCards } from "@gojisim/cards/test-decks";
 import {
   advanceToDecision,
+  counterPowerOf,
+  getThreat,
   applyAction,
   type CardInstance,
   type GameState,
@@ -11,9 +13,19 @@ import {
   type PlayerSetup,
   type PlayerState,
   startGame,
+  type ZoneNumber,
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
-import { cardRulesDead, losesWithoutStrategy } from "./cardRules";
+import {
+  blockingPlays,
+  cardRulesDead,
+  enterAwakening,
+  losesWithoutStrategy,
+  recursFromDiscard,
+  rescuedPlays,
+  slowCounterDeck,
+} from "./cardRules";
+import type { Decklist } from "./types";
 import { difficultySettings, PRESETS } from "./difficulty";
 import { botInput, decklistsOf, seededRng } from "./input";
 import { decide } from "./ismcts";
@@ -47,6 +59,24 @@ const LISTS = decklistsOf([
     ...DECKS[0],
     monsterDeck: [...DECKS[0].monsterDeck, real("ESD01-004")],
     mainDeck: [...DECKS[0].mainDeck, real("EBP03-013"), real("ESD01-016")],
+  },
+  DECKS[1],
+]);
+
+/** #265's position's decklists: the starter plus the cards `exposed` adds, nothing it takes out. */
+const LISTS_265 = decklistsOf([
+  {
+    ...DECKS[0],
+    monsterDeck: [...DECKS[0].monsterDeck, real("ESD01-004")],
+    mainDeck: [
+      ...DECKS[0].mainDeck,
+      real("EBP01-073"),
+      real("ESD01-007"),
+      real("EBP03-004"),
+      // As in LISTS: the hidden deck holds one card more than the starter's count leaves.
+      real("ESD01-016"),
+      ...Array.from({ length: 6 }, () => real("EBP01-002")),
+    ],
   },
   DECKS[1],
 ]);
@@ -236,6 +266,500 @@ describe(
       );
       const legal = getLegalActions(state, "P1");
       expect(cardRulesDead(state, legal, "P1").size).toBe(0);
+    });
+
+    /**
+     * #258: Mecha-King Ghidorah EBP02-068 in P1's hand (its rank lowered, so it can be played
+     * anywhere: the test is where), P1's monster in `mine`, the opponent's in `theirs`.
+     */
+    function mechaKing(mine: ZoneNumber, theirs: ZoneNumber) {
+      const { state, p1 } = withGodzilla1995();
+      p1.hand = [];
+      p1.monsterPosition = mine;
+      (state.players[1] as PlayerState).monsterPosition = theirs;
+      const card = add(state, { ...real("EBP02-068"), rank: 1 }, "P1");
+      p1.hand.push(card);
+      const zonesLeft = () => {
+        const legal = getLegalActions(state, "P1");
+        const dead = cardRulesDead(state, legal, "P1");
+        return legal
+          .filter(
+            (a) =>
+              a.type === "playBattle" &&
+              a.cardInstanceId === card.instanceId &&
+              !dead.has(a),
+          )
+          .map((a) => (a.type === "playBattle" ? a.zone : 0))
+          .sort();
+      };
+      return { state, p1, zonesLeft };
+    }
+
+    it("#258, 4.4.5.5: Mecha-King goes in the opponent's monster column (their zone 4 faces your zone 2)", () => {
+      expect(mechaKing(5, 4).zonesLeft()).toEqual([2]);
+      // Their zone 5 faces your zone 1 (in their zone 6, your open zone 8 would come first: rule 7).
+      expect(mechaKing(4, 5).zonesLeft()).toEqual([1]);
+    });
+
+    it("#247: Mechagodzilla (1993) ESD02-012's column bonus (+3000) counts too: it goes in the opponent's monster column", () => {
+      const { state, p1 } = withGodzilla1995();
+      p1.hand = [];
+      p1.monsterPosition = 7;
+      (state.players[1] as PlayerState).monsterPosition = 3;
+      const card = add(state, { ...real("ESD02-012"), rank: 1 }, "P1");
+      p1.hand.push(card);
+      const legal = getLegalActions(state, "P1");
+      const dead = cardRulesDead(state, legal, "P1");
+      // Their zone 3 faces your 3 and 8; 8 is straight ahead of your monster in 7.
+      expect(
+        legal
+          .filter((a) => a.type === "playBattle" && !dead.has(a))
+          .map((a) => (a.type === "playBattle" ? a.zone : 0)),
+      ).toEqual([3]);
+    });
+
+    it("#258: with the column out of reach (their monster in zone 1 faces your 5 and 6: your monster's zone and the one straight ahead), zone 1 or 2", () => {
+      expect(mechaKing(5, 1).zonesLeft()).toEqual([1, 2]);
+    });
+
+    it("#258: never the zone straight ahead of your own monster; an empty zone before stacking", () => {
+      // Their monster in zone 3 faces your 3 and 8; yours in 7, so 8 is straight ahead: zone 3.
+      expect(mechaKing(7, 3).zonesLeft()).toEqual([3]);
+      // Zone 1 holds your card: with the column out of reach, empty zone 2 over stacking on it.
+      const stacked = mechaKing(5, 1);
+      stacked.p1.zones[1] = [[add(stacked.state, real("ESD01-016"), "P1")]];
+      expect(stacked.zonesLeft()).toEqual([2]);
+    });
+
+    it("#259: King Ghidorah (1998) EBP03-063 plays itself from the discard pile, read from its ability data", () => {
+      expect(recursFromDiscard("EBP03-063")).toBe(true);
+      expect(recursFromDiscard("EBP02-068")).toBe(false);
+      expect(recursFromDiscard("ESD01-016")).toBe(false);
+    });
+
+    it("#259: from the hand, a recurring card goes in an empty zone, not on your own card", () => {
+      const { state, p1 } = withGodzilla1995();
+      // Rank 1, so it can be played anywhere (8.2.1): the test is where.
+      p1.hand = [add(state, { ...real("EBP03-063"), rank: 1 }, "P1")];
+      p1.zones[1] = [[add(state, real("ESD01-016"), "P1")]];
+      const legal = getLegalActions(state, "P1");
+      const dead = cardRulesDead(state, legal, "P1");
+      const plays = legal.filter((a) => a.type === "playBattle");
+      expect(plays.length).toBeGreaterThan(1);
+      for (const a of plays)
+        if (a.type === "playBattle") expect(dead.has(a)).toBe(a.zone === 1);
+    });
+
+    it("#259, 7.2.3: with its monster card played (zone 4 or beyond), it comes back from the discard: No is left out while a zone is empty", () => {
+      const { state, p1 } = withGodzilla1995();
+      p1.hand = [add(state, real("ESD01-007"), "P1")];
+      p1.discard.push(add(state, real("EBP03-063"), "P1"));
+      let s = state;
+      const play = getLegalActions(s, "P1").find(
+        (a) => a.type === "playMonster",
+      )!;
+      s = advanceToDecision(applyAction(s, play));
+      // Its [enter] and the King Ghidorah card's ask may come in either order: answer up to it.
+      for (let i = 0; i < 5 && s.pendingChoice?.kind !== "confirm"; i++) {
+        const next = getLegalActions(s, "P1").find((a) => a.type === "choose");
+        if (!next) break;
+        s = advanceToDecision(applyAction(s, next));
+      }
+      expect(s.pendingChoice).toMatchObject({ kind: "confirm" });
+      const legal = getLegalActions(s, "P1");
+      const dead = cardRulesDead(s, legal, "P1");
+      const answer = (id: string) =>
+        legal.find((a) => a.type === "choose" && a.optionId === id)!;
+      expect(dead.has(answer("no"))).toBe(true);
+      expect(dead.has(answer("yes"))).toBe(false);
+    });
+
+    it("#259, 5.12: a destroy of the opponent's cards leaves their recurring King Ghidorah (1998) while another target is there", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      p1.hand = [add(state, real("EBP02-018"), "P1")];
+      p1.rage = 2;
+      // Low ranks, so neither breaks 11.3 where it stands (the rule reads the ability, not the rank).
+      const kg = add(state, { ...real("EBP03-063"), rank: 1 }, "P2");
+      const other = add(state, { ...real("ESD02-011"), rank: 1 }, "P2");
+      // Their monster in zone 5, clear of both cards (11.3).
+      opp.monsterPosition = 5;
+      opp.zones[1] = [[kg]];
+      opp.zones[2] = [[other]];
+      let s = state;
+      const activate = getLegalActions(s, "P1").find(
+        (a) => a.type === "activateStrategy",
+      )!;
+      s = advanceToDecision(applyAction(s, activate));
+      expect(s.pendingChoice?.kind).toBe("target");
+      const legal = getLegalActions(s, "P1");
+      const dead = cardRulesDead(s, legal, "P1");
+      const target = (id: string) =>
+        legal.find((a) => a.type === "choose" && a.optionId === id)!;
+      expect(dead.has(target(kg.instanceId))).toBe(true);
+      expect(dead.has(target(other.instanceId))).toBe(false);
+    });
+
+    /**
+     * #254: Godzilla vs. Destoroyah EBP01-062 (+10,000 total counter power with a Destoroyah battle
+     * card in your zones) in hand, Destoroyah Perfect Form EBP01-060 in your zone 1, and a battle
+     * card in zone 2 worth `extra` more than the counter power needs to reach the threat.
+     */
+    function destoroyah(extra: number) {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      p1.hand = [add(state, real("EBP01-062"), "P1")];
+      p1.zones[1] = [[add(state, real("EBP01-060"), "P1")]];
+      // A threat well above the board's counter power (3.4.5: +5,000 per rage).
+      opp.rage = 6;
+      const need = getThreat(state, opp.id) - counterPowerOf(state, p1);
+      expect(need).toBeGreaterThan(20000);
+      p1.zones[2] = [
+        [
+          add(
+            state,
+            {
+              ...real("ESD02-011"),
+              rank: 1,
+              counterOrThreat: Math.max(0, need + extra),
+            },
+            "P1",
+          ),
+        ],
+      ];
+      const legal = getLegalActions(state, "P1");
+      const play = legal.find((a) => a.type === "activateStrategy");
+      if (!play) throw new Error("no activation");
+      return cardRulesDead(state, legal, "P1").has(play);
+    }
+
+    it("#254, 7.4.3: Godzilla vs. Destoroyah is kept while the counter is already made without it", () => {
+      expect(destoroyah(0)).toBe(true);
+    });
+
+    it("#254: it's played when its +10,000 makes the counter", () => {
+      expect(destoroyah(-5000)).toBe(false);
+    });
+
+    it("#254: it's kept when even with it the counter isn't made", () => {
+      expect(destoroyah(-20000)).toBe(true);
+    });
+
+    /** A decklist with `monsters` monster cards in its 50-card main deck. */
+    const deckWith = (monsters: number): Decklist => ({
+      monsterDeck: [],
+      mainDeck: [
+        ...Array.from({ length: monsters }, () => real("ESD01-004")),
+        ...Array.from({ length: 50 - monsters }, () => real("ESD01-016")),
+      ],
+    });
+
+    it("#248: a slow counter deck has 4 or fewer monster cards in its main deck (the Tangler the bot played in #248 has 4)", () => {
+      expect(slowCounterDeck(deckWith(4))).toBe(true);
+      expect(slowCounterDeck(deckWith(5))).toBe(false);
+      expect(slowCounterDeck(undefined)).toBe(false);
+    });
+
+    it("#248, 8.6: a slow counter deck doesn't invade, unless the invasion wins now", () => {
+      const { state, p1 } = withGodzilla1995();
+      p1.hand = [add(state, real("ESD01-016"), "P1")];
+      p1.monsterPosition = 2;
+      const invasions = () => {
+        const legal = getLegalActions(state, "P1");
+        return { legal, invade: legal.filter((a) => a.type === "invade") };
+      };
+      const early = invasions();
+      expect(early.invade.length).toBeGreaterThan(0);
+      for (const a of early.invade) {
+        expect(
+          cardRulesDead(state, early.legal, "P1", deckWith(4)).has(a),
+        ).toBe(true);
+        expect(
+          cardRulesDead(state, early.legal, "P1", deckWith(20)).has(a),
+        ).toBe(false);
+      }
+      // In zone 8 with the opponent's zone 8 open, the invasion wins (5.13.1.1.2): it stays.
+      p1.monsterPosition = 8;
+      (state.players[1] as PlayerState).zones[8] = [];
+      const winning = invasions();
+      expect(winning.invade.length).toBeGreaterThan(0);
+      for (const a of winning.invade)
+        expect(
+          cardRulesDead(state, winning.legal, "P1", deckWith(4)).has(a),
+        ).toBe(false);
+    });
+
+    /**
+     * #265: your zone 8 open, the opponent's monster in their zone 7; in hand Godzilla Against
+     * Mechagodzilla EBP01-073 (playable with 8 or more monster cards in your discard pile) and two
+     * rank IV Godzilla monster cards; 6 monster cards in your discard pile.
+     */
+    function exposed() {
+      const { state, p1 } = withGodzilla1995();
+      (state.players[1] as PlayerState).monsterPosition = 7;
+      p1.hand = [
+        add(state, real("EBP01-073"), "P1"),
+        add(state, real("ESD01-007"), "P1"),
+        add(state, real("EBP03-004"), "P1"),
+      ];
+      for (let i = 0; i < 6; i++)
+        p1.discard.push(add(state, real("EBP01-002"), "P1"));
+      return { state, p1 };
+    }
+
+    it("#265: with zone 8 open and their monster in reach, the plays that lead to a block are found (two rage discards, then Godzilla Against Mechagodzilla); passing is left out", () => {
+      const { state } = exposed();
+      const legal = getLegalActions(state, "P1");
+      const blocks = blockingPlays(state, legal, "P1");
+      expect([...blocks].map((a) => a.type)).toEqual(["gainRage", "gainRage"]);
+      const dead = cardRulesDead(state, legal, "P1");
+      for (const a of legal)
+        if (a.type === "pass") expect(dead.has(a)).toBe(true);
+      for (const a of blocks) expect(dead.has(a)).toBe(false);
+    });
+
+    it("#265: Hard takes a block even when Paul's rule 2 holds those monster cards (Level 100 passed in the report)", () => {
+      const { state } = exposed();
+      const action = decide(
+        botInput(state, "P1", LISTS_265, seededRng("block"), {
+          ...difficultySettings(PRESETS.hard),
+          iterations: 60,
+          maxMs: 1e9,
+          blunder: 0,
+        }),
+      ).action;
+      expect(action.type).toBe("gainRage");
+    });
+
+    it("#265: with no threat (their monster in zone 4) or zone 8 already blocked, nothing is forced", () => {
+      const far = exposed();
+      (far.state.players[1] as PlayerState).monsterPosition = 4;
+      expect(
+        blockingPlays(far.state, getLegalActions(far.state, "P1"), "P1").size,
+      ).toBe(0);
+      const held = exposed();
+      held.p1.zones[8] = [[add(held.state, real("ESD02-011"), "P1")]];
+      expect(
+        blockingPlays(held.state, getLegalActions(held.state, "P1"), "P1").size,
+      ).toBe(0);
+    });
+
+    it("#272: Godzilla, King of the Monsters EBP01-075 (protected in zones 1-5) goes in zones 1-5 when it can", () => {
+      const { state, p1 } = withGodzilla1995();
+      // Their monster far back, so your zone 8 isn't threatened (rule 7 stays out of it).
+      (state.players[1] as PlayerState).monsterPosition = 3;
+      p1.monsterPosition = 6;
+      const card = add(state, { ...real("EBP01-075"), rank: 1 }, "P1");
+      p1.hand = [card];
+      const legal = getLegalActions(state, "P1");
+      const dead = cardRulesDead(state, legal, "P1");
+      const left = legal
+        .filter((a) => a.type === "playBattle" && !dead.has(a))
+        .map((a) => (a.type === "playBattle" ? a.zone : 0))
+        .sort();
+      expect(left.length).toBeGreaterThan(0);
+      for (const z of left) expect(z).toBeLessThanOrEqual(5);
+      expect(legal.some((a) => a.type === "playBattle" && a.zone === 7)).toBe(
+        true,
+      );
+    });
+
+    it("#274: under threat, with Godzilla, King of the Monsters (+3000 per rage) on the board, the rage discards that make the counter are freed from Paul's rule 2 holds", () => {
+      const { state, p1 } = exposed();
+      // Zone 8 already blocked, so it's the counter that matters, not rule 7.
+      p1.zones[8] = [
+        [
+          add(
+            state,
+            { ...real("ESD02-011"), rank: 1, counterOrThreat: 0 },
+            "P1",
+          ),
+        ],
+      ];
+      p1.zones[1] = [[add(state, { ...real("EBP01-075"), rank: 1 }, "P1")]];
+      p1.hand = p1.hand.filter(
+        (c) => state.cards[c.cardId]?.type === "Monster",
+      );
+      const opp = state.players[1] as PlayerState;
+      // A big threat, then counter power filled to 4000 short: two more rage (+6000 on
+      // EBP01-075, 3000 each) make the counter.
+      opp.rage = 0;
+      while (getThreat(state, opp.id) - counterPowerOf(state, p1) < 10000)
+        opp.rage++;
+      const filler = add(
+        state,
+        { ...real("ESD01-008"), rank: 1, counterOrThreat: 0 },
+        "P1",
+      );
+      p1.zones[2] = [[filler]];
+      // The filler's printed counter power, set so the counter is 4000 short (its own bonuses
+      // counted as they stand).
+      const short = getThreat(state, opp.id) - counterPowerOf(state, p1) - 4000;
+      const setFiller = (value: number) => {
+        state.cards = {
+          ...state.cards,
+          [filler.cardId]: {
+            ...(state.cards[filler.cardId] as Card),
+            counterOrThreat: value,
+          },
+        };
+      };
+      // A card with no ability: its printed counter power is all it adds.
+      setFiller(short);
+      const gap = getThreat(state, opp.id) - counterPowerOf(state, p1);
+      expect(gap).toBeGreaterThan(0);
+      expect(gap).toBeLessThanOrEqual(6000);
+      const legal = getLegalActions(state, "P1");
+      const rescued = rescuedPlays(state, legal, "P1");
+      // The rage discards (and a monster play, +1 rage by 8.5.1.1) are ways to make it.
+      expect([...rescued].some((a) => a.type === "gainRage")).toBe(true);
+      expect(
+        [...rescued].every(
+          (a) => a.type === "gainRage" || a.type === "playMonster",
+        ),
+      ).toBe(true);
+    });
+
+    it("#275: Godzilla Landing EBP01-030 (advances the opponent's monster) waits when nothing then makes the counter or blocks zone 8; with zone 8 blocked it may go", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      opp.monsterPosition = 6;
+      opp.rage = 6;
+      p1.hand = [add(state, real("EBP01-030"), "P1")];
+      const activation = () => {
+        const legal = getLegalActions(state, "P1");
+        const a = legal.find((x) => x.type === "activateStrategy");
+        if (!a) throw new Error("Godzilla Landing can't be activated here");
+        return cardRulesDead(state, legal, "P1").has(a);
+      };
+      expect(activation()).toBe(true);
+      p1.zones[8] = [[add(state, { ...real("ESD01-008"), rank: 1 }, "P1")]];
+      expect(activation()).toBe(false);
+    });
+
+    /**
+     * Paul, Nov 12 (Ian): the opponent's King Ghidorah (1991) EBP02-047 monster in their zone 6; your
+     * zone 8 held by a rank 4 battle card; Mechagodzilla (1993) ESD02-012 (rank 7) in hand.
+     */
+    function versusKingGhidorah(trait: "King Ghidorah" | "Godzilla") {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      opp.invadingMonsterZone.push(
+        add(
+          state,
+          trait === "King Ghidorah" ? real("EBP02-047") : real("ESD02-004"),
+          "P2",
+        ),
+      );
+      opp.monsterPosition = 7;
+      p1.zones[8] = [[add(state, { ...real("ESD01-008"), rank: 4 }, "P1")]];
+      p1.hand = [add(state, real("ESD02-012"), "P1")];
+      return state;
+    }
+
+    it("rule 11 (Paul, Nov 12): against a green opponent (it can run Godzilla vs. King Ghidorah) in reach of zone 7, a rank 4 zone 8 blocker doesn't count: a rank 7+ one is looked for", () => {
+      const kg = versusKingGhidorah("King Ghidorah");
+      expect(
+        blockingPlays(kg, getLegalActions(kg, "P1"), "P1").size,
+      ).toBeGreaterThan(0);
+      // Against a blue monster (no Godzilla vs. King Ghidorah), the rank 4 blocker holds.
+      const other = versusKingGhidorah("Godzilla");
+      expect(
+        blockingPlays(other, getLegalActions(other, "P1"), "P1").size,
+      ).toBe(0);
+    });
+
+    it("rule 2 (Paul, Nov 12): from zone 7, Godzilla vs. King Ghidorah EBP02-071 (awakening 6: destroy rank 6 or lower) clears the zone 8 blocker before the winning invasion", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      p1.monsterPosition = 7;
+      p1.hand = [
+        add(state, real("EBP02-071"), "P1"),
+        // Icon 2: from zone 7 the invasion goes 7 to 8, then wins (5.13.1.1.2).
+        add(state, real("EBP01-073"), "P1"),
+      ];
+      opp.zones[8] = [[add(state, { ...real("ESD02-011"), rank: 4 }, "P2")]];
+      const legal = getLegalActions(state, "P1");
+      const dead = cardRulesDead(state, legal, "P1");
+      expect(legal.some((a) => a.type === "invade")).toBe(true);
+      for (const a of legal)
+        if (a.type === "invade") expect(dead.has(a)).toBe(true);
+      expect(
+        legal.some((a) => a.type === "activateStrategy" && !dead.has(a)),
+      ).toBe(true);
+    });
+
+    it("rule 12 (#130, 12.6.2): an Evolution's pick no stronger than the evolving card (Battra (Larva) onto Battra (Larva)) is left out; Battra (Imago) and done stay", () => {
+      const { state } = withGodzilla1995();
+      const larva = real("ESD02-008");
+      const imago = real("ESD02-011");
+      state.cards = { ...state.cards, [larva.id]: larva, [imago.id]: imago };
+      // The Evolution of a Battra (Larva) in play, at its pick (as the engine asks it).
+      state.resolution = {
+        standby: {
+          standbyId: "s1",
+          abilityId: "ESD02-008#evolution",
+          sourceInstanceId: "c-larva",
+          sourceCardId: larva.id,
+          master: "P1",
+          timestamp: 0,
+          event: { seq: 0, type: "phase", player: "P1", payload: {} },
+        },
+        stage: "main",
+        path: [0],
+        bindings: {},
+        chosen: [],
+        zonePicks: [],
+        answer: null,
+        replacementPicks: [],
+        subject: null,
+      };
+      state.pendingChoice = {
+        id: 99,
+        player: "P1",
+        kind: "target",
+        rule: "12.6.2",
+        options: [
+          {
+            id: "c-other-larva",
+            cardId: larva.id,
+            abilityId: "ESD02-008#evolution",
+          },
+          { id: "c-imago", cardId: imago.id, abilityId: "ESD02-008#evolution" },
+          { id: "done", cardId: null, abilityId: "ESD02-008#evolution" },
+        ],
+      };
+      const pick = (optionId: string) => ({
+        type: "choose" as const,
+        player: "P1" as const,
+        choiceId: 99,
+        optionId,
+      });
+      const actions = [pick("c-other-larva"), pick("c-imago"), pick("done")];
+      const dead = cardRulesDead(state, actions, "P1");
+      expect([...dead]).toEqual([actions[0]]);
+    });
+
+    it("rule 13 (#131): Super-X ESD02-009 ([enter] needs Awakening 4) waits while an invasion can take the monster from zone 3 to 4; in zone 4 it's played", () => {
+      expect(enterAwakening("ESD02-009")).toBe(4);
+      expect(enterAwakening("ESD01-016")).toBeNull();
+      const early = (at: ZoneNumber) => {
+        const { state, p1 } = withGodzilla1995();
+        p1.monsterPosition = at;
+        // Their monster far back: no zone 8 threat (rule 7 stays out).
+        (state.players[1] as PlayerState).monsterPosition = 3;
+        p1.hand = [
+          add(state, { ...real("ESD02-009"), rank: 1 }, "P1"),
+          add(state, real("ESD01-016"), "P1"),
+        ];
+        const legal = getLegalActions(state, "P1");
+        const dead = cardRulesDead(state, legal, "P1");
+        const plays = legal.filter((a) => a.type === "playBattle");
+        expect(plays.length).toBeGreaterThan(0);
+        return plays.every((a) => dead.has(a));
+      };
+      expect(early(3)).toBe(true);
+      expect(early(4)).toBe(false);
     });
   },
 );

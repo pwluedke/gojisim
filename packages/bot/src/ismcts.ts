@@ -22,9 +22,9 @@ import { finalWarsDead, mxPlanVerdict } from "./mxPlan";
 import { mxPlanV2Verdict } from "./mxPlanV2";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
 import { deadKeys } from "./prune";
-import { cardRulesDead } from "./cardRules";
+import { cardRulesDead, rescuedPlays } from "./cardRules";
 import { applyRules } from "./rules";
-import type { Bot, BotInput, BotSettings } from "./types";
+import type { Bot, BotInput, BotSettings, Decklist } from "./types";
 
 /**
  * Single-observer information-set MCTS (M6c). Each iteration samples a determinization (M6a) and
@@ -385,13 +385,33 @@ export function search(input: BotInput, settings: IsmctsSettings) {
     // conceding.
     if (iterations === 1 && (settings.cardRules > 0 || settings.rules > 0)) {
       const first = state;
-      const unsafe = cardRulesDead(first, input.legalActions, me);
+      const unsafe = cardRulesDead(
+        first,
+        input.legalActions,
+        me,
+        input.knowledge.decks[me],
+      );
       const keys = new Set([
         ...dead,
         ...[...unsafe].map((a) => actionKey(first, a)),
       ]);
+      // Rules 7 and 9 (#265, #274): a way to block zone 8, else to make the counter, outranks
+      // Paul's rules' holds too.
+      const blocks = rescuedPlays(
+        first,
+        input.legalActions,
+        me,
+        input.knowledge.decks[me],
+      );
+      for (const a of blocks) keys.delete(actionKey(first, a));
+      if (blocks.size > 0)
+        avoid = new Set(
+          [...avoid].filter(
+            (i) => !blocks.has(input.legalActions[i] as Action),
+          ),
+        );
       if (
-        unsafe.size > 0 &&
+        (unsafe.size > 0 || blocks.size > 0) &&
         input.legalActions.some(
           (a) => a.type !== "concede" && !keys.has(actionKey(first, a)),
         )
@@ -499,8 +519,9 @@ function cardRulesSafe(
   state: GameState,
   actions: readonly Action[],
   me: PlayerId,
+  own?: Decklist,
 ): Action[] {
-  const unsafe = cardRulesDead(state, actions, me);
+  const unsafe = cardRulesDead(state, actions, me, own);
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
   return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
 }
@@ -515,6 +536,8 @@ export function blunderAllowed(
   legalActions: readonly Action[],
   me: PlayerId,
   settings: IsmctsSettings,
+  /** The bot's own decklist, for the card-play rules (rule 6). */
+  own?: Decklist,
 ): Action[] {
   const keyOf = (a: Action) => actionKey(state, a);
   const keep = combineDead(
@@ -529,7 +552,7 @@ export function blunderAllowed(
         (a) => !keep.killed.has(a) && !keep.dead.has(keyOf(a)),
       )
     : [...legalActions];
-  const safe = cardRulesSafe(state, kept, me);
+  const safe = cardRulesSafe(state, kept, me, own);
   const allowed =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
   if (settings.mxPlan === 0) return allowed;
@@ -558,12 +581,14 @@ export function decide(input: BotInput): Decision {
             legalActions,
             input.view.viewer as PlayerId,
             settings,
+            input.knowledge.decks[input.view.viewer as PlayerId],
           )
         : settings.cardRules > 0
           ? cardRulesSafe(
               determinize(input.view, input.knowledge, rng),
               legalActions,
               input.view.viewer as PlayerId,
+              input.knowledge.decks[input.view.viewer as PlayerId],
             )
           : [...legalActions];
     return {
