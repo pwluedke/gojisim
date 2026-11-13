@@ -37,7 +37,10 @@ export function History() {
       <ThemeHeader />
       <main className={styles.history}>
         <h1 className={styles.title}>My games</h1>
-        <PlayerBadge />
+        {/* #279: only where the theme has no header showing the player (Showa has). */}
+        <div className={styles.player}>
+          <PlayerBadge />
+        </div>
         {season === "beta" && (
           <p className={styles.beta} data-testid="beta-note">
             {BETA_NOTE}

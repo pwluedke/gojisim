@@ -7,8 +7,22 @@ import {
   uploadsPerMinuteFrom,
 } from "../server/src/games.js";
 import { join } from "node:path";
+import { devAccounts, type DevAccounts } from "../server/src/devAccounts.js";
 import { devDeckResults } from "./devDeckResults";
 import { devPlayerOf, devSignIn } from "./devSignIn";
+
+/** The dev server's records folder (Playwright sets `RECORDS_DIR`). */
+const recordsDir = () =>
+  process.env["RECORDS_DIR"] ??
+  new URL("../../records", import.meta.url).pathname;
+
+/**
+ * #279: the dev accounts, made once when the dev server starts (a build never calls this): the
+ * dev sign-in's players and one database for My games and head to head, next to the records.
+ */
+let accounts: DevAccounts | null = null;
+const devAccountsOnce = () =>
+  (accounts ??= devAccounts(devPlayerOf, recordsDir()));
 
 export default defineConfig({
   plugins: [
@@ -73,12 +87,10 @@ export default defineConfig({
               const attached = (
                 mod as typeof import("../server/src/h2h/dev.js")
               ).attachDevH2h(http as import("node:http").Server, {
-                devPlayerOf,
+                accounts: devAccountsOnce(),
                 roomsDir:
                   process.env["H2H_ROOMS_DIR"] ?? join(root, "records-rooms"),
-                recordsDir:
-                  process.env["RECORDS_DIR"] ??
-                  new URL("../../records", import.meta.url).pathname,
+                recordsDir: recordsDir(),
                 claimAfterMs:
                   Number(process.env["H2H_CLAIM_MS"] ?? 0) || undefined,
               });
@@ -90,16 +102,19 @@ export default defineConfig({
     {
       // Game collection (M13b): `GET /api/config` and `POST /api/games`, as `apps/server` serves
       // them. Uploads go to the repository's gitignored `records/` (Playwright sets
-      // `RECORDS_DIR`); `GOJISIM_TEST_SITE=off` turns the Test Site off here too.
+      // `RECORDS_DIR`); `GOJISIM_TEST_SITE=off` turns the Test Site off here too. #279: with the
+      // dev sign-in's player and the dev accounts' database, so My games (`GET /api/games/mine`,
+      // `GET /api/games/<id>`) works for a dev sign-in as it does on the server.
       name: "gojisim-games",
       configureServer(server) {
+        const { db, playerOf } = devAccountsOnce();
         server.middlewares.use(
           gamesMiddleware({
             config: siteConfig(process.env),
-            recordsDir:
-              process.env["RECORDS_DIR"] ??
-              new URL("../../records", import.meta.url).pathname,
+            recordsDir: recordsDir(),
             uploadsPerMinute: uploadsPerMinuteFrom(process.env),
+            playerOf,
+            db,
           }),
         );
       },
