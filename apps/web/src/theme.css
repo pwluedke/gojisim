@@ -597,7 +597,7 @@ body {
   --left-column-width: 260px;
   /* Paul, Nov 10: no header bar over the board (Showa's header is a block over the left column). */
   /*
-   * #292 (Paul, Nov 13): the official playmat's layout, 7 portrait columns wide (7w + 6 gaps, so
+   * Issue 292 (Paul, Nov 13): the official playmat's layout, 7 portrait columns wide (7w + 6 gaps, so
    * 441/88 card heights) and zone 8's card plus zone 7's drop (w + 6 px) and a row deep (2h + w +
    * 6 px + a gap: 2.716 card heights). Cards are as large as the height or the width allows; the
    * width keeps the bot hand some room (and its gap) beside the opponent's mat (460/88).
@@ -618,7 +618,7 @@ body {
   );
   --card-w: calc(var(--card-h) * 63 / 88);
   /*
-   * #292: how far zones 7 and 6 and the deck start below zone 8's top: a card's width and 6 px,
+   * Issue 292: how far zones 7 and 6 and the deck start below zone 8's top: a card's width and 6 px,
    * plus half of any height the width-limited cards leave, so the hand row keeps its size.
    */
   --mat-stagger: calc(
