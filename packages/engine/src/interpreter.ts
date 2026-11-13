@@ -3218,6 +3218,12 @@ function perform(state: GameState, effect: Effect): Outcome {
               abilityId,
             })),
           );
+          // #250: the zones already picked show their token until the last one is placed.
+          if (zones.length > 0 && state.pendingChoice)
+            state.pendingChoice.picked = zones.map((zone) => ({
+              zone: `${me.id}:${zone}`,
+              cardId: token.id,
+            }));
           return "paused";
         }
       const made: CardInstance[] = [];

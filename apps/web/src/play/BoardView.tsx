@@ -245,13 +245,37 @@ function Slot({
   viewTip?: string | undefined;
   children: ReactNode;
 }) {
-  const { zoneChoice, highlight, act, lit: litDests } = useInteraction();
+  const {
+    zoneChoice,
+    picked,
+    highlight,
+    act,
+    lit: litDests,
+  } = useInteraction();
   const lit = highlight.has(`${playerId}|${dest}`);
   const classes = `${className ?? ""} ${lit ? styles.highlight : ""}`;
   const zoneKey = dest.startsWith("zone:")
     ? `${playerId}:${dest.slice(5)}`
     : null;
   const choice = zoneKey ? zoneChoice.get(zoneKey) : undefined;
+  // #250: a token already placed here by this choice shows until every token is placed.
+  const token = zoneKey ? picked?.get(zoneKey) : undefined;
+  const content = token ? (
+    <>
+      {children}
+      <div
+        className={styles.pickedToken}
+        data-testid="picked-token"
+        data-card-id={token.id}
+        title={`${token.name}: placed here when the choice is done`}
+      >
+        <img src={`/cards/${token.id}-thumb.webp`} alt="" draggable={false} />
+        <span>{token.name}</span>
+      </div>
+    </>
+  ) : (
+    children
+  );
   if (choice)
     return (
       <div
@@ -261,7 +285,7 @@ function Slot({
         data-highlight={lit ? "true" : undefined}
         onClick={() => act(choice)}
       >
-        {children}
+        {content}
       </div>
     );
   return own ? (
@@ -273,7 +297,7 @@ function Slot({
       onView={onView}
       viewTip={viewTip}
     >
-      {children}
+      {content}
     </Target>
   ) : (
     <div
@@ -290,7 +314,7 @@ function Slot({
           : undefined
       }
     >
-      {children}
+      {content}
     </div>
   );
 }
@@ -807,6 +831,7 @@ export function BoardView({
   onAction = () => {},
   labelOf = (action) => action.type,
   zoneChoice = new Map(),
+  picked = new Map(),
   highlight = new Set(),
   name = (id) => id,
   log = null,
@@ -837,6 +862,8 @@ export function BoardView({
   labelOf?: (action: Action) => string;
   /** Zones a zone choice offers (M5c), by `<player>:<zone>`, with the action each one takes. */
   zoneChoice?: ReadonlyMap<string, Action>;
+  /** #250: zones already picked for tokens played at once, with the token. */
+  picked?: ReadonlyMap<string, Card>;
   /** Where the bot's last move landed (M5c), as `<player>|<destination>`. */
   highlight?: ReadonlySet<string>;
   /** Seat names for the phase tracker (M5d): "You", "Bot", or the player id. */
@@ -1019,6 +1046,7 @@ export function BoardView({
     },
     previewCard: setPreviewedCard,
     zoneChoice,
+    picked,
     highlight,
     act: onAction,
     monsterGlow: { [you.id]: youMonsterGlow, [opp.id]: oppMonsterGlow },

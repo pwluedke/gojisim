@@ -923,6 +923,15 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
         )
       : [],
   );
+  // #250: zones already picked for tokens played at once show the token until the last is placed.
+  const picked = new Map(
+    zoneChoice.size > 0
+      ? (state.pendingChoice?.picked ?? []).flatMap((p) => {
+          const card = state.cards[p.cardId];
+          return card ? [[p.zone, card] as const] : [];
+        })
+      : [],
+  );
   const flags = state.turnFlags;
 
   const prompt =
@@ -1517,6 +1526,7 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
           onAction={game.takeAction}
           labelOf={(action) => actionLabel(state, action)}
           zoneChoice={viewing === null ? zoneChoice : new Map()}
+          picked={viewing === null ? picked : new Map()}
           highlight={
             viewing === null ? (botMove?.highlight ?? new Set()) : new Set()
           }
