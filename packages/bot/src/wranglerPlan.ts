@@ -14,7 +14,8 @@ import type { Decklist } from "./types";
  * Line 1 (#276, Ian; needs Despair EBP02-018 and Godzilla Against Mechagodzilla EBP01-073, as in
  * the Despangler): against a Mecha-King Ghidorah EBP02-068 in the opponent's zones, with Despair
  * in hand, discard for rage to 2 (Despair works from 2 rage), then Despair on Mecha-King; and keep
- * Godzilla Against Mechagodzilla (a battle card) for its rage reset, never paid for an invasion.
+ * Godzilla Against Mechagodzilla (a battle card) for its rage reset and Despair, neither paid for an
+ * invasion once a Mecha-King is public (the opponent's list or zones), from game turn 3.
  * The line waits until Despair can hit Mecha-King: its rank 3 needs your monster in zone 3 or
  * later (8.3.1), and it reaches only zones at or before your monster's.
  *
@@ -43,6 +44,8 @@ const CORE = [
   "EBP01-015",
 ];
 const CORE_NEEDED = 3;
+/** Line 1's guard (GAM and Despair kept from invasions): from this game turn. */
+export const GUARD_FROM_TURN = 3;
 /** Despair's [destroy] needs your monster at 2 or more [rage]. */
 const DESPAIR_RAGE = 2;
 /** Despair's rank: your monster in zone 3 or later to play it (8.3.1). */
@@ -122,6 +125,8 @@ export function wranglerVerdict(
   actions: readonly Action[],
   me: PlayerId,
   own: Decklist | undefined,
+  /** The opponent's decklist (public), when known. */
+  theirs?: Decklist,
 ): { against: Set<Action>; rescued: Set<Action> } {
   const against = new Set<Action>();
   const rescued = new Set<Action>();
@@ -160,14 +165,22 @@ export function wranglerVerdict(
   const despairInHand = player.hand.some(
     (c) => state.cards[c.cardId]?.deckCardNumber === DESPAIR,
   );
-  if (despairLine) {
-    // Godzilla Against Mechagodzilla stays for its rage reset: not paid for an invasion.
-    for (const a of actions)
-      if (
-        a.type === "invade" &&
-        handCard(state, me, a.cardInstanceId)?.deckCardNumber === GAM
-      )
-        against.add(a);
+  // #276 follow-up: line 1's cards stay, not paid for an invasion (Godzilla Against Mechagodzilla
+  // for its rage reset, Despair for Mecha-King), once a Mecha-King can matter: public in the
+  // opponent's list or zones, from game turn 3.
+  const mechaKingPublic =
+    (theirs?.mainDeck.some((c) => c.deckCardNumber === MECHA_KING) ?? false) ||
+    Object.values(opponent.zones).some((stacks) =>
+      stacks.some((stack) =>
+        stack.some((c) => state.cards[c.cardId]?.deckCardNumber === MECHA_KING),
+      ),
+    );
+  if (despairLine && mechaKingPublic && state.turn >= GUARD_FROM_TURN) {
+    for (const a of actions) {
+      if (a.type !== "invade") continue;
+      const n = handCard(state, me, a.cardInstanceId)?.deckCardNumber;
+      if (n === GAM || n === DESPAIR) against.add(a);
+    }
   }
   if (
     despairLine &&

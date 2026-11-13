@@ -445,6 +445,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         input.legalActions,
         me,
         input.knowledge.decks[me],
+        input.knowledge.decks[first.players.find((p) => p.id !== me)?.id ?? ""],
       );
       for (const a of rescued) dead.delete(actionKey(first, a));
       avoid = new Set(

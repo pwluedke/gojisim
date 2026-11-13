@@ -87,9 +87,15 @@ import type { Decklist } from "./types";
  *    that changes nothing (King Ghidorah (1991) EBP02-049's destroy with no rank 5 or lower battle
  *    card to hit) isn't picked while another mode does something.
  * 17. #288 (Keldroc, Nov 13): a [revenge] card (Dorat EBP02-058) goes where it gets destroyed:
- *    ahead of your own monster, whose advance crushes it (11.3), an empty zone first, never zone 8;
+ *    ahead of your own monster, whose advance crushes it (11.3), an empty zone first, never zone 8,
+ *    and (Monarch, Nov 13) the nearest two zones ahead first, Keldroc's "landmine"; it isn't paid for
+ *    an invasion while another card can pay (discarded, it never pays off);
  *    and nothing goes on top of your own [revenge] card while another zone is open (but a column
  *    card, which rule 3 places: Mecha-King Ghidorah in the opponent monster's column, #289).
+ * 18. #290 (Keldroc and Monarch, Nov 13): at a "choose one", a mode that makes the opponent
+ *    discard beats one that only mills your own deck (King Ghidorah (1991) EBP02-049: the hand
+ *    discard, "9 times out of 10"), unless only the mill lets this turn's Mecha-King Ghidorah
+ *    EBP02-068 play or counter happen (its discarded King Ghidorah cards lower Mecha-King's rank).
  */
 
 type Json = Record<string, unknown>;
@@ -266,6 +272,9 @@ function columnPlays(
   return dead;
 }
 
+/** Rule 17: how many zones ahead of your monster count as near, for a [revenge] card. */
+const LANDMINE_REACH = 2;
+
 /** Rule 17: whether a card has [revenge] (it pays off when it's destroyed from the field). */
 export function hasRevenge(deckCardNumber: string): boolean {
   return getCardAbilities(deckCardNumber).abilities.some(
@@ -303,6 +312,16 @@ function revengePlays(
       ),
     );
   const dead: Action[] = [];
+  // Keldroc: "every Dorat is sacred": paid for an invasion it's discarded, never destroyed, so it
+  // isn't the payment while another card can pay.
+  const invades = actions.filter((a) => a.type === "invade");
+  const revengePays = invades.filter(
+    (a) =>
+      a.type === "invade" &&
+      hasRevenge(dataOf(a.cardInstanceId)?.deckCardNumber ?? ""),
+  );
+  if (revengePays.length > 0 && revengePays.length < invades.length)
+    dead.push(...revengePays);
   const byCard = new Map<string, Extract<Action, { type: "playBattle" }>[]>();
   for (const a of actions)
     if (a.type === "playBattle")
@@ -317,8 +336,14 @@ function revengePlays(
     if (columnCard(data)) continue;
     const revenge = hasRevenge(data?.deckCardNumber ?? "");
     const ahead = (z: ZoneNumber) => z > at && z < 8;
+    // Keldroc's "landmine": the nearest zones ahead first, so it's crushed soon.
+    const near = (z: ZoneNumber) => ahead(z) && z <= at + LANDMINE_REACH;
     const tiers: ((z: ZoneNumber) => boolean)[] = revenge
-      ? [(z) => ahead(z) && empty(z), (z) => ahead(z) && !coversRevenge(z)]
+      ? [
+          (z) => near(z) && empty(z),
+          (z) => ahead(z) && empty(z),
+          (z) => ahead(z) && !coversRevenge(z),
+        ]
       : [(z) => !coversRevenge(z)];
     const best = tiers
       .map((tier) => plays.filter((a) => tier(a.zone)))
@@ -913,6 +938,94 @@ function fingerprint(state: GameState): string {
   );
 }
 
+/** Rule 18: Mecha-King Ghidorah, whose rank drops for each King Ghidorah card in your discard pile. */
+const MECHA_KING = "EBP02-068";
+
+/** Rule 18: answers every choice (anyone's) with its first option, back to a play timing. */
+function settleAll(state: GameState): GameState {
+  let s = state;
+  for (let i = 0; i < 20 && s.pendingChoice && !s.result; i++) {
+    const c = s.pendingChoice;
+    const first = getLegalActions(s, c.player).find(
+      (a) => a.type !== "concede",
+    );
+    if (!first) break;
+    s = advanceToDecision(applyAction(s, first));
+  }
+  return s;
+}
+
+/** Rule 18: whether, from `s`, a Mecha-King Ghidorah can be played or the counter made this turn. */
+function mechaKingOrCounter(s: GameState, me: PlayerId): boolean {
+  if (s.result || s.turnPlayer !== me) return false;
+  const legal = getLegalActions(s, me);
+  const player = s.players.find((p) => p.id === me);
+  const mechaKing = legal.some(
+    (a) =>
+      a.type === "playBattle" &&
+      s.cards[
+        player?.hand.find((c) => c.instanceId === a.cardInstanceId)?.cardId ??
+          -1
+      ]?.deckCardNumber === MECHA_KING,
+  );
+  return (
+    mechaKing ||
+    counters(s, me) ||
+    playsReaching(s, legal, me, (x) => counters(x, me)).size > 0
+  );
+}
+
+/** Rule 18: mill modes of my "choose one" while a mode makes the opponent discard. */
+function millModes(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const choice = state.pendingChoice;
+  if (choice?.player !== me || choice.kind !== "option") return [];
+  const mine = (s: GameState) => s.players.find((p) => p.id === me);
+  const theirs = (s: GameState) => s.players.find((p) => p.id !== me);
+  const before = { me: mine(state), them: theirs(state) };
+  const discards: GameState[] = [];
+  const mills: { action: Action; after: GameState }[] = [];
+  for (const a of actions) {
+    if (a.type !== "choose") continue;
+    let after: GameState;
+    try {
+      after = advanceToDecision(applyAction(state, a));
+    } catch {
+      continue;
+    }
+    const them = theirs(after);
+    const you = mine(after);
+    if (!them || !you || !before.me || !before.them) continue;
+    // The opponent answers a discard, or their hand shrinks.
+    if (
+      after.pendingChoice?.player === them.id ||
+      them.hand.length < before.them.hand.length
+    ) {
+      discards.push(settleAll(after));
+      continue;
+    }
+    // Only your own deck went to your discard pile.
+    const settled = settleOwnChoices(after, me);
+    const youNow = mine(settled);
+    if (
+      youNow &&
+      youNow.deck.length < before.me.deck.length &&
+      youNow.discard.length > before.me.discard.length &&
+      youNow.hand.length === before.me.hand.length &&
+      theirs(settled)?.hand.length === before.them.hand.length
+    )
+      mills.push({ action: a, after: settled });
+  }
+  if (discards.length === 0 || mills.length === 0) return [];
+  const discardEnables = discards.some((s) => mechaKingOrCounter(s, me));
+  return mills
+    .filter(({ after }) => discardEnables || !mechaKingOrCounter(after, me))
+    .map(({ action }) => action);
+}
+
 /** Rule 16: the modes of my "choose one" that change nothing, while another mode does something. */
 function idleModes(
   state: GameState,
@@ -986,6 +1099,7 @@ export function cardRulesDead(
   for (const action of earlyRage(state, actions, me)) dead.add(action);
   for (const action of heldMonsters(state, actions, me)) dead.add(action);
   for (const action of idleModes(state, actions, me)) dead.add(action);
+  for (const action of millModes(state, actions, me)) dead.add(action);
   for (const action of revengePlays(state, actions, me)) dead.add(action);
   // Rule 7: a way to block zone 8 is taken: every other move waits (but an invasion that wins
   // now), and it outranks the others' holds. (Rule 9 only frees holds, in `rescuedPlays`.)
