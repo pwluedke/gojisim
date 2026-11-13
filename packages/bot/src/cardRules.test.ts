@@ -803,5 +803,51 @@ describe(
       expect(held(3)).toBe(true);
       expect(held(6)).toBe(false);
     });
+
+    it("rule 16 (#290, 10.5.2.2.1): King Ghidorah (1991) EBP02-049's destroy mode, with no rank 5 or lower battle card to hit, isn't picked while the hand discard does something", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opponent = state.players[1] as PlayerState;
+      opponent.monsterPosition = 2;
+      // P1's monster: King Ghidorah ranks 1-3; a second rank 3 from hand goes on top, 3 under it.
+      p1.invadingMonsterZone = [
+        add(state, real("EBP02-047"), "P1"),
+        add(state, real("EBP02-048"), "P1"),
+        add(state, real("EBP02-049"), "P1"),
+      ];
+      p1.hand = [add(state, real("EBP02-049"), "P1")];
+      // The opponent: 6 cards in hand, and only a rank 7 battle card in their zones.
+      opponent.hand = Array.from({ length: 6 }, () =>
+        add(state, real("ESD01-016"), "P2"),
+      );
+      for (const z of [1, 2, 3, 4, 5, 6, 7, 8] as const) opponent.zones[z] = [];
+      opponent.zones[1] = [[add(state, real("EBP01-073"), "P2")]];
+      const play = getLegalActions(state, "P1").find(
+        (a) => a.type === "playMonster",
+      );
+      if (!play) throw new Error("King Ghidorah (1991) can't be stacked here");
+      let s = advanceToDecision(applyAction(state, play));
+      for (
+        let i = 0;
+        i < 4 && s.pendingChoice && s.pendingChoice.kind !== "option";
+        i++
+      ) {
+        const c = s.pendingChoice;
+        s = advanceToDecision(
+          applyAction(s, {
+            type: "choose",
+            player: c.player,
+            choiceId: c.id,
+            optionId: c.options[0]!.id,
+          }),
+        );
+      }
+      expect(s.pendingChoice?.kind).toBe("option");
+      const legal = getLegalActions(s, "P1");
+      const mode = (i: number) =>
+        legal.find((a) => a.type === "choose" && a.optionId === String(i))!;
+      const dead = cardRulesDead(s, legal, "P1");
+      expect(dead.has(mode(0))).toBe(true);
+      expect(dead.has(mode(1))).toBe(false);
+    });
   },
 );

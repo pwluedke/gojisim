@@ -80,6 +80,9 @@ import type { Decklist } from "./types";
  *    battle cards) isn't stacked on a turn your monster can't reach that zone (its invasion, then
  *    the end-phase advance), unless the stack is needed now (it's on a way to the counter) or it's
  *    the only play besides passing.
+ * 16. #290 (Keldroc, Nov 13): a mode that does something. At a "choose one" (10.5.2.2.1), a mode
+ *    that changes nothing (King Ghidorah (1991) EBP02-049's destroy with no rank 5 or lower battle
+ *    card to hit) isn't picked while another mode does something.
  */
 
 type Json = Record<string, unknown>;
@@ -814,6 +817,50 @@ function heldMonsters(
   });
 }
 
+/** Rule 16: what a mode can change, public and private (zones, hands, piles, rage, monsters). */
+function fingerprint(state: GameState): string {
+  return JSON.stringify(
+    state.players.map((p) => [
+      p.hand.map((c) => c.instanceId),
+      p.discard.length,
+      p.deck.length,
+      Object.values(p.zones).map((stacks) =>
+        stacks.map((stack) => stack.map((c) => c.instanceId)),
+      ),
+      p.rage,
+      p.monsterPosition,
+    ]),
+  );
+}
+
+/** Rule 16: the modes of my "choose one" that change nothing, while another mode does something. */
+function idleModes(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const choice = state.pendingChoice;
+  if (choice?.player !== me || choice.kind !== "option") return [];
+  const before = fingerprint(state);
+  const idle: Action[] = [];
+  let useful = 0;
+  for (const a of actions) {
+    if (a.type !== "choose") continue;
+    let after: GameState;
+    try {
+      after = settleOwnChoices(advanceToDecision(applyAction(state, a)), me);
+    } catch {
+      useful++;
+      continue;
+    }
+    // The opponent answering (a discard) or any change is something.
+    if (after.pendingChoice || after.result || fingerprint(after) !== before)
+      useful++;
+    else idle.push(a);
+  }
+  return useful > 0 ? idle : [];
+}
+
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
 export function cardRulesDead(
   state: GameState,
@@ -858,6 +905,7 @@ export function cardRulesDead(
   for (const action of earlyAwakenings(state, actions, me)) dead.add(action);
   for (const action of earlyRage(state, actions, me)) dead.add(action);
   for (const action of heldMonsters(state, actions, me)) dead.add(action);
+  for (const action of idleModes(state, actions, me)) dead.add(action);
   // Rule 7: a way to block zone 8 is taken: every other move waits (but an invasion that wins
   // now), and it outranks the others' holds. (Rule 9 only frees holds, in `rescuedPlays`.)
   const blocks = blockingPlays(state, actions, me);
