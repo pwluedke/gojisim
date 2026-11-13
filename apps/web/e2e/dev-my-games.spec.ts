@@ -63,8 +63,12 @@ test("#279, #244: a game sent mid-game (Report bug) lists as in progress; Load c
 test("#279: a conceded game lists with its result", async ({ page }) => {
   await signIn(page);
   await loadFixture(page, "hand-count-five");
-  const uploaded = page.waitForRequest(
-    (r) => r.url().endsWith("/api/games") && r.method() === "POST",
+  // The server's answer, so the game is stored and indexed before My games asks.
+  const uploaded = page.waitForResponse(
+    (r) =>
+      r.url().endsWith("/api/games") &&
+      r.request().method() === "POST" &&
+      r.status() === 201,
   );
   await page.getByTestId("concede").click();
   await page.getByTestId("confirm-yes").click();
