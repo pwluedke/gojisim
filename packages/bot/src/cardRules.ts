@@ -38,6 +38,11 @@ import type { Decklist } from "./types";
  * 6. #248: a slow counter deck (`SLOW_DECK_MONSTERS` or fewer monster cards in its main deck, Ian:
  *    the Wrangler has 4) doesn't invade unless the invasion wins the game now: it hasn't the
  *    threat to live in the high zones, and an invasion ends its turn in reach of a push.
+ * 7. #265: with your zone 8 open and the opponent's monster in reach of it (zone 6 or beyond),
+ *    when some plays this turn put a battle card in your zone 8, take one: those plays stay even
+ *    where another rule holds them (#265: the held monster cards whose rage discards make
+ *    Godzilla Against Mechagodzilla playable), and every other move waits (passing too), but an
+ *    invasion that wins now.
  */
 
 type Json = Record<string, unknown>;
@@ -400,6 +405,84 @@ function slowInvasions(
   });
 }
 
+/** Whether `action` wins the game now. */
+function winsNow(state: GameState, action: Action, me: PlayerId): boolean {
+  if (action.type === "concede") return false;
+  try {
+    return advanceToDecision(applyAction(state, action)).result?.winner === me;
+  } catch {
+    return false;
+  }
+}
+
+/** Rule 7's search budget (states visited) for a way to block zone 8 this turn. */
+const BLOCK_BUDGET = 400;
+/** Rule 7's search depth (own plays in a row). */
+const BLOCK_DEPTH = 5;
+
+const blocked = (state: GameState, me: PlayerId) =>
+  state.players
+    .find((p) => p.id === me)
+    ?.zones[8].some((stack) => {
+      const top = stack[stack.length - 1];
+      return top ? state.cards[top.cardId]?.type === "Battle" : false;
+    }) ?? false;
+
+/**
+ * Rule 7: the plays that start a way to put a battle card in your open zone 8 this turn, while the
+ * opponent's monster is in reach of it. Empty when there's no threat or no way.
+ */
+export function blockingPlays(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Set<Action> {
+  const opponent = state.players.find((p) => p.id !== me);
+  const found = new Set<Action>();
+  if (
+    state.pendingChoice ||
+    state.turnPlayer !== me ||
+    blocked(state, me) ||
+    (opponent?.monsterPosition ?? 1) < 6
+  )
+    return found;
+  let budget = BLOCK_BUDGET;
+  const playable = (a: Action) =>
+    a.type === "gainRage" ||
+    a.type === "playBattle" ||
+    a.type === "activateStrategy" ||
+    a.type === "playMonster";
+  const reaches = (s: GameState, depth: number): boolean => {
+    if (budget-- <= 0 || s.result || s.turnPlayer !== me) return false;
+    if (blocked(s, me)) return true;
+    if (depth === 0) return false;
+    return getLegalActions(s, me)
+      .filter(playable)
+      .some((a) => {
+        try {
+          return reaches(
+            settleOwnChoices(advanceToDecision(applyAction(s, a)), me),
+            depth - 1,
+          );
+        } catch {
+          return false;
+        }
+      });
+  };
+  for (const a of actions.filter(playable)) {
+    try {
+      const after = settleOwnChoices(
+        advanceToDecision(applyAction(state, a)),
+        me,
+      );
+      if (reaches(after, BLOCK_DEPTH - 1)) found.add(a);
+    } catch {
+      continue;
+    }
+  }
+  return found;
+}
+
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
 export function cardRulesDead(
   state: GameState,
@@ -438,5 +521,13 @@ export function cardRulesDead(
   for (const action of recurringPlays(state, actions, me)) dead.add(action);
   for (const action of spentCounters(state, actions, me)) dead.add(action);
   for (const action of slowInvasions(state, actions, me, own)) dead.add(action);
+  // Rule 7: a way to block zone 8 is taken: every other move waits (but an invasion that wins
+  // now), and it outranks the others' holds.
+  const blocks = blockingPlays(state, actions, me);
+  if (blocks.size > 0) {
+    for (const a of actions)
+      if (!blocks.has(a) && !winsNow(state, a, me)) dead.add(a);
+    for (const a of blocks) dead.delete(a);
+  }
   return dead;
 }

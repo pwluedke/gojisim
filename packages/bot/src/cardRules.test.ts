@@ -17,6 +17,7 @@ import {
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
 import {
+  blockingPlays,
   cardRulesDead,
   losesWithoutStrategy,
   recursFromDiscard,
@@ -56,6 +57,24 @@ const LISTS = decklistsOf([
     ...DECKS[0],
     monsterDeck: [...DECKS[0].monsterDeck, real("ESD01-004")],
     mainDeck: [...DECKS[0].mainDeck, real("EBP03-013"), real("ESD01-016")],
+  },
+  DECKS[1],
+]);
+
+/** #265's position's decklists: the starter plus the cards `exposed` adds, nothing it takes out. */
+const LISTS_265 = decklistsOf([
+  {
+    ...DECKS[0],
+    monsterDeck: [...DECKS[0].monsterDeck, real("ESD01-004")],
+    mainDeck: [
+      ...DECKS[0].mainDeck,
+      real("EBP01-073"),
+      real("ESD01-007"),
+      real("EBP03-004"),
+      // As in LISTS: the hidden deck holds one card more than the starter's count leaves.
+      real("ESD01-016"),
+      ...Array.from({ length: 6 }, () => real("EBP01-002")),
+    ],
   },
   DECKS[1],
 ]);
@@ -276,8 +295,8 @@ describe(
 
     it("#258, 4.4.5.5: Mecha-King goes in the opponent's monster column (their zone 4 faces your zone 2)", () => {
       expect(mechaKing(5, 4).zonesLeft()).toEqual([2]);
-      // Their zone 6 faces your zone 1.
-      expect(mechaKing(4, 6).zonesLeft()).toEqual([1]);
+      // Their zone 5 faces your zone 1 (in their zone 6, your open zone 8 would come first: rule 7).
+      expect(mechaKing(4, 5).zonesLeft()).toEqual([1]);
     });
 
     it("#247: Mechagodzilla (1993) ESD02-012's column bonus (+3000) counts too: it goes in the opponent's monster column", () => {
@@ -466,6 +485,61 @@ describe(
         expect(
           cardRulesDead(state, winning.legal, "P1", deckWith(4)).has(a),
         ).toBe(false);
+    });
+
+    /**
+     * #265: your zone 8 open, the opponent's monster in their zone 7; in hand Godzilla Against
+     * Mechagodzilla EBP01-073 (playable with 8 or more monster cards in your discard pile) and two
+     * rank IV Godzilla monster cards; 6 monster cards in your discard pile.
+     */
+    function exposed() {
+      const { state, p1 } = withGodzilla1995();
+      (state.players[1] as PlayerState).monsterPosition = 7;
+      p1.hand = [
+        add(state, real("EBP01-073"), "P1"),
+        add(state, real("ESD01-007"), "P1"),
+        add(state, real("EBP03-004"), "P1"),
+      ];
+      for (let i = 0; i < 6; i++)
+        p1.discard.push(add(state, real("EBP01-002"), "P1"));
+      return { state, p1 };
+    }
+
+    it("#265: with zone 8 open and their monster in reach, the plays that lead to a block are found (two rage discards, then Godzilla Against Mechagodzilla); passing is left out", () => {
+      const { state } = exposed();
+      const legal = getLegalActions(state, "P1");
+      const blocks = blockingPlays(state, legal, "P1");
+      expect([...blocks].map((a) => a.type)).toEqual(["gainRage", "gainRage"]);
+      const dead = cardRulesDead(state, legal, "P1");
+      for (const a of legal)
+        if (a.type === "pass") expect(dead.has(a)).toBe(true);
+      for (const a of blocks) expect(dead.has(a)).toBe(false);
+    });
+
+    it("#265: Hard takes a block even when Paul's rule 2 holds those monster cards (Level 100 passed in the report)", () => {
+      const { state } = exposed();
+      const action = decide(
+        botInput(state, "P1", LISTS_265, seededRng("block"), {
+          ...difficultySettings(PRESETS.hard),
+          iterations: 60,
+          maxMs: 1e9,
+          blunder: 0,
+        }),
+      ).action;
+      expect(action.type).toBe("gainRage");
+    });
+
+    it("#265: with no threat (their monster in zone 4) or zone 8 already blocked, nothing is forced", () => {
+      const far = exposed();
+      (far.state.players[1] as PlayerState).monsterPosition = 4;
+      expect(
+        blockingPlays(far.state, getLegalActions(far.state, "P1"), "P1").size,
+      ).toBe(0);
+      const held = exposed();
+      held.p1.zones[8] = [[add(held.state, real("ESD02-011"), "P1")]];
+      expect(
+        blockingPlays(held.state, getLegalActions(held.state, "P1"), "P1").size,
+      ).toBe(0);
     });
   },
 );

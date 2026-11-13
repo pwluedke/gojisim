@@ -22,7 +22,7 @@ import { finalWarsDead, mxPlanVerdict } from "./mxPlan";
 import { mxPlanV2Verdict } from "./mxPlanV2";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
 import { deadKeys } from "./prune";
-import { cardRulesDead } from "./cardRules";
+import { blockingPlays, cardRulesDead } from "./cardRules";
 import { applyRules } from "./rules";
 import type { Bot, BotInput, BotSettings, Decklist } from "./types";
 
@@ -395,8 +395,17 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         ...dead,
         ...[...unsafe].map((a) => actionKey(first, a)),
       ]);
+      // Rule 7 (#265): a way to block zone 8 outranks Paul's rules' holds too.
+      const blocks = blockingPlays(first, input.legalActions, me);
+      for (const a of blocks) keys.delete(actionKey(first, a));
+      if (blocks.size > 0)
+        avoid = new Set(
+          [...avoid].filter(
+            (i) => !blocks.has(input.legalActions[i] as Action),
+          ),
+        );
       if (
-        unsafe.size > 0 &&
+        (unsafe.size > 0 || blocks.size > 0) &&
         input.legalActions.some(
           (a) => a.type !== "concede" && !keys.has(actionKey(first, a)),
         )
