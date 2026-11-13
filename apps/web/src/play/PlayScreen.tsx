@@ -1013,19 +1013,10 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
               )}
             </>
           ) : zoneInPrompt ? (
-            <ChoiceModal
-              key={choice?.id}
-              state={state}
-              heading={choiceHeading(state, name)}
-              source={choiceSource(state)}
-              actions={actions}
-              manualCards={[]}
-              onAction={game.takeAction}
-              labelOf={(action) => actionLabel(state, action)}
-              model={model}
-              onUndo={undoable ? undo : undefined}
-              name={name}
-            />
+            // #242: the zone prompt itself is beside your mat (`beside` below).
+            <div className={styles.muted} data-testid="prompt-choice">
+              {choiceHeading(state, name)}: beside your mat.
+            </div>
           ) : choice && showModal ? (
             <div className={styles.muted} data-testid="prompt-choice">
               {choiceHeading(state, name)}
@@ -1522,6 +1513,23 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
           }
           model={model}
           prompt={prompt}
+          beside={
+            zoneInPrompt && viewing === null ? (
+              <ChoiceModal
+                key={choice?.id}
+                state={state}
+                heading={choiceHeading(state, name)}
+                source={choiceSource(state)}
+                actions={actions}
+                manualCards={[]}
+                onAction={game.takeAction}
+                labelOf={(action) => actionLabel(state, action)}
+                model={model}
+                onUndo={undoable ? undo : undefined}
+                name={name}
+              />
+            ) : null
+          }
           actions={locked ? [] : actions}
           locked={locked}
           onAction={game.takeAction}

@@ -306,6 +306,33 @@
   z-index: 1;
 }
 
+/* #242: your mat with the placement prompt beside it (the wrapper is as wide as the mat). */
+.youMat {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-self: center;
+}
+
+/*
+ * #242 (Paul, Nov 12): a zone choice's prompt beside your mat, at its left edge: it reaches left
+ * over the gap (and the sidebar's edge on a narrow window) and overlaps only the mat's strategy
+ * column, never a battle zone. The accent frame keeps it from blending into the sidebar.
+ */
+.beside {
+  position: absolute;
+  top: 0;
+  right: calc(100% - var(--card-h) / 2);
+  /* Above the sidebar's panels it reaches over, below the modals and the card preview. */
+  z-index: 45;
+  width: 250px;
+  padding: var(--space-2);
+  border: 3px solid var(--color-accent);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  box-shadow: var(--panel-shadow);
+}
+
 .centerLine {
   border-top: 3px solid var(--color-center-line);
 }
