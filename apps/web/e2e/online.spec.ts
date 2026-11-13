@@ -402,3 +402,56 @@ test("M9d: the lobby shows an open game as it's made; Join from it plays; an unl
     carol.getByTestId("online-lobby-game").filter({ hasText: `Ann ${run}` }),
   ).toHaveCount(0);
 });
+
+/** Bo concedes; both see the game over. */
+async function concedeBo(ann: Page, bo: Page) {
+  await bo.getByTestId("concede").click();
+  await bo.getByTestId("confirm-yes").click();
+  await expect(ann.getByTestId("game-over-line")).toBeVisible();
+  await expect(bo.getByTestId("game-over-line")).toBeVisible();
+}
+
+test("#251: at game over, Ann offers a rematch with her deck; Bo accepts with another; both are in the new game at the First / Second pick", async ({
+  browser,
+}) => {
+  const { ann, bo } = await startOnline(browser);
+  const first = ann.url();
+  await concedeBo(ann, bo);
+  await expect(ann.getByTestId("online-rematch-keep")).toBeChecked();
+  await ann.getByTestId("online-rematch-offer").click();
+  await expect(ann.getByTestId("online-rematch-waiting")).toBeVisible();
+  await expect(bo.getByTestId("online-rematch-offered")).toContainText(
+    "offers a rematch",
+  );
+  // Bo brings another deck (he played ESD02).
+  await bo.getByTestId("online-rematch-other").check();
+  await bo
+    .getByTestId("online-rematch")
+    .getByTestId("online-deck")
+    .selectOption("official:ESD01");
+  await bo.getByTestId("online-rematch-accept").click();
+  // Both open the new game, at the First / Second pick (6.3.1.4): one picks, the other waits.
+  for (const page of [ann, bo]) {
+    await expect(page).toHaveURL(/\/online\/[0-9a-f-]{36}$/);
+    await expect.poll(() => page.url()).not.toBe(first);
+  }
+  expect(ann.url()).toBe(bo.url());
+  const picks = async (page: Page) =>
+    (await page.getByTestId("online-pick-0").count()) +
+    (await page.getByTestId("online-other-picks").count());
+  await expect.poll(() => picks(ann)).toBe(1);
+  await expect.poll(() => picks(bo)).toBe(1);
+});
+
+test("#251: Bo declines Ann's rematch; Ann is told, and may offer again", async ({
+  browser,
+}) => {
+  const { ann, bo } = await startOnline(browser);
+  await concedeBo(ann, bo);
+  await ann.getByTestId("online-rematch-offer").click();
+  await bo.getByTestId("online-rematch-decline").click();
+  await expect(ann.getByTestId("online-rematch-declined")).toContainText(
+    "declined the rematch",
+  );
+  await expect(ann.getByTestId("online-rematch-offer")).toBeEnabled();
+});

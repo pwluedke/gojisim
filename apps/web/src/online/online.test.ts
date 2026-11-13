@@ -62,6 +62,13 @@ function message(g: Session, seq: number, from = seq): SeatMessage {
     h2hEnd: null,
     names: { P1: "Ann", P2: "Bo" },
     yourDeckName: "Ann's deck",
+    rematch: {
+      by: null,
+      youReady: false,
+      declined: null,
+      gameId: null,
+      canOffer: false,
+    },
     steps: g.record.actions.slice(from, seq).map((action, i) => ({
       seq: from + i + 1,
       action,

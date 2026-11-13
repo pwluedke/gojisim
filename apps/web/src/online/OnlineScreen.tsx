@@ -527,6 +527,98 @@ function Overlays({ play }: { play: OnlinePlay }) {
 }
 
 /**
+ * #251: the rematch at game over. Either player offers it with the deck they bring (the same one,
+ * or another of theirs); the other accepts with theirs, or declines. With both in, the server
+ * makes the new game and both browsers open it, at the First / Second pick.
+ */
+function Rematch({ play }: { play: OnlinePlay }) {
+  const m = play.message;
+  const [keep, setKeep] = useState(true);
+  const [deck, setDeck] = useState<DeckOption | null>(null);
+  const next = m?.rematch.gameId ?? null;
+  useEffect(() => {
+    if (next) window.location.assign(`/online/${next}`);
+  }, [next]);
+  if (!m || m.phase !== "over" || !m.opponent) return null;
+  const r = m.rematch;
+  const name = m.opponent.name;
+  const theirOffer = r.by !== null && r.by !== m.you && r.declined === null;
+  const send = () => play.rematch(keep || !deck ? "keep" : deck.choice);
+  return (
+    <div className={styles.rematch} data-testid="online-rematch">
+      {next ? (
+        <p data-testid="online-rematch-starting">Starting the rematch…</p>
+      ) : r.youReady ? (
+        <p data-testid="online-rematch-waiting">
+          Rematch offered. Waiting for {name} to answer…
+        </p>
+      ) : (
+        <>
+          {theirOffer ? (
+            <p data-testid="online-rematch-offered">{name} offers a rematch.</p>
+          ) : r.declined && r.declined !== m.you ? (
+            <p data-testid="online-rematch-declined">
+              {name} declined the rematch.
+            </p>
+          ) : null}
+          <label className={styles.check}>
+            <input
+              type="radio"
+              name="rematch-deck"
+              data-testid="online-rematch-keep"
+              checked={keep}
+              onChange={() => setKeep(true)}
+            />
+            Keep {m.yourDeckName ?? "your deck"}
+          </label>
+          <label className={styles.check}>
+            <input
+              type="radio"
+              name="rematch-deck"
+              data-testid="online-rematch-other"
+              checked={!keep}
+              onChange={() => setKeep(false)}
+            />
+            Another deck
+          </label>
+          {!keep && <DeckPicker value={deck?.key ?? ""} onChange={setDeck} />}
+          {theirOffer ? (
+            <>
+              <button
+                type="button"
+                data-primary
+                data-testid="online-rematch-accept"
+                disabled={!r.canOffer}
+                onClick={send}
+              >
+                Accept the rematch
+              </button>
+              <button
+                type="button"
+                data-testid="online-rematch-decline"
+                onClick={play.declineRematch}
+              >
+                Decline
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              data-primary
+              data-testid="online-rematch-offer"
+              disabled={!r.canOffer}
+              onClick={send}
+            >
+              Offer a rematch
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
  * M9c: while it's this player's move and the tab isn't in front, the tab title says so, so a
  * player waiting in another tab sees it's their turn.
  */
@@ -567,6 +659,7 @@ function Game({ gameId }: { gameId: string }) {
     <>
       <PlayScreen online={play} />
       <Overlays play={play} />
+      <Rematch play={play} />
     </>
   );
 }
@@ -620,6 +713,8 @@ function Replay({ gameId }: { gameId: string }) {
     answerUndo: () => {},
     claim: () => {},
     cancel: async () => false,
+    rematch: () => {},
+    declineRematch: () => {},
     ensureBoard: (index) => {
       if (game.models[index] || asked.current.has(index)) return;
       asked.current.add(index);
