@@ -57,6 +57,9 @@ import type { Decklist } from "./types";
  *    Monsters EBP01-075 gains +3000 counter power per rage) are freed from the holds of Paul's
  *    rule 2. Unlike rule 7 it forces nothing: the search still picks, and the card rules'
  *    placements stand.
+ * 10. #275: a play that advances the opponent's monster (Godzilla Landing EBP01-030) is made only
+ *    when, after it, you can still make the counter this turn or have your zone 8 blocked (or can
+ *    block it): pushing their monster toward zone 8 otherwise hands them the invasion win.
  */
 
 type Json = Record<string, unknown>;
@@ -569,6 +572,41 @@ function zoneLimitedPlays(
   return dead;
 }
 
+/** Rule 10: plays that advance the opponent's monster with no counter or zone 8 block to follow. */
+function unsafeAdvances(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  if (state.pendingChoice || state.turnPlayer !== me) return [];
+  const before =
+    state.players.find((p) => p.id !== me)?.monsterPosition ?? null;
+  if (before === null) return [];
+  const dead: Action[] = [];
+  for (const a of actions) {
+    if (a.type === "pass" || a.type === "concede" || a.type === "invade")
+      continue;
+    let after: GameState;
+    try {
+      after = settleOwnChoices(advanceToDecision(applyAction(state, a)), me);
+    } catch {
+      continue;
+    }
+    if (after.result) continue;
+    const at = after.players.find((p) => p.id !== me)?.monsterPosition ?? null;
+    if (at === null || at <= before || at < 6) continue;
+    if (after.pendingChoice || after.turnPlayer !== me) continue;
+    const legal = getLegalActions(after, me);
+    const safe =
+      counters(after, me) ||
+      blocked(after, me) ||
+      playsReaching(after, legal, me, (s) => counters(s, me) || blocked(s, me))
+        .size > 0;
+    if (!safe) dead.push(a);
+  }
+  return dead;
+}
+
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
 export function cardRulesDead(
   state: GameState,
@@ -608,6 +646,7 @@ export function cardRulesDead(
   for (const action of spentCounters(state, actions, me)) dead.add(action);
   for (const action of slowInvasions(state, actions, me, own)) dead.add(action);
   for (const action of zoneLimitedPlays(state, actions, me)) dead.add(action);
+  for (const action of unsafeAdvances(state, actions, me)) dead.add(action);
   // Rule 7: a way to block zone 8 is taken: every other move waits (but an invasion that wins
   // now), and it outranks the others' holds. (Rule 9 only frees holds, in `rescuedPlays`.)
   const blocks = blockingPlays(state, actions, me);

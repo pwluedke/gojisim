@@ -618,5 +618,22 @@ describe(
         ),
       ).toBe(true);
     });
+
+    it("#275: Godzilla Landing EBP01-030 (advances the opponent's monster) waits when nothing then makes the counter or blocks zone 8; with zone 8 blocked it may go", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      opp.monsterPosition = 6;
+      opp.rage = 6;
+      p1.hand = [add(state, real("EBP01-030"), "P1")];
+      const activation = () => {
+        const legal = getLegalActions(state, "P1");
+        const a = legal.find((x) => x.type === "activateStrategy");
+        if (!a) throw new Error("Godzilla Landing can't be activated here");
+        return cardRulesDead(state, legal, "P1").has(a);
+      };
+      expect(activation()).toBe(true);
+      p1.zones[8] = [[add(state, { ...real("ESD01-008"), rank: 1 }, "P1")]];
+      expect(activation()).toBe(false);
+    });
   },
 );
