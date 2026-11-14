@@ -12,6 +12,7 @@ import {
   type PlayerSetup,
   type PlayerState,
   startGame,
+  type ZoneNumber,
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
 import {
@@ -62,7 +63,7 @@ function add(state: GameState, card: Card, owner: string): CardInstance {
 }
 
 /** P1's main phase, P1's monster `top` in zone 3, the opponent's in `oppAt`, P1's hand `hand`. */
-function position(top: string, hand: string[], oppAt = 2) {
+function position(top: string, hand: string[], oppAt: ZoneNumber = 2) {
   const decks: [PlayerSetup, PlayerSetup] = [
     { id: "P1", ...official("esd01-starter.txt") },
     { id: "P2", ...official("esd02-starter.txt") },
