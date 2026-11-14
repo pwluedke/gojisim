@@ -127,7 +127,9 @@ export function wranglerVerdict(
   own: Decklist | undefined,
   /** The opponent's decklist (public), when known. */
   theirs?: Decklist,
-): { against: Set<Action>; rescued: Set<Action> } {
+  /** Only line 1 (Despair and its guard), for the v2 plan (`wranglerPlanV2.ts`). */
+  onlyLine1 = false,
+): { against: Set<Action>; rescued: Set<Action>; line1?: boolean } {
   const against = new Set<Action>();
   const rescued = new Set<Action>();
   if (!isWranglerDeck(own)) return { against, rescued };
@@ -204,6 +206,13 @@ export function wranglerVerdict(
           )
         )
           against.add(a);
+    if (onlyLine1) {
+      if (actions.every((a) => a.type === "concede" || against.has(a)))
+        against.clear();
+      return { against, rescued, line1: true };
+    }
+  } else if (onlyLine1) {
+    // v2: lines 2 and 3 are v1's; only line 1's guard applies.
   } else if (fetchLine(state, actions, me, own).length > 0) {
     // Line 3: invade paying with Godzilla (2004) while the rank 2 Godzilla (2023) is on top.
     const pay = new Set(fetchLine(state, actions, me, own));

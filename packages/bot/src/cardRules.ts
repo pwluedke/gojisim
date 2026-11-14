@@ -568,7 +568,11 @@ function slowInvasions(
 }
 
 /** Whether `action` wins the game now. */
-function winsNow(state: GameState, action: Action, me: PlayerId): boolean {
+export function winsNow(
+  state: GameState,
+  action: Action,
+  me: PlayerId,
+): boolean {
   if (action.type === "concede") return false;
   try {
     return advanceToDecision(applyAction(state, action)).result?.winner === me;
