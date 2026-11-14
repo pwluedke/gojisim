@@ -18,6 +18,8 @@ const storage = (settings: Record<string, unknown>) => ({
           name: "gojisim.settings",
           value: JSON.stringify({ animation: "off", botDelay: 0, ...settings }),
         },
+        // The dev server's bot level unlock (beta-lock.spec.ts), as in animation-off.json.
+        { name: "gojisim.e2e.unlockBotLevel", value: "1" },
       ],
     },
   ],
