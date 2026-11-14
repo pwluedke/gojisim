@@ -23,6 +23,7 @@ import { mxPlanV2Verdict } from "./mxPlanV2";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
 import { deadKeys } from "./prune";
 import { cardRulesDead, rescuedPlays } from "./cardRules";
+import { festVerdict } from "./festPlan";
 import { wranglerVerdict } from "./wranglerPlan";
 import { wranglerV2Verdict } from "./wranglerPlanV2";
 import { applyRules } from "./rules";
@@ -72,6 +73,11 @@ export interface IsmctsSettings {
    * rules (Medium and Hard); 1 is v1 (`wranglerPlan.ts`, #276) with `rules` (Hard); 0 is off.
    */
   wranglerPlan: number;
+  /**
+   * Slick's Red Fest plan (`festPlan.ts`): 1 applies it, with `rules` on. Off by default: measured
+   * Nov 13 it wasn't a gain (paired seeds, the August list and the bots' Red Fest); on for tuning.
+   */
+  festPlan: number;
   /** Paul's Constructed Future plan (`cfPlan.ts`), with `rules` on: 1 (the default) on, 0 off. */
   cfPlan: number;
   /**
@@ -99,6 +105,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   recognizer: 0,
   cardRules: 0,
   wranglerPlan: 2,
+  festPlan: 0,
   cfTarget: "auto",
   cfPlan: 1,
   mxPlan: 2,
@@ -471,6 +478,24 @@ export function search(input: BotInput, settings: IsmctsSettings) {
       for (const a of rescued) dead.delete(actionKey(first, a));
       avoid = new Set(
         [...avoid].filter((i) => !rescued.has(input.legalActions[i] as Action)),
+      );
+      if (against.size > 0)
+        for (const a of input.legalActions)
+          if (a.type !== "concede" && !against.has(a))
+            favored.set(
+              actionKey(first, a),
+              Math.max(favored.get(actionKey(first, a)) ?? 0, MX_PLAN_BIAS),
+            );
+    }
+    // Slick's Red Fest plan, a preference like the Wrangler plan.
+    if (iterations === 1 && settings.rules > 0 && settings.festPlan > 0) {
+      const first = state;
+      const { against } = festVerdict(
+        first,
+        input.legalActions,
+        me,
+        input.knowledge.decks[me],
+        input.knowledge.decks[first.players.find((p) => p.id !== me)?.id ?? ""],
       );
       if (against.size > 0)
         for (const a of input.legalActions)
