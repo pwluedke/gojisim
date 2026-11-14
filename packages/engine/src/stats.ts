@@ -130,7 +130,18 @@ const isFlag = (flag: string) => (m: Modifier) =>
 
 /** Flag modifiers in force that target `card` (M1, E13). */
 export function flagsOn(state: GameState, card: CardInstance): FlagModifier[] {
-  const found: FlagModifier[] = [];
+  return flagSourcesOn(state, card).map((f) => f.modifier);
+}
+
+/**
+ * #308: the flag modifiers on `card`, each with the card whose continuous ability gives it
+ * (none for a flag granted for the turn, E19 `grant`).
+ */
+export function flagSourcesOn(
+  state: GameState,
+  card: CardInstance,
+): { modifier: FlagModifier; sourceInstanceId?: string }[] {
+  const found: { modifier: FlagModifier; sourceInstanceId?: string }[] = [];
   // Flags granted for the turn (E19 `grant`), fixed on the cards picked at resolution.
   for (const effect of state.continuousEffects)
     for (const f of effect.flags ?? [])
@@ -139,7 +150,7 @@ export function flagsOn(state: GameState, card: CardInstance): FlagModifier[] {
         "flag" in f.modifier &&
         "target" in f.modifier
       )
-        found.push(f.modifier);
+        found.push({ modifier: f.modifier });
   for (const { modifier, context } of activeModifiers(state)) {
     if (!("flag" in modifier) || !("target" in modifier)) continue;
     const saved = enterFilter(context);
@@ -149,7 +160,7 @@ export function flagsOn(state: GameState, card: CardInstance): FlagModifier[] {
           (l) => l.card.instanceId === card.instanceId,
         )
       )
-        found.push(modifier);
+        found.push({ modifier, sourceInstanceId: context.sourceInstanceId });
     } finally {
       leaveFilter(saved);
     }
@@ -513,6 +524,28 @@ function FLAG_CHANGES(flag: FlagModifier): Omit<CardChange, "kind"> {
 }
 
 /**
+ * #308: a flag's source card for a chip's wording: its name, number and where it is, on the
+ * same side as the card with the chip or the other (the chips are public, for either viewer).
+ */
+function flagSourceName(
+  state: GameState,
+  instanceId: string,
+  owner: string,
+): string | null {
+  const at = locate(state, instanceId);
+  if (!at) return null;
+  const card = cardOf(state, at.card);
+  const side = at.player.id === owner ? "same side" : "other side";
+  const where =
+    at.area === "zones" && at.zone !== undefined
+      ? `zone ${at.zone}`
+      : at.area === "strategy"
+        ? "strategy zone"
+        : at.area;
+  return `${card.name} ${card.cardNumber} (${side}, ${where})`;
+}
+
+/**
  * Every change in force on a card (M5d change badge): a pending Burst discard (12.5.2), stat
  * modifiers from the 10.8.1 layers (counter power, rank, threat), statuses, and how it was
  * played. The board shows these as chips, so a new modifier or status appears there with no
@@ -568,8 +601,27 @@ export function cardChanges(
   }
   for (const status of card.statuses ?? [])
     changes.push({ kind: status, ...STATUS_CHANGES[status] });
-  for (const flag of flagsOn(state, card))
-    changes.push({ kind: flag.flag, ...FLAG_CHANGES(flag) });
+  // #308: one chip per status, naming every card that gives it (two sources made two
+  // identical "Can't invade" chips).
+  const byLabel = new Map<string, { change: CardChange; sources: string[] }>();
+  for (const { modifier, sourceInstanceId } of flagSourcesOn(state, card)) {
+    const words = FLAG_CHANGES(modifier);
+    const entry = byLabel.get(words.label) ?? {
+      change: { kind: modifier.flag, ...words },
+      sources: [],
+    };
+    byLabel.set(words.label, entry);
+    const source = sourceInstanceId
+      ? flagSourceName(state, sourceInstanceId, player.id)
+      : null;
+    if (source && !entry.sources.includes(source)) entry.sources.push(source);
+  }
+  for (const { change, sources } of byLabel.values())
+    changes.push(
+      sources.length > 0
+        ? { ...change, detail: `${change.detail}: from ${sources.join("; ")}` }
+        : change,
+    );
   const via = card.playedVia ? PLAYED_VIA[card.playedVia] : null;
   if (via) changes.push({ kind: "playedVia", ...via });
   for (const effect of state.continuousEffects) {

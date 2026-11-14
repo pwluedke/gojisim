@@ -100,6 +100,10 @@ import type { Decklist } from "./types";
  *    discard beats one that only mills your own deck (King Ghidorah (1991) EBP02-049: the hand
  *    discard, "9 times out of 10"), unless only the mill lets this turn's Mecha-King Ghidorah
  *    EBP02-068 play or counter happen (its discarded King Ghidorah cards lower Mecha-King's rank).
+ * 19. #310 (Paul and Keldroc, Nov 14): a strategy whose only abilities are statuses on a monster
+ *    (continuous flags, 10.8) isn't activated while every one of them is already in force on that
+ *    monster: a second Entangling Fear EBP04-081 ("your monster card cannot advance nor invade")
+ *    adds nothing ("never any reason to play a second Entangling Fear"). Any deck.
  */
 
 type Json = Record<string, unknown>;
@@ -747,6 +751,54 @@ function playsReaching(
   return found;
 }
 
+/** Rule 19: activations of strategies that would only add statuses already in force. */
+function redundantStrategies(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  if (state.pendingChoice || state.turnPlayer !== me) return [];
+  const player = state.players.find((p) => p.id === me);
+  const opponent = state.players.find((p) => p.id !== me);
+  if (!player || !opponent) return [];
+  const monster = (owner: unknown) =>
+    (owner === "you"
+      ? player
+      : owner === "opponent"
+        ? opponent
+        : undefined
+    )?.invadingMonsterZone.at(-1);
+  const inForce = (modifier: Json) => {
+    const target = modifier["target"] as Json | undefined;
+    const top = monster(target?.["owner"]);
+    return (
+      typeof modifier["flag"] === "string" &&
+      target?.["area"] === "monster" &&
+      top !== undefined &&
+      hasFlag(state, top, modifier["flag"] as Parameters<typeof hasFlag>[2])
+    );
+  };
+  return actions.filter((a) => {
+    if (a.type !== "activateStrategy") return false;
+    const c = player.hand.find((h) => h.instanceId === a.cardInstanceId);
+    const card = c ? state.cards[c.cardId] : undefined;
+    if (card?.type !== "Strategy") return false;
+    const abilities = getCardAbilities(card.deckCardNumber)
+      .abilities as unknown as Json[];
+    return (
+      abilities.length > 0 &&
+      abilities.every((ability) => {
+        const modifiers = (ability["modifiers"] as Json[] | undefined) ?? [];
+        return (
+          ability["kind"] === "continuous" &&
+          modifiers.length > 0 &&
+          modifiers.every(inForce)
+        );
+      })
+    );
+  });
+}
+
 /** Rule 8: plays of zone-limited cards outside their zones, while a play inside them is legal. */
 function zoneLimitedPlays(
   state: GameState,
@@ -1157,6 +1209,8 @@ export function cardRulesDead(
   for (const action of idleModes(state, actions, me)) dead.add(action);
   for (const action of millModes(state, actions, me)) dead.add(action);
   for (const action of revengePlays(state, actions, me)) dead.add(action);
+  for (const action of redundantStrategies(state, actions, me))
+    dead.add(action);
   // Rule 7: a way to make the counter (#305), else to block zone 8, is taken: every other move
   // waits (but an invasion that wins now), and it outranks the others' holds. (Rule 9 alone only
   // frees holds, in `rescuedPlays`.)

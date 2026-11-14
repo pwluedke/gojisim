@@ -29,23 +29,40 @@ export const BETA_LOCK_NOTE =
   "Bot difficulty is locked to Hard during the beta.";
 
 /**
- * The e2e specs pick bot levels for what they test (an Easy bot's moves, a quick bot game), so
- * their dev server reads this key and leaves the level unlocked; production builds never do.
+ * Beta (Ian and Tuscancow, Nov 14, 2026): a new /play game against a bot starts with Show
+ * opponent's hand on, so testers can see why the bot plays what it plays; players can still turn
+ * it off. `false` after the beta.
+ */
+export const BETA_SHOW_BOT_HAND = true;
+
+/**
+ * The e2e specs pick bot levels for what they test (an Easy bot's moves, a quick bot game) and
+ * test the hidden bot hand, so their dev server reads this key and leaves the beta's defaults off
+ * (the level unlocked, the hand hidden); production builds never do.
  */
 export const E2E_UNLOCK_KEY = "gojisim.e2e.unlockBotLevel";
 
-/** The locked bot level, or `null` when unlocked (after the beta, or in the e2e dev server). */
-export function lockedBotLevel(): number | null {
+/** Whether the e2e dev server turned the beta's defaults off (`E2E_UNLOCK_KEY`). */
+function e2eUnlocked(): boolean {
   // Vite's dev flag; tools/bots imports this file outside Vite, where it's absent (locked).
   const env = (import.meta as { env?: { DEV?: boolean } }).env;
-  if (env?.DEV) {
-    try {
-      if (localStorage.getItem(E2E_UNLOCK_KEY) === "1") return null;
-    } catch {
-      // No storage (a worker, a locked-down browser): the beta's level holds.
-    }
+  if (!env?.DEV) return false;
+  try {
+    return localStorage.getItem(E2E_UNLOCK_KEY) === "1";
+  } catch {
+    // No storage (a worker, a locked-down browser): the beta's defaults hold.
+    return false;
   }
-  return BETA_BOT_DIFFICULTY;
+}
+
+/** The locked bot level, or `null` when unlocked (after the beta, or in the e2e dev server). */
+export function lockedBotLevel(): number | null {
+  return e2eUnlocked() ? null : BETA_BOT_DIFFICULTY;
+}
+
+/** Whether a new game against a bot starts with Show opponent's hand on (the beta's default). */
+export function betaShowsBotHand(): boolean {
+  return BETA_SHOW_BOT_HAND && !e2eUnlocked();
 }
 
 /** A new bot seat's level: the locked one, else Medium. */

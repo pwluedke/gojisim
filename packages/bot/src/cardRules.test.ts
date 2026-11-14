@@ -689,6 +689,46 @@ describe(
       ).toBe(0);
     });
 
+    /** #310: Entangling Fear EBP04-081 in hand, and another one already in a strategy zone or not. */
+    function entangled(inPlay: boolean) {
+      const { state, p1 } = withGodzilla1995();
+      (state.players[1] as PlayerState).monsterPosition = 6;
+      if (inPlay)
+        p1.strategyZones[0] = [
+          {
+            card: add(state, real("EBP04-081"), "P1"),
+            placedOnTurn: state.turn,
+          },
+        ];
+      const fear = add(state, real("EBP04-081"), "P1");
+      p1.hand = [fear];
+      const legal = getLegalActions(state, "P1");
+      const activate = legal.filter(
+        (a) =>
+          a.type === "activateStrategy" && a.cardInstanceId === fear.instanceId,
+      );
+      return { state, legal, activate };
+    }
+
+    it("#310: a second Entangling Fear EBP04-081 isn't activated while the first already stops your monster advancing and invading (10.8)", () => {
+      const { state, legal, activate } = entangled(true);
+      const top = (state.players[0] as PlayerState).invadingMonsterZone.at(-1)!;
+      expect(hasFlag(state, top, "cannotAdvance")).toBe(true);
+      expect(hasFlag(state, top, "cannotInvade")).toBe(true);
+      expect(activate.length).toBeGreaterThan(0);
+      const dead = cardRulesDead(state, legal, "P1");
+      for (const a of activate) expect(dead.has(a)).toBe(true);
+    });
+
+    it("#310: with no Entangling Fear in force, rule 19 leaves the first one playable", () => {
+      const { state, legal, activate } = entangled(false);
+      const top = (state.players[0] as PlayerState).invadingMonsterZone.at(-1)!;
+      expect(hasFlag(state, top, "cannotInvade")).toBe(false);
+      expect(activate.length).toBeGreaterThan(0);
+      const dead = cardRulesDead(state, legal, "P1");
+      for (const a of activate) expect(dead.has(a)).toBe(false);
+    });
+
     /**
      * #305 (Ian, bfddc4d4 at 47): the opponent's King Ghidorah (1991) EBP02-047 monster in their
      * zone 8; your zone 8 held only by Godzilla (2023) ESC01-004 (under rank 7, so rule 11
