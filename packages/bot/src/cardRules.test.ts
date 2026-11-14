@@ -904,7 +904,7 @@ describe(
       ).toBe(true);
     });
 
-    it("rule 17 (#288, 11.3): Dorat EBP02-058 [revenge] goes ahead of your own monster, where its advance crushes it, an empty zone first, never zone 8; nothing is played on top of your own Dorat while another zone is open", () => {
+    it("rule 17 (#288, 11.3): Dorat EBP02-058 [revenge] goes ahead of your own monster, where its advance crushes it, the nearest two empty zones first, never zone 8; nothing is played on top of your own Dorat while another zone is open", () => {
       expect(hasRevenge("EBP02-058")).toBe(true);
       expect(hasRevenge("EBP02-068")).toBe(false);
       const { state, p1 } = withGodzilla1995();
@@ -921,7 +921,22 @@ describe(
       expect(plays.some((a) => a.zone > 3 && a.zone < 8)).toBe(true);
       const dead = cardRulesDead(state, legal, "P1");
       for (const a of plays)
-        expect(dead.has(a)).toBe(!(a.zone > 3 && a.zone < 8));
+        // The nearest two ahead: Keldroc's zones 4-5 landmine, with the monster in zone 3.
+        expect(dead.has(a)).toBe(!(a.zone === 4 || a.zone === 5));
+      // Not paid for an invasion while another card can pay.
+      p1.hand = [
+        add(state, real("EBP02-058"), "P1"),
+        add(state, real("ESD01-016"), "P1"),
+      ];
+      const legalPay = getLegalActions(state, "P1");
+      const deadPay = cardRulesDead(state, legalPay, "P1");
+      const pays = legalPay.filter((a) => a.type === "invade");
+      expect(pays.length).toBe(2);
+      for (const a of pays)
+        expect(deadPay.has(a)).toBe(
+          a.type === "invade" && a.cardInstanceId === p1.hand[0]!.instanceId,
+        );
+      p1.hand = [add(state, real("EBP02-058"), "P1")];
       // Over your own Dorat (zone 4): no, while zone 5 is open.
       p1.zones[4] = [[add(state, real("EBP02-058"), "P1")]];
       const legal2 = getLegalActions(state, "P1");
@@ -964,6 +979,72 @@ describe(
       for (const a of legal)
         if (a.type === "playBattle")
           expect(dead.has(a)).toBe(a.zone !== column.zone);
+    });
+
+    it("rule 18 (#290, 10.5.2.2.1): King Ghidorah (1991) EBP02-049 takes the hand discard over the mill, unless only the mill lets this turn's Mecha-King play happen", () => {
+      const at = (discardCount: number) => {
+        const { state, p1 } = withGodzilla1995();
+        const opponent = state.players[1] as PlayerState;
+        // Mecha-King's rank must fit the opponent monster's zone (8.2.1): zone 6.
+        opponent.monsterPosition = 6;
+        p1.invadingMonsterZone = [
+          add(state, real("EBP02-047"), "P1"),
+          add(state, real("EBP02-048"), "P1"),
+          add(state, real("EBP02-049"), "P1"),
+        ];
+        p1.hand = [
+          add(state, real("EBP02-049"), "P1"),
+          add(state, real("EBP02-068"), "P1"),
+        ];
+        // King Ghidorah cards in the discard pile, and on top of the deck for the mill.
+        p1.discard = Array.from({ length: discardCount }, () =>
+          add(state, real("EBP02-047"), "P1"),
+        );
+        p1.deck = [
+          ...Array.from({ length: 3 }, () =>
+            add(state, real("EBP02-047"), "P1"),
+          ),
+          ...p1.deck,
+        ];
+        opponent.hand = Array.from({ length: 6 }, () =>
+          add(state, real("ESD01-016"), "P2"),
+        );
+        for (const z of [1, 2, 3, 4, 5, 6, 7, 8] as const) {
+          opponent.zones[z] = [];
+          p1.zones[z] = [];
+        }
+        const play = getLegalActions(state, "P1").find(
+          (a) => a.type === "playMonster",
+        );
+        if (!play) throw new Error("no stack");
+        let s = advanceToDecision(applyAction(state, play));
+        for (
+          let i = 0;
+          i < 4 && s.pendingChoice && s.pendingChoice.kind !== "option";
+          i++
+        ) {
+          const c = s.pendingChoice;
+          s = advanceToDecision(
+            applyAction(s, {
+              type: "choose",
+              player: c.player,
+              choiceId: c.id,
+              optionId: c.options[0]!.id,
+            }),
+          );
+        }
+        expect(s.pendingChoice?.kind).toBe("option");
+        const legal = getLegalActions(s, "P1");
+        const mode = (i: number) =>
+          legal.find((a) => a.type === "choose" && a.optionId === String(i))!;
+        const dead = cardRulesDead(s, legal, "P1");
+        return { discard: dead.has(mode(1)), mill: dead.has(mode(2)) };
+      };
+      // 9 in the discard pile: Mecha-King at rank 23 - 18 = 5 fits zone 6 either way, so the
+      // hand discard; the mill is left out.
+      expect(at(9)).toEqual({ discard: false, mill: true });
+      // 7: rank 9, too high until the mill's 3 King Ghidorah cards (rank 3): the mill stays.
+      expect(at(7).mill).toBe(false);
     });
   },
 );

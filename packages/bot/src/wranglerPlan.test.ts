@@ -152,18 +152,46 @@ describe("the Wrangler plan (#276)", () => {
     ).toBe(0);
   });
 
-  it("Godzilla Against Mechagodzilla isn't paid for an invasion", () => {
-    const state = position(0);
-    const legal = getLegalActions(state, "P1");
-    const gam = state.players[0]!.hand.find(
-      (c) => state.cards[c.cardId]?.deckCardNumber === GAM,
-    )!;
-    const pays = legal.filter(
-      (a) => a.type === "invade" && a.cardInstanceId === gam.instanceId,
-    );
-    expect(pays.length).toBeGreaterThan(0);
-    const { against } = wranglerVerdict(state, legal, "P1", wrangler(true));
-    for (const a of pays) expect(against.has(a)).toBe(true);
+  it("line 1's cards, Godzilla Against Mechagodzilla and Despair, aren't paid for an invasion once a Mecha-King is public (zones or the opponent's list), from turn 3; before that the guard is off", () => {
+    const pays = (
+      turn: number,
+      mechaKingInZones: boolean,
+      theirs?: Decklist,
+    ) => {
+      const state = position(0);
+      state.turn = turn;
+      // Mecha-King past Despair's reach (zone 5, the bot's monster in 3), so line 1's chase is off
+      // and only the guard speaks.
+      const p2 = state.players[1]!;
+      if (mechaKingInZones) p2.zones[5] = p2.zones[1];
+      p2.zones[1] = [];
+      const legal = getLegalActions(state, "P1");
+      const { against } = wranglerVerdict(
+        state,
+        legal,
+        "P1",
+        wrangler(true),
+        theirs,
+      );
+      return [GAM, DESPAIR].map((n) => {
+        const card = state.players[0]!.hand.find(
+          (c) => state.cards[c.cardId]?.deckCardNumber === n,
+        )!;
+        const invades = legal.filter(
+          (a) => a.type === "invade" && a.cardInstanceId === card.instanceId,
+        );
+        expect(invades.length).toBeGreaterThan(0);
+        return invades.every((a) => against.has(a));
+      });
+    };
+    const withMechaKing: Decklist = {
+      monsterDeck: [],
+      mainDeck: [real(MECHA_KING)],
+    };
+    expect(pays(3, true)).toEqual([true, true]);
+    expect(pays(3, false, withMechaKing)).toEqual([true, true]);
+    expect(pays(2, true)).toEqual([false, false]);
+    expect(pays(3, false)).toEqual([false, false]);
   });
 
   it("line 1, at 2 rage: Despair is the move; everything else is argued against", () => {
