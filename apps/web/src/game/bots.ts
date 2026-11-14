@@ -36,7 +36,9 @@ export const E2E_UNLOCK_KEY = "gojisim.e2e.unlockBotLevel";
 
 /** The locked bot level, or `null` when unlocked (after the beta, or in the e2e dev server). */
 export function lockedBotLevel(): number | null {
-  if (import.meta.env.DEV) {
+  // Vite's dev flag; tools/bots imports this file outside Vite, where it's absent (locked).
+  const env = (import.meta as { env?: { DEV?: boolean } }).env;
+  if (env?.DEV) {
     try {
       if (localStorage.getItem(E2E_UNLOCK_KEY) === "1") return null;
     } catch {
