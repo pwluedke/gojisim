@@ -96,9 +96,11 @@ for (const [width, height] of [
     }) => {
       await loadFixture(page, "hand-ten");
       const zone = await boxOf(page, "zone-P1-1");
-      // The bot's row no longer takes half a card height above the mats.
-      expect(zone.height).toBeGreaterThan(oldCardHeight(height) * 1.06);
-      expect(zone.width / zone.height).toBeCloseTo(63 / 88, 1);
+      // The bot's row no longer takes half a card height above the mats. #292: a zone is a card
+      // wide and at least a card tall (cards keep 63:88).
+      const card = (zone.width * 88) / 63;
+      expect(card).toBeGreaterThan(oldCardHeight(height) * 1.06);
+      expect(zone.height).toBeGreaterThanOrEqual(card - 1);
       const you = await boxOf(page, "mat-you");
       const opp = await boxOf(page, "mat-opp");
       // Both mats the same size, one above the other, the bot's starting right under the header.
@@ -136,8 +138,10 @@ test.describe("Show opponent's hand", () => {
         els.map((el) => el.getBoundingClientRect().toJSON() as DOMRect),
       );
     const zone = await boxOf(page, "zone-P1-1");
+    // A board card's height: a zone is a card wide (#292: its card area can be taller).
+    const boardCard = (zone.width * 88) / 63;
     boxes.forEach((b, i) => {
-      expect(Math.abs(b.height - zone.height)).toBeLessThanOrEqual(1);
+      expect(Math.abs(b.height - boardCard)).toBeLessThanOrEqual(1);
       const next = boxes[i + 1];
       if (next && next.y === b.y)
         expect(next.x).toBeGreaterThanOrEqual(b.x + b.width);

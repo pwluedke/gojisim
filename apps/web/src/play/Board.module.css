@@ -87,14 +87,13 @@
  * glows in the turn player's monster colors (M5f), set inline.
  */
 .mat {
+  /* #292: the official playmat's layout; each area is placed on it (`MAT`, `place`). */
+  box-sizing: content-box;
+  width: calc(7 * var(--card-w) + 6 * var(--mat-gap));
+  height: calc(var(--mat-stagger) + 2 * var(--card-h) + var(--mat-gap));
   position: relative;
-  display: grid;
-  grid-template-columns: var(--card-h) repeat(5, var(--card-w)) var(--card-h);
-  grid-template-rows: repeat(3, var(--card-h));
-  gap: var(--mat-gap);
   /* The zones keep clear of the mat's edge; the glow is on the border, outside this padding. */
   padding: var(--mat-pad);
-  justify-content: center;
   /* As wide as its grid plus the padding, so the glow and the mat image frame the zones. */
   align-self: center;
   border-radius: var(--radius);
@@ -223,6 +222,10 @@
 .layer {
   position: absolute;
   inset: -1px;
+  /* #292: a card sits centered in its card area, which can be taller than the card. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .zoneMonster {
@@ -231,8 +234,9 @@
 
 .monster {
   position: relative;
-  width: 100%;
-  height: 100%;
+  /* #292: the card's size, centered in its zone's card area (which can be taller). */
+  width: var(--card-w);
+  height: var(--card-h);
   border-radius: var(--radius);
 }
 
@@ -2007,30 +2011,60 @@
 }
 
 /*
- * The counter power bar in the rage zone (every theme, Oct 26, 2026): it fills by counter power
- * against the opponent's threat, with the threat line marked; Showa Poster fills it with red and
- * marigold stripes in an ink frame.
+ * #292 (Paul, Nov 13): each player's counter power in a badge in their mat's row nearest the
+ * center line, under the opponent's Rage zone, with an arrow across the center line to it. The
+ * turn player's badge and arrow glow (the turn glow's color, the accent with the glow off); the
+ * other's are dim.
  */
-.counterBar {
-  position: relative;
-  height: 12px;
-  margin-top: var(--space-1);
-  border: 2px solid var(--color-bar-frame);
-  background: var(--color-bar-track);
-}
-
-.counterFill {
+.counterBadge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* #292 (Paul, Nov 13): centered in the space above zones 7 and 6. */
+  justify-content: center;
+  width: 100%;
   height: 100%;
-  background: var(--bar-fill);
+  font-family: var(--font-heading);
+  font-size: var(--font-size-lg);
+  color: var(--color-text);
 }
 
-.counterMarker {
-  position: absolute;
-  top: -5px;
-  bottom: -5px;
-  width: 3px;
-  margin-left: -1px;
-  background: var(--color-bar-marker);
+.counterGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.counterBadgeLit {
+  font-weight: bold;
+}
+
+.counterBadgeLabel {
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+}
+
+/* Over the page, under the zone prompt (45) and modals; it takes no pointer. */
+.counterArrowSvg {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  width: 100vw;
+  height: 100vh;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.counterPathLit,
+.counterPathDim {
+  fill: none;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.counterPathDim {
+  stroke: var(--color-muted);
+  opacity: 0.45;
 }
 
 /*

@@ -65,19 +65,35 @@ test("Play vs bot: both mats copy the official playmat, the opponent's rotated 1
     "Z1",
     "monsterDeck",
   ]);
+  // #292: Strategy 1, the Rage zone and Z8 span the strip and row 1, at one card's height.
   expect(await matRow(page, "opp", 1)).toEqual([
     "deck",
     "Z6",
     "Z7",
+    "Z8",
     "rage",
+    "Strategy 1",
     "Strategy 2",
   ]);
-  expect(await matRow(page, "opp", 2)).toEqual(["Z8", "rage", "Strategy 1"]);
+  // #292: the counter power badge sits in the row nearest the center line, right of center.
+  expect(await matRow(page, "opp", 2)).toEqual([
+    "counter",
+    "Z8",
+    "rage",
+    "Strategy 1",
+  ]);
   // Your mat, from the center line down.
-  expect(await matRow(page, "you", 0)).toEqual(["Strategy 1", "rage", "Z8"]);
+  expect(await matRow(page, "you", 0)).toEqual([
+    "Strategy 1",
+    "rage",
+    "Z8",
+    "counter",
+  ]);
   expect(await matRow(page, "you", 1)).toEqual([
+    "Strategy 1",
     "Strategy 2",
     "rage",
+    "Z8",
     "Z7",
     "Z6",
     "deck",
@@ -107,11 +123,16 @@ test("Play vs bot: both mats copy the official playmat, the opponent's rotated 1
   expect(await col("zone-P2-5")).toEqual(await col("zone-P1-1"));
   expect(await col("zone-P2-6")).toEqual(await col("zone-P1-1"));
   expect(await col("zone-P2-3")).toEqual(await col("zone-P1-3"));
-  // The Rage zone spans two columns and two rows.
+  // #292 (Paul, Nov 13): as on the official playmat, the Rage zone sits beside the two strategy
+  // zones, as tall as both, and about 1.7 cards wide.
   const rage = await box("rage-zone-P1");
   const z8 = await box("zone-P1-8");
-  expect(rage.width).toBeGreaterThan(z8.width * 2);
-  expect(rage.height).toBeGreaterThan(z8.height * 2);
+  const s1 = await box("strategy-P1-1");
+  const s2 = await box("strategy-P1-2");
+  expect(rage.width).toBeGreaterThan(z8.width * 1.5);
+  expect(rage.width).toBeLessThan(z8.width * 2);
+  expect(Math.abs(rage.y - s1.y)).toBeLessThan(2);
+  expect(Math.abs(rage.y + rage.height - (s2.y + s2.height))).toBeLessThan(2);
   // Deck, discard pile and monster deck are mat cells with their counts.
   await expect(page.getByTestId("deck-count-P1")).toHaveText(/^\d+$/);
   await expect(page.getByTestId("discard-count-P1")).toHaveText("0");

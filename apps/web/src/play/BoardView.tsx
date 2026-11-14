@@ -18,6 +18,7 @@ import type {
   ZoneNumber,
 } from "@gojisim/engine";
 import {
+  type CSSProperties,
   type ReactNode,
   useEffect,
   useLayoutEffect,
@@ -49,7 +50,7 @@ import { PhaseTracker } from "./PhaseTracker";
 import { GLOW_COLORS, glowCycle, useGlow } from "./glow";
 import { InvadeArrow } from "./InvadeArrow";
 import { Preview } from "./Preview";
-import { counterBar } from "./counterBar";
+import { CounterArrows, CounterBadge } from "./CounterArrow";
 import { InvasionSlam } from "./slam";
 import { type StackKey, StackViewer } from "./StackViewer";
 import { TipBubble } from "./Tooltip";
@@ -329,18 +330,37 @@ function isBase(card: Card | undefined): boolean {
   );
 }
 
+/** #292: the mat's lengths, as CSS: a card's width and height, the gap, zone 7's drop. */
+const W = "var(--card-w)";
+const H = "var(--card-h)";
+const G = "var(--mat-gap)";
+const S = "var(--mat-stagger)";
+/** The left edge of portrait column `c`. */
+const COL = (c: number) => `${c} * (${W} + ${G})`;
+/** The mat's inside: 7 portrait columns wide, zone 8's card plus zone 7's drop and a row deep. */
+const MAT_W = `7 * ${W} + 6 * ${G}`;
+const MAT_H = `${S} + 2 * ${H} + ${G}`;
+/** Where zone 8's arrows meet it, in rows of `H + G` (zone 7's row is 1): it starts `S` higher. */
+const ZONE8_ROW = 0.37;
+
 /** One area of a player's mat. */
 type MatArea =
   | { kind: "zone"; zone: ZoneNumber }
   | { kind: "strategy"; index: 1 | 2 | 3 }
   | { kind: "rage" }
+  | { kind: "counter" }
   | { kind: "deck" }
   | { kind: "discard" }
   | { kind: "monsterDeck" };
 
 /**
- * The official playmat (Paul's request, Oct 23, 2026): 7 columns by 3 rows per side, in the
- * owner's own coordinates, row 0 nearest the center line. Cells not listed are empty.
+ * The official playmat (Paul's request, Oct 23, 2026; #292, Nov 13: its layout and proportions),
+ * in the owner's own coordinates, the top edge nearest the center line. Every area has its box
+ * (x, y, width, height, as CSS); `col`, `row` and `rows` name its place for tests (row 0 the top
+ * band, 1 zones 7 and 6, 2 the bottom row). Top band: Strategy 1 and 2 stacked landscape, the
+ * Rage zone beside them as tall as both, zone 8; zones 7 and 6 and the deck start `S` lower,
+ * the counter power above zones 7 and 6; the bottom row is the monster deck, zones 1-5 and the
+ * discard pile.
  */
 const MAT: readonly {
   area: MatArea;
@@ -348,23 +368,72 @@ const MAT: readonly {
   row: number;
   cols?: number;
   rows?: number;
+  box: readonly [x: string, y: string, w: string, h: string];
 }[] = [
-  { area: { kind: "strategy", index: 1 }, col: 0, row: 0 },
-  { area: { kind: "rage" }, col: 1, row: 0, cols: 2, rows: 2 },
-  { area: { kind: "zone", zone: 8 }, col: 3, row: 0 },
-  { area: { kind: "strategy", index: 2 }, col: 0, row: 1 },
-  { area: { kind: "zone", zone: 7 }, col: 4, row: 1 },
-  { area: { kind: "zone", zone: 6 }, col: 5, row: 1 },
-  { area: { kind: "deck" }, col: 6, row: 1 },
-  { area: { kind: "monsterDeck" }, col: 0, row: 2 },
+  {
+    area: { kind: "strategy", index: 1 },
+    col: 0,
+    row: 0,
+    rows: 2,
+    box: ["0px", "0px", H, W],
+  },
+  {
+    area: { kind: "rage" },
+    col: 1,
+    row: 0,
+    cols: 2,
+    rows: 2,
+    box: [`${H} + ${G}`, "0px", `3 * ${W} + ${G} - ${H}`, `2 * ${W} + ${G}`],
+  },
+  {
+    area: { kind: "zone", zone: 8 },
+    col: 3,
+    row: 0,
+    rows: 2,
+    box: [COL(3), "0px", W, H],
+  },
+  // #292: the counter power, centered above and between zones 7 and 6.
+  {
+    area: { kind: "counter" },
+    col: 4,
+    row: 0,
+    cols: 2,
+    box: [COL(4), "0px", `2 * ${W} + ${G}`, S],
+  },
+  {
+    area: { kind: "strategy", index: 2 },
+    col: 0,
+    row: 1,
+    box: ["0px", `${W} + ${G}`, H, W],
+  },
+  { area: { kind: "zone", zone: 7 }, col: 4, row: 1, box: [COL(4), S, W, H] },
+  { area: { kind: "zone", zone: 6 }, col: 5, row: 1, box: [COL(5), S, W, H] },
+  { area: { kind: "deck" }, col: 6, row: 1, box: [COL(6), S, W, H] },
+  {
+    area: { kind: "monsterDeck" },
+    col: 0,
+    row: 2,
+    box: [COL(0), `${S} + ${H} + ${G}`, W, H],
+  },
   ...([1, 2, 3, 4, 5] as const).map((zone) => ({
     area: { kind: "zone", zone } as const,
     col: zone,
     row: 2,
+    box: [COL(zone), `${S} + ${H} + ${G}`, W, H] as const,
   })),
-  { area: { kind: "discard" }, col: 6, row: 2 },
-  // E20 (EBP03-013): a third strategy zone, only once a player has one.
-  { area: { kind: "strategy", index: 3 }, col: 6, row: 0 },
+  {
+    area: { kind: "discard" },
+    col: 6,
+    row: 2,
+    box: [COL(6), `${S} + ${H} + ${G}`, W, H],
+  },
+  // E20 (EBP03-013): a third strategy zone, only once a player has one, above the deck.
+  {
+    area: { kind: "strategy", index: 3 },
+    col: 6,
+    row: 0,
+    box: [`${MAT_W} - ${H}`, "0px", H, W],
+  },
 ];
 
 function StrategyZone({
@@ -420,15 +489,13 @@ function StrategyZone({
   );
 }
 
-/** The Rage zone: rage, the monster's threat, and total counter power vs the opponent's threat. */
+/** The Rage zone: rage and the monster's threat (#292: counter power has its own badge). */
 function RageZone({
   model,
   player,
-  opponent,
 }: {
   model: BoardModel;
   player: PlayerAreasView;
-  opponent: string;
 }) {
   return (
     <Slot
@@ -449,54 +516,7 @@ function RageZone({
           {model.threat[player.id]}
         </strong>
       </div>
-      <div>
-        Counter power{" "}
-        <strong data-testid={`counter-power-${player.id}`}>
-          {model.totalCounterPower[player.id]}
-        </strong>{" "}
-        <span className={styles.muted}>vs threat {model.threat[opponent]}</span>
-      </div>
-      <CounterBar
-        player={player.id}
-        power={model.totalCounterPower[player.id] ?? 0}
-        threat={model.threat[opponent] ?? 0}
-      />
     </Slot>
-  );
-}
-
-/**
- * The counter power bar (every theme): counter power against the opponent's threat, filling past
- * the threat line once it counters (7.4.3). The numbers above it stay; its label repeats them.
- */
-function CounterBar({
-  player,
-  power,
-  threat,
-}: {
-  player: string;
-  power: number;
-  threat: number;
-}) {
-  const bar = counterBar(power, threat);
-  return (
-    <div
-      className={styles.counterBar}
-      role="img"
-      aria-label={`Counter power ${power} against threat ${threat}`}
-      data-testid={`counter-bar-${player}`}
-      data-fill={bar.fill.toFixed(3)}
-      data-counters={bar.counters ? "true" : "false"}
-    >
-      <div
-        className={styles.counterFill}
-        style={{ width: `${bar.fill * 100}%` }}
-      />
-      <div
-        className={styles.counterMarker}
-        style={{ left: `${bar.marker * 100}%` }}
-      />
-    </div>
   );
 }
 
@@ -570,21 +590,31 @@ function Discard({
 function MatCell({
   model,
   player,
-  opponent,
   area,
+  glowColor,
 }: {
   model: BoardModel;
   player: PlayerAreasView;
-  opponent: string;
   area: MatArea;
+  /** The turn glow's color on this mat, or `undefined`. */
+  glowColor: string | undefined;
 }) {
   switch (area.kind) {
+    case "counter":
+      return (
+        <CounterBadge
+          player={player.id}
+          power={model.totalCounterPower[player.id] ?? 0}
+          lit={player.id === model.view.turnPlayer}
+          glowColor={glowColor}
+        />
+      );
     case "zone":
       return <ZoneCell model={model} player={player} zone={area.zone} />;
     case "strategy":
       return <StrategyZone model={model} player={player} index={area.index} />;
     case "rage":
-      return <RageZone model={model} player={player} opponent={opponent} />;
+      return <RageZone model={model} player={player} />;
     case "deck":
       return (
         <Pile
@@ -611,9 +641,18 @@ function MatCell({
 /** Where each zone sits in `MAT`, for the path arrows. */
 const ZONE_AT = new Map(
   MAT.flatMap(({ area, col, row }) =>
-    area.kind === "zone" ? [[area.zone, { col, row }] as const] : [],
+    area.kind === "zone"
+      ? [[area.zone, { col, row: area.zone === 8 ? ZONE8_ROW : row }] as const]
+      : [],
   ),
 );
+
+/** #292: how far a zone's top sits from the mat's center-line edge, as CSS (all zones are a card tall). */
+function zoneTop(zone: ZoneNumber): string {
+  if (zone === 8) return "0px";
+  if (zone === 6 || zone === 7) return S;
+  return `${S} + ${H} + ${G}`;
+}
 
 /**
  * The playmat's arrows, as (from, to) zone pairs. Path arrows (solid) follow the monster's path
@@ -664,7 +703,8 @@ function MatArrow({
       style={{
         // Counter arrows sit a quarter card to the side, clear of the 5 to 6 path arrow.
         left: `calc(50% - ${dx / 2} * (var(--card-w) + var(--mat-gap)) + ${kind === "counter" ? sign / 4 : 0} * var(--card-w))`,
-        top: `calc(50% - ${dy / 2} * (var(--card-h) + var(--mat-gap)))`,
+        // #292: zones sit at their real heights (zone 7's drop, the rows), in CSS.
+        top: `calc(50% - ${sign} * ((${zoneTop(to)}) - (${zoneTop(from)})) / 2)`,
         rotate: `${angle}deg`,
       }}
       data-testid={`${kind}-arrow`}
@@ -676,6 +716,24 @@ function MatArrow({
 }
 
 /**
+ * An area's place on its mat: its box, from the padding edge; on the opponent's mat, turned 180°.
+ */
+function place(
+  side: "opp" | "you",
+  [x, y, w, h]: readonly [string, string, string, string],
+): CSSProperties {
+  const left = side === "you" ? x : `${MAT_W} - (${x}) - (${w})`;
+  const top = side === "you" ? y : `${MAT_H} - (${y}) - (${h})`;
+  return {
+    position: "absolute",
+    left: `calc(var(--mat-pad) + ${left})`,
+    top: `calc(var(--mat-pad) + ${top})`,
+    width: `calc(${w})`,
+    height: `calc(${h})`,
+  };
+}
+
+/**
  * One player's mat. The bottom player's mat reads as `MAT`; the opponent's is rotated 180°, like
  * across a real table (column c becomes 6 - c, the rows mirror). So the two zone 8s face each
  * other in column 3, and same-column zones (4.4.5.4) line up: your Z1 under their Z5 and Z6.
@@ -683,7 +741,6 @@ function MatArrow({
 function Mat({
   model,
   player,
-  opponent,
   side,
   glow,
   mat,
@@ -691,7 +748,6 @@ function Mat({
 }: {
   model: BoardModel;
   player: PlayerAreasView;
-  opponent: string;
   side: "opp" | "you";
   /** Why this player's deck is illegal, one plain reason per line (M13b); empty or absent when legal. */
   warning?: readonly string[] | undefined;
@@ -727,17 +783,13 @@ function Mat({
         />
       )}
       {warning && warning.length > 0 && (
-        // Casual games play illegal decks with a warning for the whole game, in a free cell past
-        // zone 8 (the corner beyond it holds a third strategy zone, E20).
+        // Casual games play illegal decks with a warning for the whole game, above the deck
+        // (#292).
         <div
           className={styles.deckWarning}
           data-testid={`deck-warning-${player.id}`}
           title={warning.join("\n")}
-          style={
-            side === "you"
-              ? { gridColumn: "6", gridRow: "1" }
-              : { gridColumn: "2", gridRow: "3" }
-          }
+          style={place(side, [COL(6), "0px", W, S])}
         >
           <strong>Illegal deck</strong>
           {/* #108: the count only, so it fits its one-card cell in every theme; the tooltip
@@ -750,7 +802,7 @@ function Mat({
       {MAT.filter(
         ({ area }) =>
           area.kind !== "strategy" || area.index <= player.strategyZones.length,
-      ).map(({ area, col, row, cols = 1, rows = 1 }) => {
+      ).map(({ area, col, row, cols = 1, rows = 1, box }) => {
         const c = side === "you" ? col : 6 - (col + cols - 1);
         const r = side === "you" ? row : 2 - (row + rows - 1);
         return (
@@ -759,16 +811,9 @@ function Mat({
             className={
               area.kind === "strategy"
                 ? `${styles.matCell} ${styles.matCellStrategy}`
-                : area.kind === "monsterDeck" ||
-                    area.kind === "deck" ||
-                    area.kind === "discard"
-                  ? `${styles.matCell} ${styles.matCellNarrow}`
-                  : styles.matCell
+                : styles.matCell
             }
-            style={{
-              gridColumn: `${c + 1} / span ${cols}`,
-              gridRow: `${r + 1} / span ${rows}`,
-            }}
+            style={place(side, box)}
             data-testid="mat-cell"
             data-area={
               area.kind === "zone"
@@ -784,8 +829,8 @@ function Mat({
             <MatCell
               model={model}
               player={player}
-              opponent={opponent}
               area={area}
+              glowColor={color}
             />
             {area.kind === "zone" &&
               [
@@ -1138,7 +1183,6 @@ export function BoardView({
               <Mat
                 model={model}
                 player={opp}
-                opponent={you.id}
                 side="opp"
                 glow={glowFor(opp)}
                 mat={mat}
@@ -1155,7 +1199,6 @@ export function BoardView({
               <Mat
                 model={model}
                 player={you}
-                opponent={opp.id}
                 side="you"
                 glow={glowFor(you)}
                 mat={mat}
@@ -1173,6 +1216,12 @@ export function BoardView({
                 setMenu(null);
                 setSelected((s) => (s === id ? null : id));
               }}
+            />
+            <CounterArrows
+              you={you.id}
+              opponent={opp.id}
+              turnPlayer={view.turnPlayer}
+              glowColor={glow ? GLOW_COLORS[glow] : undefined}
             />
             {invadeArrow &&
               over === "discard" &&
