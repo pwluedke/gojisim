@@ -42,6 +42,13 @@ type Choose = Extract<Action, { type: "choose" }>;
  *   dimmed (5.8, 12.6.2).
  * - Undo [U] when a Casual undo is allowed.
  */
+/** A zone option's zone number ("P1:7" is 7). */
+const zoneOf = (optionId: string) => Number(optionId.split(":")[1]);
+
+/** The one item of a list, or `undefined` when it has none or several. */
+const onlyOne = <T,>(items: readonly T[]): T | undefined =>
+  items.length === 1 ? items[0] : undefined;
+
 export function ChoiceModal({
   state,
   heading,
@@ -119,7 +126,12 @@ export function ChoiceModal({
       }
       const n = Number(e.key);
       if (!Number.isInteger(n) || n < 1 || n > 9) return;
-      const action = numbered[n - 1];
+      // Ian (Nov 14): at a zone prompt a key is that zone number ("7" is zone 7), never a place
+      // in the list of lit zones; a zone that isn't lit (or is lit on both sides) does nothing.
+      const action =
+        choice?.kind === "zone"
+          ? onlyOne(numbered.filter((a) => zoneOf(a.optionId) === n))
+          : numbered[n - 1];
       if (!action) return;
       e.preventDefault();
       pickOption(action);
@@ -225,11 +237,12 @@ export function ChoiceModal({
         data-kind={kind}
       >
         {top}
-        <div className={styles.muted}>
-          Click a lit zone, or press its number.
+        <div className={styles.muted} data-testid="zone-keys-hint">
+          Click a lit zone, or press its zone number (7 is zone 7). Other keys
+          do nothing.
         </div>
         <div className={styles.bannerOptions}>
-          {numbered.map((action, i) => (
+          {numbered.map((action) => (
             <button
               key={action.optionId}
               type="button"
@@ -238,7 +251,7 @@ export function ChoiceModal({
               data-option={action.optionId}
               onClick={() => onAction(action)}
             >
-              <span className={styles.keyBadge}>{i + 1}</span>{" "}
+              <span className={styles.keyBadge}>{zoneOf(action.optionId)}</span>{" "}
               {zoneLabel(action.optionId)}
             </button>
           ))}
