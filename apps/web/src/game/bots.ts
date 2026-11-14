@@ -17,6 +17,48 @@ export type SeatConfig =
   /** M9b: the other player in a head to head game, who plays from their own browser. */
   | { kind: "online" };
 
+/**
+ * Beta (Paul, Nov 13, 2026): every bot seat in a new /play game plays at this difficulty, and the
+ * difficulty controls are locked; `null` unlocks them after the beta. Loaded records keep their
+ * recorded level; /debug and tools/bots aren't locked.
+ */
+export const BETA_BOT_DIFFICULTY: number | null = 100;
+
+/** The note beside the locked controls, and their tooltip. */
+export const BETA_LOCK_NOTE =
+  "Bot difficulty is locked to Hard during the beta.";
+
+/**
+ * The e2e specs pick bot levels for what they test (an Easy bot's moves, a quick bot game), so
+ * their dev server reads this key and leaves the level unlocked; production builds never do.
+ */
+export const E2E_UNLOCK_KEY = "gojisim.e2e.unlockBotLevel";
+
+/** The locked bot level, or `null` when unlocked (after the beta, or in the e2e dev server). */
+export function lockedBotLevel(): number | null {
+  if (import.meta.env.DEV) {
+    try {
+      if (localStorage.getItem(E2E_UNLOCK_KEY) === "1") return null;
+    } catch {
+      // No storage (a worker, a locked-down browser): the beta's level holds.
+    }
+  }
+  return BETA_BOT_DIFFICULTY;
+}
+
+/** A new bot seat's level: the locked one, else Medium. */
+export function defaultBotDifficulty(): number {
+  return lockedBotLevel() ?? PRESETS.medium;
+}
+
+/** A seat as it plays: during the beta, a bot seat at the locked level whatever it says. */
+export function lockSeat(seat: SeatConfig): SeatConfig {
+  const level = lockedBotLevel();
+  return level !== null && seat.kind === "bot"
+    ? { kind: "bot", difficulty: level }
+    : seat;
+}
+
 /** The bot every bot seat runs: ISMCTS with the difficulty slider (M6c). */
 export const SEAT_BOT = "ismcts";
 

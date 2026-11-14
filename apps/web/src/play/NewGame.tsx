@@ -4,7 +4,13 @@ import { deckSignature } from "@gojisim/cards/deck-lists";
 import { useMemo, useRef, useState } from "react";
 import { hasAllTags, tagCounts, toggleTag } from "../decks/deckTags";
 import { useDeckResults } from "../decks/useDeckResults";
-import { difficultyName, type SeatConfig } from "../game/bots";
+import {
+  BETA_LOCK_NOTE,
+  defaultBotDifficulty,
+  difficultyName,
+  lockedBotLevel,
+  type SeatConfig,
+} from "../game/bots";
 import {
   badgeReasons,
   type DeckOption,
@@ -30,7 +36,7 @@ import { Tooltip } from "./Tooltip";
 export function presetSeats(): Record<PlayerId, SeatConfig> {
   return {
     P1: { kind: "human" },
-    P2: { kind: "bot", difficulty: PRESETS.medium },
+    P2: { kind: "bot", difficulty: defaultBotDifficulty() },
   };
 }
 
@@ -144,6 +150,9 @@ export function NewGame({
     ...STARTER_PICKS,
   });
   const [seats, setSeats] = useState(presetSeats);
+  // Beta: the bot level is locked (`BETA_BOT_DIFFICULTY` in game/bots.ts).
+  const lockedLevel = lockedBotLevel();
+  const locked = lockedLevel !== null;
   const [loadError, setLoadError] = useState<string | null>(null);
   const recordInput = useRef<HTMLInputElement>(null);
   const [recordName, setRecordName] = useState<string | null>(null);
@@ -223,7 +232,10 @@ export function NewGame({
                             ...s,
                             [id]:
                               e.target.value === "bot"
-                                ? { kind: "bot", difficulty: PRESETS.medium }
+                                ? {
+                                    kind: "bot",
+                                    difficulty: defaultBotDifficulty(),
+                                  }
                                 : { kind: "human" },
                           }))
                         }
@@ -368,7 +380,10 @@ export function NewGame({
                 </div>
               )}
               {seat.kind === "bot" && (
-                <div className={styles.line}>
+                <div
+                  className={styles.line}
+                  title={locked ? BETA_LOCK_NOTE : undefined}
+                >
                   <span>Bot level</span>
                   <input
                     type="range"
@@ -377,7 +392,8 @@ export function NewGame({
                     aria-label={`${id} bot level`}
                     className={styles.level}
                     data-testid={`difficulty-${id}`}
-                    value={seat.difficulty}
+                    disabled={locked}
+                    value={lockedLevel ?? seat.difficulty}
                     onChange={(e) =>
                       setSeats((s) => ({
                         ...s,
@@ -389,7 +405,8 @@ export function NewGame({
                     }
                   />
                   <span data-testid={`difficulty-value-${id}`}>
-                    {seat.difficulty} ({difficultyName(seat.difficulty)})
+                    {lockedLevel ?? seat.difficulty} (
+                    {difficultyName(lockedLevel ?? seat.difficulty)})
                   </span>
                   <span className={styles.presets}>
                     {(Object.entries(PRESETS) as [string, number][]).map(
@@ -399,6 +416,7 @@ export function NewGame({
                           type="button"
                           data-control
                           data-testid={`preset-${id}-${name}`}
+                          disabled={locked}
                           onClick={() =>
                             setSeats((s) => ({
                               ...s,
@@ -411,6 +429,14 @@ export function NewGame({
                       ),
                     )}
                   </span>
+                  {locked && (
+                    <span
+                      className={styles.lockNote}
+                      data-testid={`difficulty-lock-${id}`}
+                    >
+                      {BETA_LOCK_NOTE}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
