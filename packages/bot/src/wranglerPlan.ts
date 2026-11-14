@@ -135,6 +135,8 @@ export function wranglerVerdict(
   theirs?: Decklist,
   /** Only line 1 (Despair and its guard), for the v2 plan (`wranglerPlanV2.ts`). */
   onlyLine1 = false,
+  /** #319 (v2.1): Despair takes the Mecha-King in your monster's column first. */
+  columnFirst = true,
 ): { against: Set<Action>; rescued: Set<Action>; line1?: boolean } {
   const against = new Set<Action>();
   const rescued = new Set<Action>();
@@ -178,7 +180,9 @@ export function wranglerVerdict(
       );
     });
     const targets = new Set(
-      (aligned.length > 0 ? aligned : mechaKings).map((c) => c.instanceId),
+      (columnFirst && aligned.length > 0 ? aligned : mechaKings).map(
+        (c) => c.instanceId,
+      ),
     );
     if (targets.size === 0) return { against, rescued };
     for (const a of actions)

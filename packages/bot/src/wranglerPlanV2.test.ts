@@ -146,6 +146,22 @@ describe("the Wrangler plan v2", () => {
     for (const a of landings(king.state, king.p1)) expect(a).toBe(false);
     const noKing = position([LANDING], 4, 7);
     for (const a of landings(noKing.state, noKing.p1)) expect(a).toBe(true);
+    // `v21: false` (the paired check's control) is v2: the trample alone allows it.
+    const legalT = getLegalActions(trample.state, "P1");
+    const v2 = wranglerV2Verdict(
+      trample.state,
+      legalT,
+      "P1",
+      WRANGLER,
+      undefined,
+      false,
+    );
+    for (const a of legalT)
+      if (
+        a.type === "activateStrategy" &&
+        ofCard(trample.state, trample.p1, a) === LANDING
+      )
+        expect(v2.against.has(a)).toBe(false);
   });
 
   it("Kings go in zones 1, 2 or 8, off the bot's own monster's path", () => {

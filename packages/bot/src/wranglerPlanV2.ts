@@ -71,6 +71,18 @@ const KING_RAGE = 3;
 
 type Card = GameState["cards"][number];
 
+/** The opponent's battle cards in their zones (v2's push check). */
+const battleCards = (state: GameState, who: PlayerId) =>
+  Object.values(state.players.find((p) => p.id === who)?.zones ?? {}).reduce(
+    (n, stacks) =>
+      n +
+      stacks.filter((stack) => {
+        const t = stack[stack.length - 1];
+        return t !== undefined && state.cards[t.cardId]?.type === "Battle";
+      }).length,
+    0,
+  );
+
 /** `action` played out, the bot's own choices answered first-option, or `null`. */
 function after(
   state: GameState,
@@ -98,10 +110,12 @@ export function wranglerV2Verdict(
   own: Decklist | undefined,
   /** The opponent's decklist (public), when known. */
   theirs?: Decklist,
+  /** v2.1's changes (#316, #317, #319, #321); `false` is v2, for the paired check. */
+  v21 = true,
 ): { against: Set<Action>; rescued: Set<Action> } {
   if (!isWranglerDeck(own)) return { against: new Set(), rescued: new Set() };
   // Line 1 (v1's Despair line) goes first.
-  const line1 = wranglerVerdict(state, actions, me, own, theirs, true);
+  const line1 = wranglerVerdict(state, actions, me, own, theirs, true, v21);
   if (line1.line1) return { against: line1.against, rescued: line1.rescued };
   const against = new Set(line1.against);
   const rescued = new Set(line1.rescued);
@@ -110,7 +124,7 @@ export function wranglerV2Verdict(
   // v2.1 (#321): discarding down (5.7.2), a monster card goes before a key card (a monster card
   // in the discard pile counts toward Godzilla Against Mechagodzilla's 8, too).
   const choice = state.pendingChoice;
-  if (choice?.player === me && choice.rule === "5.7.2") {
+  if (v21 && choice?.player === me && choice.rule === "5.7.2") {
     const cardOf = (optionId: string) => {
       const id = choice.options.find((o) => o.id === optionId)?.cardId;
       return id === null || id === undefined ? undefined : state.cards[id];
@@ -167,6 +181,7 @@ export function wranglerV2Verdict(
       return (c ? (s.cards[c.cardId]?.rank ?? 0) : 0) >= FOLLOW_UP_RANK;
     });
   };
+  const theirCards = battleCards(state, opponent.id);
   for (const a of actions) {
     const n = number(a);
     const push =
@@ -174,7 +189,12 @@ export function wranglerV2Verdict(
       (a.type === "playMonster" && n === GODZILLA_2004);
     if (!push) continue;
     const s = after(state, a, me);
-    if (s && !followUp(s)) against.add(a);
+    if (!s) continue;
+    // v2 (the paired check's control): the counter made after it, or they trampled a card.
+    const ok = v21
+      ? followUp(s)
+      : counters(s, me) || battleCards(s, opponent.id) < theirCards;
+    if (!ok) against.add(a);
   }
 
   // Godzilla (1954) EBP01-004 isn't stacked with your Kings on the board.
@@ -221,7 +241,7 @@ export function wranglerV2Verdict(
   // v2.1 (#316): with a King in zones 1-5 under 3 rage, no passing while any rage discard can
   // still be made, the held cards' too: the King's protection comes first. (Godzilla (1954)
   // EBP01-001's counter-phase rage needs a monster card off the top, so it isn't counted on.)
-  if (kingIn([1, 2, 3, 4, 5]) && player.rage < KING_RAGE) {
+  if (v21 && kingIn([1, 2, 3, 4, 5]) && player.rage < KING_RAGE) {
     const rage = actions.filter((a) => a.type === "gainRage");
     if (rage.length > 0) {
       for (const a of rage) {
