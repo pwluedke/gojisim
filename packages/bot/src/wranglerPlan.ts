@@ -1,5 +1,11 @@
 import { getCardTraits } from "@gojisim/cards";
-import type { Action, GameState, PlayerId } from "@gojisim/engine";
+import {
+  type Action,
+  type GameState,
+  type PlayerId,
+  sameColumn,
+  type ZoneNumber,
+} from "@gojisim/engine";
 import type { Decklist } from "./types";
 
 /**
@@ -157,7 +163,23 @@ export function wranglerVerdict(
       ? state.cards[state.resolution.standby.sourceCardId]
       : undefined;
     if (source?.deckCardNumber !== DESPAIR) return { against, rescued };
-    const targets = new Set(mechaKings.map((c) => c.instanceId));
+    // #319 (Ian): the Mecha-King in your monster's column first (it stops your invasion).
+    const aligned = mechaKings.filter((c) => {
+      const zone = Object.entries(opponent.zones).find(([, stacks]) =>
+        stacks.some((stack) => stack.at(-1)?.instanceId === c.instanceId),
+      )?.[0];
+      return (
+        zone !== undefined &&
+        at > 0 &&
+        sameColumn(
+          { player: opponent.id, zone: Number(zone) as ZoneNumber },
+          { player: me, zone: at as ZoneNumber },
+        )
+      );
+    });
+    const targets = new Set(
+      (aligned.length > 0 ? aligned : mechaKings).map((c) => c.instanceId),
+    );
     if (targets.size === 0) return { against, rescued };
     for (const a of actions)
       if (a.type === "choose" && !targets.has(a.optionId)) against.add(a);

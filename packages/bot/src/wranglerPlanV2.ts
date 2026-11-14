@@ -28,13 +28,15 @@ import {
  * - Line 1 (v1's): Despair on a Mecha-King blocker, and the Despair/GAM invasion guard.
  * - Don't race: invade only when it wins this turn.
  * - Push (Godzilla Landing EBP01-030, The Slithering Disaster EBP04-078, Godzilla (2004)
- *   EBP01-008's [enter]) only when, after it, your counter beats their threat or they trampled
- *   their own battle cards; never pay an invasion with a push card.
+ *   EBP01-008's [enter]) only when, after it, the counter is made or can be made this turn, or a
+ *   rank 7-8 battle card can be played (v2.1, #317: two Landings to zone 8 with nothing after);
+ *   never pay an invasion with a push card.
  * - Churn from turn 1: rage discards over passing (toward 8 monster cards in the discard pile for
  *   GAM), freed from the holds (card rule 14 included), but for the held key cards.
  * - Kings (Godzilla, King of the Monsters EBP01-075) and GAM in zones 1, 2 or 8 (1 or 5 against
  *   Godzilla (1994)), never in your own monster's next two zones; with a King in zones 1-5, rage
- *   to 3 (it can't be destroyed by the opponent's effects then).
+ *   to 3 (it can't be destroyed by the opponent's effects then), before passing, with the held
+ *   cards if need be (v2.1, #316).
  * - Godzilla (1954) EBP01-004 isn't stacked with your Kings on the board (its zone 8 wipe takes
  *   them too).
  * - Godzilla (Fest Godzilla) EBP01-015 for the counter with a King out.
@@ -52,22 +54,12 @@ const KING_ZONES = new Set([1, 2, 8]);
 const KING_ZONES_VS_1994 = new Set([1, 5]);
 /** Your monster's path: its next zones (it crushes your own battle cards there, 11.3). */
 const PATH = 2;
+/** #317: a push needs a follow-up this turn, the counter or a battle card of this rank or more. */
+const FOLLOW_UP_RANK = 7;
 /** A King in zones 1-5 can't be destroyed by the opponent's effects from this much rage. */
 const KING_RAGE = 3;
 
 type Card = GameState["cards"][number];
-
-/** The opponent's battle cards in their zones. */
-const battleCards = (state: GameState, who: PlayerId) =>
-  Object.values(state.players.find((p) => p.id === who)?.zones ?? {}).reduce(
-    (n, stacks) =>
-      n +
-      stacks.filter((stack) => {
-        const t = stack[stack.length - 1];
-        return t !== undefined && state.cards[t.cardId]?.type === "Battle";
-      }).length,
-    0,
-  );
 
 /** `action` played out, the bot's own choices answered first-option, or `null`. */
 function after(
@@ -129,8 +121,20 @@ export function wranglerV2Verdict(
   for (const a of actions)
     if (a.type === "invade" && !winsNow(state, a, me)) against.add(a);
 
-  // Push only when, after it, the counter beats their threat or they trampled their own cards.
-  const theirCards = battleCards(state, opponent.id);
+  // Push only when a follow-up comes this turn (#317): after it, the counter is made or can be
+  // made, or a rank 7-8 battle card can be played.
+  const followUp = (s: GameState) => {
+    if (counters(s, me)) return true;
+    if (s.turnPlayer !== me) return false;
+    const legal = getLegalActions(s, me);
+    if (counterPlays(s, legal, me).size > 0) return true;
+    const hand = s.players.find((p) => p.id === me)?.hand ?? [];
+    return legal.some((a) => {
+      if (a.type !== "playBattle") return false;
+      const c = hand.find((h) => h.instanceId === a.cardInstanceId);
+      return (c ? (s.cards[c.cardId]?.rank ?? 0) : 0) >= FOLLOW_UP_RANK;
+    });
+  };
   for (const a of actions) {
     const n = number(a);
     const push =
@@ -138,9 +142,7 @@ export function wranglerV2Verdict(
       (a.type === "playMonster" && n === GODZILLA_2004);
     if (!push) continue;
     const s = after(state, a, me);
-    if (!s) continue;
-    const trampled = battleCards(s, opponent.id) < theirCards;
-    if (!counters(s, me) && !trampled) against.add(a);
+    if (s && !followUp(s)) against.add(a);
   }
 
   // Godzilla (1954) EBP01-004 isn't stacked with your Kings on the board.
@@ -183,6 +185,19 @@ export function wranglerV2Verdict(
     if (kingIn([1, 2, 3, 4, 5]) && player.rage < KING_RAGE)
       for (const a of actions)
         if (a.type !== "gainRage" && a.type !== "concede") against.add(a);
+  }
+  // v2.1 (#316): with a King in zones 1-5 under 3 rage, no passing while any rage discard can
+  // still be made, the held cards' too: the King's protection comes first. (Godzilla (1954)
+  // EBP01-001's counter-phase rage needs a monster card off the top, so it isn't counted on.)
+  if (kingIn([1, 2, 3, 4, 5]) && player.rage < KING_RAGE) {
+    const rage = actions.filter((a) => a.type === "gainRage");
+    if (rage.length > 0) {
+      for (const a of rage) {
+        rescued.add(a);
+        against.delete(a);
+      }
+      for (const a of actions) if (a.type === "pass") against.add(a);
+    }
   }
 
   // Godzilla (Fest Godzilla) EBP01-015 for the counter with a King out.
