@@ -66,6 +66,8 @@ export interface IsmctsSettings {
   recognizer: number;
   /** Paul, Nov 12: 1 applies the card-play rules (`cardRules.ts`), also on with `rules`. */
   cardRules: number;
+  /** #305: 1 (the default) has card rule 7 take the counter before the zone 8 block; 0 is the old rule 7. */
+  counterFirst: number;
   /** #276: 1 (the default) applies the Wrangler plan (`wranglerPlan.ts`), with `rules` on. */
   wranglerPlan: number;
   /** Paul's Constructed Future plan (`cfPlan.ts`), with `rules` on: 1 (the default) on, 0 off. */
@@ -94,6 +96,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   rules: 0,
   recognizer: 0,
   cardRules: 0,
+  counterFirst: 1,
   wranglerPlan: 1,
   cfTarget: "auto",
   cfPlan: 1,
@@ -390,11 +393,13 @@ export function search(input: BotInput, settings: IsmctsSettings) {
     // `cardRules` (on from Medium up) alone switches them, so a check can turn them off at Hard.
     if (iterations === 1 && settings.cardRules > 0) {
       const first = state;
+      const options = { counterFirst: settings.counterFirst > 0 };
       const unsafe = cardRulesDead(
         first,
         input.legalActions,
         me,
         input.knowledge.decks[me],
+        options,
       );
       const keys = new Set([
         ...dead,
@@ -407,6 +412,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         input.legalActions,
         me,
         input.knowledge.decks[me],
+        options,
       );
       for (const a of blocks) keys.delete(actionKey(first, a));
       if (blocks.size > 0)
@@ -548,8 +554,11 @@ function cardRulesSafe(
   actions: readonly Action[],
   me: PlayerId,
   own?: Decklist,
+  counterFirst = 1,
 ): Action[] {
-  const unsafe = cardRulesDead(state, actions, me, own);
+  const unsafe = cardRulesDead(state, actions, me, own, {
+    counterFirst: counterFirst > 0,
+  });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
   return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
 }
@@ -580,7 +589,7 @@ export function blunderAllowed(
         (a) => !keep.killed.has(a) && !keep.dead.has(keyOf(a)),
       )
     : [...legalActions];
-  const safe = cardRulesSafe(state, kept, me, own);
+  const safe = cardRulesSafe(state, kept, me, own, settings.counterFirst);
   const allowed =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
   if (settings.mxPlan === 0) return allowed;
@@ -617,6 +626,7 @@ export function decide(input: BotInput): Decision {
               legalActions,
               input.view.viewer as PlayerId,
               input.knowledge.decks[input.view.viewer as PlayerId],
+              settings.counterFirst,
             )
           : [...legalActions];
     return {
