@@ -23,6 +23,7 @@ import { mxPlanV2Verdict } from "./mxPlanV2";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
 import { deadKeys } from "./prune";
 import { cardRulesDead, rescuedPlays } from "./cardRules";
+import { festVerdict } from "./festPlan";
 import { wranglerVerdict } from "./wranglerPlan";
 import { applyRules } from "./rules";
 import type { Bot, BotInput, BotSettings, Decklist } from "./types";
@@ -68,6 +69,8 @@ export interface IsmctsSettings {
   cardRules: number;
   /** #276: 1 (the default) applies the Wrangler plan (`wranglerPlan.ts`), with `rules` on. */
   wranglerPlan: number;
+  /** Slick's Red Fest plan (`festPlan.ts`): 1 (the default) applies it, with `rules` on. */
+  festPlan: number;
   /** Paul's Constructed Future plan (`cfPlan.ts`), with `rules` on: 1 (the default) on, 0 off. */
   cfPlan: number;
   /**
@@ -95,6 +98,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   recognizer: 0,
   cardRules: 0,
   wranglerPlan: 1,
+  festPlan: 1,
   cfTarget: "auto",
   cfPlan: 1,
   mxPlan: 2,
@@ -450,6 +454,24 @@ export function search(input: BotInput, settings: IsmctsSettings) {
       for (const a of rescued) dead.delete(actionKey(first, a));
       avoid = new Set(
         [...avoid].filter((i) => !rescued.has(input.legalActions[i] as Action)),
+      );
+      if (against.size > 0)
+        for (const a of input.legalActions)
+          if (a.type !== "concede" && !against.has(a))
+            favored.set(
+              actionKey(first, a),
+              Math.max(favored.get(actionKey(first, a)) ?? 0, MX_PLAN_BIAS),
+            );
+    }
+    // Slick's Red Fest plan, a preference like the Wrangler plan.
+    if (iterations === 1 && settings.rules > 0 && settings.festPlan > 0) {
+      const first = state;
+      const { against } = festVerdict(
+        first,
+        input.legalActions,
+        me,
+        input.knowledge.decks[me],
+        input.knowledge.decks[first.players.find((p) => p.id !== me)?.id ?? ""],
       );
       if (against.size > 0)
         for (const a of input.legalActions)
