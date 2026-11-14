@@ -39,3 +39,21 @@ test("a new game's bot plays at 100", async ({ page }) => {
   await startGame(page);
   await expect(page.getByTestId("fight-card")).toContainText("Level 100");
 });
+
+test("Ian and Tuscancow (Nov 14): a new game against the bot starts with its hand face up, and it can still be turned off", async ({
+  page,
+}) => {
+  await page.goto("/play?mode=bot");
+  await startGame(page);
+  const hand = page.getByTestId("opponent-hand");
+  await expect(hand.getByTestId("card").first()).toBeVisible();
+  await expect(hand.getByTestId("opponent-card-back")).toHaveCount(0);
+  await page.getByTestId("test-settings").click();
+  const toggle = page.getByTestId("show-opponent-hand");
+  await expect(toggle).toBeChecked();
+  // Off hides it (backs only), and asks nothing.
+  await toggle.click();
+  await expect(toggle).not.toBeChecked();
+  await expect(hand.getByTestId("opponent-card-back").first()).toBeVisible();
+  await expect(hand.getByTestId("card")).toHaveCount(0);
+});

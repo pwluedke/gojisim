@@ -91,7 +91,9 @@ test("choice: zone options light the zones on the mat, with a banner beside your
   await expect(banner.getByTestId("choice-source")).toHaveText(
     /^From .+ \[[A-Z0-9]+-\d+\]$/,
   );
-  await expect(banner).toContainText("Click a lit zone, or press its number");
+  await expect(banner).toContainText(
+    "Click a lit zone, or press its zone number",
+  );
   // Buttons name the zone's side as target locations do: "Your zone 1", "Bot's zone 3".
   for (const text of await banner
     .getByTestId("choice-option")
@@ -130,6 +132,34 @@ test("choice: zone options light the zones on the mat, with a banner beside your
   await expect(page.locator(`[data-zone-choice="${key}"]`)).toHaveCount(0);
 });
 
+test("Ian (Nov 14): at a zone prompt a key is the zone number, not a place in the list; a key for a zone that isn't lit does nothing", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await loadFixture(page, "zone");
+  const banner = page.getByTestId("beside-prompt").getByTestId("choice-banner");
+  await expect(banner.getByTestId("zone-keys-hint")).toHaveText(
+    "Click a lit zone, or press its zone number (7 is zone 7). Other keys do nothing.",
+  );
+  const options = banner.getByTestId("choice-option");
+  const ids = (await options.evaluateAll((els) =>
+    els.map((el) => el.getAttribute("data-option") ?? ""),
+  )) as string[];
+  const lit = ids.map((id) => Number(id.split(":")[1]));
+  // Each button's key badge is its zone number.
+  for (let i = 0; i < ids.length; i++)
+    await expect(options.nth(i)).toHaveText(new RegExp(`^${lit[i]} `));
+  // A key for a zone that isn't lit answers nothing.
+  const unlit = [1, 2, 3, 4, 5, 6, 7, 8].find((z) => !lit.includes(z));
+  expect(unlit).toBeDefined();
+  await page.keyboard.press(String(unlit));
+  await expect(options).toHaveCount(ids.length);
+  // The last lit zone's own number picks that zone (the list's place would be another key).
+  const last = ids[ids.length - 1] as string;
+  await page.keyboard.press(String(lit[lit.length - 1]));
+  await expect(page.locator(`[data-zone-choice="${last}"]`)).toHaveCount(0);
+});
+
 for (const [w, h] of [
   [1280, 800],
   [1440, 900],
@@ -162,14 +192,14 @@ for (const [w, h] of [
           [at.x + 4, at.y + at.height / 2],
         ),
       ).toBe(true);
-    // A number key still answers it: the zone option 1 names is no longer offered.
+    // A zone's number key still answers it: that zone is no longer offered.
     const first = await prompt
       .getByTestId("choice-option")
       .first()
       .textContent();
     const zone = /zone (\d)$/.exec(first ?? "")?.[1];
     expect(zone).toBeTruthy();
-    await page.keyboard.press("1");
+    await page.keyboard.press(zone ?? "");
     await expect(page.locator(`[data-zone-choice$=":${zone}"]`)).toHaveCount(0);
   });
 
