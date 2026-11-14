@@ -11,7 +11,7 @@ import {
 import { validateDeck } from "@gojisim/cards";
 import { useEffect, useMemo, useRef, useState } from "react";
 import "../theme.css";
-import { botLabel, difficultyName } from "../game/bots";
+import { botLabel, difficultyName, lockSeat } from "../game/bots";
 import { actionLabel, choiceHeading, choiceSource } from "../game/labels";
 import type { SeatConfig } from "../game/bots";
 import type { DeckOption } from "../game/decks";
@@ -818,7 +818,12 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
     });
 
   /** Starts a game from a setup: the new-game screen's, or the last one again (#183 Rematch). */
-  const begin = (setup: Omit<PendingGame, "picker" | "firstCard">) => {
+  const begin = (given: Omit<PendingGame, "picker" | "firstCard">) => {
+    // Beta: every bot seat plays at the locked level, whatever the setup says.
+    const setup = {
+      ...given,
+      seats: { P1: lockSeat(given.seats.P1), P2: lockSeat(given.seats.P2) },
+    };
     lastSetup.current = setup;
     // The human picks; two bots, or the Skip First / Second pick setting, skip the pick.
     const picker = settings.skipFirstPick
