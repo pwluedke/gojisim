@@ -122,28 +122,46 @@ describe("the Wrangler plan v2", () => {
     for (const a of winInvades) expect(v.against.has(a)).toBe(false);
   });
 
-  it("a push (Godzilla Landing) is argued against unless it makes the counter or the opponent tramples their own battle card", () => {
+  it("#317 (v2.1): a push (Godzilla Landing) is argued against unless a follow-up comes this turn: the counter, or a rank 7-8 battle card; trampling alone isn't one", () => {
+    const landings = (state: GameState, p1: PlayerState) => {
+      const legal = getLegalActions(state, "P1");
+      const found = legal.filter(
+        (a) =>
+          a.type === "activateStrategy" && ofCard(state, p1, a) === LANDING,
+      );
+      expect(found.length).toBeGreaterThan(0);
+      const { against } = wranglerV2Verdict(state, legal, "P1", WRANGLER);
+      return found.map((a) => against.has(a));
+    };
+    // Nothing after it: argued against.
     const plain = position([LANDING], 4, 2);
-    const legal = getLegalActions(plain.state, "P1");
-    const landing = legal.filter(
-      (a) =>
-        a.type === "activateStrategy" &&
-        ofCard(plain.state, plain.p1, a) === LANDING,
-    );
-    expect(landing.length).toBeGreaterThan(0);
-    const v = wranglerV2Verdict(plain.state, legal, "P1", WRANGLER);
-    for (const a of landing) expect(v.against.has(a)).toBe(true);
-    // Their own battle card in zone 3, their monster in zone 2: the push makes them trample it.
+    for (const a of landings(plain.state, plain.p1)) expect(a).toBe(true);
+    // Their own battle card in zone 3: the push makes them trample it, but nothing follows.
     const trample = position([LANDING], 4, 2);
     trample.p2.zones[3] = [[add(trample.state, real("ESD02-012"), "P2")]];
+    for (const a of landings(trample.state, trample.p1)) expect(a).toBe(true);
+    // Their monster in zone 7: the push takes it to zone 8, where the rank 8 King can be played
+    // (8.2.1). Without the King in hand, the same push is argued against.
+    const king = position([LANDING, KING], 4, 7);
+    for (const a of landings(king.state, king.p1)) expect(a).toBe(false);
+    const noKing = position([LANDING], 4, 7);
+    for (const a of landings(noKing.state, noKing.p1)) expect(a).toBe(true);
+    // `v21: false` (the paired check's control) is v2: the trample alone allows it.
     const legalT = getLegalActions(trample.state, "P1");
-    const vt = wranglerV2Verdict(trample.state, legalT, "P1", WRANGLER);
+    const v2 = wranglerV2Verdict(
+      trample.state,
+      legalT,
+      "P1",
+      WRANGLER,
+      undefined,
+      false,
+    );
     for (const a of legalT)
       if (
         a.type === "activateStrategy" &&
         ofCard(trample.state, trample.p1, a) === LANDING
       )
-        expect(vt.against.has(a)).toBe(false);
+        expect(v2.against.has(a)).toBe(false);
   });
 
   it("Kings go in zones 1, 2 or 8, off the bot's own monster's path", () => {
@@ -175,6 +193,68 @@ describe("the Wrangler plan v2", () => {
         expect(rescued.has(a)).toBe(n !== GODZILLA_1954_WIPE);
       }
     }
+  });
+
+  it("#316 (v2.1): with a King in zones 1-5 under 3 rage, passing is argued against while a rage discard is left, a held card's too", () => {
+    // Only the held Godzilla (2004) EBP01-008 to discard: v2 let the bot pass at 2 rage.
+    const { state, p1 } = position(["EBP01-008"], 3, 2);
+    p1.zones[1] = [[add(state, real(KING), "P1")]];
+    p1.rage = 2;
+    const legal = getLegalActions(state, "P1");
+    const rage = legal.filter((a) => a.type === "gainRage");
+    expect(rage.length).toBeGreaterThan(0);
+    const { against, rescued } = wranglerV2Verdict(
+      state,
+      legal,
+      "P1",
+      WRANGLER,
+    );
+    for (const a of legal)
+      if (a.type === "pass") expect(against.has(a)).toBe(true);
+    for (const a of rage) {
+      expect(against.has(a)).toBe(false);
+      expect(rescued.has(a)).toBe(true);
+    }
+    // At 3 rage the King is protected: passing is fine.
+    p1.rage = 3;
+    const done = wranglerV2Verdict(state, legal, "P1", WRANGLER);
+    for (const a of legal)
+      if (a.type === "pass") expect(done.against.has(a)).toBe(false);
+  });
+
+  it("#321 (v2.1): discarding down (5.7.2), a spare monster card goes, not Godzilla Landing or another key card", () => {
+    const { state, p1 } = position([LANDING, KING, "EBP01-002"], 3, 2);
+    const options = p1.hand.map((c) => ({
+      id: c.instanceId,
+      cardId: c.cardId,
+      abilityId: null,
+    }));
+    state.pendingChoice = {
+      id: 99,
+      player: "P1",
+      kind: "target",
+      rule: "5.7.2",
+      options,
+      private: true,
+    };
+    const picks: Action[] = options.map((o) => ({
+      type: "choose",
+      player: "P1",
+      choiceId: 99,
+      optionId: o.id,
+    }));
+    const { against } = wranglerV2Verdict(state, picks, "P1", WRANGLER);
+    const of = (a: Action) =>
+      a.type === "choose"
+        ? state.cards[options.find((o) => o.id === a.optionId)!.cardId]
+            ?.deckCardNumber
+        : undefined;
+    for (const a of picks)
+      expect(against.has(a)).toBe(of(a) === LANDING || of(a) === KING);
+    // With no spare monster card, nothing is argued against (one of them has to go).
+    const keys = picks.filter((a) => of(a) !== "EBP01-002");
+    const none = wranglerV2Verdict(state, keys, "P1", WRANGLER);
+    for (const a of keys) expect(none.against.has(a)).toBe(false);
   });
 
   it("Godzilla (1954) EBP01-004 isn't stacked with a King on the board", () => {
