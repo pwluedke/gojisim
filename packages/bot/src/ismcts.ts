@@ -70,6 +70,8 @@ export interface IsmctsSettings {
   cardRules: number;
   /** #305: 1 (the default) has card rule 7 take the counter before the zone 8 block; 0 is the old rule 7. */
   counterFirst: number;
+  /** Card rule 20 (#324, #327): 1 (the default) takes the counter without a block too; 0 is off. */
+  counterAlways: number;
   /**
    * The Wrangler plan: 2 (the default) is v2 (`wranglerPlanV2.ts`, Paul, Nov 13) with the card
    * rules (Medium and Hard); 1 is v1 (`wranglerPlan.ts`, #276) with `rules` (Hard); 0 is off.
@@ -107,6 +109,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   recognizer: 0,
   cardRules: 0,
   counterFirst: 1,
+  counterAlways: 1,
   wranglerPlan: 2,
   festPlan: 0,
   cfTarget: "auto",
@@ -404,7 +407,10 @@ export function search(input: BotInput, settings: IsmctsSettings) {
     // `cardRules` (on from Medium up) alone switches them, so a check can turn them off at Hard.
     if (iterations === 1 && settings.cardRules > 0) {
       const first = state;
-      const options = { counterFirst: settings.counterFirst > 0 };
+      const options = {
+        counterFirst: settings.counterFirst > 0,
+        counterAlways: settings.counterAlways > 0,
+      };
       const unsafe = cardRulesDead(
         first,
         input.legalActions,
@@ -601,9 +607,11 @@ function cardRulesSafe(
   me: PlayerId,
   own?: Decklist,
   counterFirst = 1,
+  counterAlways = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
     counterFirst: counterFirst > 0,
+    counterAlways: counterAlways > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
   return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
@@ -635,7 +643,14 @@ export function blunderAllowed(
         (a) => !keep.killed.has(a) && !keep.dead.has(keyOf(a)),
       )
     : [...legalActions];
-  const safe = cardRulesSafe(state, kept, me, own, settings.counterFirst);
+  const safe = cardRulesSafe(
+    state,
+    kept,
+    me,
+    own,
+    settings.counterFirst,
+    settings.counterAlways,
+  );
   const allowed =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
   if (settings.mxPlan === 0) return allowed;
@@ -673,6 +688,7 @@ export function decide(input: BotInput): Decision {
               input.view.viewer as PlayerId,
               input.knowledge.decks[input.view.viewer as PlayerId],
               settings.counterFirst,
+              settings.counterAlways,
             )
           : [...legalActions];
     return {
