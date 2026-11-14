@@ -4,12 +4,19 @@ import {
   cardChanges,
   type GameState,
   type PlayerState,
+  sameColumn,
   startGame,
+  type ZoneNumber,
 } from "../src";
 import { setTestAbilities } from "../src/testing";
 import { atPlayTiming, inHand, monster, place, real } from "./fixtures/real";
 import { testGameOptions } from "./fixtures/cards";
-import { battleCard, nonTurnPlayer, turnPlayer } from "./fixtures/state";
+import {
+  addCard,
+  battleCard,
+  nonTurnPlayer,
+  turnPlayer,
+} from "./fixtures/state";
 
 const playMonster = (state: GameState, card: { instanceId: string }) =>
   applyAction(state, {
@@ -132,6 +139,31 @@ describe("cardChanges (M5d change badge)", () => {
         kind: "playedVia",
         label: "Evolved",
         detail: "Played through Evolution (5.17)",
+      },
+    ]);
+  });
+
+  it("#308, 8.6: a status from two cards is one chip, naming both (Entangling Fear EBP04-081 on your side, Mecha-King Ghidorah EBP02-068 in your monster's column)", () => {
+    const state = atPlayTiming();
+    const me = turnPlayer(state);
+    const opp = nonTurnPlayer(state);
+    const mx = monster(state, me, real("EBP04-032"), 3);
+    me.strategyZones[0].push({
+      card: addCard(state, real("EBP04-081"), me.id),
+      placedOnTurn: state.turn,
+    });
+    const column = ([1, 2, 3, 4, 5, 6, 7, 8] as ZoneNumber[]).find((z) =>
+      sameColumn({ player: opp.id, zone: z }, { player: me.id, zone: 3 }),
+    ) as ZoneNumber;
+    place(state, opp, real("EBP02-068"), column);
+    const invade = cardChanges(state, mx.instanceId).filter(
+      (c) => c.label === "Can't invade",
+    );
+    expect(invade).toEqual([
+      {
+        kind: "cannotInvade",
+        label: "Can't invade",
+        detail: `Cannot invade (8.6): from Entangling Fear EBP04-081 (same side, strategy zone); Mecha-King Ghidorah EBP02-068 (other side, zone ${column})`,
       },
     ]);
   });
