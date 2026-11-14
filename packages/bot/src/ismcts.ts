@@ -24,6 +24,7 @@ import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
 import { deadKeys } from "./prune";
 import { cardRulesDead, rescuedPlays } from "./cardRules";
 import { wranglerVerdict } from "./wranglerPlan";
+import { wranglerV2Verdict } from "./wranglerPlanV2";
 import { applyRules } from "./rules";
 import type { Bot, BotInput, BotSettings, Decklist } from "./types";
 
@@ -66,7 +67,10 @@ export interface IsmctsSettings {
   recognizer: number;
   /** Paul, Nov 12: 1 applies the card-play rules (`cardRules.ts`), also on with `rules`. */
   cardRules: number;
-  /** #276: 1 (the default) applies the Wrangler plan (`wranglerPlan.ts`), with `rules` on. */
+  /**
+   * The Wrangler plan: 2 (the default) is v2 (`wranglerPlanV2.ts`, Paul, Nov 13) with the card
+   * rules (Medium and Hard); 1 is v1 (`wranglerPlan.ts`, #276) with `rules` (Hard); 0 is off.
+   */
   wranglerPlan: number;
   /** Paul's Constructed Future plan (`cfPlan.ts`), with `rules` on: 1 (the default) on, 0 off. */
   cfPlan: number;
@@ -94,7 +98,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   rules: 0,
   recognizer: 0,
   cardRules: 0,
-  wranglerPlan: 1,
+  wranglerPlan: 2,
   cfTarget: "auto",
   cfPlan: 1,
   mxPlan: 2,
@@ -438,15 +442,32 @@ export function search(input: BotInput, settings: IsmctsSettings) {
       );
     // #276: the Wrangler plan, a preference like the Monster X plan, that frees what its line
     // needs from Paul's rules' holds.
-    if (iterations === 1 && settings.rules > 0 && settings.wranglerPlan > 0) {
+    // Paul, Nov 13: v2 (`wranglerPlan=2`, the default) with the card rules (Medium and Hard); v1
+    // (`wranglerPlan=1`) with Paul's rules (Hard).
+    const wranglerV2 = settings.wranglerPlan >= 2;
+    if (
+      iterations === 1 &&
+      settings.wranglerPlan > 0 &&
+      (wranglerV2 ? settings.cardRules > 0 : settings.rules > 0)
+    ) {
       const first = state;
-      const { against, rescued } = wranglerVerdict(
-        first,
-        input.legalActions,
-        me,
-        input.knowledge.decks[me],
-        input.knowledge.decks[first.players.find((p) => p.id !== me)?.id ?? ""],
-      );
+      const theirs =
+        input.knowledge.decks[first.players.find((p) => p.id !== me)?.id ?? ""];
+      const { against, rescued } = wranglerV2
+        ? wranglerV2Verdict(
+            first,
+            input.legalActions,
+            me,
+            input.knowledge.decks[me],
+            theirs,
+          )
+        : wranglerVerdict(
+            first,
+            input.legalActions,
+            me,
+            input.knowledge.decks[me],
+            theirs,
+          );
       for (const a of rescued) dead.delete(actionKey(first, a));
       avoid = new Set(
         [...avoid].filter((i) => !rescued.has(input.legalActions[i] as Action)),
