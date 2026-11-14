@@ -10,6 +10,7 @@ import { counterPlays, winsNow } from "./cardRules";
 import { counters } from "./rules";
 import type { Decklist } from "./types";
 import {
+  DESPAIR,
   GAM,
   GODZILLA_2004,
   isWranglerDeck,
@@ -54,6 +55,15 @@ const KING_ZONES = new Set([1, 2, 8]);
 const KING_ZONES_VS_1994 = new Set([1, 5]);
 /** Your monster's path: its next zones (it crushes your own battle cards there, 11.3). */
 const PATH = 2;
+/** #321: the cards kept when discarding down, while a spare monster card can go instead. */
+const KEY_CARDS = new Set([
+  LANDING,
+  SLITHERING,
+  KING,
+  GAM,
+  DESPAIR,
+  FEST_COUNTER,
+]);
 /** #317: a push needs a follow-up this turn, the counter or a battle card of this rank or more. */
 const FOLLOW_UP_RANK = 7;
 /** A King in zones 1-5 can't be destroyed by the opponent's effects from this much rage. */
@@ -97,6 +107,28 @@ export function wranglerV2Verdict(
   const rescued = new Set(line1.rescued);
   const player = state.players.find((p) => p.id === me);
   const opponent = state.players.find((p) => p.id !== me);
+  // v2.1 (#321): discarding down (5.7.2), a monster card goes before a key card (a monster card
+  // in the discard pile counts toward Godzilla Against Mechagodzilla's 8, too).
+  const choice = state.pendingChoice;
+  if (choice?.player === me && choice.rule === "5.7.2") {
+    const cardOf = (optionId: string) => {
+      const id = choice.options.find((o) => o.id === optionId)?.cardId;
+      return id === null || id === undefined ? undefined : state.cards[id];
+    };
+    const picks = actions.filter(
+      (a): a is Extract<Action, { type: "choose" }> => a.type === "choose",
+    );
+    const spare = picks.filter((a) => {
+      const c = cardOf(a.optionId);
+      return c?.type === "Monster" && !KEY_CARDS.has(c.deckCardNumber);
+    });
+    if (spare.length > 0)
+      for (const a of picks) {
+        const n = cardOf(a.optionId)?.deckCardNumber;
+        if (n !== undefined && KEY_CARDS.has(n)) against.add(a);
+      }
+    return { against, rescued };
+  }
   if (!player || !opponent || state.turnPlayer !== me || state.pendingChoice)
     return { against, rescued };
   const card = (id: string): Card | undefined => {

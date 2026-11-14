@@ -206,6 +206,41 @@ describe("the Wrangler plan v2", () => {
       if (a.type === "pass") expect(done.against.has(a)).toBe(false);
   });
 
+  it("#321 (v2.1): discarding down (5.7.2), a spare monster card goes, not Godzilla Landing or another key card", () => {
+    const { state, p1 } = position([LANDING, KING, "EBP01-002"], 3, 2);
+    const options = p1.hand.map((c) => ({
+      id: c.instanceId,
+      cardId: c.cardId,
+      abilityId: null,
+    }));
+    state.pendingChoice = {
+      id: 99,
+      player: "P1",
+      kind: "target",
+      rule: "5.7.2",
+      options,
+      private: true,
+    };
+    const picks: Action[] = options.map((o) => ({
+      type: "choose",
+      player: "P1",
+      choiceId: 99,
+      optionId: o.id,
+    }));
+    const { against } = wranglerV2Verdict(state, picks, "P1", WRANGLER);
+    const of = (a: Action) =>
+      a.type === "choose"
+        ? state.cards[options.find((o) => o.id === a.optionId)!.cardId]
+            ?.deckCardNumber
+        : undefined;
+    for (const a of picks)
+      expect(against.has(a)).toBe(of(a) === LANDING || of(a) === KING);
+    // With no spare monster card, nothing is argued against (one of them has to go).
+    const keys = picks.filter((a) => of(a) !== "EBP01-002");
+    const none = wranglerV2Verdict(state, keys, "P1", WRANGLER);
+    for (const a of keys) expect(none.against.has(a)).toBe(false);
+  });
+
   it("Godzilla (1954) EBP01-004 isn't stacked with a King on the board", () => {
     const { state, p1 } = position([GODZILLA_1954_WIPE], 3, 2);
     // EBP01-004 is rank 3: stack it on a rank 3 top.
