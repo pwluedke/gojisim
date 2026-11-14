@@ -30,7 +30,7 @@ test.afterEach(async ({ page }, testInfo) => {
     .catch(() => {});
 });
 
-test("smoke: log in, start a game against Easy, play a turn, and the game's upload is stored", async ({
+test("smoke: log in, start a game against the bot (locked at 100 during the beta), play a turn, and the game's upload is stored", async ({
   page,
 }) => {
   test.setTimeout(180_000);
@@ -72,10 +72,12 @@ test("smoke: log in, start a game against Easy, play a turn, and the game's uplo
 
   await test.step("New-game screen", async () => {
     await expect(page.getByTestId("start-game")).toBeVisible();
-    await page.getByTestId("preset-P2-easy").click();
+    // Beta (Paul, Nov 13, 2026): the bot level is locked at 100, its controls disabled.
+    await expect(page.getByTestId("preset-P2-easy")).toBeDisabled();
+    await expect(page.getByTestId("difficulty-lock-P2")).toBeVisible();
   });
 
-  await test.step("Start a game against Easy", async () => {
+  await test.step("Start a game against the bot", async () => {
     await page.getByTestId("start-game").click();
     await expect(page.getByTestId("board")).toBeVisible();
     await expect(page.getByTestId("first-pick")).toBeVisible();
@@ -107,7 +109,7 @@ test("smoke: log in, start a game against Easy, play a turn, and the game's uplo
   });
 
   await test.step("Take one action", async () => {
-    // If Easy went first, its turn plays out before Pass shows.
+    // If the bot went first, its turn plays out before Pass shows.
     await expect(page.getByTestId("pass")).toBeVisible({ timeout: 60_000 });
     const turn = await turnNumber(page);
     await page.getByTestId("pass").click();
@@ -118,7 +120,7 @@ test("smoke: log in, start a game against Easy, play a turn, and the game's uplo
   });
 
   await test.step("The bot answers", async () => {
-    // Easy plays its turn, and the game comes back to us.
+    // The bot plays its turn, and the game comes back to us.
     const turn = await turnNumber(page);
     await expect
       .poll(() => turnNumber(page), { intervals: [200], timeout: 60_000 })
