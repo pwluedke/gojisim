@@ -159,6 +159,27 @@ const zone8Empty = (state: GameState, me: PlayerId) =>
   (state.players.find((p) => p.id !== me)?.zones[8].length ?? 1) === 0;
 
 /**
+ * Whether the opponent's zone 8 is empty or one of `actions` (not an invasion) can empty it this
+ * turn, by rule 2's look (the Red Fest plan's early-invasion exception, #292 queue).
+ */
+export function canClearZone8(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): boolean {
+  return (
+    zone8Empty(state, me) ||
+    actions.some(
+      (a) =>
+        a.type !== "invade" &&
+        a.type !== "pass" &&
+        a.type !== "concede" &&
+        clearsZone8(state, a, me),
+    )
+  );
+}
+
+/**
  * Rule 2: whether `action` can leave the opponent's zone 8 empty with the invasion still to come
  * this turn: its own choices tried every way (a small search, `CLEAR_BUDGET` states), as the
  * bot would answer them.
@@ -551,7 +572,11 @@ function slowInvasions(
 }
 
 /** Whether `action` wins the game now. */
-function winsNow(state: GameState, action: Action, me: PlayerId): boolean {
+export function winsNow(
+  state: GameState,
+  action: Action,
+  me: PlayerId,
+): boolean {
   if (action.type === "concede") return false;
   try {
     return advanceToDecision(applyAction(state, action)).result?.winner === me;

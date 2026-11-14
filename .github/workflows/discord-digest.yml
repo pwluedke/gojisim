@@ -1,15 +1,16 @@
 name: Discord digest
 
-# #140, #148: hourly in the day (Paul, Nov 4), the GojiSim Discord server's COMMUNITY channels (and their threads)
+# #140, #148: every 15 minutes, all day (Paul, Nov 13; was hourly in the day), the GojiSim Discord server's COMMUNITY channels (and their threads)
 # go to Slack #gojisim-discord-digest, read with Paul's bot. The window is the last 3 hours plus a
 # 10-minute overlap, and the Discord message ids already posted (kept in the Actions cache, no
 # commits) are never posted twice. Never STAFF or INFO, never a post to Discord. The repo is
 # public: the log shows counts only (docs/discord.md).
 on:
   schedule:
-    # On the hour, UTC: hourly 13:00 to 05:00 (7 am to 11 pm Central standard time), plus 08:00
-    # and 11:00 (2 am and 5 am). The longest gap is 3 hours, inside each run's 3-hour window.
-    - cron: "0 0-5,8,11,13-23 * * *"
+    # Every 15 minutes, all day (Paul, Nov 13), so the hourly bug watch at :25 Central sees
+    # Discord replies within about an hour. The 3-hour window and the posted-id cache stay, so a
+    # late or skipped run loses nothing and nothing is posted twice.
+    - cron: "5,20,35,50 * * * *"
   workflow_dispatch:
     inputs:
       hours:

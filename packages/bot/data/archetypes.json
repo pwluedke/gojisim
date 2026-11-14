@@ -235,9 +235,15 @@
       ]
     },
     {
-      "name": "Red Counter / Fest",
+      "name": "Red Counter (Fest)",
       "rankOne": ["EBP01-011"],
       "core": [
+        {
+          "cards": ["EBP01-014"]
+        },
+        {
+          "cards": ["EBP01-013"]
+        },
         {
           "cards": ["EBP01-027"]
         },
@@ -275,6 +281,15 @@
         },
         {
           "cards": ["EBP01-031", "EBP03-069"]
+        },
+        {
+          "cards": ["EPR-015"]
+        },
+        {
+          "cards": ["EBP02-016"]
+        },
+        {
+          "cards": ["ESC01-001"]
         }
       ]
     },
