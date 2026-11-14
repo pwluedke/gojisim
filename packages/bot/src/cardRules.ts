@@ -104,10 +104,11 @@ import type { Decklist } from "./types";
  *    (continuous flags, 10.8) isn't activated while every one of them is already in force on that
  *    monster: a second Entangling Fear EBP04-081 ("your monster card cannot advance nor invade")
  *    adds nothing ("never any reason to play a second Entangling Fear"). Any deck.
- * 20. #324, #327 (Ian, Keldroc, Nov 14): with the opponent's monster in reach of your zone 8 (zone
- *    6 or beyond) and rule 7 not involved, a way to make the counter this turn (rule 9's plays) is
- *    taken as rule 7 takes it: every other move waits (passing too), but an invasion that wins
- *    now. With the counter made, a play after which it isn't made any more is left out. Any deck.
+ * 20. #324, #327 (Ian, Keldroc, Nov 14): wherever the opponent's monster is (Monarch: a counter
+ *    sends it back from any zone) and rule 7 not involved, a way to make the counter this turn
+ *    (rule 9's plays, from any zone) is taken as rule 7 takes it: every other move waits
+ *    (passing too), but an invasion that wins now. With the counter made, a play after which it
+ *    isn't made any more is left out. Any deck.
  */
 
 type Json = Record<string, unknown>;
@@ -695,7 +696,7 @@ function forcedPlays(
   if (blocks.size === 0)
     return options.counterAlways === false
       ? blocks
-      : counterPlays(state, actions, me);
+      : counterPlays(state, actions, me, true);
   if (options.counterFirst === false) return blocks;
   const ways = counterPlays(state, actions, me);
   return ways.size > 0 ? ways : blocks;
@@ -707,13 +708,7 @@ function droppedCounters(
   actions: readonly Action[],
   me: PlayerId,
 ): Action[] {
-  const opponent = state.players.find((p) => p.id !== me);
-  if (
-    state.pendingChoice ||
-    state.turnPlayer !== me ||
-    (opponent?.monsterPosition ?? 1) < 6 ||
-    !counters(state, me)
-  )
+  if (state.pendingChoice || state.turnPlayer !== me || !counters(state, me))
     return [];
   return actions.filter((a) => {
     if (
@@ -734,17 +729,21 @@ function droppedCounters(
   });
 }
 
-/** Rule 9: the plays that start a way to make the counter this turn, while it isn't made. */
+/**
+ * Rule 9: the plays that start a way to make the counter this turn, while it isn't made, with the
+ * opponent's monster in reach of your zone 8 (rule 20: `anyZone`, wherever it is).
+ */
 export function counterPlays(
   state: GameState,
   actions: readonly Action[],
   me: PlayerId,
+  anyZone = false,
 ): Set<Action> {
   const opponent = state.players.find((p) => p.id !== me);
   if (
     state.pendingChoice ||
     state.turnPlayer !== me ||
-    (opponent?.monsterPosition ?? 1) < 6 ||
+    (!anyZone && (opponent?.monsterPosition ?? 1) < 6) ||
     counters(state, me)
   )
     return new Set();

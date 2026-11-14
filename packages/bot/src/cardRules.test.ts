@@ -934,13 +934,18 @@ describe(
      * against a blue monster in their zone 8; the King EBP01-075 in hand makes the counter, with
      * their rage setting their threat between your total without it and with it.
      */
-    function counterNoBlock() {
+    function counterNoBlock(oppAt: ZoneNumber = 8) {
       const { state, p1 } = withGodzilla1995();
       const opp = state.players[1] as PlayerState;
       opp.invadingMonsterZone.push(add(state, real("ESD02-004"), "P2"));
-      opp.monsterPosition = 8;
+      opp.monsterPosition = oppAt;
       p1.zones[8] = [[add(state, { ...real("ESD01-008"), rank: 4 }, "P1")]];
-      const king = add(state, real("EBP01-075"), "P1");
+      // Its printed rank 8 needs their monster in zone 8 (8.2.1); rank 1 elsewhere, as in #272's test.
+      const king = add(
+        state,
+        oppAt === 8 ? real("EBP01-075") : { ...real("EBP01-075"), rank: 1 },
+        "P1",
+      );
       p1.hand = [king];
       opp.rage = 0;
       // Your total with the King in zone 1 (+3,000 per rage): enough rage to reach their threat.
@@ -987,6 +992,22 @@ describe(
       });
       for (const a of legal)
         if (a.type === "pass") expect(off.has(a)).toBe(false);
+    });
+
+    it("rule 20 (Monarch, Nov 14): wherever their monster is (zone 3 here), a way to make the counter this turn is taken: passing is left out (7.4.3)", () => {
+      const { state, king } = counterNoBlock(3);
+      const legal = getLegalActions(state, "P1");
+      const dead = cardRulesDead(state, legal, "P1");
+      const zone1 = legal.find(
+        (a) =>
+          a.type === "playBattle" &&
+          a.cardInstanceId === king.instanceId &&
+          a.zone === 1,
+      );
+      expect(zone1).toBeDefined();
+      expect(dead.has(zone1!)).toBe(false);
+      for (const a of legal)
+        if (a.type === "pass") expect(dead.has(a)).toBe(true);
     });
 
     it("rule 20: with the counter made, a play after which it isn't made any more is left out (Baby Godzilla over your King)", () => {
