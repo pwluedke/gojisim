@@ -366,8 +366,12 @@ describe(
       const dead = cardRulesDead(state, legal, "P1");
       const plays = legal.filter((a) => a.type === "playBattle");
       expect(plays.length).toBeGreaterThan(1);
+      // Zone 1 holds your own card; zones 7 and 8 are your monster's path (zone 6: rule 21).
       for (const a of plays)
-        if (a.type === "playBattle") expect(dead.has(a)).toBe(a.zone === 1);
+        if (a.type === "playBattle")
+          expect(dead.has(a)).toBe(
+            a.zone === 1 || a.zone === 7 || a.zone === 8,
+          );
     });
 
     it("#259, 7.2.3: with its monster card played (zone 4 or beyond), it comes back from the discard: No is left out while a zone is empty", () => {
@@ -927,6 +931,49 @@ describe(
       const { bot, engine } = engineCheck(covered);
       expect(bot).toEqual(engine);
       expect(bot.made).toBe(false);
+    });
+
+    it("rule 21 (#304): a battle card isn't played into your own monster's next two zones (its advance or invasion crushes it, 11.3) while an empty zone off the path is legal", () => {
+      const { state, p1 } = withGodzilla1995();
+      // Your monster in zone 3: zones 4 and 5 are its path. Rank 1 GAM, playable anywhere (8.2.1).
+      p1.monsterPosition = 3;
+      const gam = add(state, { ...real("EBP01-073"), rank: 1 }, "P1");
+      p1.hand = [gam];
+      for (let i = 0; i < 8; i++)
+        p1.discard.push(add(state, real("EBP01-002"), "P1"));
+      const legal = getLegalActions(state, "P1");
+      const plays = legal.filter(
+        (a) => a.type === "playBattle" && a.cardInstanceId === gam.instanceId,
+      );
+      expect(plays.some((a) => a.type === "playBattle" && a.zone === 4)).toBe(
+        true,
+      );
+      const dead = cardRulesDead(state, legal, "P1");
+      for (const a of plays)
+        if (a.type === "playBattle")
+          expect(dead.has(a)).toBe(a.zone === 4 || a.zone === 5);
+      // `ownPath: false` (the paired check's control): the path is open again.
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        ownPath: false,
+      });
+      for (const a of plays) expect(off.has(a)).toBe(false);
+    });
+
+    it("rule 21: a [revenge] card (Dorat EBP02-058) is left to rule 17, which wants it on the path", () => {
+      const { state, p1 } = withGodzilla1995();
+      p1.monsterPosition = 3;
+      const dorat = add(state, { ...real("EBP02-058"), rank: 1 }, "P1");
+      p1.hand = [dorat];
+      const legal = getLegalActions(state, "P1");
+      const dead = cardRulesDead(state, legal, "P1");
+      const onPath = legal.filter(
+        (a) =>
+          a.type === "playBattle" &&
+          a.cardInstanceId === dorat.instanceId &&
+          (a.zone === 4 || a.zone === 5),
+      );
+      expect(onPath.length).toBeGreaterThan(0);
+      for (const a of onPath) expect(dead.has(a)).toBe(false);
     });
 
     it("rule 2 (Paul, Nov 12): from zone 7, Godzilla vs. King Ghidorah EBP02-071 (awakening 6: destroy rank 6 or lower) clears the zone 8 blocker before the winning invasion", () => {
