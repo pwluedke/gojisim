@@ -69,7 +69,10 @@ export interface IsmctsSettings {
   cardRules: number;
   /** #276: 1 (the default) applies the Wrangler plan (`wranglerPlan.ts`), with `rules` on. */
   wranglerPlan: number;
-  /** Slick's Red Fest plan (`festPlan.ts`): 1 (the default) applies it, with `rules` on. */
+  /**
+   * Slick's Red Fest plan (`festPlan.ts`): 1 applies it, with `rules` on. Off by default: measured
+   * Nov 13 it wasn't a gain (paired seeds, the August list and the bots' Red Fest); on for tuning.
+   */
   festPlan: number;
   /** Paul's Constructed Future plan (`cfPlan.ts`), with `rules` on: 1 (the default) on, 0 off. */
   cfPlan: number;
@@ -98,7 +101,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   recognizer: 0,
   cardRules: 0,
   wranglerPlan: 1,
-  festPlan: 1,
+  festPlan: 0,
   cfTarget: "auto",
   cfPlan: 1,
   mxPlan: 2,
