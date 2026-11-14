@@ -7,6 +7,10 @@
         {
           "name": "gojisim.settings",
           "value": "{\"animation\":\"off\",\"sound\":false}"
+        },
+        {
+          "name": "gojisim.e2e.unlockBotLevel",
+          "value": "1"
         }
       ]
     }

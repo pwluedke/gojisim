@@ -166,7 +166,7 @@ Treat both URLs like passwords: anyone with one can post to that channel. Don't 
 
 The next push to `release` posts its release; the workflow's log says "Posted to Slack and Discord." when both worked.
 
-**Smoke check (#92).** After the Release workflow, the Smoke check workflow (`.github/workflows/smoke.yml`) checks the live site. It waits up to 15 minutes for `/healthz` to report the pushed commit (Railway's `RAILWAY_GIT_COMMIT_SHA`). Then Playwright logs in, starts a game against Easy, checks card images load, makes the First / Second pick, passes a turn, waits for the bot's turn, and concedes, which must store the game's upload. That upload is marked `smokeCheck`, so `pnpm feedback`, the win rates and the Discord #reports posts leave it out.
+**Smoke check (#92).** After the Release workflow, the Smoke check workflow (`.github/workflows/smoke.yml`) checks the live site. It waits up to 15 minutes for `/healthz` to report the pushed commit (Railway's `RAILWAY_GIT_COMMIT_SHA`). Then Playwright logs in, starts a game against the bot (locked at 100 during the beta, its level controls disabled), checks card images load, makes the First / Second pick, passes a turn, waits for the bot's turn, and concedes, which must store the game's upload. That upload is marked `smokeCheck`, so `pnpm feedback`, the win rates and the Discord #reports posts leave it out.
 
 - **Pass:** one line in Slack #gojisim-release-notes.
 - **Fail:** a message in #gojisim-dev naming the step that failed, with the run's link and the rollback command. A failure screenshot (taken after the login page) is in the run's artifact.
