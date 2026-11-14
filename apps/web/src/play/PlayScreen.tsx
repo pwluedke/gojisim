@@ -11,7 +11,12 @@ import {
 import { validateDeck } from "@gojisim/cards";
 import { useEffect, useMemo, useRef, useState } from "react";
 import "../theme.css";
-import { botLabel, difficultyName, lockSeat } from "../game/bots";
+import {
+  betaShowsBotHand,
+  botLabel,
+  difficultyName,
+  lockSeat,
+} from "../game/bots";
 import { actionLabel, choiceHeading, choiceSource } from "../game/labels";
 import type { SeatConfig } from "../game/bots";
 import type { DeckOption } from "../game/decks";
@@ -819,10 +824,17 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
 
   /** Starts a game from a setup: the new-game screen's, or the last one again (#183 Rematch). */
   const begin = (given: Omit<PendingGame, "picker" | "firstCard">) => {
-    // Beta: every bot seat plays at the locked level, whatever the setup says.
+    // Beta: every bot seat plays at the locked level, whatever the setup says, and a human's game
+    // against a bot starts with Show opponent's hand on (`BETA_SHOW_BOT_HAND`).
+    const kinds = [given.seats.P1.kind, given.seats.P2.kind];
     const setup = {
       ...given,
       seats: { P1: lockSeat(given.seats.P1), P2: lockSeat(given.seats.P2) },
+      showOpponentHand:
+        given.showOpponentHand ||
+        (betaShowsBotHand() &&
+          kinds.includes("human") &&
+          kinds.includes("bot")),
     };
     lastSetup.current = setup;
     // The human picks; two bots, or the Skip First / Second pick setting, skip the pick.

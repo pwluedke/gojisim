@@ -15,6 +15,7 @@ import {
   startGame,
   type ZoneNumber,
   hasFlag,
+  sameColumn,
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
 import {
@@ -32,6 +33,7 @@ import type { Decklist } from "./types";
 import { difficultySettings, PRESETS } from "./difficulty";
 import { botInput, decklistsOf, seededRng } from "./input";
 import { decide } from "./ismcts";
+import { counters } from "./rules";
 
 /** Paul's card-play rules for Medium and Hard (Nov 12), on built positions at P1's play timing. */
 
@@ -82,6 +84,21 @@ const LISTS_265 = decklistsOf([
     ],
   },
   DECKS[1],
+]);
+
+/** #305's lists: Godzilla (2023) ESC01-004 and the King in yours, King Ghidorah (1991) in theirs. */
+const LISTS_305 = decklistsOf([
+  {
+    ...DECKS[0],
+    mainDeck: [
+      ...DECKS[0].mainDeck,
+      real("ESC01-004"),
+      real("EBP01-075"),
+      // As in LISTS: the hidden deck holds one card more than the starter's count leaves.
+      real("ESD01-016"),
+    ],
+  },
+  { ...DECKS[1], monsterDeck: [...DECKS[1].monsterDeck, real("EBP02-047")] },
 ]);
 
 /**
@@ -710,6 +727,206 @@ describe(
       expect(activate.length).toBeGreaterThan(0);
       const dead = cardRulesDead(state, legal, "P1");
       for (const a of activate) expect(dead.has(a)).toBe(false);
+    });
+
+    /**
+     * #305 (Ian, bfddc4d4 at 47): the opponent's King Ghidorah (1991) EBP02-047 monster in their
+     * zone 8; your zone 8 held only by Godzilla (2023) ESC01-004 (under rank 7, so rule 11
+     * doesn't count it); Godzilla, King of the Monsters EBP01-075 in hand and 4 rage (+3,000 counter
+     * power per rage). The opponent's rage sets their threat between the two totals.
+     */
+    function exactCounter() {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      opp.invadingMonsterZone.push(add(state, real("EBP02-047"), "P2"));
+      opp.monsterPosition = 8;
+      p1.zones[8] = [[add(state, real("ESC01-004"), "P1")]];
+      // At its printed rank (rule 11's rank 7 blocker): playable with their monster in zone 8 (8.2.1).
+      const king = add(state, real("EBP01-075"), "P1");
+      p1.hand = [king];
+      p1.rage = 4;
+      const after = (zone: 1 | 8) => {
+        const s = advanceToDecision(
+          applyAction(state, {
+            type: "playBattle",
+            player: "P1",
+            cardInstanceId: king.instanceId,
+            zone,
+          }),
+        );
+        return counterPowerOf(s, s.players[0] as PlayerState);
+      };
+      // Their threat as high as the King's total outside zone 8 reaches (rage adds 5,000 a point).
+      const target = after(1);
+      opp.rage = 0;
+      while (getThreat(state, "P2") <= target) opp.rage += 1;
+      opp.rage -= 1;
+      return { state, king, inZone1: target, inZone8: after(8) };
+    }
+
+    it("#305: with the exact counter in reach, rule 7 takes the counter, not the zone 8 block that covers your own card (7.4.2, 7.4.3)", () => {
+      const { state, king, inZone1, inZone8 } = exactCounter();
+      // The setup: zone 1 makes the counter; zone 8 (on top of Godzilla (2023)) doesn't.
+      expect(getThreat(state, "P2")).toBeLessThanOrEqual(inZone1);
+      expect(getThreat(state, "P2")).toBeGreaterThan(inZone8);
+      const legal = getLegalActions(state, "P1");
+      expect(blockingPlays(state, legal, "P1").size).toBeGreaterThan(0);
+      const dead = cardRulesDead(state, legal, "P1");
+      const play = (zone: number) =>
+        legal.find(
+          (a) =>
+            a.type === "playBattle" &&
+            a.cardInstanceId === king.instanceId &&
+            a.zone === zone,
+        )!;
+      expect(dead.has(play(8))).toBe(true);
+      expect(dead.has(play(1))).toBe(false);
+      for (const a of legal)
+        if (a.type === "pass") expect(dead.has(a)).toBe(true);
+      expect(rescuedPlays(state, legal, "P1").has(play(8))).toBe(false);
+      // `counterFirst: false` (the measurement's control) is the old rule 7: the block is taken.
+      const old = cardRulesDead(state, legal, "P1", undefined, {
+        counterFirst: false,
+      });
+      expect(old.has(play(1))).toBe(true);
+      expect(old.has(play(8))).toBe(false);
+    });
+
+    it("#305: with the counter already made, rule 7 forces no block (a second King over your Godzilla (2023) would undo it)", () => {
+      const { state, king } = exactCounter();
+      const after = advanceToDecision(
+        applyAction(state, {
+          type: "playBattle",
+          player: "P1",
+          cardInstanceId: king.instanceId,
+          zone: 1,
+        }),
+      );
+      (after.players[0] as PlayerState).hand.push(
+        add(after, real("EBP01-075"), "P1"),
+      );
+      expect(
+        counterPowerOf(after, after.players[0] as PlayerState),
+      ).toBeGreaterThanOrEqual(getThreat(after, "P2"));
+      expect(
+        blockingPlays(after, getLegalActions(after, "P1"), "P1").size,
+      ).toBe(0);
+    });
+
+    it("#305: Hard plays the King outside zone 8 and makes the counter (Level 100 covered its Godzilla (2023) in the report)", () => {
+      const { state } = exactCounter();
+      const action = decide(
+        botInput(state, "P1", LISTS_305, seededRng("exact"), {
+          ...difficultySettings(PRESETS.hard),
+          iterations: 60,
+          maxMs: 1e9,
+          blunder: 0,
+        }),
+      ).action;
+      expect(action.type).toBe("playBattle");
+      expect(action.type === "playBattle" && action.zone).not.toBe(8);
+    });
+
+    /**
+     * #305 (Ian: "I do not believe the bot possesses the ability to calculate counterpower as a
+     * result of rage-related boosts correctly"): the bot's counter check (`counters`, used by rules
+     * 7, 9 and 10) reads the same total as the engine's counter check (7.4.2, 7.4.3), for each card
+     * whose counter power scales with rage. The engine's check is read from its log after a pass.
+     */
+    function engineCheck(state: GameState) {
+      const p1 = state.players[0] as PlayerState;
+      const bot = {
+        total: counterPowerOf(state, p1),
+        made: counters(state, "P1"),
+      };
+      const after = advanceToDecision(
+        applyAction(state, { type: "pass", player: "P1" }),
+      );
+      const check = [...after.log]
+        .reverse()
+        .find((e) => e.type === "counterCheck" && e.player === "P1");
+      expect(check?.payload["rule"]).toBe("7.4.3");
+      return {
+        bot,
+        engine: {
+          total: check?.payload["total"],
+          made: check?.payload["countered"],
+        },
+      };
+    }
+
+    /** Their King Ghidorah (1991) EBP02-047 in their zone 8; `card` in your `zone`. */
+    function rageCard(
+      number: string,
+      zone: ZoneNumber,
+      rage: { own: number; theirs: number },
+    ) {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      opp.invadingMonsterZone.push(add(state, real("EBP02-047"), "P2"));
+      opp.monsterPosition = 8;
+      opp.rage = rage.theirs;
+      p1.rage = rage.own;
+      p1.zones[zone] = [[add(state, real(number), "P1")]];
+      return { state, p1 };
+    }
+
+    /** Your zone in the same column as their monster in their zone 8 (Super X2's condition). */
+    const theirColumn = [1, 2, 3, 4, 5, 7, 8].find((z) =>
+      sameColumn(
+        { player: "P1", zone: z as ZoneNumber },
+        { player: "P2", zone: 8 },
+      ),
+    ) as ZoneNumber;
+
+    it.each([
+      // [card, zone, the rage that changes it (own or theirs), below, at, counter power gained]
+      ["EBP01-075", 1, "own", 2, 4, 6000], // Godzilla, King of the Monsters: +3000 per rage
+      ["ESC01-004", 1, "own", 2, 3, 5000], // Godzilla (2023): +5000 at 3 or more rage
+      ["EBP01-023", 1, "own", 1, 2, 3000], // Mechagodzilla (1975): +3000 at 2 or more rage
+      ["EBP02-011", 1, "own", 1, 2, 3000], // Gabara: +3000 at 2 or more rage
+      ["EBP01-056", theirColumn, "theirs", 0, 2, 6000], // Super X2: +3000 per their rage, in their column
+      ["EBP03-053", theirColumn, "theirs", 0, 2, 6000], // Super Mechagodzilla: the same
+    ] as const)(
+      "#305: %s's rage-scaled counter power is the same in the bot's check and the engine's (7.4.2, 7.4.3)",
+      (number, zone, which, below, at, gained) => {
+        const totals = [below, at].map((r) => {
+          const { state } = rageCard(number, zone, {
+            own: which === "own" ? r : 0,
+            theirs: which === "theirs" ? r : 0,
+          });
+          const { bot, engine } = engineCheck(state);
+          expect(bot).toEqual(engine);
+          return bot.total;
+        });
+        expect(totals[1]! - totals[0]!).toBe(gained);
+      },
+    );
+
+    it("#305: City of Tokyo ESD01-010's boost to your other zone 8 battle card (+5000 at 2 or more rage) is the same in the bot's check and the engine's (7.4.2, 7.4.3)", () => {
+      const totals = [1, 2].map((r) => {
+        const { state, p1 } = rageCard("ESD01-010", 1, { own: r, theirs: 0 });
+        p1.zones[8] = [[add(state, real("ESC01-004"), "P1")]];
+        const { bot, engine } = engineCheck(state);
+        expect(bot).toEqual(engine);
+        return bot.total;
+      });
+      expect(totals[1]! - totals[0]!).toBe(5000);
+    });
+
+    it("#305: after a play that covers your own card (the King over Godzilla (2023) in zone 8), the bot's check and the engine's agree (7.4.2, 7.4.3)", () => {
+      const { state, king } = exactCounter();
+      const covered = advanceToDecision(
+        applyAction(state, {
+          type: "playBattle",
+          player: "P1",
+          cardInstanceId: king.instanceId,
+          zone: 8,
+        }),
+      );
+      const { bot, engine } = engineCheck(covered);
+      expect(bot).toEqual(engine);
+      expect(bot.made).toBe(false);
     });
 
     it("rule 2 (Paul, Nov 12): from zone 7, Godzilla vs. King Ghidorah EBP02-071 (awakening 6: destroy rank 6 or lower) clears the zone 8 blocker before the winning invasion", () => {

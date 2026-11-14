@@ -55,6 +55,10 @@ import type { Decklist } from "./types";
  *    where another rule holds them (#265: the held monster cards whose rage discards make
  *    Godzilla Against Mechagodzilla playable), and every other move waits (passing too), but an
  *    invasion that wins now.
+ *    #305 (Ian): the counter comes first. With the counter made, nothing is forced; with a way to
+ *    make it this turn (rule 9's plays), those plays are the ones taken instead of the block. A
+ *    counter sends their monster back (7.4.3), so it beats the block, and the block can cost it
+ *    (a King over your own Godzilla (2023) in zone 8: 17,000 vs 27,000, where zone 1 made 27,000).
  * 8. #272: a battle card whose ability works only in some zones (Godzilla, King of the Monsters
  *    EBP01-075: protected in zones 1-5) is played in one of them when it can be (Paul's rule 6
  *    only leans that way, as a prior). Blocking an open zone 8 (rule 7) still comes first.
@@ -594,9 +598,10 @@ export function rescuedPlays(
   actions: readonly Action[],
   me: PlayerId,
   own?: Decklist,
+  options: CardRulesOptions = {},
 ): Set<Action> {
-  const dead = cardRulesDead(state, actions, me, own);
-  const blocks = blockingPlays(state, actions, me);
+  const dead = cardRulesDead(state, actions, me, own, options);
+  const blocks = forcedPlays(state, actions, me, options);
   if (blocks.size > 0) {
     // As in `cardRulesDead`: the ways the card rules leave standing, or all of them.
     const kept = [...blocks].filter((a) => !dead.has(a));
@@ -656,16 +661,35 @@ export function blockingPlays(
   state: GameState,
   actions: readonly Action[],
   me: PlayerId,
+  { counterFirst = true }: CardRulesOptions = {},
 ): Set<Action> {
   const opponent = state.players.find((p) => p.id !== me);
   if (
     state.pendingChoice ||
     state.turnPlayer !== me ||
     blocked(state, me) ||
-    (opponent?.monsterPosition ?? 1) < 6
+    (opponent?.monsterPosition ?? 1) < 6 ||
+    // #305: the counter made sends their monster back (7.4.3), so there's no invasion to block.
+    (counterFirst && counters(state, me))
   )
     return new Set();
   return playsReaching(state, actions, me, (s) => blocked(s, me));
+}
+
+/**
+ * Rule 7 (#305): the plays taken while the opponent's monster is in reach of your open zone 8: a
+ * way to make the counter this turn (rule 9's), else a way to block.
+ */
+function forcedPlays(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+  options: CardRulesOptions,
+): Set<Action> {
+  const blocks = blockingPlays(state, actions, me, options);
+  if (blocks.size === 0 || options.counterFirst === false) return blocks;
+  const ways = counterPlays(state, actions, me);
+  return ways.size > 0 ? ways : blocks;
 }
 
 /** Rule 9: the plays that start a way to make the counter this turn, while it isn't made. */
@@ -1131,6 +1155,12 @@ function idleModes(
   return useful > 0 ? idle : [];
 }
 
+/** Switches for checks of a card rule against its earlier form. */
+export interface CardRulesOptions {
+  /** #305: rule 7 takes the counter before the block (the default); false is the old rule 7. */
+  counterFirst?: boolean;
+}
+
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
 export function cardRulesDead(
   state: GameState,
@@ -1138,6 +1168,7 @@ export function cardRulesDead(
   me: PlayerId,
   /** The bot's own decklist (rule 6), when known. */
   own?: Decklist,
+  options: CardRulesOptions = {},
 ): Set<Action> {
   const dead = new Set<Action>();
   for (const action of actions) {
@@ -1180,9 +1211,10 @@ export function cardRulesDead(
   for (const action of revengePlays(state, actions, me)) dead.add(action);
   for (const action of redundantStrategies(state, actions, me))
     dead.add(action);
-  // Rule 7: a way to block zone 8 is taken: every other move waits (but an invasion that wins
-  // now), and it outranks the others' holds. (Rule 9 only frees holds, in `rescuedPlays`.)
-  const blocks = blockingPlays(state, actions, me);
+  // Rule 7: a way to make the counter (#305), else to block zone 8, is taken: every other move
+  // waits (but an invasion that wins now), and it outranks the others' holds. (Rule 9 alone only
+  // frees holds, in `rescuedPlays`.)
+  const blocks = forcedPlays(state, actions, me, options);
   if (blocks.size > 0) {
     // The ways the other card rules leave standing; all of them only when they leave none.
     const kept = [...blocks].filter((a) => !dead.has(a));
