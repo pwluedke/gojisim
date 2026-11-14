@@ -34,6 +34,8 @@ import {
  *   never pay an invasion with a push card.
  * - Churn from turn 1: rage discards over passing (toward 8 monster cards in the discard pile for
  *   GAM), freed from the holds (card rule 14 included), but for the held key cards.
+ * - Dig (v2.2, #318): with no battle card in hand, Despair (even for no value) and the rage
+ *   discards of cards it needn't hold over passing, so the end phase draws more cards.
  * - Kings (Godzilla, King of the Monsters EBP01-075) and GAM in zones 1, 2 or 8 (1 or 5 against
  *   Godzilla (1994)), never in your own monster's next two zones; with a King in zones 1-5, rage
  *   to 3 (it can't be destroyed by the opponent's effects then), before passing, with the held
@@ -112,6 +114,8 @@ export function wranglerV2Verdict(
   theirs?: Decklist,
   /** v2.1's changes (#316, #317, #319, #321); `false` is v2, for the paired check. */
   v21 = true,
+  /** v2.2's changes (#318); `false` is v2.1, for the paired check. */
+  v22 = true,
 ): { against: Set<Action>; rescued: Set<Action> } {
   if (!isWranglerDeck(own)) return { against: new Set(), rescued: new Set() };
   // Line 1 (v1's Despair line) goes first.
@@ -245,6 +249,27 @@ export function wranglerV2Verdict(
     const rage = actions.filter((a) => a.type === "gainRage");
     if (rage.length > 0) {
       for (const a of rage) {
+        rescued.add(a);
+        against.delete(a);
+      }
+      for (const a of actions) if (a.type === "pass") against.add(a);
+    }
+  }
+  // v2.2 (#318, Ian): with no battle card in hand (no answer to the next invasion), dig: the end
+  // phase draws up to the hand size (7.5.4), so each card out of the hand this turn is one more
+  // card drawn. Rage discards of the cards it needn't hold and Despair, even for no value, over
+  // passing (Monarch: "play or rage away cards it doesn't need to hold").
+  const noAnswer = !player.hand.some(
+    (c) => state.cards[c.cardId]?.type === "Battle",
+  );
+  if (v22 && noAnswer) {
+    const out = actions.filter(
+      (a) =>
+        (a.type === "gainRage" && !held(number(a))) ||
+        (a.type === "activateStrategy" && number(a) === DESPAIR),
+    );
+    if (out.length > 0) {
+      for (const a of out) {
         rescued.add(a);
         against.delete(a);
       }

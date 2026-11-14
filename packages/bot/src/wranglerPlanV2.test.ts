@@ -16,7 +16,7 @@ import {
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
 import type { Decklist } from "./types";
-import { GAM } from "./wranglerPlan";
+import { DESPAIR, GAM } from "./wranglerPlan";
 import {
   GODZILLA_1954_WIPE,
   KING,
@@ -255,6 +255,41 @@ describe("the Wrangler plan v2", () => {
     const keys = picks.filter((a) => of(a) !== "EBP01-002");
     const none = wranglerV2Verdict(state, keys, "P1", WRANGLER);
     for (const a of keys) expect(none.against.has(a)).toBe(false);
+  });
+
+  it("#318 (v2.2): with no battle card in hand, dig: Despair even for no value over passing (the end phase draws up to the hand size, 7.5.4); the held cards stay", () => {
+    // Despair (no Mecha-King to hit) and the held Godzilla (2004) EBP01-008: v2.1 lets the bot pass.
+    const { state, p1 } = position([DESPAIR, "EBP01-008"], 3, 2);
+    const legal = getLegalActions(state, "P1");
+    const despair = legal.filter(
+      (a) => a.type === "activateStrategy" && ofCard(state, p1, a) === DESPAIR,
+    );
+    expect(despair.length).toBeGreaterThan(0);
+    const dig = wranglerV2Verdict(state, legal, "P1", WRANGLER);
+    for (const a of legal)
+      if (a.type === "pass") expect(dig.against.has(a)).toBe(true);
+    for (const a of despair) expect(dig.rescued.has(a)).toBe(true);
+    // The held card isn't raged away for it.
+    for (const a of legal)
+      if (a.type === "gainRage") expect(dig.rescued.has(a)).toBe(false);
+    // v2.1 (`v22: false`): passing stays.
+    const v21 = wranglerV2Verdict(
+      state,
+      legal,
+      "P1",
+      WRANGLER,
+      undefined,
+      true,
+      false,
+    );
+    for (const a of legal)
+      if (a.type === "pass") expect(v21.against.has(a)).toBe(false);
+    // With a battle card in hand (an answer), no dig.
+    p1.hand.push(add(state, real(KING), "P1"));
+    const held = getLegalActions(state, "P1");
+    const answer = wranglerV2Verdict(state, held, "P1", WRANGLER);
+    for (const a of held)
+      if (a.type === "pass") expect(answer.against.has(a)).toBe(false);
   });
 
   it("Godzilla (1954) EBP01-004 isn't stacked with a King on the board", () => {
