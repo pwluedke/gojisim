@@ -264,8 +264,10 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
   // The game ended in this page (not a loaded finished one): its game-over modal plays a stinger.
   const endedHere = useRef(false);
   const [confirming, setConfirming] = useState<
-    "pass" | "concede" | "showHand" | null
+    "pass" | "concede" | "showHand" | "move" | null
   >(null);
+  // #355: the move waiting for Confirm moves' Confirm or Cancel (nothing is sent until then).
+  const [pendingMove, setPendingMove] = useState<Action | null>(null);
   // M5d: the read-only history view (a session position), the log (L), and the overlays (H, ?).
   const [historyAt, setHistoryAt] = useState<number | null>(null);
   const [overlay, setOverlay] = useState<"hand" | "shortcuts" | null>(null);
@@ -700,8 +702,33 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
     (document.activeElement as HTMLElement | null)?.blur();
     setConfirming("pass");
   };
+  // #355 Confirm moves: a hand play, a discard (invasion, rage, an ability's cost) or a strategy
+  // asks first. It's before the move is sent, so the record and the opponent never see it.
+  const asksFirst = (action: Action) =>
+    settings.confirmMoves &&
+    (action.type === "playBattle" ||
+      action.type === "playMonster" ||
+      action.type === "activateStrategy" ||
+      action.type === "invade" ||
+      action.type === "gainRage" ||
+      (action.type === "choose" && state?.resolution?.stage === "cost"));
+  const takeMove = (action: Action) => {
+    if (!asksFirst(action)) {
+      game.takeAction(action);
+      return;
+    }
+    (document.activeElement as HTMLElement | null)?.blur();
+    setPendingMove(action);
+    setConfirming("move");
+  };
+  const cancelConfirm = () => {
+    setConfirming(null);
+    setPendingMove(null);
+  };
   const confirmYes = () => {
     setConfirming(null);
+    setPendingMove(null);
+    if (confirming === "move" && pendingMove) game.takeAction(pendingMove);
     if (confirming === "pass" && pass) game.takeAction(pass);
     if (confirming === "concede" && concedeFor)
       game.takeAction({ type: "concede", player: concedeFor });
@@ -756,7 +783,14 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
       switch (e.key) {
         case "Escape":
           setOverlay(null);
-          setConfirming(null);
+          cancelConfirm();
+          return;
+        case "Enter":
+          // #355: Enter confirms a Confirm moves move.
+          if (confirming === "move") {
+            e.preventDefault();
+            confirmYes();
+          }
           return;
         case "?":
           setOverlay((o) => (o === "shortcuts" ? null : "shortcuts"));
@@ -1333,6 +1367,17 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
           <label>
             <input
               type="checkbox"
+              data-testid="setting-confirm-moves"
+              checked={settings.confirmMoves}
+              onChange={(e) =>
+                updateSettings({ confirmMoves: e.target.checked })
+              }
+            />{" "}
+            Confirm moves
+          </label>
+          <label>
+            <input
+              type="checkbox"
               data-testid="setting-expanded-hand"
               checked={settings.expandedHand}
               onChange={(e) =>
@@ -1539,7 +1584,7 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
                 source={choiceSource(state)}
                 actions={actions}
                 manualCards={[]}
-                onAction={game.takeAction}
+                onAction={takeMove}
                 labelOf={(action) => actionLabel(state, action)}
                 model={model}
                 onUndo={undoable ? undo : undefined}
@@ -1549,12 +1594,16 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
           }
           actions={locked ? [] : actions}
           locked={locked}
-          onAction={game.takeAction}
+          onAction={takeMove}
           labelOf={(action) => actionLabel(state, action)}
           zoneChoice={viewing === null ? zoneChoice : new Map()}
           picked={viewing === null ? picked : new Map()}
           highlight={
-            viewing === null ? (botMove?.highlight ?? new Set()) : new Set()
+            viewing !== null
+              ? new Set()
+              : confirming === "move" && pendingMove
+                ? landing(state, pendingMove)
+                : (botMove?.highlight ?? new Set())
           }
           name={name}
           settings={settingsPanel}
@@ -1702,7 +1751,7 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
               source={choiceSource(state)}
               actions={actions}
               manualCards={manualCards}
-              onAction={game.takeAction}
+              onAction={takeMove}
               labelOf={(action) => actionLabel(state, action)}
               model={model}
               onConfirmPicks={(ids, done) =>
@@ -1858,11 +1907,13 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
           <div className={styles.modalBackdrop} data-testid="confirm-dialog">
             <div className={styles.modal}>
               <div className={styles.modalHeading}>
-                {confirming === "pass"
-                  ? "End Main and move to the Counter Phase?"
-                  : confirming === "showHand"
-                    ? "Show the bot's hand?"
-                    : "Concede the game?"}
+                {confirming === "move" && pendingMove
+                  ? `${actionLabel(state, pendingMove)}?`
+                  : confirming === "pass"
+                    ? "End Main and move to the Counter Phase?"
+                    : confirming === "showHand"
+                      ? "Show the bot's hand?"
+                      : "Concede the game?"}
               </div>
               {confirming === "showHand" && (
                 <p data-testid="show-hand-warning">
@@ -1877,17 +1928,19 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
                   data-testid="confirm-yes"
                   onClick={confirmYes}
                 >
-                  {confirming === "pass"
-                    ? "Confirm [Space]"
-                    : confirming === "showHand"
-                      ? "Show hand"
-                      : "Concede"}
+                  {confirming === "move"
+                    ? "Confirm [Enter]"
+                    : confirming === "pass"
+                      ? "Confirm [Space]"
+                      : confirming === "showHand"
+                        ? "Show hand"
+                        : "Concede"}
                 </button>
                 <button
                   type="button"
                   className={styles.choiceButton}
                   data-testid="confirm-cancel"
-                  onClick={() => setConfirming(null)}
+                  onClick={cancelConfirm}
                 >
                   Cancel [Esc]
                 </button>
