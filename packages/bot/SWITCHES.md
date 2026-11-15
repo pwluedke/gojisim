@@ -28,3 +28,4 @@ This list holds code facts only: no decks, lists or results. Status: **built** (
 2. Add a test that the switch's off position is the old behavior.
 3. Add its row here, status **built**, in the same PR.
 4. Measure with the switch off as the control, then set the status from the result.
+5. Bump `BOT_VERSION` (`src/index.ts`) in the PR that changes how the bot plays, so Kaiju Classroom's agreement on `/results` (#365) shows the change.
