@@ -1,0 +1,130 @@
+{
+  "checks": [
+    {
+      "id": "sample-plan-a",
+      "date": "2026-01-10",
+      "change": "Sample plan A",
+      "pr": "#1",
+      "level": "Hard",
+      "seeds": "paired, same seeds in both arms (made-up sample)",
+      "decks": [
+        {
+          "deck": "Wrangler (sample)",
+          "games": 200,
+          "aWins": 100,
+          "bWins": 124,
+          "msMedian": [1200, 1350],
+          "msP95": [2400, 2700]
+        },
+        {
+          "deck": "Ghidorat (sample)",
+          "games": 200,
+          "aWins": 96,
+          "bWins": 94
+        }
+      ],
+      "mistakes": [
+        {
+          "name": "missed a reachable counter (sample)",
+          "issues": ["#1"],
+          "deck": "Wrangler (sample)",
+          "per": "chances",
+          "a": {
+            "count": 30,
+            "of": 400
+          },
+          "b": {
+            "count": 12,
+            "of": 390
+          }
+        },
+        {
+          "name": "a push with nothing after it (sample)",
+          "issues": ["#2"],
+          "per": "games",
+          "a": {
+            "count": 45,
+            "of": 200
+          },
+          "b": {
+            "count": 10,
+            "of": 200
+          }
+        }
+      ]
+    },
+    {
+      "id": "sample-rule-b",
+      "date": "2026-01-12",
+      "change": "Sample card rule B",
+      "level": "Hard",
+      "seeds": "paired, same seeds in both arms (made-up sample)",
+      "decks": [
+        {
+          "deck": "Wrangler (sample)",
+          "games": 120,
+          "aWins": 70,
+          "bWins": 66,
+          "invasionsPerGame": [1.1, 0.9],
+          "countersPerGame": [2.5, 2.8]
+        },
+        {
+          "deck": "Other deck (sample)",
+          "games": 120,
+          "aWins": 50,
+          "bWins": 52
+        }
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "id": "sample-run",
+      "date": "2026-01-13",
+      "name": "Sample run",
+      "plans": "made-up sample",
+      "cells": [
+        {
+          "row": "Wrangler (sample)",
+          "column": "Ghidorat (sample)",
+          "wins": 40,
+          "games": 60,
+          "playersSay": {
+            "read": "favoured",
+            "source": "sample guide"
+          }
+        },
+        {
+          "row": "Ghidorat (sample)",
+          "column": "Wrangler (sample)",
+          "wins": 20,
+          "games": 60
+        },
+        {
+          "row": "Wrangler (sample)",
+          "column": "Other deck (sample)",
+          "wins": 33,
+          "games": 60
+        },
+        {
+          "row": "Other deck (sample)",
+          "column": "Wrangler (sample)",
+          "wins": 27,
+          "games": 60
+        },
+        {
+          "row": "Ghidorat (sample)",
+          "column": "Other deck (sample)",
+          "wins": 31,
+          "games": 60
+        },
+        {
+          "row": "Other deck (sample)",
+          "column": "Ghidorat (sample)",
+          "wins": 29,
+          "games": 60
+        }
+      ]
+    }
+  ]
+}
