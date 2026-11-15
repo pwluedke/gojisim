@@ -422,6 +422,83 @@ describe("the Wrangler plan v2", () => {
       if (a.type === "pass") expect(v22.against.has(a)).toBe(false);
   });
 
+  /** A Biollante list for `theirs` (the opponent's public list): its monster deck is all it needs. */
+  const BIOLLANTE = {
+    monsterDeck: ["EBP02-024", "EBP02-025", "EBP02-027", "EBP02-029"].map(real),
+    mainDeck: [],
+  } as unknown as Decklist;
+  const verdict = (state: GameState, legal: Action[], bio: boolean) =>
+    wranglerV2Verdict(
+      state,
+      legal,
+      "P1",
+      WRANGLER,
+      BIOLLANTE,
+      true,
+      true,
+      true,
+      bio,
+    );
+
+  it("wranglerBio (Ian): Biollante stays at rank I: no King play that makes the counter on its Rose Form", () => {
+    const { state, p1, p2 } = position([], 3, 5);
+    // Rank 1, so it can be played with their monster in zone 5 (8.2.1).
+    p1.hand = [add(state, { ...real(KING), rank: 1 }, "P1")];
+    p2.invadingMonsterZone = [add(state, real("EBP02-024"), "P2")];
+    p1.rage = 10;
+    const legal = getLegalActions(state, "P1");
+    const kingAt1 = legal.filter(
+      (a) =>
+        a.type === "playBattle" &&
+        ofCard(state, p1, a) === KING &&
+        a.zone === 1,
+    );
+    expect(kingAt1.length).toBeGreaterThan(0);
+    for (const a of kingAt1)
+      expect(verdict(state, legal, true).against.has(a)).toBe(true);
+    for (const a of kingAt1)
+      expect(verdict(state, legal, false).against.has(a)).toBe(false);
+  });
+
+  it("wranglerBio (Ian): Kings spread, never next to each other, where one Godzilla vs. Megaguirus takes both", () => {
+    const { state, p1, p2 } = position([], 3, 5);
+    // The King in zone 1 first: cards are stored by id, so the rank 1 copy in hand goes last.
+    p1.zones[1] = [[add(state, real(KING), "P1")]];
+    p1.hand = [add(state, { ...real(KING), rank: 1 }, "P1")];
+    p2.invadingMonsterZone = [add(state, real("EBP02-026"), "P2")];
+    const legal = getLegalActions(state, "P1");
+    const king = (zone: number) =>
+      legal.filter(
+        (a) =>
+          a.type === "playBattle" &&
+          ofCard(state, p1, a) === KING &&
+          a.zone === zone,
+      );
+    expect(king(2).length).toBeGreaterThan(0);
+    expect(king(8).length).toBeGreaterThan(0);
+    for (const a of king(2))
+      expect(verdict(state, legal, true).against.has(a)).toBe(true);
+    for (const a of king(8))
+      expect(verdict(state, legal, true).against.has(a)).toBe(false);
+    for (const a of king(2))
+      expect(verdict(state, legal, false).against.has(a)).toBe(false);
+  });
+
+  it("wranglerBio (Ian): no strategy played against its rank III EBP02-027 in zone 5 or beyond (awakening 6: counter-proof while you have one)", () => {
+    const { state, p1, p2 } = position([DESPAIR], 3, 5);
+    p2.invadingMonsterZone = [add(state, real("EBP02-027"), "P2")];
+    p1.rage = 2;
+    const legal = getLegalActions(state, "P1");
+    const despair = legal.filter(
+      (a) => a.type === "activateStrategy" && ofCard(state, p1, a) === DESPAIR,
+    );
+    expect(despair.length).toBeGreaterThan(0);
+    for (const a of despair)
+      expect(verdict(state, legal, true).against.has(a)).toBe(true);
+    for (const a of despair)
+      expect(verdict(state, legal, false).against.has(a)).toBe(false);
+  });
+
   it("Godzilla (1954) EBP01-004 isn't stacked with a King on the board", () => {
     const { state, p1 } = position([GODZILLA_1954_WIPE], 3, 2);
     // EBP01-004 is rank 3: stack it on a rank 3 top.

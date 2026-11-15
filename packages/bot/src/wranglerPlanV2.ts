@@ -4,6 +4,7 @@ import {
   applyAction,
   type GameState,
   getLegalActions,
+  isAdjacent,
   type PlayerId,
   sameColumn,
   type ZoneNumber,
@@ -59,6 +60,8 @@ const KING_ZONES = new Set([1, 2, 8]);
 const KING_ZONES_VS_1994 = new Set([1, 5]);
 /** Your monster's path: its next zones (it crushes your own battle cards there, 11.3). */
 const PATH = 2;
+/** wranglerBio: the rank IV whose rage clears the opponent's column (Godzilla (2023) EBP01-010). */
+const COLUMN_CLEAR = "EBP01-010";
 /** v2.2 (Ian, point 2): the monster card whose invasion fetches more (Godzilla (2023) ESD01-002). */
 const FETCH_MONSTER = "ESD01-002";
 /** #321: the cards kept when discarding down, while a spare monster card can go instead. */
@@ -122,6 +125,8 @@ export function wranglerV2Verdict(
   v22 = true,
   /** v2.3's changes (Ian's guide review, Nov 15); `false` is v2.2. */
   v23 = true,
+  /** `wranglerBio` (Ian, Nov 15): the Wrangler play guide's rules against Biollante. */
+  bio = true,
 ): { against: Set<Action>; rescued: Set<Action> } {
   if (!isWranglerDeck(own)) return { against: new Set(), rescued: new Set() };
   // Line 1 (v1's Despair line) goes first.
@@ -240,6 +245,15 @@ export function wranglerV2Verdict(
       }),
     );
   const kingsOut = kingIn([1, 2, 3, 4, 5, 6, 7, 8]);
+  // wranglerBio (Ian): against a Biollante deck; Meganula EBP01-045 can take 1 rage, so the
+  // King's 3 rage needs a buffer of 1.
+  const vsBio =
+    bio &&
+    (theirs?.monsterDeck.some((c) => c.name.startsWith("Biollante")) ??
+      opponent.invadingMonsterZone.some((c) =>
+        state.cards[c.cardId]?.name.startsWith("Biollante"),
+      ));
+  const kingRage = vsBio ? KING_RAGE + 1 : KING_RAGE;
 
   // Don't race: an invasion only when it wins this turn; never paid with a push card.
   for (const a of actions)
@@ -256,8 +270,8 @@ export function wranglerV2Verdict(
     ).length;
     const short =
       kingIn([1, 2, 3, 4, 5]) &&
-      player.rage < KING_RAGE &&
-      player.rage + free < KING_RAGE;
+      player.rage < kingRage &&
+      player.rage + free < kingRage;
     const counterNow =
       counters(state, me) || counterPlays(state, actions, me).size > 0;
     for (const a of actions) {
@@ -351,14 +365,14 @@ export function wranglerV2Verdict(
     for (const a of actions)
       if (a.type === "pass" || (a.type === "gainRage" && !churn.includes(a)))
         against.add(a);
-    if (kingIn([1, 2, 3, 4, 5]) && player.rage < KING_RAGE)
+    if (kingIn([1, 2, 3, 4, 5]) && player.rage < kingRage)
       for (const a of actions)
         if (a.type !== "gainRage" && a.type !== "concede") against.add(a);
   }
   // v2.1 (#316): with a King in zones 1-5 under 3 rage, no passing while any rage discard can
   // still be made, the held cards' too: the King's protection comes first. (Godzilla (1954)
   // EBP01-001's counter-phase rage needs a monster card off the top, so it isn't counted on.)
-  if (v21 && kingIn([1, 2, 3, 4, 5]) && player.rage < KING_RAGE) {
+  if (v21 && kingIn([1, 2, 3, 4, 5]) && player.rage < kingRage) {
     const rage = actions.filter((a) => a.type === "gainRage");
     if (rage.length > 0) {
       for (const a of rage) {
@@ -411,6 +425,64 @@ export function wranglerV2Verdict(
       )
     )
       for (const a of actions) if (a.type === "pass") against.add(a);
+  }
+
+  // wranglerBio (Ian, Nov 15): the Wrangler play guide's rules against Biollante.
+  if (vsBio) {
+    const theirTop = opponent.invadingMonsterZone.at(-1);
+    const theirCard = theirTop ? state.cards[theirTop.cardId] : undefined;
+    const theirAt = opponent.monsterPosition ?? 0;
+    // Keep Biollante at rank I: no play that makes the counter on its Rose Form.
+    if (theirCard?.name === "Biollante Rose Form" && !counters(state, me))
+      for (const a of actions) {
+        if (a.type === "pass" || a.type === "concede" || a.type === "invade")
+          continue;
+        const s = after(state, a, me);
+        if (s && counters(s, me)) against.add(a);
+      }
+    // Don't move Biollante out of zone 5 (zone 6 opens its 6-cost strategies).
+    for (const a of actions) {
+      const n = number(a);
+      const push =
+        (a.type === "activateStrategy" &&
+          (n === LANDING || n === SLITHERING)) ||
+        (a.type === "playMonster" && n === GODZILLA_2004);
+      if (!push || theirAt > 5) continue;
+      const s = after(state, a, me);
+      const moved = s?.players.find(
+        (p) => p.id === opponent.id,
+      )?.monsterPosition;
+      if ((moved ?? 0) > 5) against.add(a);
+    }
+    // Wait to be countered to rank IV, then the all-out invasion with Godzilla (2023) EBP01-010.
+    if (top && state.cards[top.cardId]?.deckCardNumber === COLUMN_CLEAR)
+      for (const a of actions)
+        if (a.type === "invade" && !winsNow(state, a, me)) against.delete(a);
+    // Kings spread: never two next to each other, where one Godzilla vs. Megaguirus takes both.
+    const kingZones = ([1, 2, 3, 4, 5, 6, 7, 8] as const).filter((z) =>
+      player.zones[z].some(
+        (stack) =>
+          state.cards[stack.at(-1)?.cardId ?? -1]?.deckCardNumber === KING,
+      ),
+    );
+    const nextToKing = (zone: ZoneNumber) =>
+      kingZones.some((k) =>
+        isAdjacent({ player: me, zone }, { player: me, zone: k }),
+      );
+    const kingPlays = actions.filter(
+      (a): a is Extract<Action, { type: "playBattle" }> =>
+        a.type === "playBattle" && number(a) === KING,
+    );
+    if (kingPlays.some((a) => !nextToKing(a.zone)))
+      for (const a of kingPlays) if (nextToKing(a.zone)) against.add(a);
+    // GAM down before Bio7 (EBP02-035) returns your discard pile to your deck.
+    if (actions.some((a) => a.type === "playBattle" && number(a) === GAM))
+      for (const a of actions) if (a.type === "pass") against.add(a);
+    // No strategy in play against its rank III EBP02-027 in zone 5+ (its awakening 6 makes it
+    // counter-proof while you have one).
+    if (theirCard?.deckCardNumber === "EBP02-027" && theirAt >= 5)
+      for (const a of actions)
+        if (a.type === "activateStrategy") against.add(a);
   }
 
   // Never argue against everything.
