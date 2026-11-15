@@ -11,6 +11,8 @@ import {
   getLegalActions,
   type PlayerSetup,
   type PlayerState,
+  counterPowerOf,
+  getThreat,
   startGame,
   type ZoneNumber,
 } from "@gojisim/engine";
@@ -305,6 +307,78 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
       oppZones: { 8: "EBP04-038" },
     });
     expect(ruleOf(s, isPass)).toEqual([9]);
+  });
+
+  it("rule 9 (#335): no Landing on a monster already in zone 8, nor when this turn's counter is made without it (7.4.3)", () => {
+    const landing = (s: ReturnType<typeof position>) =>
+      s.legal.filter(
+        (a) =>
+          a.type === "activateStrategy" &&
+          numberOf(s.state, s.p1, a) === "EBP01-030",
+      );
+    // Their monster in zone 8: Landing can't advance it.
+    const at8 = position({
+      turn: 6,
+      hand: ["EBP01-030"],
+      oppPosition: 8,
+      oppZones: { 7: "EBP04-038" },
+    });
+    expect(landing(at8).length).toBeGreaterThan(0);
+    for (const a of landing(at8)) expect(against(at8).has(a)).toBe(true);
+    expect(ruleOf(at8, isPass)).not.toContain(9);
+    // The counter made already (three Kaizer Ghidorah EBP04-068): Landing adds nothing.
+    const made = position({
+      turn: 6,
+      hand: ["EBP01-030"],
+      oppPosition: 4,
+      zones: { 1: "EBP04-068", 2: "EBP04-068", 3: "EBP04-068" },
+      oppZones: { 8: "EBP04-038" },
+    });
+    const me = made.state.players[0] as PlayerState;
+    expect(counterPowerOf(made.state, me)).toBeGreaterThanOrEqual(
+      getThreat(made.state, "P2"),
+    );
+    expect(landing(made).length).toBeGreaterThan(0);
+    for (const a of landing(made)) expect(against(made).has(a)).toBe(true);
+  });
+
+  it("rule 3 (#338): Manda (2004) EBP04-045 is played at full rank while it can be; its discard cost only for a card of a color the discard pile lacks", () => {
+    const costPlays = (s: ReturnType<typeof position>) =>
+      s.legal.filter(
+        (a) =>
+          a.type === "playBattle" &&
+          numberOf(s.state, s.p1, a) === "EBP04-045" &&
+          a.costCardInstanceId !== undefined,
+      );
+    // Kamacuras (2004) is red, and red is already in the discard pile: pay the full rank.
+    const red = position({
+      turn: 6,
+      hand: ["EBP04-045", "EBP04-038"],
+      discard: ["EBP04-038"],
+      oppPosition: 4,
+      oppZones: { 8: "EBP04-038" },
+    });
+    expect(costPlays(red).length).toBeGreaterThan(0);
+    expect(
+      red.legal.some(
+        (a) =>
+          a.type === "playBattle" &&
+          numberOf(red.state, red.p1, a) === "EBP04-045" &&
+          !a.costCardInstanceId,
+      ),
+    ).toBe(true);
+    for (const a of costPlays(red)) expect(against(red).has(a)).toBe(true);
+    // Gigan (2004) is green, a color the discard pile lacks: the cost may be paid.
+    const green = position({
+      turn: 6,
+      hand: ["EBP04-045", "EBP04-066"],
+      discard: ["EBP04-038"],
+      oppPosition: 4,
+      oppZones: { 8: "EBP04-038" },
+    });
+    expect(costPlays(green).length).toBeGreaterThan(0);
+    for (const a of costPlays(green))
+      expect(ruleOf(green, (b) => b === a)).not.toContain(3);
   });
 
   it("rule 10: Captured! only when nothing else makes this turn's counter", () => {
