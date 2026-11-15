@@ -1342,17 +1342,31 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
             />{" "}
             Show undone actions
           </label>
-          <label>
-            <input
-              type="checkbox"
-              data-testid="setting-invade-arrow"
-              checked={settings.invadeArrow}
-              onChange={(e) =>
-                updateSettings({ invadeArrow: e.target.checked })
-              }
-            />{" "}
-            Invade arrow
-          </label>
+          {/* #355: two short settings share a row, so the column still fits at 1440 × 900. */}
+          <div className={styles.settingsPair}>
+            <label>
+              <input
+                type="checkbox"
+                data-testid="setting-invade-arrow"
+                checked={settings.invadeArrow}
+                onChange={(e) =>
+                  updateSettings({ invadeArrow: e.target.checked })
+                }
+              />{" "}
+              Invade arrow
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                data-testid="setting-confirm-moves"
+                checked={settings.confirmMoves}
+                onChange={(e) =>
+                  updateSettings({ confirmMoves: e.target.checked })
+                }
+              />{" "}
+              Confirm moves
+            </label>
+          </div>
           <label>
             <input
               type="checkbox"
@@ -1363,17 +1377,6 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
               }
             />{" "}
             Card preview on hover
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              data-testid="setting-confirm-moves"
-              checked={settings.confirmMoves}
-              onChange={(e) =>
-                updateSettings({ confirmMoves: e.target.checked })
-              }
-            />{" "}
-            Confirm moves
           </label>
           <label>
             <input
