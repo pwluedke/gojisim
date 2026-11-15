@@ -80,8 +80,10 @@ export interface IsmctsSettings {
   recurDiscard: number;
   /** Card rule 22 (#336): 1 (the default) leaves out destroy-only strategies with no target; 0 off. */
   targetCheck: number;
-  /** The Monster X plan's #335 and #338 fixes: 1 (the default) on; 0 is the old v2. */
-  mxFixes: number;
+  /** The Monster X plan's #335 (no idle Landing): 1 (the default) on; 0 is the old rule 9. */
+  mxLanding: number;
+  /** The Monster X plan's #338 (Manda's discount as a setup play): 1 (default) on; 0 old rule 3. */
+  mxManda: number;
   /** The Monster X plan's rule 16 (#352): 1 (the default) targets their Monster X first; 0 off. */
   mxTargets: number;
   /**
@@ -128,7 +130,8 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   revengeStep: 1,
   recurDiscard: 1,
   targetCheck: 1,
-  mxFixes: 1,
+  mxLanding: 1,
+  mxManda: 1,
   mxTargets: 1,
   wranglerPlan: 2,
   wranglerV21: 1,
@@ -197,14 +200,23 @@ export function mxPlanFavored(
   player: PlayerId,
   keyOf: (a: Action) => string,
   version = 2,
-  /** `mxFixes` (#335, #338). */
-  fixes = 1,
+  /** `mxLanding` (#335). */
+  landing = 1,
+  /** `mxManda` (#338). */
+  manda = 1,
   /** `mxTargets` (#352). */
   targets = 1,
 ): Map<string, number> {
   const against =
     version >= 2
-      ? mxPlanV2Verdict(state, actions, player, fixes > 0, targets > 0)
+      ? mxPlanV2Verdict(
+          state,
+          actions,
+          player,
+          landing > 0,
+          manda > 0,
+          targets > 0,
+        )
       : mxPlanVerdict(state, actions, player);
   const keep = actions.filter((a) => a.type !== "concede" && !against.has(a));
   if (against.size === 0 || keep.length === 0) return new Map();
@@ -487,7 +499,8 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         me,
         (a) => actionKey(state, a),
         settings.mxPlan,
-        settings.mxFixes,
+        settings.mxLanding,
+        settings.mxManda,
         settings.mxTargets,
       );
     // #276: the Wrangler plan, a preference like the Monster X plan, that frees what its line
@@ -704,7 +717,8 @@ export function blunderAllowed(
     me,
     keyOf,
     settings.mxPlan,
-    settings.mxFixes,
+    settings.mxLanding,
+    settings.mxManda,
     settings.mxTargets,
   );
   const planned = allowed.filter((a) => favored.has(keyOf(a)));

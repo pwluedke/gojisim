@@ -325,7 +325,7 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     });
     expect(landing(at8).length).toBeGreaterThan(0);
     for (const a of landing(at8)) expect(against(at8).has(a)).toBe(true);
-    // `mxFixes` off (`fixes: false`): the old rule 9 casts it anyway.
+    // `mxLanding` off (`landing: false`): the old rule 9 casts it anyway.
     const old = mxPlanV2Verdict(at8.state, at8.legal, "P1", false);
     for (const a of landing(at8)) expect(old.has(a)).toBe(false);
     expect(ruleOf(at8, isPass)).not.toContain(9);
@@ -345,7 +345,7 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     for (const a of landing(made)) expect(against(made).has(a)).toBe(true);
   });
 
-  it("rule 3 (#338): Manda (2004) EBP04-045 is played at full rank while it can be; its discard cost only for a card of a color the discard pile lacks", () => {
+  it("rule 3 (#338, Paul's ruling): Manda (2004) EBP04-045's discount discard only for a card of a color the discard pile's battle cards lack (b)", () => {
     const costPlays = (s: ReturnType<typeof position>) =>
       s.legal.filter(
         (a) =>
@@ -382,6 +382,44 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     expect(costPlays(green).length).toBeGreaterThan(0);
     for (const a of costPlays(green))
       expect(ruleOf(green, (b) => b === a)).not.toContain(3);
+  });
+
+  it("rule 3 (#338, Paul's ruling): Manda (2004)'s discount cheats out the white Monster X EBP03-067 only with 2+ colors among your zones' battle cards (a); otherwise not at all, even with no full-rank play", () => {
+    const costPlays = (s: ReturnType<typeof position>) =>
+      s.legal.filter(
+        (a) =>
+          a.type === "playBattle" &&
+          numberOf(s.state, s.p1, a) === "EBP04-045" &&
+          a.costCardInstanceId !== undefined,
+      );
+    // White already in the discard pile, so (b) doesn't hold; red and green in zones: (a) does.
+    const two = position({
+      turn: 6,
+      hand: ["EBP04-045", "EBP03-067"],
+      discard: ["EBP03-067"],
+      zones: { 1: "EBP04-038", 2: "EBP04-066" },
+      oppPosition: 4,
+      oppZones: { 8: "EBP04-038" },
+    });
+    expect(costPlays(two).length).toBeGreaterThan(0);
+    for (const a of costPlays(two))
+      expect(ruleOf(two, (b) => b === a)).not.toContain(3);
+    // One color in zones: neither (a) nor (b), so the discount is argued against.
+    const one = position({
+      turn: 6,
+      hand: ["EBP04-045", "EBP03-067"],
+      discard: ["EBP03-067"],
+      zones: { 1: "EBP04-038" },
+      oppPosition: 4,
+      oppZones: { 8: "EBP04-038" },
+    });
+    expect(costPlays(one).length).toBeGreaterThan(0);
+    for (const a of costPlays(one)) expect(against(one).has(a)).toBe(true);
+    // `mxManda` off (the paired check's control): the old rule 3 leaves it.
+    for (const a of costPlays(one))
+      expect(
+        mxPlanV2Verdict(one.state, one.legal, "P1", true, false).get(a),
+      ).not.toBe(3);
   });
 
   it("rule 10: Captured! only when nothing else makes this turn's counter", () => {
@@ -498,7 +536,7 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
         })),
       };
       const legal = getLegalActions(state, "P1");
-      const dead = mxPlanV2Verdict(state, legal, "P1", true, targets);
+      const dead = mxPlanV2Verdict(state, legal, "P1", true, true, targets);
       return legal
         .filter((a) => a.type === "choose" && !dead.has(a))
         .map((a) => (a.type === "choose" ? a.optionId : ""));

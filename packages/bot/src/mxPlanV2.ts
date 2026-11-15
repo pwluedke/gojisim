@@ -43,8 +43,11 @@ import {
  * - 2: don't destroy your own battle cards (a play onto an occupied zone), unless the covered card
  *   is weaker and its color is missing from your discard pile, or the new card's from your zones.
  * - 3: invading, pay with a battle card of a color not yet in your discard pile, up to 4, and not
- *   with a key card (the plan's strategy cards). #338: Manda (2004) EBP04-045 at full rank while
- *   that's legal; its discard cost only for a card the discard pile wants (that same test).
+ *   with a key card (the plan's strategy cards). #338 (Paul, Nov 15): Manda (2004) EBP04-045's
+ *   discount (discard a non-blue battle card, rank -2) is a setup play, only (a) to cheat out the
+ *   white Monster X EBP03-067 with 2+ colors among your zones' battle cards (its ability plays it
+ *   from the discard pile), or (b) for a discard that adds a color your discard pile's battle
+ *   cards lack. Otherwise Manda at full rank, or not at all.
  * - 4, 5: Entangling Fear whenever it can be cast, to stay back (zones 3-5); never on a turn you
  *   invade.
  * - 6: early, discard monster cards for rage while you have them.
@@ -74,6 +77,25 @@ const KAIZER_WIPE = "EBP04-035";
 const KAIZER_THREAT = "EBP04-036";
 const KAIZER_BATTLE = "EBP04-068";
 const KAIZER_BATTLE_ZONES = [1, 2, 3, 8];
+/** #338: the white Monster X, which Manda (2004)'s discount cheats out of the discard pile. */
+export const WHITE_MONSTER_X = "EBP03-067";
+
+/**
+ * #338 (Paul's ruling): Manda (2004)'s discount discard is a setup play: (a) the white Monster X
+ * with 2+ colors among your zones' battle cards, or (b) a battle card of a color your discard
+ * pile's battle cards lack (the colors Kaizer Ghidorah EBP04-034/035/036 count).
+ */
+export function mandaSetup(
+  cost: ReturnType<typeof cardData>,
+  zoneColors: ReadonlySet<string>,
+  discardColors: ReadonlySet<string>,
+): boolean {
+  if (!isBattle(cost)) return false;
+  if (cost?.deckCardNumber === WHITE_MONSTER_X && zoneColors.size >= 2)
+    return true;
+  return (cost?.colors ?? []).some((c) => !discardColors.has(c));
+}
+
 /** Rule 16: the opponent's cards a zone or target choice goes for first. */
 const KEY_TARGETS = new Set([MONSTER_X_BATTLE, "EBP03-067", KAIZER_BATTLE]);
 /** The plan's strategy cards, not paid away for an invasion (rule 3). */
@@ -151,8 +173,10 @@ export function mxPlanV2Verdict(
   state: GameState,
   actions: readonly Action[],
   player: PlayerId,
-  /** `mxFixes` (#335, #338): Landing not idle, Manda (2004) at full rank; `false` is the old v2. */
-  fixes = true,
+  /** `mxLanding` (#335): no idle Landing; `false` is the old rule 9. */
+  landing = true,
+  /** `mxManda` (#338): Manda (2004)'s discount only as a setup play; `false` is the old rule 3. */
+  manda = true,
   /** `mxTargets` (#352): rule 16, the opponent's Monster X cards targeted first; `false` is off. */
   targets = true,
 ): Map<Action, number> {
@@ -313,27 +337,13 @@ export function mxPlanV2Verdict(
     if (left.some(adds)) for (const a of left) if (!adds(a)) kill(a, 3);
   }
   const invading = invades.some((a) => !dead.has(a));
-  // Rule 3 (#338): Manda (2004) EBP04-045's full rank is paid while it can be; its discard cost
-  // only when the plain play isn't legal, or to send a card the plan wants in the discard pile
-  // (a battle card, not a key card, of a color it doesn't have yet, up to 4).
-  for (const a of fixes ? actions : []) {
+  // Rule 3 (#338, Paul's ruling): Manda (2004) EBP04-045's discount is a setup play. Its discard
+  // goes only (a) for the white Monster X with 2+ colors among your zones' battle cards, or (b)
+  // for a battle card of a color your discard pile's battle cards lack; else full rank, or none.
+  for (const a of manda ? actions : []) {
     if (a.type !== "playBattle" || !a.costCardInstanceId) continue;
-    const plain = actions.some(
-      (b) =>
-        b.type === "playBattle" &&
-        b.cardInstanceId === a.cardInstanceId &&
-        b.zone === a.zone &&
-        !b.costCardInstanceId &&
-        !b.onTop === !a.onTop,
-    );
-    if (!plain) continue;
     const cost = cardData(state, handCard(a.costCardInstanceId));
-    const wanted =
-      discardColors.size < TARGET_COLORS &&
-      isBattle(cost) &&
-      !KEY_CARDS.has(cost?.deckCardNumber ?? "") &&
-      (cost?.colors ?? []).some((c) => !discardColors.has(c));
-    if (!wanted) kill(a, 3);
+    if (!mandaSetup(cost, colorsNow, discardColors)) kill(a, 3);
   }
 
   // Rule 2: no play onto your own battle card, unless it's weaker and a color is missing.
@@ -421,7 +431,7 @@ export function mxPlanV2Verdict(
 
   // Rule 9: Landing whenever it can be cast; but (#335) not on a monster already in zone 8 (it
   // can't advance), nor when the counter is made without it (it sends them back anyway).
-  if (fixes && ((opponent.monsterPosition ?? 0) >= 8 || countered))
+  if (landing && ((opponent.monsterPosition ?? 0) >= 8 || countered))
     for (const a of strategies(LANDING)) kill(a, 9);
   else if (strategies(LANDING).length > 0) for (const a of passes) kill(a, 9);
 
