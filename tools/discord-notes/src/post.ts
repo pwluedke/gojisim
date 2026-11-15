@@ -110,9 +110,9 @@ export async function runPost({
       throw new Error(`${name} must be a Discord message id (digits only).`);
   const users = parseMentions(mentions);
   checkTagged(message, users);
-  if (channelId)
-    return botPost({
-      channelId,
+  const viaBot = (channel: string) =>
+    botPost({
+      channelId: channel,
       botToken,
       message,
       replyTo,
@@ -122,22 +122,29 @@ export async function runPost({
       log,
       summary,
     });
+  if (channelId) return viaBot(channelId);
   if (!webhook) throw new Error("The DISCORD_BUGS_WEBHOOK secret isn't set.");
+  // Paul, Nov 15 (the bot is "Monarch"): #bugs posts go through the bot too, to the webhook's
+  // own channel, so every post shows as Monarch; the webhook is the fallback when that fails.
+  if (botToken) {
+    try {
+      return await viaBot((await webhookChannel(webhook, fetchImpl)).channel);
+    } catch (e) {
+      const status =
+        e instanceof Error
+          ? (/HTTP \d+/.exec(e.message)?.[0] ?? "no answer")
+          : "no answer";
+      log(
+        `The bot post failed (${status}); posting through the #bugs webhook.`,
+      );
+    }
+  }
   let text = message;
   // A webhook can't thread-reply in a text channel, so a reply starts with a link to the message.
   // The webhook's own record names its server and channel.
   if (replyTo) {
-    const res = await fetchImpl(webhook, {
-      signal: AbortSignal.timeout(20_000),
-    });
-    if (!res.ok) throw new Error("Couldn't read the webhook's channel.");
-    const info = (await res.json()) as {
-      guild_id?: string;
-      channel_id?: string;
-    };
-    if (!info.guild_id || !info.channel_id)
-      throw new Error("The webhook's record has no server or channel.");
-    text = `↪ Re: https://discord.com/channels/${info.guild_id}/${info.channel_id}/${replyTo}\n${message}`;
+    const { guild, channel } = await webhookChannel(webhook, fetchImpl);
+    text = `↪ Re: https://discord.com/channels/${guild}/${channel}/${replyTo}\n${message}`;
   }
   const length = [...text].length;
   if (length > MESSAGE_MAX)
@@ -167,6 +174,24 @@ export async function runPost({
       : `Posted #bugs message \`${id}\` (edit it later with \`edit_id\`).`,
   );
   return id;
+}
+
+/** The webhook's own record: its server and channel (#bugs). */
+async function webhookChannel(
+  webhook: string,
+  fetchImpl: typeof fetch,
+): Promise<{ guild: string; channel: string }> {
+  const res = await fetchImpl(webhook, {
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!res.ok) throw new Error("Couldn't read the webhook's channel.");
+  const info = (await res.json()) as {
+    guild_id?: string;
+    channel_id?: string;
+  };
+  if (!info.guild_id || !info.channel_id)
+    throw new Error("The webhook's record has no server or channel.");
+  return { guild: info.guild_id, channel: info.channel_id };
 }
 
 /**

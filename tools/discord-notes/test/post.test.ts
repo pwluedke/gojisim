@@ -240,17 +240,55 @@ describe("Discord post through the bot to any channel or thread (Paul, Nov 15)",
     expect(calls).toHaveLength(0);
   });
 
-  it("without channel_id, the #bugs webhook posts as before", async () => {
-    const { impl, calls } = fakeFetch(() =>
-      json({ id: "1570000000000000099" }),
+  it("without channel_id, a #bugs post goes through the bot to the webhook's own channel, so it shows as Monarch", async () => {
+    const BUGS = "1300000000000000011";
+    const { impl, calls } = fakeFetch((url) =>
+      url === WEBHOOK
+        ? json({ guild_id: "1200000000000000001", channel_id: BUGS })
+        : json({ id: "1570000000000000102" }),
     );
-    await runPost({
+    const id = await runPost({
       webhook: WEBHOOK,
       botToken: BOT,
       message: "Hi",
       fetchImpl: impl,
       log: () => {},
     });
-    expect(calls[0]?.url).toBe(`${WEBHOOK}?wait=true`);
+    expect(id).toBe("1570000000000000102");
+    expect(calls.map((c) => c.url)).toEqual([
+      WEBHOOK,
+      `https://discord.com/api/v10/channels/${BUGS}/messages`,
+    ]);
+  });
+
+  it("when the bot post fails, the #bugs webhook is the fallback; with no bot token, the webhook posts as before", async () => {
+    const BUGS = "1300000000000000011";
+    const log: string[] = [];
+    const { impl, calls } = fakeFetch((url) =>
+      url === WEBHOOK
+        ? json({ guild_id: "1200000000000000001", channel_id: BUGS })
+        : url.startsWith("https://discord.com/api/v10/channels/")
+          ? json({ message: "Missing Permissions" }, 403)
+          : json({ id: "1570000000000000099" }),
+    );
+    await runPost({
+      webhook: WEBHOOK,
+      botToken: BOT,
+      message: "Hi",
+      fetchImpl: impl,
+      log: (l) => log.push(l),
+    });
+    expect(calls.at(-1)?.url).toBe(`${WEBHOOK}?wait=true`);
+    expect(log).toContain(
+      "The bot post failed (HTTP 403); posting through the #bugs webhook.",
+    );
+    const plain = fakeFetch(() => json({ id: "1570000000000000099" }));
+    await runPost({
+      webhook: WEBHOOK,
+      message: "Hi",
+      fetchImpl: plain.impl,
+      log: () => {},
+    });
+    expect(plain.calls.map((c) => c.url)).toEqual([`${WEBHOOK}?wait=true`]);
   });
 });

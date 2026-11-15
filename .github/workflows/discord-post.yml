@@ -5,9 +5,10 @@ name: Discord post
 # ids in `mentions` can be pinged, never @everyone or roles. The new message's id goes to the run
 # summary, so `edit_id` can edit it later. The repo is public: the log shows only the HTTP status
 # and the message id, never the text or the webhook URL (docs/discord.md, `pnpm discord-post`).
-# Paul, Nov 15: with `channel_id` (a channel or thread id) it posts through the bot
-# (`DISCORD_BOT_TOKEN`) to that channel or thread instead; the log then shows the channel id and
-# the message id only.
+# Paul, Nov 15: posts go through the bot (`DISCORD_BOT_TOKEN`, named Monarch): to #bugs (the
+# webhook's own channel) by default, with the webhook only as the fallback when the bot post
+# fails, or with `channel_id` to any channel or thread. The log shows the channel id and the
+# message id only.
 on:
   workflow_dispatch:
     inputs:
