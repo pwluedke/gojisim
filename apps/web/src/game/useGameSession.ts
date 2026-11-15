@@ -39,6 +39,12 @@ export interface GameSessionOptions {
    * starts once it is false, so the delay runs after its last move's animation.
    */
   pause?: boolean;
+  /**
+   * #365 Kaiju Classroom: while this says so for the session, no bot decision starts (the player
+   * is playing the bot's turn, or rating it). It reads the session only, so the bot waits from the
+   * very render that reaches the position; a new session (a Classroom turn saved) asks again.
+   */
+  waits?: (session: Session) => boolean;
 }
 
 /**
@@ -191,6 +197,7 @@ export function useGameSession(options: GameSessionOptions = {}) {
     if (session.position !== session.record.actions.length) return;
     if (!playing && !stepping) return;
     if (pause) return;
+    if (optionsRef.current.waits?.(session)) return;
     if (jobRef.current) return;
     const who = decider as PlayerId;
     const seat = session.seats[who];

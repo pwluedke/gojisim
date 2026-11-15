@@ -70,6 +70,8 @@ export {
   type BugReport,
   type IdeaEntry,
   type CrashEntry,
+  type ClassroomRating,
+  type ClassroomTurn,
 } from "./record";
 export { canUndo, type UndoBoundary, undoBoundary, undoLast } from "./undo";
 export { isFreezeGuardOn, setFreezeGuard } from "./freeze";
@@ -84,3 +86,4 @@ export * from "./types";
 export * from "./view";
 export * from "./boardModel";
 export * from "./combos";
+export * from "./classroom";

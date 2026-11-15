@@ -25,6 +25,7 @@ import {
   uploadsPerMinuteFrom,
 } from "./games.js";
 import { isResultsUploadPath, resultsMiddleware } from "./results.js";
+import { classroomStore } from "./classroom.js";
 import { isTestDecksUploadPath, testDecksMiddleware } from "./testDecks.js";
 import { replayMiddleware } from "./h2h/replayRoute.js";
 import { reporterDeck } from "./h2h/reportDeck.js";
@@ -175,6 +176,27 @@ export function createAppServer({
   // M9a: head to head (Discord sign-in only), attached once the server exists.
   let h2h: H2h | null = null;
   const decklog = decklogMiddleware(fetchImpl);
+  // #365: Kaiju Classroom's agreement, kept next to the results from each uploaded record.
+  const classroom = classroomStore(resultsDir);
+  const posted = reportPoster({
+    webhook: reportsWebhook,
+    slackWebhook: slackReportsWebhook,
+    bugsWebhook,
+    botFeedbackWebhook,
+    // Paul, Nov 12: the reporter's Discord id in the Slack post, from the players table.
+    ...(discord
+      ? {
+          discordIdOf: (id: string) =>
+            playerById(discord.db, id)?.discordId ?? null,
+        }
+      : {}),
+    // Paul, Nov 12: a head to head reporter's own deck, for the Slack post's deck lists.
+    reporterDeckOf: (gameId, playerId) =>
+      h2h
+        ? reporterDeck(h2h.rooms, discord?.db, recordsDir, gameId, playerId)
+        : Promise.resolve(null),
+    fetchImpl: reportsFetch ?? fetchImpl,
+  });
   const games = gamesMiddleware({
     config,
     recordsDir,
@@ -183,25 +205,11 @@ export function createAppServer({
     // #151: with Discord sign-in, uploads carry the player and are indexed per player.
     ...(discord ? { playerOf: requestPlayer, db: discord.db } : {}),
     isH2hGame: (id) => h2h?.isGame(id) ?? false,
-    onStored: reportPoster({
-      webhook: reportsWebhook,
-      slackWebhook: slackReportsWebhook,
-      bugsWebhook,
-      botFeedbackWebhook,
-      // Paul, Nov 12: the reporter's Discord id in the Slack post, from the players table.
-      ...(discord
-        ? {
-            discordIdOf: (id: string) =>
-              playerById(discord.db, id)?.discordId ?? null,
-          }
-        : {}),
-      // Paul, Nov 12: a head to head reporter's own deck, for the Slack post's deck lists.
-      reporterDeckOf: (gameId, playerId) =>
-        h2h
-          ? reporterDeck(h2h.rooms, discord?.db, recordsDir, gameId, playerId)
-          : Promise.resolve(null),
-      fetchImpl: reportsFetch ?? fetchImpl,
-    }),
+    onStored: (record, earlier, file) =>
+      Promise.all([
+        posted(record, earlier, file),
+        classroom.onStored(record, file),
+      ]),
     ...(now ? { now } : {}),
   });
   // #152: My decks and Settings per player (404 without Discord sign-in).
@@ -283,6 +291,8 @@ export function createAppServer({
       if (!(await passes((next) => decklog(req, res, next)))) return;
       if (replay && !(await passes((next) => replay(req, res, next)))) return;
       if (!(await passes((next) => games(req, res, next)))) return;
+      if (!(await passes((next) => classroom.middleware(req, res, next))))
+        return;
       if (!(await passes((next) => results(req, res, next)))) return;
       if (!(await passes((next) => testDecks(req, res, next)))) return;
       if (!(await passes((next) => cards(req, res, next)))) return;

@@ -107,6 +107,8 @@ export function NewGame({
     picked: [DeckOption, DeckOption],
     seats: Record<PlayerId, SeatConfig>,
     matchMode: MatchMode,
+    /** #365: Kaiju Classroom (the player plays each bot turn first), against one bot only. */
+    classroom: boolean,
   ) => void;
 }) {
   // #161: the starters, then (#359) the server's test decks, then My decks (synced when signed
@@ -160,6 +162,8 @@ export function NewGame({
   const [recordName, setRecordName] = useState<string | null>(null);
   const [seed, setSeed] = useState(() => String(randomSeed()));
   const [matchMode, setMatchMode] = useState<MatchMode>("casual");
+  // #365: the game mode against a bot, beside the bot level: a normal game or Kaiju Classroom.
+  const [classroomPicked, setClassroomPicked] = useState(false);
   const byKey = (key: string) =>
     options.find((o) => o.key === key) ?? (options[0] as DeckOption);
   const tournament = matchMode === "tournament";
@@ -188,6 +192,9 @@ export function NewGame({
     const key = randomDeckKey(randomCandidates, keys[id]);
     if (key) setKeys((k) => ({ ...k, [id]: key }));
   };
+  const vsOneBot =
+    PLAYER_IDS.filter((id) => seats[id].kind === "human").length === 1 &&
+    PLAYER_IDS.filter((id) => seats[id].kind === "bot").length === 1;
   return (
     <form
       className={styles.screen}
@@ -199,6 +206,7 @@ export function NewGame({
           [byKey(keys.P1), byKey(keys.P2)],
           seats,
           matchMode,
+          classroomPicked && vsOneBot,
         );
       }}
     >
@@ -440,6 +448,25 @@ export function NewGame({
                       {BETA_LOCK_NOTE}
                     </span>
                   )}
+                </div>
+              )}
+              {seat.kind === "bot" && vsOneBot && (
+                <div
+                  className={styles.line}
+                  title="Kaiju Classroom: you play each of the bot's turns first, from its seat; then the bot plays its own and you compare. Left out of statistics and achievements."
+                >
+                  <span>Mode</span>
+                  <select
+                    aria-label="Game mode"
+                    data-testid="game-mode"
+                    value={classroomPicked ? "classroom" : "game"}
+                    onChange={(e) =>
+                      setClassroomPicked(e.target.value === "classroom")
+                    }
+                  >
+                    <option value="game">Normal game</option>
+                    <option value="classroom">Kaiju Classroom</option>
+                  </select>
                 </div>
               )}
             </div>
