@@ -235,11 +235,8 @@ test("several destroys at once play together (ESD01-007's [enter])", async ({
       "utf8",
     ),
   ) as { next: { optionId: string } };
-  await page
-    .locator(
-      `[data-testid="choice-option"][data-option="${fixture.next.optionId}"]`,
-    )
-    .click();
+  // #357: a zone choice is answered on the mat (its lit zone), not by a button.
+  await page.locator(`[data-zone-choice="${fixture.next.optionId}"]`).click();
   // Both shatters are on screen at the same time.
   await expect(
     page.locator('[data-testid="flight"][data-shatter="true"]'),
