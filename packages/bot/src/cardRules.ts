@@ -137,6 +137,9 @@ import type { Decklist } from "./types";
  *    monster card (the next one up after a counter) isn't the one to go while a higher-rank
  *    monster card or a spare copy of a monster card can go; rule 24's recurring card first. Any
  *    deck.
+ * 29. #314 (Tuscancow; Paul's Tangler signature): a Tangler deck (Godzilla (2002) EBP03-014 and
+ *    EBP03-015 in its monster deck, Entangling Fear EBP04-081 in its main deck) doesn't invade
+ *    before its own turn 4 unless the invasion wins the game this turn.
  */
 
 type Json = Record<string, unknown>;
@@ -604,14 +607,37 @@ export function slowCounterDeck(deck: Decklist | undefined): boolean {
   );
 }
 
-/** Rule 6: a slow counter deck's invasions that don't win now. */
+/** Rule 29 (Paul): a Tangler deck's signature, its monster deck's Godzilla (2002) and Entangling Fear. */
+export function tanglerDeck(deck: Decklist | undefined): boolean {
+  if (!deck) return false;
+  const monsters = new Set(deck.monsterDeck.map((c) => c.deckCardNumber));
+  return (
+    monsters.has("EBP03-014") &&
+    monsters.has("EBP03-015") &&
+    deck.mainDeck.some((c) => c.deckCardNumber === "EBP04-081")
+  );
+}
+
+/** Rule 29: a Tangler deck stays back through its own turn 3. */
+const TANGLER_FIRST_INVASION_TURN = 4;
+
+/**
+ * Rule 6: a slow counter deck's invasions that don't win now; rule 29 (`tangler`), a Tangler
+ * deck's before its own turn 4.
+ */
 function slowInvasions(
   state: GameState,
   actions: readonly Action[],
   me: PlayerId,
   own: Decklist | undefined,
+  tangler = false,
 ): Action[] {
-  if (state.pendingChoice || !slowCounterDeck(own)) return [];
+  // The player's own turn count: 1 on their first turn (the turns alternate).
+  const ownTurn = Math.floor((state.turn + 1) / 2);
+  const holds = tangler
+    ? tanglerDeck(own) && ownTurn < TANGLER_FIRST_INVASION_TURN
+    : slowCounterDeck(own);
+  if (state.pendingChoice || !holds) return [];
   return actions.filter((a) => {
     if (a.type !== "invade" && a.type !== "invadeFromDeck") return false;
     try {
@@ -1515,6 +1541,8 @@ export interface CardRulesOptions {
   keepStrategy?: boolean;
   /** Rule 28 (#326): the only copy of a lower-rank monster card is kept (default). */
   keepLowRank?: boolean;
+  /** Rule 29 (#314): a Tangler deck doesn't invade before its turn 4 (default). */
+  tanglerEarly?: boolean;
 }
 
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
@@ -1556,6 +1584,9 @@ export function cardRulesDead(
   for (const action of recurringPlays(state, actions, me)) dead.add(action);
   for (const action of spentCounters(state, actions, me)) dead.add(action);
   for (const action of slowInvasions(state, actions, me, own)) dead.add(action);
+  if (options.tanglerEarly !== false)
+    for (const action of slowInvasions(state, actions, me, own, true))
+      dead.add(action);
   for (const action of zoneLimitedPlays(state, actions, me)) dead.add(action);
   for (const action of unsafeAdvances(state, actions, me)) dead.add(action);
   for (const action of weakEvolutions(state, actions, me)) dead.add(action);

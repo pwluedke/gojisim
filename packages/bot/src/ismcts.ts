@@ -84,6 +84,8 @@ export interface IsmctsSettings {
   keepStrategy: number;
   /** Card rule 28 (#326): 1 (the default) keeps the only lower-rank monster card; 0 is off. */
   keepLowRank: number;
+  /** Card rule 29 (#314): 1 (the default) keeps a Tangler deck back through its turn 3; 0 off. */
+  tanglerEarly: number;
   /** #339: 1 (the default) keeps a [revenge] card out of zone 8 unless it's stepped on; 0 is off. */
   revengeStep: number;
   /** Card rule 24 (#325, #329): 1 (the default) discards a recurring card first; 0 is off. */
@@ -136,6 +138,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   activeInvading: 1,
   keepStrategy: 1,
   keepLowRank: 1,
+  tanglerEarly: 1,
   revengeStep: 1,
   recurDiscard: 1,
   ownCover: 1,
@@ -449,6 +452,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         activeInvading: settings.activeInvading > 0,
         keepStrategy: settings.keepStrategy > 0,
         keepLowRank: settings.keepLowRank > 0,
+        tanglerEarly: settings.tanglerEarly > 0,
         revengeStep: settings.revengeStep > 0,
         recurDiscard: settings.recurDiscard > 0,
         ownCover: settings.ownCover > 0,
@@ -659,6 +663,7 @@ function cardRulesSafe(
   activeInvading = 1,
   keepStrategy = 1,
   keepLowRank = 1,
+  tanglerEarly = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
     counterFirst: counterFirst > 0,
@@ -671,6 +676,7 @@ function cardRulesSafe(
     activeInvading: activeInvading > 0,
     keepStrategy: keepStrategy > 0,
     keepLowRank: keepLowRank > 0,
+    tanglerEarly: tanglerEarly > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
   return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
@@ -717,6 +723,7 @@ export function blunderAllowed(
     settings.activeInvading,
     settings.keepStrategy,
     settings.keepLowRank,
+    settings.tanglerEarly,
   );
   const allowed =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
@@ -764,6 +771,7 @@ export function decide(input: BotInput): Decision {
               settings.activeInvading,
               settings.keepStrategy,
               settings.keepLowRank,
+              settings.tanglerEarly,
             )
           : [...legalActions];
     return {

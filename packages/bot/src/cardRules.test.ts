@@ -28,6 +28,7 @@ import {
   recursFromDiscard,
   rescuedPlays,
   slowCounterDeck,
+  tanglerDeck,
 } from "./cardRules";
 import type { Decklist } from "./types";
 import { difficultySettings, PRESETS } from "./difficulty";
@@ -512,6 +513,46 @@ describe(
         expect(
           cardRulesDead(state, winning.legal, "P1", deckWith(4)).has(a),
         ).toBe(false);
+    });
+
+    it("rule 29 (#314, Tuscancow's record 14874e56, move 2): a Tangler deck (Godzilla (2002) EBP03-014 and EBP03-015, Entangling Fear EBP04-081) doesn't invade before its own turn 4; from turn 4 it may", () => {
+      const tangler: Decklist = {
+        monsterDeck: ["EBP03-014", "EBP03-015", "EPR-020", "EBP03-013"].map(
+          real,
+        ),
+        mainDeck: [
+          real("EBP04-081"),
+          ...Array.from({ length: 49 }, () => real("ESD01-004")),
+        ],
+      };
+      expect(tanglerDeck(tangler)).toBe(true);
+      // Monster X's Entangling Fear alone isn't a Tangler: no Godzilla (2002) monster deck.
+      expect(tanglerDeck({ ...tangler, monsterDeck: [] })).toBe(false);
+      const { state, p1 } = withGodzilla1995();
+      p1.hand = [add(state, real("ESD01-016"), "P1")];
+      p1.monsterPosition = 2;
+      const invadesAt = (turn: number) => {
+        state.turn = turn;
+        const legal = getLegalActions(state, "P1");
+        const invade = legal.filter((a) => a.type === "invade");
+        expect(invade.length).toBeGreaterThan(0);
+        return {
+          on: invade.map((a) =>
+            cardRulesDead(state, legal, "P1", tangler).has(a),
+          ),
+          off: invade.map((a) =>
+            cardRulesDead(state, legal, "P1", tangler, {
+              tanglerEarly: false,
+            }).has(a),
+          ),
+        };
+      };
+      // Its own turn 2 (game turn 3 or 4): left out; `tanglerEarly: false` (the control) keeps it.
+      const early = invadesAt(3);
+      for (const d of early.on) expect(d).toBe(true);
+      for (const d of early.off) expect(d).toBe(false);
+      // Its own turn 4 (game turn 7): it may invade.
+      for (const d of invadesAt(7).on) expect(d).toBe(false);
     });
 
     /**
