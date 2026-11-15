@@ -170,7 +170,9 @@ function WinChart({
               <VerdictTag v={verdict(d)} />
               <span className={styles.meta}>
                 {d.deck} · {check.date}
-                {check.pr ? ` · ${check.pr}` : ""} · {check.level}
+                {check.pr ? ` · ${check.pr}` : ""}
+                {check.switch ? ` · switch ${check.switch}` : ""} ·{" "}
+                {check.level}
               </span>
             </div>
             <Bar

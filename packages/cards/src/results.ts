@@ -45,6 +45,8 @@ export interface Check {
   change: string;
   /** The PR ("#320") or branch, when there is one. */
   pr?: string;
+  /** The bot switch the check turned off for A (`packages/bot/SWITCHES.md`), e.g. `counterAlways`. */
+  switch?: string;
   commit?: string;
   level: "Hard" | "Medium";
   /** How the seeds were paired, in plain words ("paired, same seeds in both arms"). */
@@ -150,6 +152,7 @@ export function validateResults(data: unknown): string[] {
       "date",
       "change",
       "pr",
+      "switch",
       "commit",
       "level",
       "seeds",
@@ -162,6 +165,14 @@ export function validateResults(data: unknown): string[] {
     if (c["level"] !== "Hard" && c["level"] !== "Medium")
       problems.push(`${where}: level is Hard or Medium`);
     if (!text(c["seeds"])) problems.push(`${where}: no seeds note`);
+    if (
+      c["switch"] !== undefined &&
+      !(
+        typeof c["switch"] === "string" &&
+        /^[a-zA-Z][a-zA-Z0-9]*$/.test(c["switch"])
+      )
+    )
+      problems.push(`${where}: switch is a setting name`);
     if (!Array.isArray(c["decks"]) || c["decks"].length === 0)
       problems.push(`${where}: no decks`);
     for (const [j, d] of (Array.isArray(c["decks"])

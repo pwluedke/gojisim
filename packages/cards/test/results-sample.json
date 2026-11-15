@@ -74,7 +74,8 @@
           "aWins": 50,
           "bWins": 52
         }
-      ]
+      ],
+      "switch": "sampleSwitch"
     }
   ],
   "runs": [

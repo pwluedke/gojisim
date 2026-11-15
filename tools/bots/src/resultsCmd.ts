@@ -34,6 +34,8 @@ const { values, positionals } = parseArgs({
     name: { type: "string" },
     plans: { type: "string" },
     pr: { type: "string" },
+    /** The bot switch the check turned off for A (packages/bot/SWITCHES.md). */
+    switch: { type: "string" },
     commit: { type: "string" },
     date: { type: "string" },
     level: { type: "string", default: "Hard" },
@@ -186,6 +188,7 @@ async function main() {
         date: values.date ?? today,
         change: values.change,
         ...(values.pr ? { pr: values.pr } : {}),
+        ...(values.switch ? { switch: values.switch } : {}),
         ...(values.commit ? { commit: values.commit } : {}),
         level: values.level === "Medium" ? "Medium" : "Hard",
         seeds: values.seeds ?? "paired, same seeds in both arms",
