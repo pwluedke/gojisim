@@ -12,7 +12,9 @@ describe("@gojisim/web", () => {
     // Play vs bot, Play online (M9b), Debug and What's new (#134), and the header's home link
     // (#211).
     expect(html).toContain('href="/online"');
-    expect(html.match(/<a /g)).toHaveLength(6);
+    expect(html.match(/<a /g)).toHaveLength(7);
+    // #340: the results page.
+    expect(html).toContain('href="/results"');
     // #157: the Deckbuilder.
     expect(html).toContain('href="/decks"');
     expect(html).toContain(
