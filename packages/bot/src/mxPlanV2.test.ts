@@ -482,4 +482,37 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     );
     expect(pay.some((a) => !against(zone).has(a))).toBe(true);
   });
+
+  it("rule 16 (#352, Tuscancow): choosing which of the opponent's zones to hit, one with their Monster X battle cards (EBP04-047, EBP03-067) goes over one with weaker cards (10.5.2.2)", () => {
+    const pick = (targets: boolean, oppZones: Setup["oppZones"]) => {
+      const { state } = position({ oppZones });
+      state.pendingChoice = {
+        id: 992,
+        player: "P1",
+        kind: "zone",
+        rule: "10.5.2.2",
+        options: [1, 2, 8].map((z) => ({
+          id: `P2:${z}`,
+          cardId: null,
+          abilityId: null,
+        })),
+      };
+      const legal = getLegalActions(state, "P1");
+      const dead = mxPlanV2Verdict(state, legal, "P1", true, targets);
+      return legal
+        .filter((a) => a.type === "choose" && !dead.has(a))
+        .map((a) => (a.type === "choose" ? a.optionId : ""));
+    };
+    // Blue Monster X in zone 1, white in zone 2, a weaker battle card in zone 8: 1 and 2 are left.
+    const board = { 1: "EBP04-047", 2: "EBP03-067", 8: "EBP04-038" } as const;
+    expect(pick(true, board)).toEqual(["P2:1", "P2:2"]);
+    // `mxTargets=0` (the paired check's control): every zone stays.
+    expect(pick(false, board)).toEqual(["P2:1", "P2:2", "P2:8"]);
+    // No Monster X on their board: the rule says nothing.
+    expect(pick(true, { 1: "EBP04-038", 8: "EBP04-038" })).toEqual([
+      "P2:1",
+      "P2:2",
+      "P2:8",
+    ]);
+  });
 });

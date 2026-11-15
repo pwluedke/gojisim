@@ -9,6 +9,7 @@ import {
   isBattle,
   type PlayerId,
   type PlayerState,
+  type ZoneNumber,
 } from "@gojisim/engine";
 import { makesCounter } from "./cfPlan";
 import {
@@ -64,12 +65,17 @@ import {
  *   Thousand-Year Dragon King Ghidorah's wipe.
  * - 14: invade only when (a) it wins this turn, (b) from your turn 5 it reaches the zone a
  *   strategy card in hand needs, or (c) it wins in fewer of your turns than countering.
+ * - 16 (#352, Tuscancow): choosing one of the opponent's zones or battle cards (to destroy), one
+ *   holding their Monster X (EBP04-047, EBP03-067) or Kaizer Ghidorah EBP04-068 goes first, the
+ *   most of them first. (15 is v3's, not built.)
  */
 const EARLY_TURNS = 4;
 const KAIZER_WIPE = "EBP04-035";
 const KAIZER_THREAT = "EBP04-036";
 const KAIZER_BATTLE = "EBP04-068";
 const KAIZER_BATTLE_ZONES = [1, 2, 3, 8];
+/** Rule 16: the opponent's cards a zone or target choice goes for first. */
+const KEY_TARGETS = new Set([MONSTER_X_BATTLE, "EBP03-067", KAIZER_BATTLE]);
 /** The plan's strategy cards, not paid away for an invasion (rule 3). */
 const KEY_CARDS = new Set([
   CAPTURED,
@@ -147,6 +153,8 @@ export function mxPlanV2Verdict(
   player: PlayerId,
   /** `mxFixes` (#335, #338): Landing not idle, Manda (2004) at full rank; `false` is the old v2. */
   fixes = true,
+  /** `mxTargets` (#352): rule 16, the opponent's Monster X cards targeted first; `false` is off. */
+  targets = true,
 ): Map<Action, number> {
   const dead = new Map<Action, number>();
   const kill = (a: Action, rule: number) => {
@@ -189,6 +197,42 @@ export function mxPlanV2Verdict(
       if (onlyBlue || stronger)
         for (const a of actions)
           if (a.type === "choose" && a.optionId === "yes") kill(a, 11);
+    }
+    // Rule 16 (#352): a choice among the opponent's zones or battle cards goes for their Monster X
+    // and Kaizer Ghidorah first, the most of them first.
+    if (
+      targets &&
+      choice.player === player &&
+      (choice.kind === "zone" || choice.kind === "target")
+    ) {
+      const keys = (cards: readonly { cardId: number }[]) =>
+        cards.filter((c) =>
+          KEY_TARGETS.has(state.cards[c.cardId]?.deckCardNumber ?? ""),
+        ).length;
+      const theirCards = Object.values(opponent.zones).flatMap((stacks) =>
+        stacks.flat(),
+      );
+      const keysOf = (id: string): number | null => {
+        if (choice.kind === "zone") {
+          const [owner, zone] = id.split(":");
+          if (owner !== opponent.id) return null;
+          return keys(
+            (opponent.zones[Number(zone) as ZoneNumber] ?? []).flat(),
+          );
+        }
+        const card = theirCards.find((c) => c.instanceId === id);
+        return card ? keys([card]) : null;
+      };
+      const scored = choice.options
+        .filter((o) => o.id !== "done")
+        .map((o) => ({ id: o.id, keys: keysOf(o.id) }));
+      const best = Math.max(0, ...scored.map((o) => o.keys ?? 0));
+      if (best > 0 && scored.every((o) => o.keys !== null))
+        for (const a of actions)
+          if (a.type === "choose") {
+            const k = scored.find((o) => o.id === a.optionId)?.keys;
+            if (k !== undefined && k !== null && k < best) kill(a, 16);
+          }
     }
     return dead;
   }
