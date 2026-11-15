@@ -4,6 +4,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { join } from "node:path";
 import {
   type Check,
+  type Read,
   type ResultsData,
   type Run,
   validateResults,
@@ -13,7 +14,8 @@ import { readBody } from "./games.js";
 /*
  * #340: the results page's data (what each bot change did, by deck), kept on the server's volume
  * and never in the repo (Paul, Nov 14). `GET /api/results` is behind the site sign-in like the
- * rest of the site; `POST /api/results/upload` takes a check or a run from the `tools/bots` script
+ * rest of the site; `POST /api/results/upload` takes a check, a run or a players' read from the
+ * `tools/bots` script
  * with the token in `RESULTS_UPLOAD_TOKEN`, and answers 404 when no token is set.
  */
 
@@ -33,13 +35,21 @@ export async function readResults(dir: string): Promise<ResultsData> {
   }
 }
 
+/** An upload: a check, a run, or a players' read (#340 part b). */
+export type ResultsEntry = { check: Check } | { run: Run } | { read: Read };
+
 /**
  * `data` with `entry` added, replacing an entry of the same id (a re-upload of a check).
  */
-export function withEntry(
-  data: ResultsData,
-  entry: { check: Check } | { run: Run },
-): ResultsData {
+export function withEntry(data: ResultsData, entry: ResultsEntry): ResultsData {
+  if ("read" in entry)
+    return {
+      ...data,
+      reads: [
+        ...(data.reads ?? []).filter((r) => r.id !== entry.read.id),
+        entry.read,
+      ],
+    };
   if ("check" in entry)
     return {
       ...data,
@@ -120,17 +130,14 @@ export function resultsMiddleware({
     const isEntry =
       typeof entry === "object" &&
       entry !== null &&
-      ("check" in entry || "run" in entry) &&
+      ("check" in entry || "run" in entry || "read" in entry) &&
       Object.keys(entry).length === 1;
     if (!isEntry) {
-      json(res, 400, { error: "expected { check } or { run }" });
+      json(res, 400, { error: "expected { check }, { run } or { read }" });
       return;
     }
     const done = queue.then(async () => {
-      const next = withEntry(
-        await readResults(dir),
-        entry as { check: Check } | { run: Run },
-      );
+      const next = withEntry(await readResults(dir), entry as ResultsEntry);
       const problems = validateResults(next);
       if (problems.length > 0) return { status: 400, body: { problems } };
       await mkdir(dir, { recursive: true });
@@ -140,7 +147,11 @@ export function resultsMiddleware({
       await rename(`${file}.tmp`, file);
       return {
         status: 200,
-        body: { checks: next.checks.length, runs: next.runs.length },
+        body: {
+          checks: next.checks.length,
+          runs: next.runs.length,
+          reads: next.reads?.length ?? 0,
+        },
       };
     });
     queue = done.catch(() => undefined);

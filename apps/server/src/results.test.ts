@@ -104,6 +104,25 @@ describe("#340 results routes", () => {
     expect(stored.checks).toHaveLength(2);
   });
 
+  it("a players' read uploads like a check (#340 part b)", async () => {
+    const { call } = await serve({ resultsToken: TOKEN });
+    const read = {
+      read: {
+        id: "kg-red",
+        date: "2026-01-10",
+        decks: ["Sample A"],
+        against: ["Sample B"],
+        read: "favoured",
+        source: "sample thread",
+      },
+    };
+    expect((await upload(call, read)).status).toBe(200);
+    const data = (await (await call("/api/results")).json()) as {
+      reads: { id: string }[];
+    };
+    expect(data.reads.map((r) => r.id)).toEqual(["kg-red"]);
+  });
+
   it("an entry that fails the schema is refused (400) and nothing is stored", async () => {
     const { call } = await serve({ resultsToken: TOKEN });
     const bad = check("a");

@@ -48,11 +48,21 @@ test("the page explains itself, then shows mistakes, win rates, the decks over t
   await expect(
     page.getByTestId("numbers-table").locator("tbody tr"),
   ).toHaveCount(3);
+  // Players say (#340 part b): the sample's Wrangler-Ghidorat read, from both sides, with the
+  // rough guide; the bot's 67% fits "favoured", so nothing disagrees.
+  await expect(page.getByTestId("heat-read")).toHaveCount(2);
+  await expect(page.getByTestId("read-bands")).toContainText("Rough guide");
+  await expect(page.getByTestId("disagree")).toHaveCount(0);
   // Show all: the other deck too.
   await page.getByTestId("results-show-all").check();
   await expect(page.getByTestId("win-row")).toHaveCount(4);
   await expect(page.getByTestId("heat-cell")).toHaveCount(6);
   await expect(page.getByTestId("over-time-series")).toHaveCount(3);
+  // The other deck's "heavily favoured" read against its 48%: a disagreement.
+  await expect(page.getByTestId("heat-read")).toHaveCount(4);
+  await expect(page.getByTestId("disagree")).toContainText(
+    "Other deck (sample) vs Ghidorat (sample)",
+  );
 });
 
 test("the table sorts by a column's heading", async ({ page }) => {

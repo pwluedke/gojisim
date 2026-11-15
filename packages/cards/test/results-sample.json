@@ -74,7 +74,8 @@
           "aWins": 50,
           "bWins": 52
         }
-      ]
+      ],
+      "switch": "sampleSwitch"
     }
   ],
   "runs": [
@@ -88,11 +89,7 @@
           "row": "Wrangler (sample)",
           "column": "Ghidorat (sample)",
           "wins": 40,
-          "games": 60,
-          "playersSay": {
-            "read": "favoured",
-            "source": "sample guide"
-          }
+          "games": 60
         },
         {
           "row": "Ghidorat (sample)",
@@ -125,6 +122,25 @@
           "games": 60
         }
       ]
+    }
+  ],
+  "reads": [
+    {
+      "id": "sample-read-1",
+      "date": "2026-01-11",
+      "decks": ["Wrangler (sample)"],
+      "against": ["Ghidorat (sample)"],
+      "read": "favoured",
+      "source": "sample thread"
+    },
+    {
+      "id": "sample-read-2",
+      "date": "2026-01-11",
+      "decks": ["Other deck (sample)"],
+      "against": ["Ghidorat (sample)"],
+      "read": "heavily favoured",
+      "source": "sample thread",
+      "note": "a made-up read"
     }
   ]
 }
