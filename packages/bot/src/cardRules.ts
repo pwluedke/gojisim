@@ -126,6 +126,10 @@ import type { Decklist } from "./types";
  *    it (5, 4 or 3), where a counter moves it back and crushes the card (5.15.1.1, 11.3), while
  *    that card has a legal play into an empty zone off your monster's path and not behind it;
  *    [revenge] cards excepted, as in rule 21. Any deck.
+ * 26. #328 (Keldroc, Ian): with your top monster's [invading] ability active (its count of cards
+ *    under it met, Thousand-Year Dragon King Ghidorah EBP03-029) and an invasion legal, no monster
+ *    card without an [invading] ability on top of it; but a play that wins now or makes the
+ *    counter. Any deck.
  */
 
 type Json = Record<string, unknown>;
@@ -922,6 +926,53 @@ function ownPathPlays(
   return dead;
 }
 
+/** Rule 26: an [invading] ability's under-count condition (`>= N` cards under it), if it has one. */
+function invadingNeeds(deckCardNumber: string | undefined): number | null {
+  if (!deckCardNumber) return null;
+  for (const ability of getCardAbilities(deckCardNumber).abilities) {
+    const a = ability as unknown as Json;
+    const trigger = a["trigger"] as Json | undefined;
+    if (a["kind"] !== "triggered" || trigger?.["on"] !== "invading") continue;
+    const condition = a["condition"] as Json | undefined;
+    const count = condition?.["count"] as Json | undefined;
+    if (
+      count?.["area"] === "under" &&
+      count["stackOf"] === "this" &&
+      condition?.["op"] === ">=" &&
+      typeof condition["value"] === "number"
+    )
+      return condition["value"];
+    return 0;
+  }
+  return null;
+}
+
+/** Rule 26: monster plays that bury an active [invading] ability while an invasion is legal. */
+function buriedInvadingPlays(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const player = state.players.find((p) => p.id === me);
+  const top = player?.invadingMonsterZone.at(-1);
+  if (!player || !top || state.pendingChoice) return [];
+  const needs = invadingNeeds(state.cards[top.cardId]?.deckCardNumber);
+  if (needs === null || player.invadingMonsterZone.length - 1 < needs)
+    return [];
+  if (!actions.some((a) => a.type === "invade" || a.type === "invadeFromDeck"))
+    return [];
+  const making = counterPlays(state, actions, me, true);
+  return actions.filter((a) => {
+    if (a.type !== "playMonster") return false;
+    const c = [...player.hand, ...player.monsterDeck].find(
+      (h) => h.instanceId === a.cardInstanceId,
+    );
+    const number = c ? state.cards[c.cardId]?.deckCardNumber : undefined;
+    if (invadingNeeds(number) !== null) return false;
+    return !making.has(a) && !winsNow(state, a, me);
+  });
+}
+
 /** Rule 24: discards of other cards while one that comes back from the discard pile can go. */
 function recurringDiscards(
   state: GameState,
@@ -1364,6 +1415,8 @@ export interface CardRulesOptions {
   ownCover?: boolean;
   /** Rule 25 (#337): no battle card in the zone behind your monster in 6-8 (default). */
   ownBehind?: boolean;
+  /** Rule 26 (#328): an active [invading] ability isn't buried under a monster (default). */
+  activeInvading?: boolean;
 }
 
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
@@ -1430,6 +1483,9 @@ export function cardRulesDead(
       if (!winsNow(state, action, me)) dead.add(action);
   if (options.ownPath !== false)
     for (const action of ownPathPlays(state, actions, me)) dead.add(action);
+  if (options.activeInvading !== false)
+    for (const action of buriedInvadingPlays(state, actions, me))
+      dead.add(action);
   if (options.ownBehind !== false)
     for (const action of ownPathPlays(state, actions, me, true))
       dead.add(action);

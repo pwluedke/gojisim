@@ -1105,6 +1105,43 @@ describe(
         if (a.type === "playBattle") expect(at4.has(a)).toBe(false);
     });
 
+    it("rule 26 (#328, Keldroc's record 815bc729, move 83): with Thousand-Year Dragon King Ghidorah EBP03-029's [invading] modes active (7 cards under it) and an invasion legal, Mecha-King Ghidorah EBP02-051 isn't stacked on it; a second EBP03-029 may be", () => {
+      const { state, p1 } = withGodzilla1995();
+      // Your monster: EBP03-029 on top of 7 King Ghidorah cards (its 7-card condition met).
+      p1.monsterPosition = 3;
+      p1.invadingMonsterZone = [
+        ...Array.from({ length: 7 }, () => add(state, real("EBP02-045"), "P1")),
+        add(state, real("EBP03-029"), "P1"),
+      ];
+      const mecha = add(state, real("EBP02-051"), "P1");
+      const copy = add(state, real("EBP03-029"), "P1");
+      // An icon-1 battle card to invade with.
+      p1.hand = [mecha, copy, add(state, real("EBP01-002"), "P1")];
+      const legal = getLegalActions(state, "P1");
+      const stack = (id: string) =>
+        legal.find((a) => a.type === "playMonster" && a.cardInstanceId === id);
+      expect(stack(mecha.instanceId)).toBeDefined();
+      expect(stack(copy.instanceId)).toBeDefined();
+      expect(legal.some((a) => a.type === "invade")).toBe(true);
+      const dead = cardRulesDead(state, legal, "P1");
+      expect(dead.has(stack(mecha.instanceId)!)).toBe(true);
+      expect(dead.has(stack(copy.instanceId)!)).toBe(false);
+      // `activeInvading: false` (the paired check's control): the stack is the search's call.
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        activeInvading: false,
+      });
+      expect(off.has(stack(mecha.instanceId)!)).toBe(false);
+      // With 6 cards under it the modes aren't active: the rule is silent.
+      p1.invadingMonsterZone = p1.invadingMonsterZone.slice(1);
+      const legal6 = getLegalActions(state, "P1");
+      const dead6 = cardRulesDead(state, legal6, "P1");
+      const stack6 = legal6.find(
+        (a) =>
+          a.type === "playMonster" && a.cardInstanceId === mecha.instanceId,
+      );
+      expect(stack6 && dead6.has(stack6)).toBe(false);
+    });
+
     it("rule 21: a [revenge] card (Dorat EBP02-058) is left to rule 17, which wants it on the path", () => {
       const { state, p1 } = withGodzilla1995();
       p1.monsterPosition = 3;
