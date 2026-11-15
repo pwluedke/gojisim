@@ -74,6 +74,8 @@ export interface IsmctsSettings {
   counterAlways: number;
   /** Card rule 21 (#304): 1 (the default) keeps battle cards off your own monster's path; 0 is off. */
   ownPath: number;
+  /** Card rule 25 (#337): 1 (the default) keeps battle cards out of the zone behind; 0 is off. */
+  ownBehind: number;
   /** #339: 1 (the default) keeps a [revenge] card out of zone 8 unless it's stepped on; 0 is off. */
   revengeStep: number;
   /** Card rule 24 (#325, #329): 1 (the default) discards a recurring card first; 0 is off. */
@@ -121,6 +123,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   counterFirst: 1,
   counterAlways: 1,
   ownPath: 1,
+  ownBehind: 1,
   revengeStep: 1,
   recurDiscard: 1,
   ownCover: 1,
@@ -426,6 +429,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         counterFirst: settings.counterFirst > 0,
         counterAlways: settings.counterAlways > 0,
         ownPath: settings.ownPath > 0,
+        ownBehind: settings.ownBehind > 0,
         revengeStep: settings.revengeStep > 0,
         recurDiscard: settings.recurDiscard > 0,
         ownCover: settings.ownCover > 0,
@@ -632,6 +636,7 @@ function cardRulesSafe(
   revengeStep = 1,
   recurDiscard = 1,
   ownCover = 1,
+  ownBehind = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
     counterFirst: counterFirst > 0,
@@ -640,6 +645,7 @@ function cardRulesSafe(
     revengeStep: revengeStep > 0,
     recurDiscard: recurDiscard > 0,
     ownCover: ownCover > 0,
+    ownBehind: ownBehind > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
   return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
@@ -682,6 +688,7 @@ export function blunderAllowed(
     settings.revengeStep,
     settings.recurDiscard,
     settings.ownCover,
+    settings.ownBehind,
   );
   const allowed =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
@@ -725,6 +732,7 @@ export function decide(input: BotInput): Decision {
               settings.revengeStep,
               settings.recurDiscard,
               settings.ownCover,
+              settings.ownBehind,
             )
           : [...legalActions];
     return {

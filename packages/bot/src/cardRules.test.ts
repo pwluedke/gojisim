@@ -366,11 +366,12 @@ describe(
       const dead = cardRulesDead(state, legal, "P1");
       const plays = legal.filter((a) => a.type === "playBattle");
       expect(plays.length).toBeGreaterThan(1);
-      // Zone 1 holds your own card; zones 7 and 8 are your monster's path (zone 6: rule 21).
+      // Zone 1 holds your own card; zones 7 and 8 are your monster's path (zone 6: rule 21); zone
+      // 5 is behind it (rule 25).
       for (const a of plays)
         if (a.type === "playBattle")
           expect(dead.has(a)).toBe(
-            a.zone === 1 || a.zone === 7 || a.zone === 8,
+            a.zone === 1 || a.zone === 5 || a.zone === 7 || a.zone === 8,
           );
     });
 
@@ -1067,6 +1068,41 @@ describe(
         ownPath: false,
       });
       for (const a of plays) expect(off.has(a)).toBe(false);
+    });
+
+    it("rule 25 (#337, Tuscancow's record 4b49a66b, move 57): with your monster in zone 6, a battle card isn't played into zone 5, where a counter moves it back and crushes it (5.15.1.1), while zone 1 is open", () => {
+      const { state, p1 } = withGodzilla1995();
+      // Your monster in zone 6 (behind it is zone 5; its path is 7 and 8). Rank 1 Monster X.
+      p1.monsterPosition = 6;
+      for (const z of [1, 2, 3, 4, 5, 6, 7, 8] as const) p1.zones[z] = [];
+      const card = add(state, { ...real("EBP04-047"), rank: 1 }, "P1");
+      p1.hand = [card];
+      const legal = getLegalActions(state, "P1");
+      const play = (zone: number) =>
+        legal.find(
+          (a) =>
+            a.type === "playBattle" &&
+            a.cardInstanceId === card.instanceId &&
+            a.zone === zone,
+        );
+      expect(play(5)).toBeDefined();
+      expect(play(1)).toBeDefined();
+      const dead = cardRulesDead(state, legal, "P1");
+      expect(dead.has(play(5)!)).toBe(true);
+      expect(dead.has(play(1)!)).toBe(false);
+      // `ownBehind: false` (the paired check's control): zone 5 is the search's call again.
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        ownBehind: false,
+      });
+      expect(off.has(play(5)!)).toBe(false);
+      // With your monster in zone 4 there's no zone behind it: the rule is silent.
+      p1.monsterPosition = 4;
+      const legal4 = getLegalActions(state, "P1");
+      const at4 = cardRulesDead(state, legal4, "P1", undefined, {
+        ownPath: false,
+      });
+      for (const a of legal4)
+        if (a.type === "playBattle") expect(at4.has(a)).toBe(false);
     });
 
     it("rule 21: a [revenge] card (Dorat EBP02-058) is left to rule 17, which wants it on the path", () => {

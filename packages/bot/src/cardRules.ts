@@ -9,6 +9,7 @@ import {
   type PlayerId,
   sameColumn,
   type ZoneNumber,
+  behind,
   hasFlag,
 } from "@gojisim/engine";
 import {
@@ -121,6 +122,10 @@ import type { Decklist } from "./types";
  * 23. #345 (Slick), #342: no battle card on top of your own battle card while that card has a
  *    legal play into an empty zone off your own monster's next two zones; a card with its own play
  *    on top (`onTop`, Godzilla Jr. EBP03-051) and a column card (rule 3) excepted. Any deck.
+ * 25. #337 (Tuscancow): with your monster in zone 6, 7 or 8, no battle card into the zone behind
+ *    it (5, 4 or 3), where a counter moves it back and crushes the card (5.15.1.1, 11.3), while
+ *    that card has a legal play into an empty zone off your monster's path and not behind it;
+ *    [revenge] cards excepted, as in rule 21. Any deck.
  */
 
 type Json = Record<string, unknown>;
@@ -874,18 +879,26 @@ function ownPathPlays(
   state: GameState,
   actions: readonly Action[],
   me: PlayerId,
+  /** Rule 25: the zone behind your monster in zone 6-8 (a counter moves it there) instead. */
+  back = false,
 ): Action[] {
   const player = state.players.find((p) => p.id === me);
   const top = player?.invadingMonsterZone.at(-1);
   if (!player || !top || state.pendingChoice || player.monsterPosition === null)
     return [];
+  // A monster that can neither advance nor invade has no path; a counter still moves it back.
   if (
+    !back &&
     hasFlag(state, top, "cannotAdvance") &&
     hasFlag(state, top, "cannotInvade")
   )
     return [];
   const at = player.monsterPosition;
+  const behindAt = behind(at);
+  if (back && behindAt === null) return [];
   const onPath = (zone: number) => zone > at && zone <= at + OWN_PATH;
+  // Rule 25: the zone a counter moves your monster back to; rule 21: its next two zones.
+  const unsafe = (zone: number) => (back ? zone === behindAt : onPath(zone));
   const byCard = new Map<string, Extract<Action, { type: "playBattle" }>[]>();
   for (const a of actions)
     if (a.type === "playBattle")
@@ -899,9 +912,12 @@ function ownPathPlays(
     const number = c ? state.cards[c.cardId]?.deckCardNumber : undefined;
     if (!number || hasRevenge(number)) continue;
     const safe = plays.some(
-      (a) => !onPath(a.zone) && player.zones[a.zone].length === 0,
+      (a) =>
+        !onPath(a.zone) &&
+        a.zone !== behindAt &&
+        player.zones[a.zone].length === 0,
     );
-    if (safe) for (const a of plays) if (onPath(a.zone)) dead.push(a);
+    if (safe) for (const a of plays) if (unsafe(a.zone)) dead.push(a);
   }
   return dead;
 }
@@ -1346,6 +1362,8 @@ export interface CardRulesOptions {
   recurDiscard?: boolean;
   /** Rule 23 (#345): no play on top of your own battle card while a safe zone is open (default). */
   ownCover?: boolean;
+  /** Rule 25 (#337): no battle card in the zone behind your monster in 6-8 (default). */
+  ownBehind?: boolean;
 }
 
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
@@ -1412,6 +1430,9 @@ export function cardRulesDead(
       if (!winsNow(state, action, me)) dead.add(action);
   if (options.ownPath !== false)
     for (const action of ownPathPlays(state, actions, me)) dead.add(action);
+  if (options.ownBehind !== false)
+    for (const action of ownPathPlays(state, actions, me, true))
+      dead.add(action);
   if (options.ownCover !== false)
     for (const action of ownCoverPlays(state, actions, me)) dead.add(action);
   // Rule 7: a way to make the counter (#305), else to block zone 8, is taken: every other move
