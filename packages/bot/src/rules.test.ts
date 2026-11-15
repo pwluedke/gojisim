@@ -314,7 +314,9 @@ describe("#189 gaps in Paul's rules", () => {
       });
     expect(picks(1)).not.toContain("pass");
     expect(picks(0)).toContain("pass");
-  });
+    // 200 decisions, each through the card rules (card rule 20's look for the counter included):
+    // about 6 s on CI's runners, past the 5 s default.
+  }, 30_000);
 });
 
 describe("#189 rule 6: the prune only for a plain stat boost (Paul)", () => {

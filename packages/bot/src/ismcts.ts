@@ -70,6 +70,8 @@ export interface IsmctsSettings {
   cardRules: number;
   /** #305: 1 (the default) has card rule 7 take the counter before the zone 8 block; 0 is the old rule 7. */
   counterFirst: number;
+  /** Card rule 20 (#324, #327): 1 (the default) takes the counter without a block too; 0 is off. */
+  counterAlways: number;
   /** Card rule 23 (#345): 1 (the default) keeps plays off your own battle cards; 0 is off. */
   ownCover: number;
   /**
@@ -111,6 +113,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   recognizer: 0,
   cardRules: 0,
   counterFirst: 1,
+  counterAlways: 1,
   ownCover: 1,
   wranglerPlan: 2,
   wranglerV21: 1,
@@ -412,6 +415,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
       const first = state;
       const options = {
         counterFirst: settings.counterFirst > 0,
+        counterAlways: settings.counterAlways > 0,
         ownCover: settings.ownCover > 0,
       };
       const unsafe = cardRulesDead(
@@ -611,10 +615,12 @@ function cardRulesSafe(
   me: PlayerId,
   own?: Decklist,
   counterFirst = 1,
+  counterAlways = 1,
   ownCover = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
     counterFirst: counterFirst > 0,
+    counterAlways: counterAlways > 0,
     ownCover: ownCover > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
@@ -653,6 +659,7 @@ export function blunderAllowed(
     me,
     own,
     settings.counterFirst,
+    settings.counterAlways,
     settings.ownCover,
   );
   const allowed =
@@ -692,6 +699,7 @@ export function decide(input: BotInput): Decision {
               input.view.viewer as PlayerId,
               input.knowledge.decks[input.view.viewer as PlayerId],
               settings.counterFirst,
+              settings.counterAlways,
               settings.ownCover,
             )
           : [...legalActions];
