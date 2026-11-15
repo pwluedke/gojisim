@@ -15,6 +15,7 @@ import {
   type ZoneNumber,
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
+import { blunderAllowed, ISMCTS_DEFAULTS } from "./ismcts";
 import type { Decklist } from "./types";
 import { DESPAIR, GAM } from "./wranglerPlan";
 import {
@@ -497,6 +498,74 @@ describe("the Wrangler plan v2", () => {
       expect(verdict(state, legal, true).against.has(a)).toBe(true);
     for (const a of despair)
       expect(verdict(state, legal, false).against.has(a)).toBe(false);
+  });
+
+  it("wranglerBioHard (Paul): the Rose Form counter and the strategy vs rank III EBP02-027 are prunes, the search's and a blunder's; the Kings spread stays an argument", () => {
+    const hardVerdict = (state: GameState, legal: Action[], bioHard: boolean) =>
+      wranglerV2Verdict(
+        state,
+        legal,
+        "P1",
+        WRANGLER,
+        BIOLLANTE,
+        true,
+        true,
+        true,
+        true,
+        bioHard,
+      ).pruned ?? new Set<Action>();
+    // Rose Form: the King play that makes the counter is pruned.
+    const rose = position([], 3, 5);
+    rose.p1.hand = [add(rose.state, { ...real(KING), rank: 1 }, "P1")];
+    rose.p2.invadingMonsterZone = [add(rose.state, real("EBP02-024"), "P2")];
+    rose.p1.rage = 10;
+    const roseLegal = getLegalActions(rose.state, "P1");
+    const kingAt1 = roseLegal.filter(
+      (a) =>
+        a.type === "playBattle" &&
+        ofCard(rose.state, rose.p1, a) === KING &&
+        a.zone === 1,
+    );
+    expect(kingAt1.length).toBeGreaterThan(0);
+    for (const a of kingAt1)
+      expect(hardVerdict(rose.state, roseLegal, true).has(a)).toBe(true);
+    // `wranglerBioHard: false` (the paired check's control): an argument only.
+    for (const a of kingAt1)
+      expect(hardVerdict(rose.state, roseLegal, false).has(a)).toBe(false);
+    // Rank III EBP02-027 in zone 5 (an advance reaches 6): no strategy, nor in a blunder.
+    const iii = position([DESPAIR], 3, 5);
+    iii.p2.invadingMonsterZone = [add(iii.state, real("EBP02-027"), "P2")];
+    iii.p1.rage = 2;
+    const iiiLegal = getLegalActions(iii.state, "P1");
+    const despair = iiiLegal.filter(
+      (a) =>
+        a.type === "activateStrategy" &&
+        ofCard(iii.state, iii.p1, a) === DESPAIR,
+    );
+    expect(despair.length).toBeGreaterThan(0);
+    for (const a of despair)
+      expect(hardVerdict(iii.state, iiiLegal, true).has(a)).toBe(true);
+    const blunder = (bioHard: number) =>
+      blunderAllowed(
+        iii.state,
+        iiiLegal,
+        "P1",
+        { ...ISMCTS_DEFAULTS, cardRules: 1, wranglerBioHard: bioHard },
+        WRANGLER,
+      );
+    for (const a of despair) expect(blunder(1).includes(a)).toBe(false);
+    expect(despair.some((a) => blunder(0).includes(a))).toBe(true);
+    // The Kings spread (another wranglerBio rule) isn't pruned.
+    const spread = position([], 3, 5);
+    spread.p1.zones[1] = [[add(spread.state, real(KING), "P1")]];
+    spread.p1.hand = [add(spread.state, { ...real(KING), rank: 1 }, "P1")];
+    spread.p2.invadingMonsterZone = [
+      add(spread.state, real("EBP02-026"), "P2"),
+    ];
+    const spreadLegal = getLegalActions(spread.state, "P1");
+    const pruned = hardVerdict(spread.state, spreadLegal, true);
+    for (const a of spreadLegal)
+      if (a.type === "playBattle") expect(pruned.has(a)).toBe(false);
   });
 
   it("Godzilla (1954) EBP01-004 isn't stacked with a King on the board", () => {

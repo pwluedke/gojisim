@@ -2,6 +2,7 @@ import {
   type Action,
   advanceToDecision,
   applyAction,
+  counterPowerOf,
   type GameState,
   getLegalActions,
   isAdjacent,
@@ -62,6 +63,8 @@ const KING_ZONES_VS_1994 = new Set([1, 5]);
 const PATH = 2;
 /** wranglerBio: the rank IV whose rage clears the opponent's column (Godzilla (2023) EBP01-010). */
 const COLUMN_CLEAR = "EBP01-010";
+/** `wranglerBioHard` (Paul, Nov 15): a counter over this beats Biollante's rank III anyway. */
+const BIO_III_COUNTER = 40000;
 /** v2.2 (Ian, point 2): the monster card whose invasion fetches more (Godzilla (2023) ESD01-002). */
 const FETCH_MONSTER = "ESD01-002";
 /** #321: the cards kept when discarding down, while a spare monster card can go instead. */
@@ -111,7 +114,10 @@ function after(
   }
 }
 
-/** The moves the v2 plan argues against, and the ones it frees from the holds. */
+/**
+ * The moves the v2 plan argues against, the ones it frees from the holds, and (`wranglerBioHard`)
+ * the ones it prunes outright.
+ */
 export function wranglerV2Verdict(
   state: GameState,
   actions: readonly Action[],
@@ -127,7 +133,9 @@ export function wranglerV2Verdict(
   v23 = true,
   /** `wranglerBio` (Ian, Nov 15): the Wrangler play guide's rules against Biollante. */
   bio = true,
-): { against: Set<Action>; rescued: Set<Action> } {
+  /** `wranglerBioHard` (Paul, Nov 15): three of those rules as prunes; needs `bio`. */
+  bioHard = true,
+): { against: Set<Action>; rescued: Set<Action>; pruned?: Set<Action> } {
   if (!isWranglerDeck(own)) return { against: new Set(), rescued: new Set() };
   // Line 1 (v1's Despair line) goes first.
   const line1 = wranglerVerdict(state, actions, me, own, theirs, true, v21);
@@ -428,6 +436,13 @@ export function wranglerV2Verdict(
   }
 
   // wranglerBio (Ian, Nov 15): the Wrangler play guide's rules against Biollante.
+  // wranglerBioHard (Paul, Nov 15): its strategy, Rose Form and zone 5 lines are prunes, not
+  // arguments (the search can't override them).
+  const pruned = new Set<Action>();
+  const hard = (a: Action) => {
+    against.add(a);
+    if (bioHard) pruned.add(a);
+  };
   if (vsBio) {
     const theirTop = opponent.invadingMonsterZone.at(-1);
     const theirCard = theirTop ? state.cards[theirTop.cardId] : undefined;
@@ -438,7 +453,7 @@ export function wranglerV2Verdict(
         if (a.type === "pass" || a.type === "concede" || a.type === "invade")
           continue;
         const s = after(state, a, me);
-        if (s && counters(s, me)) against.add(a);
+        if (s && counters(s, me)) hard(a);
       }
     // Don't move Biollante out of zone 5 (zone 6 opens its 6-cost strategies).
     for (const a of actions) {
@@ -452,7 +467,7 @@ export function wranglerV2Verdict(
       const moved = s?.players.find(
         (p) => p.id === opponent.id,
       )?.monsterPosition;
-      if ((moved ?? 0) > 5) against.add(a);
+      if ((moved ?? 0) > 5) hard(a);
     }
     // Wait to be countered to rank IV, then the all-out invasion with Godzilla (2023) EBP01-010.
     if (top && state.cards[top.cardId]?.deckCardNumber === COLUMN_CLEAR)
@@ -480,13 +495,19 @@ export function wranglerV2Verdict(
       for (const a of actions) if (a.type === "pass") against.add(a);
     // No strategy in play against its rank III EBP02-027 in zone 5+ (its awakening 6 makes it
     // counter-proof while you have one).
+    // Hard: unless your counter beats 40,000 (Paul), when an advance takes it to zone 6+.
     if (theirCard?.deckCardNumber === "EBP02-027" && theirAt >= 5)
       for (const a of actions)
-        if (a.type === "activateStrategy") against.add(a);
+        if (a.type === "activateStrategy")
+          if (counterPowerOf(state, player) > BIO_III_COUNTER) against.add(a);
+          else hard(a);
   }
 
   // Never argue against everything.
   if (actions.every((a) => a.type === "concede" || against.has(a)))
     against.clear();
-  return { against, rescued };
+  // Nor prune everything.
+  if (actions.every((a) => a.type === "concede" || pruned.has(a)))
+    pruned.clear();
+  return { against, rescued, pruned };
 }

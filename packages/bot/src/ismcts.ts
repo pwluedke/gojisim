@@ -91,6 +91,8 @@ export interface IsmctsSettings {
   wranglerV23: number;
   /** The Wrangler play guide's rules against Biollante (Ian): 1 (the default) on; 0 off. */
   wranglerBio: number;
+  /** `wranglerBioHard` (Paul, Nov 15): 1 (the default) prunes three Biollante lines; 0 biases. */
+  wranglerBioHard: number;
   /**
    * Slick's Red Fest plan (`festPlan.ts`): 1 applies it, with `rules` on. Off by default: measured
    * Nov 13 it wasn't a gain (paired seeds, the August list and the bots' Red Fest); on for tuning.
@@ -132,6 +134,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   wranglerV22: 1,
   wranglerV23: 1,
   wranglerBio: 1,
+  wranglerBioHard: 1,
   festPlan: 0,
   cfTarget: "auto",
   cfPlan: 1,
@@ -496,7 +499,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
       const first = state;
       const theirs =
         input.knowledge.decks[first.players.find((p) => p.id !== me)?.id ?? ""];
-      const { against, rescued } = wranglerV2
+      const verdict = wranglerV2
         ? wranglerV2Verdict(
             first,
             input.legalActions,
@@ -507,6 +510,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
             settings.wranglerV22 > 0,
             settings.wranglerV23 > 0,
             settings.wranglerBio > 0,
+            settings.wranglerBioHard > 0,
           )
         : wranglerVerdict(
             first,
@@ -515,7 +519,21 @@ export function search(input: BotInput, settings: IsmctsSettings) {
             input.knowledge.decks[me],
             theirs,
           );
+      const { against, rescued } = verdict;
       for (const a of rescued) dead.delete(actionKey(first, a));
+      // wranglerBioHard: its prunes join the root's dead keys, while a move is left.
+      const pruned = "pruned" in verdict ? verdict.pruned : undefined;
+      if (
+        pruned &&
+        pruned.size > 0 &&
+        input.legalActions.some(
+          (a) =>
+            a.type !== "concede" &&
+            !pruned.has(a) &&
+            !dead.has(actionKey(first, a)),
+        )
+      )
+        for (const a of pruned) dead.add(actionKey(first, a));
       avoid = new Set(
         [...avoid].filter((i) => !rescued.has(input.legalActions[i] as Action)),
       );
@@ -688,8 +706,28 @@ export function blunderAllowed(
     settings.revengeStep,
     settings.recurDiscard,
   );
-  const allowed =
+  const sure =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
+  // wranglerBioHard's prunes hold for a blunder too (the opponent's list isn't known here: the
+  // plan reads Biollante from its monster).
+  const pruned =
+    settings.wranglerPlan >= 2 &&
+    settings.cardRules > 0 &&
+    settings.wranglerBio > 0 &&
+    settings.wranglerBioHard > 0
+      ? wranglerV2Verdict(
+          state,
+          sure,
+          me,
+          own,
+          undefined,
+          settings.wranglerV21 > 0,
+          settings.wranglerV22 > 0,
+          settings.wranglerV23 > 0,
+        ).pruned
+      : undefined;
+  const unpruned = pruned ? sure.filter((a) => !pruned.has(a)) : sure;
+  const allowed = unpruned.some((a) => a.type !== "concede") ? unpruned : sure;
   if (settings.mxPlan === 0) return allowed;
   const favored = mxPlanFavored(state, allowed, me, keyOf, settings.mxPlan);
   const planned = allowed.filter((a) => favored.has(keyOf(a)));
