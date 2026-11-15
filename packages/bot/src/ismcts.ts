@@ -72,6 +72,12 @@ export interface IsmctsSettings {
   counterFirst: number;
   /** Card rule 20 (#324, #327): 1 (the default) takes the counter without a block too; 0 is off. */
   counterAlways: number;
+  /** Card rule 21 (#304): 1 (the default) keeps battle cards off your own monster's path; 0 is off. */
+  ownPath: number;
+  /** #339: 1 (the default) keeps a [revenge] card out of zone 8 unless it's stepped on; 0 is off. */
+  revengeStep: number;
+  /** Card rule 24 (#325, #329): 1 (the default) discards a recurring card first; 0 is off. */
+  recurDiscard: number;
   /** Card rule 22 (#336): 1 (the default) leaves out destroy-only strategies with no target; 0 off. */
   targetCheck: number;
   /** The Monster X plan's #335 and #338 fixes: 1 (the default) on; 0 is the old v2. */
@@ -116,6 +122,9 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   cardRules: 0,
   counterFirst: 1,
   counterAlways: 1,
+  ownPath: 1,
+  revengeStep: 1,
+  recurDiscard: 1,
   targetCheck: 1,
   mxFixes: 1,
   wranglerPlan: 2,
@@ -421,6 +430,9 @@ export function search(input: BotInput, settings: IsmctsSettings) {
       const options = {
         counterFirst: settings.counterFirst > 0,
         counterAlways: settings.counterAlways > 0,
+        ownPath: settings.ownPath > 0,
+        revengeStep: settings.revengeStep > 0,
+        recurDiscard: settings.recurDiscard > 0,
         targetCheck: settings.targetCheck > 0,
       };
       const unsafe = cardRulesDead(
@@ -622,11 +634,17 @@ function cardRulesSafe(
   own?: Decklist,
   counterFirst = 1,
   counterAlways = 1,
+  ownPath = 1,
+  revengeStep = 1,
+  recurDiscard = 1,
   targetCheck = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
     counterFirst: counterFirst > 0,
     counterAlways: counterAlways > 0,
+    ownPath: ownPath > 0,
+    revengeStep: revengeStep > 0,
+    recurDiscard: recurDiscard > 0,
     targetCheck: targetCheck > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
@@ -666,6 +684,9 @@ export function blunderAllowed(
     own,
     settings.counterFirst,
     settings.counterAlways,
+    settings.ownPath,
+    settings.revengeStep,
+    settings.recurDiscard,
     settings.targetCheck,
   );
   const allowed =
@@ -713,6 +734,9 @@ export function decide(input: BotInput): Decision {
               input.knowledge.decks[input.view.viewer as PlayerId],
               settings.counterFirst,
               settings.counterAlways,
+              settings.ownPath,
+              settings.revengeStep,
+              settings.recurDiscard,
               settings.targetCheck,
             )
           : [...legalActions];

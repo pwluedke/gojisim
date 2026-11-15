@@ -366,8 +366,12 @@ describe(
       const dead = cardRulesDead(state, legal, "P1");
       const plays = legal.filter((a) => a.type === "playBattle");
       expect(plays.length).toBeGreaterThan(1);
+      // Zone 1 holds your own card; zones 7 and 8 are your monster's path (zone 6: rule 21).
       for (const a of plays)
-        if (a.type === "playBattle") expect(dead.has(a)).toBe(a.zone === 1);
+        if (a.type === "playBattle")
+          expect(dead.has(a)).toBe(
+            a.zone === 1 || a.zone === 7 || a.zone === 8,
+          );
     });
 
     it("#259, 7.2.3: with its monster card played (zone 4 or beyond), it comes back from the discard: No is left out while a zone is empty", () => {
@@ -1037,6 +1041,103 @@ describe(
       expect(onTop).toBeDefined();
       const dead = cardRulesDead(made, legal, "P1");
       expect(dead.has(onTop!)).toBe(true);
+    });
+
+    it("rule 21 (#304): a battle card isn't played into your own monster's next two zones (its advance or invasion crushes it, 11.3) while an empty zone off the path is legal", () => {
+      const { state, p1 } = withGodzilla1995();
+      // Your monster in zone 3: zones 4 and 5 are its path. Rank 1 GAM, playable anywhere (8.2.1).
+      p1.monsterPosition = 3;
+      const gam = add(state, { ...real("EBP01-073"), rank: 1 }, "P1");
+      p1.hand = [gam];
+      for (let i = 0; i < 8; i++)
+        p1.discard.push(add(state, real("EBP01-002"), "P1"));
+      const legal = getLegalActions(state, "P1");
+      const plays = legal.filter(
+        (a) => a.type === "playBattle" && a.cardInstanceId === gam.instanceId,
+      );
+      expect(plays.some((a) => a.type === "playBattle" && a.zone === 4)).toBe(
+        true,
+      );
+      const dead = cardRulesDead(state, legal, "P1");
+      for (const a of plays)
+        if (a.type === "playBattle")
+          expect(dead.has(a)).toBe(a.zone === 4 || a.zone === 5);
+      // `ownPath: false` (the paired check's control): the path is open again.
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        ownPath: false,
+      });
+      for (const a of plays) expect(off.has(a)).toBe(false);
+    });
+
+    it("rule 21: a [revenge] card (Dorat EBP02-058) is left to rule 17, which wants it on the path", () => {
+      const { state, p1 } = withGodzilla1995();
+      p1.monsterPosition = 3;
+      const dorat = add(state, { ...real("EBP02-058"), rank: 1 }, "P1");
+      p1.hand = [dorat];
+      const legal = getLegalActions(state, "P1");
+      const dead = cardRulesDead(state, legal, "P1");
+      const onPath = legal.filter(
+        (a) =>
+          a.type === "playBattle" &&
+          a.cardInstanceId === dorat.instanceId &&
+          (a.zone === 4 || a.zone === 5),
+      );
+      expect(onPath.length).toBeGreaterThan(0);
+      for (const a of onPath) expect(dead.has(a)).toBe(false);
+    });
+
+    it("#339 (Keldroc): a [revenge] card (Dorat EBP02-058) goes in zone 8 only when an invasion this turn takes your own monster there", () => {
+      const judge = (pay: string) => {
+        const { state, p1 } = withGodzilla1995();
+        // Your monster in zone 6; your own Dorat in zone 7: zone 8 is the only zone ahead.
+        p1.monsterPosition = 6;
+        p1.zones[7] = [[add(state, real("EBP02-058"), "P1")]];
+        const dorat = add(state, { ...real("EBP02-058"), rank: 1 }, "P1");
+        p1.hand = [dorat, add(state, real(pay), "P1")];
+        const legal = getLegalActions(state, "P1");
+        const at8 = legal.filter(
+          (a) =>
+            a.type === "playBattle" &&
+            a.cardInstanceId === dorat.instanceId &&
+            a.zone === 8,
+        );
+        expect(at8.length).toBeGreaterThan(0);
+        const dead = cardRulesDead(state, legal, "P1");
+        const off = cardRulesDead(state, legal, "P1", undefined, {
+          revengeStep: false,
+        });
+        return {
+          on: at8.map((a) => dead.has(a)),
+          off: at8.map((a) => off.has(a)),
+        };
+      };
+      // An icon-1 invasion only reaches zone 7: zone 8 is left out (but not with the switch off).
+      const one = judge("EBP01-002");
+      for (const d of one.on) expect(d).toBe(true);
+      for (const d of one.off) expect(d).toBe(false);
+      // An icon-2 invasion (EBP01-073) takes your monster to zone 8: the Dorat may go there.
+      for (const d of judge("EBP01-073").on) expect(d).toBe(false);
+    });
+
+    it("rule 24 (#325, Keldroc): paying for an invasion, the Orange (King Ghidorah (1998) EBP03-063, which comes back from the discard pile) goes, not Mecha-King Ghidorah EBP02-068", () => {
+      const { state, p1 } = withGodzilla1995();
+      const orange = add(state, real("EBP03-063"), "P1");
+      const mechaKing = add(state, real("EBP02-068"), "P1");
+      p1.hand = [orange, mechaKing];
+      const legal = getLegalActions(state, "P1");
+      const pay = (id: string) =>
+        legal.find((a) => a.type === "invade" && a.cardInstanceId === id);
+      expect(pay(orange.instanceId)).toBeDefined();
+      expect(pay(mechaKing.instanceId)).toBeDefined();
+      const dead = cardRulesDead(state, legal, "P1");
+      expect(dead.has(pay(mechaKing.instanceId)!)).toBe(true);
+      expect(dead.has(pay(orange.instanceId)!)).toBe(false);
+      // `recurDiscard: false` (the paired check's control): rule 24 is off.
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        recurDiscard: false,
+        ownPath: false,
+      });
+      expect(off.has(pay(mechaKing.instanceId)!)).toBe(false);
     });
 
     it("rule 22 (#336): Godzilla vs. Megaguirus EBP01-064 isn't activated when it can destroy nothing (no legal target); with a rank 4 or lower battle card of theirs, it is", () => {
