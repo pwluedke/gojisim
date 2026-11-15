@@ -9,6 +9,7 @@
     "./deck-lists": "./src/deckLists.ts",
     "./all-cards": "./src/allCards.ts",
     "./decklog": "./src/decklog.ts",
+    "./results": "./src/results.ts",
     "./data/decks/*": "./data/decks/*"
   },
   "scripts": {

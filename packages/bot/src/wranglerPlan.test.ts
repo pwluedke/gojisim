@@ -212,6 +212,33 @@ describe("the Wrangler plan (#276)", () => {
         expect(against.has(a)).toBe(!despair.includes(a));
   });
 
+  it("#319 (Ian): at Despair's target pick, the Mecha-King in your monster's column goes first (the one stopping your invasion), not another one in reach", () => {
+    const state = position(2);
+    const p2 = state.players[1] as PlayerState;
+    // Your monster in zone 3: their zone 3 is in its column; their zone 1 isn't.
+    const aligned = add(state, real(MECHA_KING), "P2");
+    p2.zones[3] = [[aligned]];
+    const other = p2.zones[1][0]![0]!;
+    const despair = getLegalActions(state, "P1").find(
+      (a) =>
+        a.type === "activateStrategy" &&
+        state.cards[
+          state.players[0]!.hand.find((c) => c.instanceId === a.cardInstanceId)
+            ?.cardId ?? -1
+        ]?.deckCardNumber === DESPAIR,
+    )!;
+    const pick = advanceToDecision(applyAction(state, despair));
+    expect(pick.pendingChoice?.kind).toBe("target");
+    const legal = getLegalActions(pick, "P1");
+    const option = (id: string) =>
+      legal.find((a) => a.type === "choose" && a.optionId === id)!;
+    expect(option(aligned.instanceId)).toBeDefined();
+    expect(option(other.instanceId)).toBeDefined();
+    const { against } = wranglerVerdict(pick, legal, "P1", wrangler(true));
+    expect(against.has(option(aligned.instanceId))).toBe(false);
+    expect(against.has(option(other.instanceId))).toBe(true);
+  });
+
   it("line 2 (#274 point 1): from game turn 3 the rage discards are freed and favored over passing, but Godzilla (2004) and Godzilla (1954) are held; on turns 1-2 card rule 14 decides", () => {
     const at = (turn: number) => {
       const state = position(0);

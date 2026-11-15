@@ -73,7 +73,10 @@ export function isGameRecord(value: unknown): boolean {
 }
 
 /** The body as text, or `null` once it passes `limit` bytes. */
-function readBody(req: IncomingMessage, limit: number): Promise<string | null> {
+export function readBody(
+  req: IncomingMessage,
+  limit: number,
+): Promise<string | null> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let size = 0;

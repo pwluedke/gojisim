@@ -11,7 +11,8 @@
     "bot-feedback": "tsx src/feedback.ts",
     "feedback": "GOJISIM_FREEZE=1 tsx src/feedbackCmd.ts",
     "search-rate": "GOJISIM_FREEZE=1 tsx src/searchRate.ts",
-    "bots-plan": "GOJISIM_FREEZE=1 tsx src/plan.ts"
+    "bots-plan": "GOJISIM_FREEZE=1 tsx src/plan.ts",
+    "results": "GOJISIM_FREEZE=1 tsx src/resultsCmd.ts"
   },
   "dependencies": {
     "@gojisim/bot": "workspace:*",
