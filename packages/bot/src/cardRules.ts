@@ -133,6 +133,10 @@ import type { Decklist } from "./types";
  * 27. #353 (BFW182): discarding from your hand (5.7.1, 5.7.2), a strategy card isn't the one to go
  *    while a battle card you can't play this turn or next is offered (its rank above the zone of
  *    the opponent's monster plus 2, 8.2.1). Any deck.
+ * 28. #326 (Keldroc): discarding from your hand (5.7.1, 5.7.2), your only copy of a lower-rank
+ *    monster card (the next one up after a counter) isn't the one to go while a higher-rank
+ *    monster card or a spare copy of a monster card can go; rule 24's recurring card first. Any
+ *    deck.
  */
 
 type Json = Record<string, unknown>;
@@ -1024,6 +1028,45 @@ function strategyDiscards(
   return picks.filter((a) => cardOf(a)?.type === "Strategy");
 }
 
+/** Rule 28: a hand discard's picks of your only copy of a lower-rank monster card. */
+function lowRankDiscards(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const choice = state.pendingChoice;
+  const player = state.players.find((p) => p.id === me);
+  if (
+    !choice ||
+    !player ||
+    choice.player !== me ||
+    (choice.rule !== "5.7.1" && choice.rule !== "5.7.2")
+  )
+    return [];
+  const monsterPick = (a: Action) => {
+    if (a.type !== "choose") return undefined;
+    const c = player.hand.find((h) => h.instanceId === a.optionId);
+    const card = c ? state.cards[c.cardId] : undefined;
+    return card?.type === "Monster" && card.rank !== null ? card : undefined;
+  };
+  const copies = (name: string) =>
+    player.hand.filter((h) => state.cards[h.cardId]?.name === name).length;
+  const picks = actions.filter((a) => monsterPick(a) !== undefined);
+  return picks.filter((a) => {
+    const card = monsterPick(a);
+    if (!card || copies(card.name) > 1) return false;
+    // Another monster card can go instead: a higher rank, or a spare copy.
+    return picks.some((b) => {
+      const other = monsterPick(b);
+      return (
+        b !== a &&
+        other !== undefined &&
+        ((other.rank ?? 0) > (card.rank ?? 0) || copies(other.name) > 1)
+      );
+    });
+  });
+}
+
 /** Rule 24: discards of other cards while one that comes back from the discard pile can go. */
 function recurringDiscards(
   state: GameState,
@@ -1470,6 +1513,8 @@ export interface CardRulesOptions {
   activeInvading?: boolean;
   /** Rule 27 (#353): a strategy isn't discarded over a battle card out of reach (default). */
   keepStrategy?: boolean;
+  /** Rule 28 (#326): the only copy of a lower-rank monster card is kept (default). */
+  keepLowRank?: boolean;
 }
 
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
@@ -1536,6 +1581,8 @@ export function cardRulesDead(
       if (!winsNow(state, action, me)) dead.add(action);
   if (options.ownPath !== false)
     for (const action of ownPathPlays(state, actions, me)) dead.add(action);
+  if (options.keepLowRank !== false)
+    for (const action of lowRankDiscards(state, actions, me)) dead.add(action);
   if (options.keepStrategy !== false)
     for (const action of strategyDiscards(state, actions, me)) dead.add(action);
   if (options.activeInvading !== false)

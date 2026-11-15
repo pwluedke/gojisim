@@ -1186,6 +1186,50 @@ describe(
       );
     });
 
+    it("rule 28 (#326, Keldroc's record a3d7cf37, move 6): forced to discard one (5.7.1), the only Rank II King Ghidorah (1964) EBP02-045 stays and the Rank IV Mecha-King Ghidorah EBP02-051 goes", () => {
+      const { state, p1 } = withGodzilla1995();
+      const r2 = add(state, real("EBP02-045"), "P1");
+      const r4 = add(state, real("EBP02-051"), "P1");
+      p1.hand = [r2, r4];
+      state.pendingChoice = {
+        id: 951,
+        player: "P1",
+        kind: "target",
+        rule: "5.7.1",
+        options: [r2, r4].map((c) => ({
+          id: c.instanceId,
+          cardId: c.cardId,
+          abilityId: "ESD01-005#discard",
+        })),
+      };
+      const legal = getLegalActions(state, "P1");
+      const pick = (id: string) =>
+        legal.find((a) => a.type === "choose" && a.optionId === id)!;
+      const dead = cardRulesDead(state, legal, "P1");
+      expect(dead.has(pick(r2.instanceId))).toBe(true);
+      expect(dead.has(pick(r4.instanceId))).toBe(false);
+      // `keepLowRank: false` (the paired check's control): either may go.
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        keepLowRank: false,
+      });
+      expect(off.has(pick(r2.instanceId))).toBe(false);
+      // Two Rank II copies (Keldroc's 0f5bcddb move 4): a spare copy may go.
+      const spare = add(state, real("EBP02-045"), "P1");
+      p1.hand = [r2, spare];
+      state.pendingChoice = {
+        ...state.pendingChoice,
+        options: [r2, spare].map((c) => ({
+          id: c.instanceId,
+          cardId: c.cardId,
+          abilityId: "ESD01-005#discard",
+        })),
+      };
+      const legal2 = getLegalActions(state, "P1");
+      const dead2 = cardRulesDead(state, legal2, "P1");
+      for (const a of legal2)
+        if (a.type === "choose") expect(dead2.has(a)).toBe(false);
+    });
+
     it("rule 21: a [revenge] card (Dorat EBP02-058) is left to rule 17, which wants it on the path", () => {
       const { state, p1 } = withGodzilla1995();
       p1.monsterPosition = 3;

@@ -82,6 +82,8 @@ export interface IsmctsSettings {
   activeInvading: number;
   /** Card rule 27 (#353): 1 (the default) keeps a strategy over an out-of-reach battle card. */
   keepStrategy: number;
+  /** Card rule 28 (#326): 1 (the default) keeps the only lower-rank monster card; 0 is off. */
+  keepLowRank: number;
   /** #339: 1 (the default) keeps a [revenge] card out of zone 8 unless it's stepped on; 0 is off. */
   revengeStep: number;
   /** Card rule 24 (#325, #329): 1 (the default) discards a recurring card first; 0 is off. */
@@ -133,6 +135,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   collectorRage: 1,
   activeInvading: 1,
   keepStrategy: 1,
+  keepLowRank: 1,
   revengeStep: 1,
   recurDiscard: 1,
   ownCover: 1,
@@ -445,6 +448,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         ownBehind: settings.ownBehind > 0,
         activeInvading: settings.activeInvading > 0,
         keepStrategy: settings.keepStrategy > 0,
+        keepLowRank: settings.keepLowRank > 0,
         revengeStep: settings.revengeStep > 0,
         recurDiscard: settings.recurDiscard > 0,
         ownCover: settings.ownCover > 0,
@@ -654,6 +658,7 @@ function cardRulesSafe(
   ownBehind = 1,
   activeInvading = 1,
   keepStrategy = 1,
+  keepLowRank = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
     counterFirst: counterFirst > 0,
@@ -665,6 +670,7 @@ function cardRulesSafe(
     ownBehind: ownBehind > 0,
     activeInvading: activeInvading > 0,
     keepStrategy: keepStrategy > 0,
+    keepLowRank: keepLowRank > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
   return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
@@ -710,6 +716,7 @@ export function blunderAllowed(
     settings.ownBehind,
     settings.activeInvading,
     settings.keepStrategy,
+    settings.keepLowRank,
   );
   const allowed =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
@@ -756,6 +763,7 @@ export function decide(input: BotInput): Decision {
               settings.ownBehind,
               settings.activeInvading,
               settings.keepStrategy,
+              settings.keepLowRank,
             )
           : [...legalActions];
     return {
