@@ -59,6 +59,8 @@ const KING_ZONES = new Set([1, 2, 8]);
 const KING_ZONES_VS_1994 = new Set([1, 5]);
 /** Your monster's path: its next zones (it crushes your own battle cards there, 11.3). */
 const PATH = 2;
+/** v2.2 (Ian, point 2): the monster card whose invasion fetches more (Godzilla (2023) ESD01-002). */
+const FETCH_MONSTER = "ESD01-002";
 /** #321: the cards kept when discarding down, while a spare monster card can go instead. */
 const KEY_CARDS = new Set([
   LANDING,
@@ -130,6 +132,30 @@ export function wranglerV2Verdict(
   // v2.1 (#321): discarding down (5.7.2), a monster card goes before a key card (a monster card
   // in the discard pile counts toward Godzilla Against Mechagodzilla's 8, too).
   const choice = state.pendingChoice;
+  // v2.2 (Ian, point 10): Godzilla Against Mechagodzilla's rage reset (its optional cost when your
+  // monster invades) is saved unless it's what makes the counter reachable this turn.
+  if (
+    v22 &&
+    choice?.player === me &&
+    choice.kind === "confirm" &&
+    state.resolution &&
+    state.cards[state.resolution.standby.sourceCardId]?.deckCardNumber === GAM
+  ) {
+    const yes = actions.find(
+      (a) => a.type === "choose" && a.optionId === "yes",
+    );
+    const no = actions.find((a) => a.type === "choose" && a.optionId === "no");
+    if (yes && no) {
+      const reaches = (s: GameState | null) =>
+        !!s &&
+        (counters(s, me) ||
+          (s.turnPlayer === me &&
+            counterPlays(s, getLegalActions(s, me), me).size > 0));
+      if (!(reaches(after(state, yes, me)) && !reaches(after(state, no, me))))
+        against.add(yes);
+    }
+    return { against, rescued };
+  }
   // v2.2 (Ian's notes, point 7): at Despair's target pick (line 1 not deciding it), the battle
   // cards in your monster's column first, then their cards in zones 1 and 2.
   if (
@@ -216,6 +242,39 @@ export function wranglerV2Verdict(
   // Don't race: an invasion only when it wins this turn; never paid with a push card.
   for (const a of actions)
     if (a.type === "invade" && !winsNow(state, a, me)) against.add(a);
+  // v2.2 (Ian, point 2): with Godzilla (2023) ESD01-002 on top, an invasion for its fetch (a rank
+  // III burst Godzilla (2023) per zone it invades) when the bot needs the monster cards: to reach
+  // 3 rage with a King in zones 1-5 that its free rage discards can't, or to make a counter it
+  // can't make otherwise. Invade 2 only for that; invade 1 paying with a strategy it doesn't need
+  // (Despair, The Slithering Disaster). "Motion in the Wrangler is strictly necessary or not."
+  const top = player.invadingMonsterZone.at(-1);
+  if (v22 && top && state.cards[top.cardId]?.deckCardNumber === FETCH_MONSTER) {
+    const free = actions.filter(
+      (a) => a.type === "gainRage" && !HELD.has(number(a) ?? ""),
+    ).length;
+    const short =
+      kingIn([1, 2, 3, 4, 5]) &&
+      player.rage < KING_RAGE &&
+      player.rage + free < KING_RAGE;
+    const counterNow =
+      counters(state, me) || counterPlays(state, actions, me).size > 0;
+    for (const a of actions) {
+      if (a.type !== "invade" || !against.has(a)) continue;
+      const pay = card(a.cardInstanceId);
+      const icon = pay?.invadeZones ?? 1;
+      const s = after(state, a, me);
+      const counterAfter =
+        !counterNow &&
+        !!s &&
+        (counters(s, me) ||
+          (s.turnPlayer === me &&
+            counterPlays(s, getLegalActions(s, me), me).size > 0));
+      const need = short || counterAfter;
+      const spare =
+        pay?.deckCardNumber === DESPAIR || pay?.deckCardNumber === SLITHERING;
+      if (need && (icon >= 2 || spare)) against.delete(a);
+    }
+  }
 
   // Push only when a follow-up comes this turn (#317): after it, the counter is made or can be
   // made, or a rank 7-8 battle card can be played.

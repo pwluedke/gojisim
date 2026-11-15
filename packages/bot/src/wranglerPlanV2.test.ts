@@ -21,6 +21,7 @@ import {
   GODZILLA_1954_WIPE,
   KING,
   LANDING,
+  SLITHERING,
   wranglerV2Verdict,
 } from "./wranglerPlanV2";
 
@@ -324,6 +325,54 @@ describe("the Wrangler plan v2", () => {
       false,
     );
     expect(v21.against.has(option(other.instanceId))).toBe(false);
+  });
+
+  it("v2.2 (Ian, point 2): with Godzilla (2023) ESD01-002 on top and a King short of 3 rage, an invasion for its fetch, paying with a strategy it doesn't need, isn't argued against; paying with a key card still is", () => {
+    const { state, p1 } = position([SLITHERING, LANDING], 3, 2);
+    p1.invadingMonsterZone = [add(state, real("ESD01-002"), "P1")];
+    p1.zones[1] = [[add(state, real(KING), "P1")]];
+    p1.rage = 0;
+    const legal = getLegalActions(state, "P1");
+    const invade = (n: string) =>
+      legal.filter((a) => a.type === "invade" && ofCard(state, p1, a) === n);
+    expect(invade(SLITHERING).length).toBeGreaterThan(0);
+    expect(invade(LANDING).length).toBeGreaterThan(0);
+    const { against } = wranglerV2Verdict(state, legal, "P1", WRANGLER);
+    for (const a of invade(SLITHERING)) expect(against.has(a)).toBe(false);
+    for (const a of invade(LANDING)) expect(against.has(a)).toBe(true);
+    // v2.1 (`v22: false`): don't race, so both are argued against.
+    const v21 = wranglerV2Verdict(
+      state,
+      legal,
+      "P1",
+      WRANGLER,
+      undefined,
+      true,
+      false,
+    );
+    for (const a of invade(SLITHERING)) expect(v21.against.has(a)).toBe(true);
+  });
+
+  it("v2.2 (Ian, point 10): Godzilla Against Mechagodzilla's rage reset is saved when it doesn't make the counter", () => {
+    const { state, p1 } = position([LANDING], 3, 2);
+    p1.zones[1] = [[add(state, real(GAM), "P1")]];
+    for (let i = 0; i < 8; i++)
+      p1.discard.push(add(state, real("EBP01-002"), "P1"));
+    const invade = getLegalActions(state, "P1").find(
+      (a) => a.type === "invade",
+    )!;
+    let s = advanceToDecision(applyAction(state, invade));
+    // Answer any of the bot's own picks before GAM's (first option).
+    for (let i = 0; i < 5 && s.pendingChoice?.kind !== "confirm"; i++) {
+      const next = getLegalActions(s, "P1").find((a) => a.type === "choose");
+      if (!next) break;
+      s = advanceToDecision(applyAction(s, next));
+    }
+    expect(s.pendingChoice?.kind).toBe("confirm");
+    const legal = getLegalActions(s, "P1");
+    const yes = legal.find((a) => a.type === "choose" && a.optionId === "yes")!;
+    const { against } = wranglerV2Verdict(s, legal, "P1", WRANGLER);
+    expect(against.has(yes)).toBe(true);
   });
 
   it("Godzilla (1954) EBP01-004 isn't stacked with a King on the board", () => {
