@@ -80,6 +80,8 @@ export interface IsmctsSettings {
   recurDiscard: number;
   /** Card rule 23 (#345): 1 (the default) keeps plays off your own battle cards; 0 is off. */
   ownCover: number;
+  /** Card rule 23b (#345): 1 (the default) covers your own token before a battle card; 0 off. */
+  coverToken: number;
   /**
    * The Wrangler plan: 2 (the default) is v2 (`wranglerPlanV2.ts`, Paul, Nov 13) with the card
    * rules (Medium and Hard); 1 is v1 (`wranglerPlan.ts`, #276) with `rules` (Hard); 0 is off.
@@ -124,6 +126,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   revengeStep: 1,
   recurDiscard: 1,
   ownCover: 1,
+  coverToken: 1,
   wranglerPlan: 2,
   wranglerV21: 1,
   festPlan: 0,
@@ -429,6 +432,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         revengeStep: settings.revengeStep > 0,
         recurDiscard: settings.recurDiscard > 0,
         ownCover: settings.ownCover > 0,
+        coverToken: settings.coverToken > 0,
       };
       const unsafe = cardRulesDead(
         first,
@@ -632,6 +636,7 @@ function cardRulesSafe(
   revengeStep = 1,
   recurDiscard = 1,
   ownCover = 1,
+  coverToken = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
     counterFirst: counterFirst > 0,
@@ -640,6 +645,7 @@ function cardRulesSafe(
     revengeStep: revengeStep > 0,
     recurDiscard: recurDiscard > 0,
     ownCover: ownCover > 0,
+    coverToken: coverToken > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
   return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
@@ -682,6 +688,7 @@ export function blunderAllowed(
     settings.revengeStep,
     settings.recurDiscard,
     settings.ownCover,
+    settings.coverToken,
   );
   const allowed =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
@@ -725,6 +732,7 @@ export function decide(input: BotInput): Decision {
               settings.revengeStep,
               settings.recurDiscard,
               settings.ownCover,
+              settings.coverToken,
             )
           : [...legalActions];
     return {

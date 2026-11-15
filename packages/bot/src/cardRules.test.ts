@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import type { Card } from "@gojisim/cards";
+import { type Card, getTokenCard } from "@gojisim/cards";
 import { parseDeckList } from "@gojisim/cards/deck-lists";
 import { getAllCards } from "@gojisim/cards/test-decks";
 import {
@@ -1167,6 +1167,35 @@ describe(
         ownCover: false,
       });
       expect(off.has(play(1)!)).toBe(false);
+    });
+
+    it("rule 23b (#345, BFW182): with no empty zone off your path, a battle card goes over your own token (Tentacles, 9.1.2.2), not over your own battle card", () => {
+      const { state, p1 } = withGodzilla1995();
+      // Your monster in zone 6 (its path is 7 and 8); zones 1-5 full, your Tentacles token in 1.
+      p1.zones[1] = [[add(state, getTokenCard("Tentacles"), "P1")]];
+      for (const z of [2, 3, 4, 5] as const)
+        p1.zones[z] = [[add(state, { ...real("EBP01-075"), rank: 1 }, "P1")]];
+      for (const z of [7, 8] as const) p1.zones[z] = [];
+      const king = add(state, { ...real("EBP01-075"), rank: 1 }, "P1");
+      p1.hand = [king];
+      const legal = getLegalActions(state, "P1");
+      const play = (zone: number) =>
+        legal.find(
+          (a) =>
+            a.type === "playBattle" &&
+            a.cardInstanceId === king.instanceId &&
+            a.zone === zone,
+        );
+      expect(play(1)).toBeDefined();
+      expect(play(2)).toBeDefined();
+      const dead = cardRulesDead(state, legal, "P1");
+      expect(dead.has(play(1)!)).toBe(false);
+      for (const z of [2, 3, 4, 5]) expect(dead.has(play(z)!)).toBe(true);
+      // `coverToken: false` (the paired check's control): rule 23 alone says nothing here.
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        coverToken: false,
+      });
+      for (const z of [2, 3, 4, 5]) expect(off.has(play(z)!)).toBe(false);
     });
 
     it("rule 2 (Paul, Nov 12): from zone 7, Godzilla vs. King Ghidorah EBP02-071 (awakening 6: destroy rank 6 or lower) clears the zone 8 blocker before the winning invasion", () => {
