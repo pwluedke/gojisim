@@ -22,11 +22,12 @@ function start(seed = 365): GameState {
   });
 }
 
+type PlayBattle = Extract<Action, { type: "playBattle" }>;
+
 /** Two battle-card plays into different zones, from the turn player's legal actions. */
-function twoPlays(state: GameState): [Action, Action] {
+function twoPlays(state: GameState): [PlayBattle, PlayBattle] {
   const plays = getLegalActions(state, state.turnPlayer).filter(
-    (a): a is Extract<Action, { type: "playBattle" }> =>
-      a.type === "playBattle" && !a.onTop,
+    (a): a is PlayBattle => a.type === "playBattle" && !a.onTop,
   );
   const first = plays[0];
   const second = plays.find(
@@ -50,7 +51,10 @@ function play(state: GameState, actions: readonly Action[]): GameState[] {
 
 /** A pass for the turn player, after `actions`. */
 function turn(state: GameState, actions: readonly Action[]) {
-  const all = [...actions, { type: "pass", player: state.turnPlayer } as Action];
+  const all = [
+    ...actions,
+    { type: "pass", player: state.turnPlayer } as Action,
+  ];
   return { states: play(state, all), actions: all };
 }
 

@@ -2363,3 +2363,30 @@
   opacity: 0.35;
   cursor: not-allowed;
 }
+
+/* #365 Kaiju Classroom: the two turns side by side, and the banner while the player plays the
+   bot's turn. */
+.classroomModal {
+  width: min(90vw, 720px);
+}
+
+.classroomColumns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.classroomColumn ol {
+  margin: var(--space-1) 0 0;
+  padding-left: 1.4em;
+}
+
+.classroomTitle {
+  font-weight: 700;
+}
+
+.classroomBanner {
+  padding: var(--space-1) var(--space-2);
+  border: 1.5px solid var(--btn-primary-fill, var(--color-panel-border));
+  border-radius: 6px;
+}

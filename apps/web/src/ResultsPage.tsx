@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  type AgreementRow,
+  agreementShare,
   type Check,
   isGuideDeck,
   type Mistake,
@@ -564,10 +566,176 @@ function NumbersTable({
   );
 }
 
+/**
+ * #365: Kaiju Classroom's agreement: per deck, the share of bot turns that ended in the same
+ * position as the player's, over time (all bot versions of the day together) and by bot version.
+ */
+function Agreement({
+  rows,
+  show,
+}: {
+  rows: readonly AgreementRow[];
+  show: (deck: string) => boolean;
+}) {
+  const shown = rows.filter((r) => show(r.deck));
+  if (shown.length === 0)
+    return (
+      <p className={styles.note} data-testid="agreement-none">
+        No Kaiju Classroom turns for these decks yet.
+      </p>
+    );
+  const decks = [...new Set(shown.map((r) => r.deck))].sort();
+  const dates = [...new Set(shown.map((r) => r.date))].sort();
+  const W = 640;
+  const H = 240;
+  const pad = 32;
+  const x = (date: string) =>
+    pad +
+    (dates.length === 1
+      ? (W - 2 * pad) / 2
+      : (dates.indexOf(date) * (W - 2 * pad)) / (dates.length - 1));
+  const y = (rate: number) => H - pad - rate * (H - 2 * pad);
+  const versions = [
+    ...new Set(shown.map((r) => `${r.deck}\u0000${r.botVersion}`)),
+  ]
+    .map((key) => key.split("\u0000") as [string, string])
+    .sort((a, b) => a[0].localeCompare(b[0]) || a[1].localeCompare(b[1]));
+  return (
+    <div data-testid="agreement">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className={styles.svg}
+        role="img"
+        aria-label="Kaiju Classroom agreement over time per deck"
+      >
+        {[0, 0.25, 0.5, 0.75, 1].map((t) => (
+          <g key={t}>
+            <line
+              x1={pad}
+              x2={W - pad}
+              y1={y(t)}
+              y2={y(t)}
+              className={styles.grid}
+            />
+            <text x={4} y={y(t) + 4} className={styles.axis}>
+              {t * 100}%
+            </text>
+          </g>
+        ))}
+        {dates.map((date) => (
+          <text
+            key={date}
+            x={x(date)}
+            y={H - 8}
+            textAnchor="middle"
+            className={styles.axis}
+          >
+            {date.slice(5)}
+          </text>
+        ))}
+        {decks.map((deck, i) => {
+          const color = `var(--series-${i % 6})`;
+          const points = dates.flatMap((date) => {
+            const day = shown.filter((r) => r.deck === deck && r.date === date);
+            return day.length ? [{ date, ...agreementShare(day) }] : [];
+          });
+          return (
+            <g key={deck} data-testid="agreement-series">
+              <polyline
+                fill="none"
+                stroke={color}
+                strokeWidth={2}
+                points={points
+                  .map((p) => `${x(p.date)},${y(p.share)}`)
+                  .join(" ")}
+              />
+              {points.map((p) => (
+                <circle
+                  key={p.date}
+                  cx={x(p.date)}
+                  cy={y(p.share)}
+                  r={4}
+                  fill={color}
+                >
+                  <title>{`${deck}: ${pct(p.share)} of ${p.turns} bot turns matched (${p.date})`}</title>
+                </circle>
+              ))}
+            </g>
+          );
+        })}
+      </svg>
+      <ul className={styles.legend}>
+        {decks.map((deck, i) => (
+          <li key={deck}>
+            <span
+              className={styles.swatch}
+              style={{ background: `var(--series-${i % 6})` }}
+            />{" "}
+            {deck}
+          </li>
+        ))}
+      </ul>
+      <table className={styles.table} data-testid="agreement-versions">
+        <thead>
+          <tr>
+            <th>Deck</th>
+            <th>Bot version</th>
+            <th>Bot turns</th>
+            <th>Same as the player</th>
+            <th>About the same</th>
+            <th>Worse</th>
+            <th>Better</th>
+          </tr>
+        </thead>
+        <tbody>
+          {versions.map(([deck, version]) => {
+            const these = shown.filter(
+              (r) => r.deck === deck && r.botVersion === version,
+            );
+            const t = agreementShare(these);
+            const sum = (k: "aboutSame" | "worse" | "better") =>
+              these.reduce((n, r) => n + r[k], 0);
+            return (
+              <tr key={`${deck}-${version}`} data-testid="agreement-row">
+                <td>{deck}</td>
+                <td>{version}</td>
+                <td>{t.turns}</td>
+                <td>
+                  {t.same} ({pct(t.share)})
+                </td>
+                <td>{sum("aboutSame")}</td>
+                <td>{sum("worse")}</td>
+                <td>{sum("better")}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function ResultsPage() {
   const [data, setData] = useState<ResultsData | null | "missing">(null);
   const [all, setAll] = useState(false);
   const [runId, setRunId] = useState("");
+  // #365: Kaiju Classroom's agreement, from the server's own route (none: the section says so).
+  const [agreement, setAgreement] = useState<AgreementRow[]>([]);
+  useEffect(() => {
+    let live = true;
+    void fetch("/api/results/classroom", {
+      headers: { accept: "application/json" },
+    })
+      .then((res) => (res.ok ? (res.json() as Promise<unknown>) : null))
+      .then((body) => {
+        const rows = (body as { rows?: unknown } | null)?.rows;
+        if (live && Array.isArray(rows)) setAgreement(rows as AgreementRow[]);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
   useEffect(() => {
     let live = true;
     void fetch("/api/results", { headers: { accept: "application/json" } })
@@ -737,6 +905,19 @@ export function ResultsPage() {
                 <HeatMap run={run} reads={data.reads ?? []} show={show} />
               </section>
             )}
+            <section className={styles.section}>
+              <h2 className={styles.heading}>
+                Kaiju Classroom: does the bot play your turn?
+              </h2>
+              <p className={styles.caption}>
+                In Kaiju Classroom games, players play the bot&apos;s turn
+                first, then the bot plays its own. Each point is the share of a
+                deck&apos;s bot turns that ended in the same position as the
+                player&apos;s, that day; the table splits them by bot version
+                with the players&apos; ratings of the others.
+              </p>
+              <Agreement rows={agreement} show={show} />
+            </section>
             <section className={styles.section}>
               <h2 className={styles.heading}>Every number</h2>
               <p className={styles.caption}>

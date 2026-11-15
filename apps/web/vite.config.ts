@@ -7,6 +7,7 @@ import {
   uploadsPerMinuteFrom,
 } from "../server/src/games.js";
 import { join } from "node:path";
+import { classroomStore } from "../server/src/classroom.js";
 import { devAccounts, type DevAccounts } from "../server/src/devAccounts.js";
 import { devDeckResults } from "./devDeckResults";
 import { devPlayerOf, devSignIn } from "./devSignIn";
@@ -108,8 +109,16 @@ export default defineConfig({
       name: "gojisim-games",
       configureServer(server) {
         const { db, playerOf } = devAccountsOnce();
+        // #365: Kaiju Classroom's agreement for `/results`, as `apps/server` keeps it (next to
+        // the records here; Playwright's records folder in e2e).
+        const classroom = classroomStore(
+          process.env["RESULTS_DIR"] ?? join(recordsDir(), "results"),
+        );
+        server.middlewares.use(classroom.middleware);
         server.middlewares.use(
           gamesMiddleware({
+            onStored: (record, _earlier, file) =>
+              classroom.onStored(record, file),
             config: siteConfig(process.env),
             recordsDir: recordsDir(),
             uploadsPerMinute: uploadsPerMinuteFrom(process.env),

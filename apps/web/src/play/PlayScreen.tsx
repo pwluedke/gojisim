@@ -1,5 +1,6 @@
 import {
   type Action,
+  type ClassroomRating,
   combosInGame,
   type ComboHit,
   type CommunityPost,
@@ -40,6 +41,7 @@ import {
   paceLabel,
 } from "../game/announce";
 import {
+  botMoveAt,
   fetchConfig,
   type BotMoveRef,
   latestBotMove,
@@ -64,6 +66,16 @@ import {
   onError,
 } from "../game/errors";
 import { ReportModal } from "./ReportModal";
+import { ClassroomCompare } from "./ClassroomCompare";
+import {
+  botTurnLabels,
+  classroomSandbox,
+  classroomStage,
+  differenceName,
+  sandboxEnd,
+  withClassroomRating,
+  withClassroomSubmit,
+} from "../game/classroom";
 import { TestSitePanel } from "./TestSitePanel";
 import type { OnlinePlay } from "../online/useOnline";
 import styles from "./Board.module.css";
@@ -201,6 +213,8 @@ interface PendingGame {
   matchMode: MatchMode;
   /** M5h #13: the human sees the bot's hand. */
   showOpponentHand: boolean;
+  /** #365: Kaiju Classroom (the player plays each bot turn first). */
+  classroom: boolean;
   picker: PlayerId;
   /** The card (0 or 1) that reads First for the picker: the seed decides (6.3.1.4). */
   firstCard: 0 | 1;
@@ -345,34 +359,57 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
   };
   const startedRef = useRef(onSessionStart);
   startedRef.current = onSessionStart;
+  // While the history view or a search result is open, a bot's answer waits.
+  // A combo modal holds the bot too (M5g), until it is closed.
+  // The First / Second pick holds the bot on the board under it.
+  // A bot announcement holds the bot too, until its time is up or OK is pressed.
+  const hold =
+    announcements.length > 0 ||
+    historyAt !== null ||
+    searches.length > 0 ||
+    callouts.length > 0 ||
+    pending !== null ||
+    reporting !== null ||
+    leaving;
+  // While cards move or a combo modal is open, no bot decision starts; nor while a Bad Bot! or
+  // Report bug popup is open (M13b).
+  const pause =
+    announcements.length > 0 ||
+    animating ||
+    callouts.length > 0 ||
+    pending !== null ||
+    reporting !== null ||
+    leaving;
   const local = useGameSession({
     privateLabels: () => true,
     autoPlay: "always",
     onStart: (next: Session) => startedRef.current(next),
-    // While the history view or a search result is open, a bot's answer waits.
-    // A combo modal holds the bot too (M5g), until it is closed.
-    // The First / Second pick holds the bot on the board under it.
-    // A bot announcement holds the bot too, until its time is up or OK is pressed.
-    hold:
-      announcements.length > 0 ||
-      historyAt !== null ||
-      searches.length > 0 ||
-      callouts.length > 0 ||
-      pending !== null ||
-      reporting !== null ||
-      leaving,
-    // While cards move or a combo modal is open, no bot decision starts; nor while a Bad Bot! or
-    // Report bug popup is open (M13b).
-    pause:
-      announcements.length > 0 ||
-      animating ||
-      callouts.length > 0 ||
-      pending !== null ||
-      reporting !== null ||
-      leaving,
+    hold,
+    pause,
+    // #365: in a Kaiju Classroom game the bot waits while the player plays its turn or rates it.
+    waits: (s) => classroomStage(s) !== null,
   });
+  // #365 Kaiju Classroom: the sandbox the player plays the bot's turn in. Its own session and bot
+  // worker (the bot answers any choice of the player's own seat there); the real game never sees
+  // it. `sandboxFrom` is the real position it started from.
+  const sandboxGame = useGameSession({
+    privateLabels: () => true,
+    autoPlay: "always",
+    hold,
+    pause,
+  });
+  const [sandboxFrom, setSandboxFrom] = useState<number | null>(null);
+  const stage = useMemo(
+    () => (!online && local.session ? classroomStage(local.session) : null),
+    [online, local.session],
+  );
+  const inSandbox =
+    stage?.kind === "play" &&
+    sandboxFrom === stage.actionIndex &&
+    sandboxGame.session !== null;
   // M9b: a head to head game uses the server's session, legal actions and boards instead.
-  const game = online ? onlineGame(local, online) : local;
+  const real = online ? onlineGame(local, online) : local;
+  const game = inSandbox ? sandboxGame : real;
   const onlineEpoch = online?.game?.epoch;
   useEffect(() => {
     const next = online?.game?.session;
@@ -400,9 +437,18 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
   // #95: the first error from the app's own code in a game uploads the record with it (Test Site
   // and sharing on), once per game, and one toast says so. The ref keeps the listener current.
   const [crashToast, setCrashToast] = useState(false);
-  const crashPage = useRef({ session, testSite, share: settings.shareGames });
-  crashPage.current = { session, testSite, share: settings.shareGames };
-  const setGameSession = game.setSession;
+  // #365: the real game's record, never the Classroom sandbox's.
+  const crashPage = useRef({
+    session: real.session,
+    testSite,
+    share: settings.shareGames,
+  });
+  crashPage.current = {
+    session: real.session,
+    testSite,
+    share: settings.shareGames,
+  };
+  const setGameSession = real.setSession;
   useEffect(
     () =>
       onError((error) => {
@@ -507,10 +553,16 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
   const closeCallout = () => setCallouts((queue) => queue.slice(1));
 
   // M5h #17: when the game ends, pick the game-over line for the human (P1 between two bots).
-  const result = state?.result ?? null;
+  // #365: the real game's result, never the Classroom sandbox's.
+  const realSession = real.session;
+  const result = real.state?.result ?? null;
+  const realBottom =
+    real.state && realSession
+      ? bottomPlayer(real.state, realSession.seats)
+      : null;
   useEffect(() => {
-    if (!result || gameOver || !liveBottom) return;
-    const key = outcomeKey(result, liveBottom);
+    if (!result || gameOver || !realBottom) return;
+    const key = outcomeKey(result, realBottom);
     endedHere.current = !startResult.current;
     const line = pickLine(key, lastLine());
     rememberLine(line);
@@ -522,12 +574,82 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
   // M13b: a game that ends here (win, loss, draw or concession) uploads its record, Bad Bot!
   // reports included, when the Test Site is on and sharing is on. A loaded finished game doesn't.
   useEffect(() => {
-    if (!result || startResult.current || !session) return;
+    if (!result || startResult.current || !realSession) return;
     startResult.current = result;
     // M9b: the server writes a head to head game's record itself.
     if (!testSite || !settings.shareGames || online) return;
-    void uploadRecord(session);
+    void uploadRecord(realSession);
   }, [result]);
+
+  // #365 Kaiju Classroom. The bot's main phase begins: once its start-phase moves have shown, the
+  // sandbox opens on a copy of the position, with the player in the bot's seat.
+  useEffect(() => {
+    if (stage?.kind !== "play" || !local.session || pending) return;
+    if (sandboxFrom === stage.actionIndex && sandboxGame.session) return;
+    if (animating || announcements.length > 0 || callouts.length > 0) return;
+    setHistoryAt(null);
+    setSearches([]);
+    setSandboxFrom(stage.actionIndex);
+    sandboxGame.startSession(
+      classroomSandbox(local.session, stage.player),
+      true,
+    );
+  }, [stage, pending, animating, announcements.length, callouts.length]);
+  // A sandbox left over (a new game, a load) closes.
+  useEffect(() => {
+    if (stage?.kind === "play" || sandboxFrom === null) return;
+    sandboxGame.setSession(null);
+    setSandboxFrom(null);
+  }, [stage]);
+  // The player ends the bot's main phase in the sandbox: their turn is saved with the real record
+  // (information only), the sandbox closes, and the bot plays its own turn from the position.
+  const sandboxSession = sandboxGame.session;
+  useEffect(() => {
+    if (!inSandbox || !sandboxSession || sandboxFrom === null) return;
+    if (stage?.kind !== "play" || !sandboxEnd(sandboxSession, sandboxFrom))
+      return;
+    const from = sandboxFrom;
+    const seat = stage.player;
+    local.setSession((s) =>
+      s ? withClassroomSubmit(s, sandboxSession, from, seat) : s,
+    );
+    sandboxGame.setSession(null);
+    setSandboxFrom(null);
+    setHistoryAt(null);
+    setSearches([]);
+    setConfirming(null);
+    setOverlay(null);
+  }, [sandboxSession]);
+  // The bot's main phase has ended: the same end position is rated "same" at once; otherwise the
+  // comparison opens (`ClassroomCompare`) and the game waits for the player's rating.
+  const [classroomToast, setClassroomToast] = useState(false);
+  const [classroomReport, setClassroomReport] = useState<
+    "worse" | "better" | null
+  >(null);
+  const rateClassroom = (
+    rating: ClassroomRating,
+    reason?: string,
+    feedback?: Parameters<typeof withFeedback>[1],
+  ): Session | null => {
+    const s = local.session;
+    const at = s ? classroomStage(s) : null;
+    if (!s || at?.kind !== "compare") return null;
+    let next = withClassroomRating(s, at, rating, reason);
+    if (feedback) next = withFeedback(next, feedback);
+    local.setSession(next);
+    // A game already over has uploaded; the rating goes up with it again (one file per game).
+    if (!feedback && result && testSite && settings.shareGames)
+      void uploadRecord(next);
+    return next;
+  };
+  useEffect(() => {
+    if (stage?.kind !== "compare" || !stage.same) return;
+    rateClassroom("same");
+    setClassroomToast(true);
+    window.setTimeout(() => setClassroomToast(false), 5000);
+  }, [stage]);
+  const classroomOpen =
+    (stage?.kind === "compare" && !stage.same) || classroomReport !== null;
 
   // A deck search by a human seat, found or not, opens the search modal (M5e). An undo shortens
   // the log, so its searches are never shown again.
@@ -679,9 +801,12 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
   const undoFor = human && decider ? decider : null;
   // M9b: online, an undo is a request the other player answers (the server says when it may be
   // asked).
+  // #365: in the Classroom sandbox, undo stops at the position the turn started from.
   const undoable =
     !!undoFor &&
     !!session &&
+    (!inSandbox ||
+      (sandboxFrom !== null && session.record.actions.length > sandboxFrom)) &&
     (online ? !!online.message?.undo.canAsk : canUndoSession(session, undoFor));
   const undo = () => {
     if (!session || !undoFor || !undoable) return;
@@ -771,7 +896,15 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
       }
       // Input waits while cards move (M5f) and while the combo modal is open (its own keys), and
       // while a Bad Bot! or Report bug popup is open (M13b: its own Esc).
-      if (animating || callouts.length > 0 || reporting || leaving) return;
+      // #365: so does the Kaiju Classroom comparison (the game waits for its rating).
+      if (
+        animating ||
+        callouts.length > 0 ||
+        reporting ||
+        leaving ||
+        classroomOpen
+      )
+        return;
       if (e.ctrlKey || e.metaKey || e.altKey || !session) return;
       // The game-over modal takes Space and Esc (M5h #17).
       if (gameOver && !gameOver.closed) {
@@ -852,6 +985,7 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
       mode: setup.matchMode,
       showOpponentHand: setup.showOpponentHand,
       firstPickPeeked,
+      classroom: setup.classroom,
       ...(picker && card !== undefined
         ? { firstPick: { player: picker, card } }
         : {}),
@@ -905,12 +1039,13 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
       <div className="gojisim">
         <ThemeHeader />
         <NewGame
-          onStart={(seed, picked, seats, matchMode) =>
+          onStart={(seed, picked, seats, matchMode, classroom) =>
             begin({
               seed,
               picked,
               seats,
               matchMode,
+              classroom,
               // Show opponent's hand is turned on from the Test Site panel (M13b).
               showOpponentHand: false,
             })
@@ -940,8 +1075,10 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
       online.message?.model ??
       null)
     : null;
+  // #365: the Classroom sandbox shows the bot's view: the player's own hand stays hidden.
   const model =
-    onlineModel ?? boardModel(shown, liveBottom ?? "P1", testSite && showHand);
+    onlineModel ??
+    boardModel(shown, liveBottom ?? "P1", testSite && showHand && !inSandbox);
 
   // Search results and combo callouts wait for a bot announcement, like for animations.
   const search = viewing === null && !announcing ? (searches[0] ?? null) : null;
@@ -953,8 +1090,12 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
     decider !== model.bottom ||
     !human ||
     animating ||
-    pending !== null;
-  const concedeFor = game.humanSeats[0] as PlayerId | undefined;
+    pending !== null ||
+    classroomOpen;
+  // #365: there's nothing to concede in the Classroom sandbox.
+  const concedeFor = inSandbox
+    ? undefined
+    : (game.humanSeats[0] as PlayerId | undefined);
   // Choice and search modals open once the cards have landed (M5f).
   const showModal =
     !announcing &&
@@ -963,7 +1104,8 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
     human &&
     choice !== null &&
     decider === model.bottom &&
-    !animating;
+    !animating &&
+    !classroomOpen;
   // A zone choice shows in the Prompt panel; every other choice is a modal.
   const zoneInPrompt =
     showModal && choice?.kind === "zone" && !search && !callout;
@@ -1034,6 +1176,16 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
       </div>
     ) : (
       <div className={styles.promptBody}>
+        {inSandbox && (
+          <div
+            className={styles.classroomBanner}
+            data-testid="classroom-banner"
+          >
+            <strong>Kaiju Classroom:</strong> play the bot&apos;s turn as you
+            would. Nothing here changes the game. End Main to submit; then the
+            bot plays its own turn.
+          </div>
+        )}
         <div className={styles.promptRow}>
           <span data-testid="prompt-step">
             <strong>{STEP_NAMES[stepPhase(state.currentStep)]}</strong> ·{" "}
@@ -1050,13 +1202,15 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
           {game.botToMove && seat?.kind === "bot" ? (
             <>
               <div data-testid="bot-thinking">
-                {game.thinking
-                  ? `Bot (${difficultyName(seat.difficulty)}) is thinking… ${(
-                      Math.max(0, game.now - game.thinking.started) / 1000
-                    ).toFixed(1)} s`
-                  : game.playing
-                    ? `Bot (${difficultyName(seat.difficulty)}) is about to move…`
-                    : `Paused: Bot (${difficultyName(seat.difficulty)}) is to move.`}
+                {stage?.kind === "play" && !inSandbox
+                  ? "Kaiju Classroom: the bot's turn opens for you…"
+                  : game.thinking
+                    ? `Bot (${difficultyName(seat.difficulty)}) is thinking… ${(
+                        Math.max(0, game.now - game.thinking.started) / 1000
+                      ).toFixed(1)} s`
+                    : game.playing
+                      ? `Bot (${difficultyName(seat.difficulty)}) is about to move…`
+                      : `Paused: Bot (${difficultyName(seat.difficulty)}) is to move.`}
               </div>
               {game.botSeats.length === 2 && (
                 <button
@@ -1098,7 +1252,7 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
                   data-testid="pass"
                   onClick={takePass}
                 >
-                  Pass [Space]
+                  {inSandbox ? "End Main and submit [Space]" : "Pass [Space]"}
                 </button>
               )}
             </>
@@ -1241,6 +1395,41 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
     };
     const next = withIdea(session, entry);
     game.setSession((s) => (s ? withIdea(s, entry) : s));
+    setNote("Sending…");
+    setNote(
+      (await uploadRecord(next))
+        ? "Thanks, sent."
+        : "Couldn't send. It will be sent with the finished game.",
+    );
+  };
+  // #365: worse or better with a why files a Bad Bot! / Good Bot! report, as the in-game buttons
+  // do: the record (with the rating) uploads, the marked move being the bot's first main-phase
+  // move, so the report's position is the Classroom position.
+  const classroomMove =
+    stage?.kind === "compare" && local.session
+      ? botMoveAt(local.session, stage.entry.actionIndex)
+      : null;
+  const sendClassroomReport = async (
+    rating: "worse" | "better",
+    reporter: string,
+    text: string,
+    move: BotMoveRef | null,
+    community: CommunityPost,
+  ) => {
+    if (!move || stage?.kind !== "compare") return;
+    remember(reporter);
+    setClassroomReport(null);
+    const next = rateClassroom(rating, text, {
+      kind: rating === "worse" ? "bad" : "good",
+      actionIndex: move.actionIndex,
+      label: `${move.label} (${move.when})`,
+      text,
+      reporter,
+      at: new Date().toISOString(),
+      community,
+      classroomTurn: stage.index,
+    });
+    if (!next) return;
     setNote("Sending…");
     setNote(
       (await uploadRecord(next))
@@ -1514,11 +1703,11 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
         <TestSitePanel
           settings={settings}
           updateSettings={updateSettings}
-          badBotReady={!pending && badBotMove !== null}
+          badBotReady={!pending && !inSandbox && badBotMove !== null}
           botButtons={!online}
           onBadBot={() => setReporting("badBot")}
           onGoodBot={() => setReporting("goodBot")}
-          reportReady={!pending}
+          reportReady={!pending && !inSandbox}
           onReportBug={() => setReporting("bug")}
           onIdea={() => setReporting("idea")}
           note={note}
@@ -1567,6 +1756,11 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
         }
         data-show-opponent-hand={
           session.record.showOpponentHand ? "true" : undefined
+        }
+        // #365: a Kaiju Classroom game, and where its bot turn stands.
+        data-classroom={realSession?.record.classroom ? "true" : undefined}
+        data-classroom-stage={
+          inSandbox ? "sandbox" : stage ? stage.kind : undefined
         }
       >
         <BoardView
@@ -1864,6 +2058,50 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
             onCancel={() => setReporting(null)}
           />
         )}
+        {stage?.kind === "compare" &&
+          !stage.same &&
+          classroomReport === null &&
+          local.session && (
+            <ClassroomCompare
+              key={stage.index}
+              playerMoves={stage.entry.playerLabels}
+              botMoves={botTurnLabels(local.session, stage)}
+              differences={stage.differences.map(differenceName)}
+              canReport={
+                testSite && settings.shareGames && classroomMove !== null
+              }
+              onRate={(rating, reason) => rateClassroom(rating, reason)}
+              onReport={setClassroomReport}
+            />
+          )}
+        {classroomReport && classroomMove && (
+          <ReportModal
+            key={`classroom-${classroomReport}`}
+            kind={classroomReport === "worse" ? "badBot" : "goodBot"}
+            moves={[classroomMove]}
+            name={settings.reporterName}
+            onSubmit={(reporter, text, move, community) =>
+              void sendClassroomReport(
+                classroomReport,
+                reporter,
+                text,
+                move,
+                community,
+              )
+            }
+            onCancel={() => setClassroomReport(null)}
+          />
+        )}
+        {classroomToast && (
+          <div
+            className={styles.toast}
+            data-testid="classroom-same"
+            role="status"
+          >
+            Kaiju Classroom: the bot&apos;s turn ended in the same position as
+            yours.
+          </div>
+        )}
         {leaving && (
           <LeaveGameModal
             onStay={() => setLeaving(false)}
@@ -1918,7 +2156,9 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
                 {confirming === "move" && pendingMove
                   ? `${actionLabel(state, pendingMove)}?`
                   : confirming === "pass"
-                    ? "End Main and move to the Counter Phase?"
+                    ? inSandbox
+                      ? "End the bot's main phase and submit your turn?"
+                      : "End Main and move to the Counter Phase?"
                     : confirming === "showHand"
                       ? "Show the bot's hand?"
                       : "Concede the game?"}
