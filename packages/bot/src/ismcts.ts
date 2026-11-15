@@ -70,6 +70,8 @@ export interface IsmctsSettings {
   cardRules: number;
   /** #305: 1 (the default) has card rule 7 take the counter before the zone 8 block; 0 is the old rule 7. */
   counterFirst: number;
+  /** Card rule 20 (#324, #327): 1 (the default) takes the counter without a block too; 0 is off. */
+  counterAlways: number;
   /** Card rule 21 (#304): 1 (the default) keeps battle cards off your own monster's path; 0 is off. */
   ownPath: number;
   /** #339: 1 (the default) keeps a [revenge] card out of zone 8 unless it's stepped on; 0 is off. */
@@ -115,6 +117,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   recognizer: 0,
   cardRules: 0,
   counterFirst: 1,
+  counterAlways: 1,
   ownPath: 1,
   revengeStep: 1,
   recurDiscard: 1,
@@ -418,6 +421,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
       const first = state;
       const options = {
         counterFirst: settings.counterFirst > 0,
+        counterAlways: settings.counterAlways > 0,
         ownPath: settings.ownPath > 0,
         revengeStep: settings.revengeStep > 0,
         recurDiscard: settings.recurDiscard > 0,
@@ -619,12 +623,14 @@ function cardRulesSafe(
   me: PlayerId,
   own?: Decklist,
   counterFirst = 1,
+  counterAlways = 1,
   ownPath = 1,
   revengeStep = 1,
   recurDiscard = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
     counterFirst: counterFirst > 0,
+    counterAlways: counterAlways > 0,
     ownPath: ownPath > 0,
     revengeStep: revengeStep > 0,
     recurDiscard: recurDiscard > 0,
@@ -665,6 +671,7 @@ export function blunderAllowed(
     me,
     own,
     settings.counterFirst,
+    settings.counterAlways,
     settings.ownPath,
     settings.revengeStep,
     settings.recurDiscard,
@@ -706,6 +713,7 @@ export function decide(input: BotInput): Decision {
               input.view.viewer as PlayerId,
               input.knowledge.decks[input.view.viewer as PlayerId],
               settings.counterFirst,
+              settings.counterAlways,
               settings.ownPath,
               settings.revengeStep,
               settings.recurDiscard,

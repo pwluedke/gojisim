@@ -106,10 +106,16 @@ import type { Decklist } from "./types";
  *    (continuous flags, 10.8) isn't activated while every one of them is already in force on that
  *    monster: a second Entangling Fear EBP04-081 ("your monster card cannot advance nor invade")
  *    adds nothing ("never any reason to play a second Entangling Fear"). Any deck.
+ * 20. #324, #327 (Ian, Keldroc, Nov 14): wherever the opponent's monster is (Monarch: a counter
+ *    sends it back from any zone) and rule 7 not involved, a way to make the counter this turn
+ *    (rule 9's plays, from any zone) is taken as rule 7 takes it: every other move waits
+ *    (passing too), but an invasion that wins now. With the counter made, a play after which it
+ *    isn't made any more is left out. Any deck.
  * 21. #304 (Keldroc and Ian, Nov 14): no battle card into your own monster's next two zones (its
  *    advance or invasion crushes it there, 11.3) while that card has a legal play into an empty
  *    zone off the path; [revenge] cards excepted (rule 17 wants them crushed), and not while your
- *    monster can neither advance nor invade. Any deck. * 24. #325, #327, #329 (Keldroc; Paul: "Orange" is King Ghidorah (1998) EBP03-063): a card that
+ *    monster can neither advance nor invade. Any deck.
+ * 24. #325, #327, #329 (Keldroc; Paul: "Orange" is King Ghidorah (1998) EBP03-063): a card that
  *    plays itself back from the discard pile (rule 4) is the one to discard. Paying for an
  *    invasion, or discarding down (5.7.2), the others are left out while it can go. Any deck.
  */
@@ -709,22 +715,58 @@ function forcedPlays(
   options: CardRulesOptions,
 ): Set<Action> {
   const blocks = blockingPlays(state, actions, me, options);
-  if (blocks.size === 0 || options.counterFirst === false) return blocks;
+  // Rule 20: without a block to make, a way to the counter is taken all the same.
+  if (blocks.size === 0)
+    return options.counterAlways === false
+      ? blocks
+      : counterPlays(state, actions, me, true);
+  if (options.counterFirst === false) return blocks;
   const ways = counterPlays(state, actions, me);
   return ways.size > 0 ? ways : blocks;
 }
 
-/** Rule 9: the plays that start a way to make the counter this turn, while it isn't made. */
+/** Rule 20: with the counter made, the plays after which it isn't made any more. */
+function droppedCounters(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  if (state.pendingChoice || state.turnPlayer !== me || !counters(state, me))
+    return [];
+  return actions.filter((a) => {
+    if (
+      a.type !== "playBattle" &&
+      a.type !== "activateStrategy" &&
+      a.type !== "playMonster" &&
+      a.type !== "gainRage"
+    )
+      return false;
+    try {
+      const after = advanceToDecision(applyAction(state, a));
+      // A pick of the bot's own still to come: judged by the plays that answer it, not here.
+      if (after.pendingChoice?.player === me) return false;
+      return !after.result && !counters(after, me);
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
+ * Rule 9: the plays that start a way to make the counter this turn, while it isn't made, with the
+ * opponent's monster in reach of your zone 8 (rule 20: `anyZone`, wherever it is).
+ */
 export function counterPlays(
   state: GameState,
   actions: readonly Action[],
   me: PlayerId,
+  anyZone = false,
 ): Set<Action> {
   const opponent = state.players.find((p) => p.id !== me);
   if (
     state.pendingChoice ||
     state.turnPlayer !== me ||
-    (opponent?.monsterPosition ?? 1) < 6 ||
+    (!anyZone && (opponent?.monsterPosition ?? 1) < 6) ||
     counters(state, me)
   )
     return new Set();
@@ -1255,6 +1297,8 @@ function idleModes(
 export interface CardRulesOptions {
   /** #305: rule 7 takes the counter before the block (the default); false is the old rule 7. */
   counterFirst?: boolean;
+  /** Rule 20 (#324, #327): the counter is taken without a block too (the default); false is off. */
+  counterAlways?: boolean;
   /** Rule 21 (#304): no battle card into your own monster's path (the default); false is off. */
   ownPath?: boolean;
   /** #339: a [revenge] card in zone 8 only when your monster steps on it (default); false is off. */
@@ -1319,6 +1363,9 @@ export function cardRulesDead(
     dead.add(action);
   for (const action of redundantStrategies(state, actions, me))
     dead.add(action);
+  if (options.counterAlways !== false)
+    for (const action of droppedCounters(state, actions, me))
+      if (!winsNow(state, action, me)) dead.add(action);
   if (options.recurDiscard !== false)
     for (const action of recurringDiscards(state, actions, me))
       if (!winsNow(state, action, me)) dead.add(action);
