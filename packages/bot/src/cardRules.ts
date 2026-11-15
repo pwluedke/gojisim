@@ -942,9 +942,21 @@ function invadingNeeds(deckCardNumber: string | undefined): number | null {
       typeof condition["value"] === "number"
     )
       return condition["value"];
-    return 0;
   }
+  // No [invading] ability with an under-count condition: nothing to keep active (rule 26 is for
+  // modes a stack unlocks).
   return null;
+}
+
+/** Rule 26: whether a card has an [invading] ability (a stack of it keeps one). */
+function hasInvading(deckCardNumber: string): boolean {
+  return getCardAbilities(deckCardNumber).abilities.some((ability) => {
+    const a = ability as unknown as Json;
+    return (
+      a["kind"] === "triggered" &&
+      (a["trigger"] as Json | undefined)?.["on"] === "invading"
+    );
+  });
 }
 
 /** Rule 26: monster plays that bury an active [invading] ability while an invasion is legal. */
@@ -968,7 +980,7 @@ function buriedInvadingPlays(
       (h) => h.instanceId === a.cardInstanceId,
     );
     const number = c ? state.cards[c.cardId]?.deckCardNumber : undefined;
-    if (invadingNeeds(number) !== null) return false;
+    if (number && hasInvading(number)) return false;
     return !making.has(a) && !winsNow(state, a, me);
   });
 }
