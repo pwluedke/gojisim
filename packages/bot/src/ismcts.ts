@@ -76,6 +76,8 @@ export interface IsmctsSettings {
   ownPath: number;
   /** Card rule 25 (#337): 1 (the default) keeps battle cards out of the zone behind; 0 is off. */
   ownBehind: number;
+  /** #346: 1 (the default) lets Paul's rule 2 rage a same-name collector with a copy left; 0 off. */
+  collectorRage: number;
   /** #339: 1 (the default) keeps a [revenge] card out of zone 8 unless it's stepped on; 0 is off. */
   revengeStep: number;
   /** Card rule 24 (#325, #329): 1 (the default) discards a recurring card first; 0 is off. */
@@ -124,6 +126,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   counterAlways: 1,
   ownPath: 1,
   ownBehind: 1,
+  collectorRage: 1,
   revengeStep: 1,
   recurDiscard: 1,
   ownCover: 1,
@@ -398,8 +401,12 @@ export function search(input: BotInput, settings: IsmctsSettings) {
           actionKey(first, a),
         );
       if (settings.rules > 0) {
-        const verdict = applyRules(first, input.legalActions, me, (a) =>
-          actionKey(first, a),
+        const verdict = applyRules(
+          first,
+          input.legalActions,
+          me,
+          (a) => actionKey(first, a),
+          settings.collectorRage > 0,
         );
         const plans = planDead(first, input.legalActions, me, settings);
         bonus = verdict.bonus;
@@ -669,7 +676,7 @@ export function blunderAllowed(
     legalActions,
     keyOf,
     new Set(),
-    applyRules(state, legalActions, me, keyOf),
+    applyRules(state, legalActions, me, keyOf, settings.collectorRage > 0),
     planDead(state, legalActions, me, settings),
   );
   const kept = keep
