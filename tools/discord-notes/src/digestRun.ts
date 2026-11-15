@@ -1,7 +1,8 @@
 import {
   type ApiChannel,
   type ApiMessage,
-  communityChannels,
+  digestChannels,
+  notAllowed,
   type DiscordGet,
   MESSAGE_CHANNELS,
   messagesAfter,
@@ -50,20 +51,29 @@ export async function runDigest({
   const since = now - hours * 3600_000 - overlapMinutes * 60_000;
   const after = snowflakeAt(since);
   const all = await get<ApiChannel[]>(`/guilds/${guildId}/channels`);
-  const community = communityChannels(all);
+  const read = digestChannels(all);
+  const community = read.map((r) => r.channel);
   const threads = await threadsOf(get, guildId, community, since);
   const byChannel: ChannelMessages[] = [];
-  for (const channel of community) {
+  // A channel or thread the bot can't read is skipped (and counted).
+  let skipped = 0;
+  const read403 = async (id: string) => {
+    try {
+      return await messagesAfter(get, id, after);
+    } catch (e) {
+      if (!notAllowed(e)) throw e;
+      skipped++;
+      return [];
+    }
+  };
+  for (const { channel, category } of read) {
     const messages = MESSAGE_CHANNELS.has(channel.type)
-      ? await messagesAfter(get, channel.id, after)
+      ? await read403(channel.id)
       : [];
     const inThreads: ChannelMessages["threads"] = [];
     for (const thread of threads.filter((t) => t.parent_id === channel.id))
-      inThreads.push({
-        thread,
-        messages: await messagesAfter(get, thread.id, after),
-      });
-    byChannel.push({ channel, messages, threads: inThreads });
+      inThreads.push({ thread, messages: await read403(thread.id) });
+    byChannel.push({ channel, category, messages, threads: inThreads });
   }
   // #148: what an earlier run already posted (the overlap) is left out.
   const fresh = (ms: ApiMessage[]) => ms.filter((m) => !seen.has(m.id));
@@ -75,7 +85,7 @@ export async function runDigest({
   }));
   const count = messageCount(unseen);
   log(
-    `${community.length} COMMUNITY channels, ${threads.length} threads, ${count} new messages in the last ${hours} h (${before - count} already posted).`,
+    `${community.length} channels in ${new Set(read.map((r) => r.category)).size} categories, ${threads.length} threads, ${count} new messages in the last ${hours} h (${before - count} already posted)${skipped > 0 ? `; ${skipped} not readable by the bot, skipped` : ""}.`,
   );
   pruneSeen(seen, now);
   if (count === 0) {
