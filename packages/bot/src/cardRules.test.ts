@@ -948,6 +948,17 @@ describe(
         return activations.map((a) => dead.has(a));
       };
       for (const d of judge()) expect(d).toBe(true);
+      // `targetCheck: false` (the paired check's control): rule 22 is off.
+      const legal = getLegalActions(state, "P1");
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        targetCheck: false,
+      });
+      for (const a of legal)
+        if (
+          a.type === "activateStrategy" &&
+          a.cardInstanceId === gvm.instanceId
+        )
+          expect(off.has(a)).toBe(false);
       // A rank 4 battle card of theirs: the first mode destroys it.
       opp.zones[3] = [[add(state, { ...real("ESD02-012"), rank: 4 }, "P2")]];
       for (const d of judge()) expect(d).toBe(false);

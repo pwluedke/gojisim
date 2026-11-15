@@ -145,6 +145,8 @@ export function mxPlanV2Verdict(
   state: GameState,
   actions: readonly Action[],
   player: PlayerId,
+  /** `mxFixes` (#335, #338): Landing not idle, Manda (2004) at full rank; `false` is the old v2. */
+  fixes = true,
 ): Map<Action, number> {
   const dead = new Map<Action, number>();
   const kill = (a: Action, rule: number) => {
@@ -270,7 +272,7 @@ export function mxPlanV2Verdict(
   // Rule 3 (#338): Manda (2004) EBP04-045's full rank is paid while it can be; its discard cost
   // only when the plain play isn't legal, or to send a card the plan wants in the discard pile
   // (a battle card, not a key card, of a color it doesn't have yet, up to 4).
-  for (const a of actions) {
+  for (const a of fixes ? actions : []) {
     if (a.type !== "playBattle" || !a.costCardInstanceId) continue;
     const plain = actions.some(
       (b) =>
@@ -375,7 +377,7 @@ export function mxPlanV2Verdict(
 
   // Rule 9: Landing whenever it can be cast; but (#335) not on a monster already in zone 8 (it
   // can't advance), nor when the counter is made without it (it sends them back anyway).
-  if ((opponent.monsterPosition ?? 0) >= 8 || countered)
+  if (fixes && ((opponent.monsterPosition ?? 0) >= 8 || countered))
     for (const a of strategies(LANDING)) kill(a, 9);
   else if (strategies(LANDING).length > 0) for (const a of passes) kill(a, 9);
 

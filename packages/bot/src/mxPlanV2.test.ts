@@ -325,6 +325,9 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     });
     expect(landing(at8).length).toBeGreaterThan(0);
     for (const a of landing(at8)) expect(against(at8).has(a)).toBe(true);
+    // `mxFixes` off (`fixes: false`): the old rule 9 casts it anyway.
+    const old = mxPlanV2Verdict(at8.state, at8.legal, "P1", false);
+    for (const a of landing(at8)) expect(old.has(a)).toBe(false);
     expect(ruleOf(at8, isPass)).not.toContain(9);
     // The counter made already (three Kaizer Ghidorah EBP04-068): Landing adds nothing.
     const made = position({

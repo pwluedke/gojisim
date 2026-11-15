@@ -1226,6 +1226,8 @@ function idleModes(
 export interface CardRulesOptions {
   /** #305: rule 7 takes the counter before the block (the default); false is the old rule 7. */
   counterFirst?: boolean;
+  /** Rule 22 (#336): no destroy-only strategy with nothing to destroy (the default); false is off. */
+  targetCheck?: boolean;
 }
 
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
@@ -1278,7 +1280,9 @@ export function cardRulesDead(
   for (const action of revengePlays(state, actions, me)) dead.add(action);
   for (const action of redundantStrategies(state, actions, me))
     dead.add(action);
-  for (const action of fizzlingStrategies(state, actions, me)) dead.add(action);
+  if (options.targetCheck !== false)
+    for (const action of fizzlingStrategies(state, actions, me))
+      dead.add(action);
   // Rule 7: a way to make the counter (#305), else to block zone 8, is taken: every other move
   // waits (but an invasion that wins now), and it outranks the others' holds. (Rule 9 alone only
   // frees holds, in `rescuedPlays`.)
