@@ -74,6 +74,7 @@ import { BattleLog } from "./BattleLog";
 import { FightCard, type FightSide } from "./FightCard";
 import { buildLog } from "./logLines";
 import { ChoiceModal } from "./ChoiceModal";
+import { ZoneTray } from "./ZoneTray";
 import { ComboModal } from "./ComboModal";
 import { type Combo, getCombos } from "@gojisim/cards";
 
@@ -966,6 +967,11 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
   // A zone choice shows in the Prompt panel; every other choice is a modal.
   const zoneInPrompt =
     showModal && choice?.kind === "zone" && !search && !callout;
+  // #357: the card a zone choice places, for the tray and the zone ghost.
+  const placing =
+    choice?.kind === "zone" && choice.placing !== undefined
+      ? state.cards[choice.placing]
+      : undefined;
   const zoneChoice = new Map<string, Action>(
     showModal && choice?.kind === "zone"
       ? actions.flatMap((a) =>
@@ -1580,18 +1586,16 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
           prompt={prompt}
           beside={
             zoneInPrompt && viewing === null ? (
-              <ChoiceModal
+              // #357: the card being placed sits in a tray; it plays onto the mat like a hand card.
+              <ZoneTray
                 key={choice?.id}
                 state={state}
                 heading={choiceHeading(state, name)}
                 source={choiceSource(state)}
                 actions={actions}
-                manualCards={[]}
+                placing={placing}
                 onAction={takeMove}
-                labelOf={(action) => actionLabel(state, action)}
-                model={model}
                 onUndo={undoable ? undo : undefined}
-                name={name}
               />
             ) : null
           }
@@ -1600,6 +1604,7 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
           onAction={takeMove}
           labelOf={(action) => actionLabel(state, action)}
           zoneChoice={viewing === null ? zoneChoice : new Map()}
+          placing={viewing === null && zoneInPrompt ? placing : undefined}
           picked={viewing === null ? picked : new Map()}
           highlight={
             viewing !== null
