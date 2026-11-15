@@ -1169,6 +1169,75 @@ describe(
       expect(off.has(play(1)!)).toBe(false);
     });
 
+    it("rule 23 (#345, BFW182's record 68a648ca, move 14): Biollante Rose Form EBP01-048 isn't played over its own Rose Form in zone 6 while zone 7 is open off the path", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      // The record's board: your monster in zone 3 (its path is 4 and 5), zones 4, 5 and 7 empty.
+      p1.monsterPosition = 3;
+      opp.monsterPosition = 3;
+      for (const z of [1, 2, 3, 4, 5, 6, 7, 8] as const) p1.zones[z] = [];
+      const rank1 = (n: string) => add(state, { ...real(n), rank: 1 }, "P1");
+      p1.zones[1] = [[rank1("EBP01-047")]];
+      p1.zones[2] = [[rank1("ESD02-008")]];
+      p1.zones[6] = [[rank1("EBP01-048")]];
+      p1.zones[8] = [[rank1("EBP01-047")]];
+      const rose = rank1("EBP01-048");
+      p1.hand = [rose];
+      const legal = getLegalActions(state, "P1");
+      const play = (zone: number) =>
+        legal.find(
+          (a) =>
+            a.type === "playBattle" &&
+            a.cardInstanceId === rose.instanceId &&
+            a.zone === zone &&
+            !a.onTop,
+        );
+      expect(play(6)).toBeDefined();
+      expect(play(7)).toBeDefined();
+      const dead = cardRulesDead(state, legal, "P1");
+      expect(dead.has(play(6)!)).toBe(true);
+      expect(dead.has(play(7)!)).toBe(false);
+    });
+
+    it("rule 23b (#345, BFW182's record 68a648ca, move 48): with no empty zone, Destoroyah Aggregate Form EBP01-049 goes over a Tentacles token, not over its own Aggregate in zone 8", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      // The record's board: your monster in zone 4, every other zone full, Tentacles in 5 and 7.
+      p1.monsterPosition = 4;
+      opp.monsterPosition = 4;
+      const rank1 = (n: string) => add(state, { ...real(n), rank: 1 }, "P1");
+      const tentacles = () => add(state, getTokenCard("Tentacles"), "P1");
+      p1.zones[1] = [[rank1("EBP01-049")]];
+      p1.zones[2] = [[rank1("EBP01-055")]];
+      p1.zones[3] = [[rank1("EBP01-058")]];
+      p1.zones[4] = [];
+      p1.zones[5] = [[tentacles()]];
+      p1.zones[6] = [[rank1("EBP02-035")]];
+      p1.zones[7] = [[tentacles()]];
+      p1.zones[8] = [[rank1("EBP01-049")]];
+      const aggregate = rank1("EBP01-049");
+      p1.hand = [aggregate];
+      const legal = getLegalActions(state, "P1");
+      const play = (zone: number) =>
+        legal.find(
+          (a) =>
+            a.type === "playBattle" &&
+            a.cardInstanceId === aggregate.instanceId &&
+            a.zone === zone &&
+            !a.onTop,
+        );
+      expect(play(7)).toBeDefined();
+      expect(play(8)).toBeDefined();
+      const dead = cardRulesDead(state, legal, "P1");
+      expect(dead.has(play(7)!)).toBe(false);
+      expect(dead.has(play(8)!)).toBe(true);
+      // `coverToken: false`: rule 23 alone is silent with no empty zone.
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        coverToken: false,
+      });
+      expect(off.has(play(8)!)).toBe(false);
+    });
+
     it("rule 23b (#345, BFW182): with no empty zone off your path, a battle card goes over your own token (Tentacles, 9.1.2.2), not over your own battle card", () => {
       const { state, p1 } = withGodzilla1995();
       // Your monster in zone 6 (its path is 7 and 8); zones 1-5 full, your Tentacles token in 1.
