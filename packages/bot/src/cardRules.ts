@@ -104,6 +104,9 @@ import type { Decklist } from "./types";
  *    (continuous flags, 10.8) isn't activated while every one of them is already in force on that
  *    monster: a second Entangling Fear EBP04-081 ("your monster card cannot advance nor invade")
  *    adds nothing ("never any reason to play a second Entangling Fear"). Any deck.
+ * 23. #345 (Slick), #342: no battle card on top of your own battle card while that card has a
+ *    legal play into an empty zone off your own monster's next two zones; a card with its own play
+ *    on top (`onTop`, Godzilla Jr. EBP03-051) and a column card (rule 3) excepted. Any deck.
  */
 
 type Json = Record<string, unknown>;
@@ -799,6 +802,42 @@ function redundantStrategies(
   });
 }
 
+/** Rule 23: plays on top of your own battle card while an empty zone off your path is legal. */
+function ownCoverPlays(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const player = state.players.find((p) => p.id === me);
+  if (!player || state.pendingChoice) return [];
+  const at = player.monsterPosition ?? 0;
+  // Your monster's next two zones: an empty zone there isn't a safe one (its advance crushes it).
+  const onPath = (zone: number) => zone > at && zone <= at + 2;
+  const coversOwn = (zone: ZoneNumber) =>
+    player.zones[zone].some((stack) => {
+      const top = stack[stack.length - 1];
+      return top !== undefined && state.cards[top.cardId]?.type === "Battle";
+    });
+  const byCard = new Map<string, Extract<Action, { type: "playBattle" }>[]>();
+  for (const a of actions)
+    if (a.type === "playBattle")
+      byCard.set(a.cardInstanceId, [
+        ...(byCard.get(a.cardInstanceId) ?? []),
+        a,
+      ]);
+  const dead: Action[] = [];
+  for (const [id, plays] of byCard) {
+    const c = player.hand.find((h) => h.instanceId === id);
+    if (columnCard(c ? state.cards[c.cardId] : undefined)) continue;
+    const safe = plays.some(
+      (a) => !a.onTop && player.zones[a.zone].length === 0 && !onPath(a.zone),
+    );
+    if (safe)
+      for (const a of plays) if (!a.onTop && coversOwn(a.zone)) dead.push(a);
+  }
+  return dead;
+}
+
 /** Rule 8: plays of zone-limited cards outside their zones, while a play inside them is legal. */
 function zoneLimitedPlays(
   state: GameState,
@@ -1159,6 +1198,8 @@ function idleModes(
 export interface CardRulesOptions {
   /** #305: rule 7 takes the counter before the block (the default); false is the old rule 7. */
   counterFirst?: boolean;
+  /** Rule 23 (#345): no play on top of your own battle card while a safe zone is open (default). */
+  ownCover?: boolean;
 }
 
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
@@ -1211,6 +1252,8 @@ export function cardRulesDead(
   for (const action of revengePlays(state, actions, me)) dead.add(action);
   for (const action of redundantStrategies(state, actions, me))
     dead.add(action);
+  if (options.ownCover !== false)
+    for (const action of ownCoverPlays(state, actions, me)) dead.add(action);
   // Rule 7: a way to make the counter (#305), else to block zone 8, is taken: every other move
   // waits (but an invasion that wins now), and it outranks the others' holds. (Rule 9 alone only
   // frees holds, in `rescuedPlays`.)
