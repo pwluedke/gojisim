@@ -130,6 +130,9 @@ import type { Decklist } from "./types";
  *    under it met, Thousand-Year Dragon King Ghidorah EBP03-029) and an invasion legal, no monster
  *    card without an [invading] ability on top of it; but a play that wins now or makes the
  *    counter. Any deck.
+ * 27. #353 (BFW182): discarding from your hand (5.7.1, 5.7.2), a strategy card isn't the one to go
+ *    while a battle card you can't play this turn or next is offered (its rank above the zone of
+ *    the opponent's monster plus 2, 8.2.1). Any deck.
  */
 
 type Json = Record<string, unknown>;
@@ -985,6 +988,42 @@ function buriedInvadingPlays(
   });
 }
 
+/** Rule 27: a hand discard's strategy picks while a battle card out of reach can go instead. */
+function strategyDiscards(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const choice = state.pendingChoice;
+  const player = state.players.find((p) => p.id === me);
+  const opponent = state.players.find((p) => p.id !== me);
+  if (
+    !choice ||
+    !player ||
+    !opponent ||
+    choice.player !== me ||
+    (choice.rule !== "5.7.1" && choice.rule !== "5.7.2")
+  )
+    return [];
+  const picks = actions.filter(
+    (a): a is Extract<Action, { type: "choose" }> =>
+      a.type === "choose" &&
+      player.hand.some((h) => h.instanceId === a.optionId),
+  );
+  const cardOf = (a: Extract<Action, { type: "choose" }>) => {
+    const c = player.hand.find((h) => h.instanceId === a.optionId);
+    return c ? state.cards[c.cardId] : undefined;
+  };
+  // 8.2.1: rank at most the zone of the opponent's monster; by your next turn it is 2 zones on.
+  const reach = (opponent.monsterPosition ?? 0) + 2;
+  const outOfReach = picks.some((a) => {
+    const card = cardOf(a);
+    return card?.type === "Battle" && (card.rank ?? 0) > reach;
+  });
+  if (!outOfReach) return [];
+  return picks.filter((a) => cardOf(a)?.type === "Strategy");
+}
+
 /** Rule 24: discards of other cards while one that comes back from the discard pile can go. */
 function recurringDiscards(
   state: GameState,
@@ -1429,6 +1468,8 @@ export interface CardRulesOptions {
   ownBehind?: boolean;
   /** Rule 26 (#328): an active [invading] ability isn't buried under a monster (default). */
   activeInvading?: boolean;
+  /** Rule 27 (#353): a strategy isn't discarded over a battle card out of reach (default). */
+  keepStrategy?: boolean;
 }
 
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
@@ -1495,6 +1536,8 @@ export function cardRulesDead(
       if (!winsNow(state, action, me)) dead.add(action);
   if (options.ownPath !== false)
     for (const action of ownPathPlays(state, actions, me)) dead.add(action);
+  if (options.keepStrategy !== false)
+    for (const action of strategyDiscards(state, actions, me)) dead.add(action);
   if (options.activeInvading !== false)
     for (const action of buriedInvadingPlays(state, actions, me))
       dead.add(action);

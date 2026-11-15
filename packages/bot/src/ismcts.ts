@@ -80,6 +80,8 @@ export interface IsmctsSettings {
   collectorRage: number;
   /** Card rule 26 (#328): 1 (the default) doesn't bury an active [invading] ability; 0 is off. */
   activeInvading: number;
+  /** Card rule 27 (#353): 1 (the default) keeps a strategy over an out-of-reach battle card. */
+  keepStrategy: number;
   /** #339: 1 (the default) keeps a [revenge] card out of zone 8 unless it's stepped on; 0 is off. */
   revengeStep: number;
   /** Card rule 24 (#325, #329): 1 (the default) discards a recurring card first; 0 is off. */
@@ -130,6 +132,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   ownBehind: 1,
   collectorRage: 1,
   activeInvading: 1,
+  keepStrategy: 1,
   revengeStep: 1,
   recurDiscard: 1,
   ownCover: 1,
@@ -441,6 +444,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         ownPath: settings.ownPath > 0,
         ownBehind: settings.ownBehind > 0,
         activeInvading: settings.activeInvading > 0,
+        keepStrategy: settings.keepStrategy > 0,
         revengeStep: settings.revengeStep > 0,
         recurDiscard: settings.recurDiscard > 0,
         ownCover: settings.ownCover > 0,
@@ -649,6 +653,7 @@ function cardRulesSafe(
   ownCover = 1,
   ownBehind = 1,
   activeInvading = 1,
+  keepStrategy = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
     counterFirst: counterFirst > 0,
@@ -659,6 +664,7 @@ function cardRulesSafe(
     ownCover: ownCover > 0,
     ownBehind: ownBehind > 0,
     activeInvading: activeInvading > 0,
+    keepStrategy: keepStrategy > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
   return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
@@ -703,6 +709,7 @@ export function blunderAllowed(
     settings.ownCover,
     settings.ownBehind,
     settings.activeInvading,
+    settings.keepStrategy,
   );
   const allowed =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
@@ -748,6 +755,7 @@ export function decide(input: BotInput): Decision {
               settings.ownCover,
               settings.ownBehind,
               settings.activeInvading,
+              settings.keepStrategy,
             )
           : [...legalActions];
     return {

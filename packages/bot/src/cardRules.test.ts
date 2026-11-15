@@ -1142,6 +1142,50 @@ describe(
       expect(stack6 && dead6.has(stack6)).toBe(false);
     });
 
+    it("rule 27 (#353, BFW182's record 457786fa, move 84): drawing then discarding (5.7.1), Godzilla vs. Megaguirus EBP01-064 isn't discarded while a rank 8 battle card (out of reach: their monster in zone 3, 8.2.1) can go", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      const strategy = add(state, real("EBP01-064"), "P1");
+      const perfect = add(state, real("ESD02-013"), "P1");
+      p1.hand = [strategy, perfect];
+      const discard = (oppAt: ZoneNumber) => {
+        opp.monsterPosition = oppAt;
+        state.pendingChoice = {
+          id: 950,
+          player: "P1",
+          kind: "target",
+          rule: "5.7.1",
+          options: [strategy, perfect].map((c) => ({
+            id: c.instanceId,
+            cardId: c.cardId,
+            abilityId: "EBP01-047#enter-draw",
+          })),
+        };
+        const legal = getLegalActions(state, "P1");
+        const pick = (id: string) =>
+          legal.find((a) => a.type === "choose" && a.optionId === id);
+        return {
+          legal,
+          strategy: pick(strategy.instanceId)!,
+          perfect: pick(perfect.instanceId)!,
+        };
+      };
+      const near = discard(3);
+      const dead = cardRulesDead(state, near.legal, "P1");
+      expect(dead.has(near.strategy)).toBe(true);
+      expect(dead.has(near.perfect)).toBe(false);
+      // `keepStrategy: false` (the paired check's control): either may go.
+      const off = cardRulesDead(state, near.legal, "P1", undefined, {
+        keepStrategy: false,
+      });
+      expect(off.has(near.strategy)).toBe(false);
+      // Their monster in zone 6: rank 8 is in reach by your next turn, so the rule is silent.
+      const far = discard(6);
+      expect(cardRulesDead(state, far.legal, "P1").has(far.strategy)).toBe(
+        false,
+      );
+    });
+
     it("rule 21: a [revenge] card (Dorat EBP02-058) is left to rule 17, which wants it on the path", () => {
       const { state, p1 } = withGodzilla1995();
       p1.monsterPosition = 3;
