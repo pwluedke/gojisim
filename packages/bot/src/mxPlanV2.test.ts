@@ -553,4 +553,34 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
       "P2:8",
     ]);
   });
+
+  it("rule 16 (#352, Tuscancow's record f6025d71, move 24): with all 8 of their zones offered, only the two with their Monster X are left, not Rodan (2004)'s or King Caesar (2004)'s", () => {
+    // The record's board: blue Monster X in 1, white in 2, King Caesar in 7, Rodan in 8.
+    const { state } = position({
+      oppZones: {
+        1: "EBP04-047",
+        2: "EBP03-067",
+        7: "EBP04-057",
+        8: "EBP04-046",
+      },
+    });
+    state.pendingChoice = {
+      id: 993,
+      player: "P1",
+      kind: "zone",
+      rule: "10.5.2.2",
+      options: [1, 2, 3, 4, 5, 6, 7, 8].map((z) => ({
+        id: `P2:${z}`,
+        cardId: null,
+        abilityId: null,
+      })),
+    };
+    const legal = getLegalActions(state, "P1");
+    const dead = mxPlanV2Verdict(state, legal, "P1");
+    expect(
+      legal
+        .filter((a) => a.type === "choose" && !dead.has(a))
+        .map((a) => (a.type === "choose" ? a.optionId : "")),
+    ).toEqual(["P2:1", "P2:2"]);
+  });
 });
