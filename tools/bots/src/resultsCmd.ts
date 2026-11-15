@@ -79,8 +79,8 @@ function reports(plan: string): Record<string, PlanReport> {
 
 /**
  * Missed reachable counters, per matchup: of the A deck's turns with the counter not made but
- * reachable at its first main-phase decision (rule 9's plays: their monster in zone 6+), how many
- * failed their counter check (7.4.3). From the kept records, games 0 to `first` - 1.
+ * reachable at its first main-phase decision (card rule 20's look: any zone), how many failed
+ * their counter check (7.4.3). From the kept records, games 0 to `first` - 1.
  */
 function missedCounts(
   plan: string,
@@ -106,7 +106,7 @@ function missedCounts(
       seen.add(s.turn);
       if (counters(s, r.aSeat)) continue;
       const legal = engine.getLegalActions(s, r.aSeat);
-      if (counterPlays(s, legal, r.aSeat).size === 0) continue;
+      if (counterPlays(s, legal, r.aSeat, true).size === 0) continue;
       available += 1;
       const check = end?.log.find(
         (e) =>

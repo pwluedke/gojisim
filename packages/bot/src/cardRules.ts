@@ -104,6 +104,11 @@ import type { Decklist } from "./types";
  *    (continuous flags, 10.8) isn't activated while every one of them is already in force on that
  *    monster: a second Entangling Fear EBP04-081 ("your monster card cannot advance nor invade")
  *    adds nothing ("never any reason to play a second Entangling Fear"). Any deck.
+ * 20. #324, #327 (Ian, Keldroc, Nov 14): wherever the opponent's monster is (Monarch: a counter
+ *    sends it back from any zone) and rule 7 not involved, a way to make the counter this turn
+ *    (rule 9's plays, from any zone) is taken as rule 7 takes it: every other move waits
+ *    (passing too), but an invasion that wins now. With the counter made, a play after which it
+ *    isn't made any more is left out. Any deck.
  */
 
 type Json = Record<string, unknown>;
@@ -687,22 +692,58 @@ function forcedPlays(
   options: CardRulesOptions,
 ): Set<Action> {
   const blocks = blockingPlays(state, actions, me, options);
-  if (blocks.size === 0 || options.counterFirst === false) return blocks;
+  // Rule 20: without a block to make, a way to the counter is taken all the same.
+  if (blocks.size === 0)
+    return options.counterAlways === false
+      ? blocks
+      : counterPlays(state, actions, me, true);
+  if (options.counterFirst === false) return blocks;
   const ways = counterPlays(state, actions, me);
   return ways.size > 0 ? ways : blocks;
 }
 
-/** Rule 9: the plays that start a way to make the counter this turn, while it isn't made. */
+/** Rule 20: with the counter made, the plays after which it isn't made any more. */
+function droppedCounters(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  if (state.pendingChoice || state.turnPlayer !== me || !counters(state, me))
+    return [];
+  return actions.filter((a) => {
+    if (
+      a.type !== "playBattle" &&
+      a.type !== "activateStrategy" &&
+      a.type !== "playMonster" &&
+      a.type !== "gainRage"
+    )
+      return false;
+    try {
+      const after = advanceToDecision(applyAction(state, a));
+      // A pick of the bot's own still to come: judged by the plays that answer it, not here.
+      if (after.pendingChoice?.player === me) return false;
+      return !after.result && !counters(after, me);
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
+ * Rule 9: the plays that start a way to make the counter this turn, while it isn't made, with the
+ * opponent's monster in reach of your zone 8 (rule 20: `anyZone`, wherever it is).
+ */
 export function counterPlays(
   state: GameState,
   actions: readonly Action[],
   me: PlayerId,
+  anyZone = false,
 ): Set<Action> {
   const opponent = state.players.find((p) => p.id !== me);
   if (
     state.pendingChoice ||
     state.turnPlayer !== me ||
-    (opponent?.monsterPosition ?? 1) < 6 ||
+    (!anyZone && (opponent?.monsterPosition ?? 1) < 6) ||
     counters(state, me)
   )
     return new Set();
@@ -1159,6 +1200,8 @@ function idleModes(
 export interface CardRulesOptions {
   /** #305: rule 7 takes the counter before the block (the default); false is the old rule 7. */
   counterFirst?: boolean;
+  /** Rule 20 (#324, #327): the counter is taken without a block too (the default); false is off. */
+  counterAlways?: boolean;
 }
 
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
@@ -1211,6 +1254,9 @@ export function cardRulesDead(
   for (const action of revengePlays(state, actions, me)) dead.add(action);
   for (const action of redundantStrategies(state, actions, me))
     dead.add(action);
+  if (options.counterAlways !== false)
+    for (const action of droppedCounters(state, actions, me))
+      if (!winsNow(state, action, me)) dead.add(action);
   // Rule 7: a way to make the counter (#305), else to block zone 8, is taken: every other move
   // waits (but an invasion that wins now), and it outranks the others' holds. (Rule 9 alone only
   // frees holds, in `rescuedPlays`.)
