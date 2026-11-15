@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { counterPlays, counters } from "@gojisim/bot";
-import { validateResults } from "@gojisim/cards/results";
+import { type Read, validateResults } from "@gojisim/cards/results";
 import * as engine from "@gojisim/engine";
 import {
   checkDecks,
@@ -16,7 +16,8 @@ import {
 /*
  * #340: `pnpm results check --a <plan> --b <plan> --id <id> --change "<words>" ...` or
  * `pnpm results run --plan <plan> --id <id> --name "<name>" --plans "<versions>"` builds a results
- * entry from finished plan reports and prints it; with `--upload` it sends it to the server
+ * entry from finished plan reports and prints it (`pnpm results reads --file <reads.json>` checks
+ * a list of players' reads); with `--upload` it sends it to the server
  * (`RESULTS_URL`, default the site) with the token in `RESULTS_UPLOAD_TOKEN`. Deck labels come
  * from `--label <matchup prefix>=<name>` (repeatable), or `--deck <name>` for every A side (plans
  * whose matchup ids name only the opponent); a deck without one keeps its prefix.
@@ -45,6 +46,7 @@ const { values, positionals } = parseArgs({
     missed: { type: "boolean", default: false },
     issues: { type: "string", multiple: true, default: [] },
     upload: { type: "boolean", default: false },
+    file: { type: "string" },
   },
 });
 
@@ -116,8 +118,40 @@ function missedCounts(
   return { count: missed, of: available };
 }
 
+/** Sends one entry to the server; false when it was refused. */
+async function upload(entry: unknown): Promise<boolean> {
+  const token = process.env["RESULTS_UPLOAD_TOKEN"];
+  if (!token) throw new Error("RESULTS_UPLOAD_TOKEN isn't set");
+  const url = `${process.env["RESULTS_URL"] ?? "https://gojisim.somanygames.app"}/api/results/upload`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(entry),
+  });
+  console.log(`Upload: ${res.status} ${await res.text()}`);
+  return res.ok;
+}
+
 async function main() {
   const [kind] = positionals;
+  if (kind === "reads") {
+    // #340 part b: the players' reads, a JSON list of `Read`s (Monarch's, from the play guides
+    // and tester reports), checked here and sent one by one.
+    if (!values.file) throw new Error("reads needs --file <reads.json>");
+    const reads = JSON.parse(
+      readFileSync(resolve(out, values.file), "utf8"),
+    ) as Read[];
+    const problems = validateResults({ checks: [], runs: [], reads });
+    if (problems.length > 0) throw new Error(problems.join("\n"));
+    console.log(`${reads.length} reads, valid`);
+    if (!values.upload) return;
+    for (const read of reads)
+      if (!(await upload({ read }))) process.exitCode = 1;
+    return;
+  }
   const first = values.first === undefined ? undefined : Number(values.first);
   let entry: ReturnType<typeof checkEntry> | ReturnType<typeof runEntry>;
   if (kind === "check") {
@@ -172,7 +206,7 @@ async function main() {
       },
       runCells(reports(values.plan), label),
     );
-  } else throw new Error("Usage: pnpm results check|run ... [--upload]");
+  } else throw new Error("Usage: pnpm results check|run|reads ... [--upload]");
   // The server checks it again; this catches a mistake before it leaves the Mac.
   const problems = validateResults(
     "check" in entry
@@ -181,20 +215,7 @@ async function main() {
   );
   if (problems.length > 0) throw new Error(problems.join("\n"));
   console.log(JSON.stringify(entry, null, 2));
-  if (!values.upload) return;
-  const token = process.env["RESULTS_UPLOAD_TOKEN"];
-  if (!token) throw new Error("RESULTS_UPLOAD_TOKEN isn't set");
-  const url = `${process.env["RESULTS_URL"] ?? "https://gojisim.somanygames.app"}/api/results/upload`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${token}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(entry),
-  });
-  console.log(`Upload: ${res.status} ${await res.text()}`);
-  if (!res.ok) process.exitCode = 1;
+  if (values.upload && !(await upload(entry))) process.exitCode = 1;
 }
 
 await main();

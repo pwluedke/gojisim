@@ -6,6 +6,10 @@ import {
   mistakeRate,
   mistakeVerdict,
   type ResultsData,
+  disagrees,
+  type Read,
+  readFor,
+  type ReadWord,
   type Run,
   validateResults,
   verdict,
@@ -344,22 +348,40 @@ function OverTime({
   );
 }
 
-/** Chart: a field run as a heat map, the row deck's wins against the column deck. */
-function HeatMap({ run, show }: { run: Run; show: (deck: string) => boolean }) {
+/** The read's short form in a heat map cell. */
+const READ_SHORT: Record<ReadWord, string> = {
+  "heavily favoured": "HF",
+  favoured: "F",
+  even: "E",
+  unfavoured: "U",
+  "heavily unfavoured": "HU",
+  disputed: "D",
+};
+
+/**
+ * Chart: a field run as a heat map, the row deck's wins against the column deck, with what
+ * players say of the matchup (#340 part b) and where the bot disagrees with them.
+ */
+function HeatMap({
+  run,
+  reads,
+  show,
+}: {
+  run: Run;
+  reads: readonly Read[];
+  show: (deck: string) => boolean;
+}) {
   const decks = [...new Set(run.cells.flatMap((c) => [c.row, c.column]))]
     .filter(show)
     .sort();
   const cell = (row: string, column: string) =>
     run.cells.find((c) => c.row === row && c.column === column);
-  const disagree = run.cells.filter((c) => {
-    if (!c.playersSay || !show(c.row) || !show(c.column)) return false;
-    const r = winRange(c.wins, c.games);
-    const read = c.playersSay.read;
-    return (
-      (read === "favoured" && r.high < 0.5) ||
-      (read === "unfavoured" && r.low > 0.5) ||
-      (read === "even" && (r.low > 0.5 || r.high < 0.5))
-    );
+  const disagree = run.cells.flatMap((c) => {
+    if (c.row === c.column || !show(c.row) || !show(c.column)) return [];
+    const read = readFor(reads, c.row, c.column);
+    // One line per matchup: from the side the read names.
+    if (!read || !read.decks.includes(c.row)) return [];
+    return disagrees(read.read, c.wins, c.games) ? [{ c, read }] : [];
   });
   return (
     <div data-testid="heat-map">
@@ -388,20 +410,24 @@ function HeatMap({ run, show }: { run: Run; show: (deck: string) => boolean }) {
                       </td>
                     );
                   const rate = c.wins / c.games;
+                  const read = readFor(reads, row, column);
+                  const says = read
+                    ? `; players say ${read.read} (${read.source}, ${read.date}${read.note ? `; ${read.note}` : ""})`
+                    : "";
                   return (
                     <td
                       key={column}
                       style={{
                         background: `color-mix(in srgb, var(--color-legal) ${Math.round(rate * 100)}%, var(--color-illegal))`,
                       }}
-                      title={`${row} vs ${column}: ${c.wins} of ${c.games} (${pct(rate)})${c.playersSay ? `; players say ${c.playersSay.read} (${c.playersSay.source})` : ""}`}
+                      title={`${row} vs ${column}: ${c.wins} of ${c.games} (${pct(rate)})${says}`}
                       data-testid="heat-cell"
                     >
                       {Math.round(rate * 100)}
-                      {c.playersSay && (
-                        <span className={styles.says}>
+                      {read && (
+                        <span className={styles.says} data-testid="heat-read">
                           {" "}
-                          · {c.playersSay.read[0]?.toUpperCase()}
+                          · {READ_SHORT[read.read]}
                         </span>
                       )}
                     </td>
@@ -413,20 +439,31 @@ function HeatMap({ run, show }: { run: Run; show: (deck: string) => boolean }) {
         </table>
       </div>
       <p className={styles.meta}>
-        Row deck's win % against the column deck. F / E / U: what players say
-        (favoured, even, unfavoured), where there's a read.
+        Row deck&apos;s win % against the column deck, and what players say from
+        the row deck&apos;s side: HF heavily favoured, F favoured, E even, U
+        unfavoured, HU heavily unfavoured, D disputed. Hover a cell for the
+        source.
+      </p>
+      <p className={styles.meta} data-testid="read-bands">
+        Rough guide to the reads, not a target: even 45–55%, favoured 55–65%,
+        heavily favoured 65% and up (and the same below 50% for unfavoured). A
+        mirror match should be about 50%.
       </p>
       {disagree.length > 0 && (
         <div data-testid="disagree">
           <h3 className={styles.small}>
             Where the bot and the players disagree
           </h3>
+          <p className={styles.meta}>
+            The bot&apos;s 95% range lies wholly outside the read&apos;s rough
+            band: the weaker deck&apos;s plan may have a gap to fix.
+          </p>
           <ul>
-            {disagree.map((c) => (
+            {disagree.map(({ c, read }) => (
               <li key={`${c.row}-${c.column}`}>
                 {c.row} vs {c.column}: the bot wins {pct(c.wins / c.games)} of{" "}
-                {c.games}; players say {c.playersSay?.read} (
-                {c.playersSay?.source})
+                {c.games}; players say {read.read} ({read.source}, {read.date}
+                {read.note ? `; ${read.note}` : ""})
               </li>
             ))}
           </ul>
@@ -695,7 +732,7 @@ export function ResultsPage() {
                     ))}
                   </select>
                 )}
-                <HeatMap run={run} show={show} />
+                <HeatMap run={run} reads={data.reads ?? []} show={show} />
               </section>
             )}
             <section className={styles.section}>

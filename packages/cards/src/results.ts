@@ -59,8 +59,30 @@ export interface RunCell {
   column: string;
   wins: number;
   games: number;
-  /** Paul, Nov 14: the community's read of this matchup, when there is one. */
-  playersSay?: { read: "favoured" | "even" | "unfavoured"; source: string };
+}
+
+/** What players say of a matchup, from the first deck's side. */
+export type ReadWord =
+  | "heavily favoured"
+  | "favoured"
+  | "even"
+  | "unfavoured"
+  | "heavily unfavoured"
+  | "disputed";
+
+/**
+ * Paul, Nov 14: the community's read of a matchup ("Players say"), for decks by name: `decks`
+ * against `against` (e.g. King Ghidorah against the red rage decks), with its source and date.
+ */
+export interface Read {
+  id: string;
+  date: string;
+  decks: string[];
+  against: string[];
+  read: ReadWord;
+  source: string;
+  /** A condition or a dispute in plain words ("even with Bio7, favoured without"). */
+  note?: string;
 }
 
 /** A field run (every deck against every other). */
@@ -77,6 +99,7 @@ export interface Run {
 export interface ResultsData {
   checks: Check[];
   runs: Run[];
+  reads?: Read[];
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
@@ -231,15 +254,7 @@ export function validateResults(data: unknown): string[] {
         problems.push(`${at}: not an object`);
         continue;
       }
-      allowed(at, cell, ["row", "column", "wins", "games", "playersSay"]);
-      const say = cell["playersSay"];
-      if (
-        say !== undefined &&
-        (!isObject(say) ||
-          !["favoured", "even", "unfavoured"].includes(say["read"] as string) ||
-          !text(say["source"]))
-      )
-        problems.push(`${at}: playersSay is { read, source }`);
+      allowed(at, cell, ["row", "column", "wins", "games"]);
       if (!text(cell["row"]) || !text(cell["column"]))
         problems.push(`${at}: no deck names`);
       if (!isCount(cell["games"]) || cell["games"] === 0)
@@ -251,7 +266,105 @@ export function validateResults(data: unknown): string[] {
         problems.push(`${at}: wins not within games`);
     }
   }
+  const { reads } = data;
+  if (reads !== undefined && !Array.isArray(reads))
+    problems.push("reads is not a list");
+  for (const [i, r] of (Array.isArray(reads) ? reads : []).entries()) {
+    const where = `reads[${i}]`;
+    if (!isObject(r)) {
+      problems.push(`${where}: not an object`);
+      continue;
+    }
+    allowed(where, r, [
+      "id",
+      "date",
+      "decks",
+      "against",
+      "read",
+      "source",
+      "note",
+    ]);
+    unique(where, r["id"]);
+    if (!isDate(r["date"])) problems.push(`${where}: bad date`);
+    for (const k of ["decks", "against"])
+      if (
+        !Array.isArray(r[k]) ||
+        (r[k] as unknown[]).length === 0 ||
+        !(r[k] as unknown[]).every(text)
+      )
+        problems.push(`${where}: ${k} is a list of deck names`);
+    if (!READ_WORDS.includes(r["read"] as ReadWord))
+      problems.push(`${where}: read is one of ${READ_WORDS.join(", ")}`);
+    if (!text(r["source"])) problems.push(`${where}: no source`);
+    if (r["note"] !== undefined && !text(r["note"]))
+      problems.push(`${where}: empty note`);
+  }
   return problems;
+}
+
+const READ_WORDS: ReadWord[] = [
+  "heavily favoured",
+  "favoured",
+  "even",
+  "unfavoured",
+  "heavily unfavoured",
+  "disputed",
+];
+
+/** The same read from the other deck's side. */
+const FLIPPED: Record<ReadWord, ReadWord> = {
+  "heavily favoured": "heavily unfavoured",
+  favoured: "unfavoured",
+  even: "even",
+  unfavoured: "favoured",
+  "heavily unfavoured": "heavily favoured",
+  disputed: "disputed",
+};
+
+/** The players' read of `row` against `column`, from `row`'s side, or none. */
+export function readFor(
+  reads: readonly Read[],
+  row: string,
+  column: string,
+): Read | undefined {
+  const r = reads.find(
+    (x) => x.decks.includes(row) && x.against.includes(column),
+  );
+  if (r) return r;
+  const other = reads.find(
+    (x) => x.decks.includes(column) && x.against.includes(row),
+  );
+  return other ? { ...other, read: FLIPPED[other.read] } : undefined;
+}
+
+/**
+ * Paul's rough guide bands for a read (win rate, from the read's side): even 45–55%, favoured
+ * 55–65%, heavily favoured 65% and up; none for a disputed read.
+ */
+export const READ_BANDS: Record<
+  Exclude<ReadWord, "disputed">,
+  [number, number]
+> = {
+  "heavily favoured": [0.65, 1],
+  favoured: [0.55, 0.65],
+  even: [0.45, 0.55],
+  unfavoured: [0.35, 0.45],
+  "heavily unfavoured": [0, 0.35],
+};
+
+/**
+ * Whether the bot's result disagrees with the players' read: its 95% range lies wholly outside
+ * the read's rough band. A disputed read never disagrees.
+ */
+export function disagrees(
+  read: ReadWord,
+  wins: number,
+  games: number,
+): boolean {
+  if (read === "disputed") return false;
+  const [low, high] = READ_BANDS[read];
+  const r = winRange(wins, games);
+  return r.high < low || r.low > high;
 }
 
 /** A win rate with its 95% range (Wilson score interval), all as fractions. */

@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   isGuideDeck,
   mistakeRate,
+  disagrees,
   mistakeVerdict,
+  readFor,
   validateResults,
   verdict,
   winRange,
@@ -101,28 +103,48 @@ describe("#340 results data", () => {
           ],
         },
       ],
-      runs: [
+      runs: [],
+      reads: [
         {
           id: "r",
           date: "2026-01-10",
-          name: "n",
-          plans: "p",
-          cells: [
-            {
-              row: "a",
-              column: "b",
-              wins: 1,
-              games: 2,
-              playersSay: { read: "likely", source: "" },
-            },
-          ],
+          decks: [],
+          against: ["b"],
+          read: "likely",
+          source: "",
         },
       ],
     });
     expect(problems).toContain('checks[0].mistakes[0]: issues are "#N"');
     expect(problems).toContain("checks[0].mistakes[0]: a is { count, of }");
-    expect(problems).toContain(
-      "runs[0].cells[0]: playersSay is { read, source }",
+    expect(problems).toContain("reads[0]: decks is a list of deck names");
+    expect(problems).toContain("reads[0]: no source");
+    expect(problems.some((p) => p.startsWith("reads[0]: read is one of"))).toBe(
+      true,
     );
+  });
+
+  it("a matchup's read from either side (flipped from the other deck's), its rough band, and disagreement", () => {
+    const reads = [
+      {
+        id: "kg",
+        date: "2026-11-14",
+        decks: ["Ghidorat"],
+        against: ["Wrangler (generic)", "Despangler"],
+        read: "heavily favoured" as const,
+        source: "comp-03",
+      },
+    ];
+    expect(readFor(reads, "Ghidorat", "Despangler")?.read).toBe(
+      "heavily favoured",
+    );
+    expect(readFor(reads, "Despangler", "Ghidorat")?.read).toBe(
+      "heavily unfavoured",
+    );
+    expect(readFor(reads, "Despangler", "Monster X")).toBeUndefined();
+    // The bot's Ghidorat won 17 of 60 against Despangler: far below "heavily favoured".
+    expect(disagrees("heavily favoured", 17, 60)).toBe(true);
+    expect(disagrees("heavily favoured", 45, 60)).toBe(false);
+    expect(disagrees("disputed", 0, 60)).toBe(false);
   });
 });
