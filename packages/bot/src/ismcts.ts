@@ -78,6 +78,8 @@ export interface IsmctsSettings {
   revengeStep: number;
   /** Card rule 24 (#325, #329): 1 (the default) discards a recurring card first; 0 is off. */
   recurDiscard: number;
+  /** Card rule 23 (#345): 1 (the default) keeps plays off your own battle cards; 0 is off. */
+  ownCover: number;
   /**
    * The Wrangler plan: 2 (the default) is v2 (`wranglerPlanV2.ts`, Paul, Nov 13) with the card
    * rules (Medium and Hard); 1 is v1 (`wranglerPlan.ts`, #276) with `rules` (Hard); 0 is off.
@@ -121,6 +123,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   ownPath: 1,
   revengeStep: 1,
   recurDiscard: 1,
+  ownCover: 1,
   wranglerPlan: 2,
   wranglerV21: 1,
   festPlan: 0,
@@ -425,6 +428,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         ownPath: settings.ownPath > 0,
         revengeStep: settings.revengeStep > 0,
         recurDiscard: settings.recurDiscard > 0,
+        ownCover: settings.ownCover > 0,
       };
       const unsafe = cardRulesDead(
         first,
@@ -627,6 +631,7 @@ function cardRulesSafe(
   ownPath = 1,
   revengeStep = 1,
   recurDiscard = 1,
+  ownCover = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
     counterFirst: counterFirst > 0,
@@ -634,6 +639,7 @@ function cardRulesSafe(
     ownPath: ownPath > 0,
     revengeStep: revengeStep > 0,
     recurDiscard: recurDiscard > 0,
+    ownCover: ownCover > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
   return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
@@ -675,6 +681,7 @@ export function blunderAllowed(
     settings.ownPath,
     settings.revengeStep,
     settings.recurDiscard,
+    settings.ownCover,
   );
   const allowed =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
@@ -717,6 +724,7 @@ export function decide(input: BotInput): Decision {
               settings.ownPath,
               settings.revengeStep,
               settings.recurDiscard,
+              settings.ownCover,
             )
           : [...legalActions];
     return {
