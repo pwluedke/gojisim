@@ -24,6 +24,7 @@ import {
   siteConfig,
   uploadsPerMinuteFrom,
 } from "./games.js";
+import { isResultsUploadPath, resultsMiddleware } from "./results.js";
 import { replayMiddleware } from "./h2h/replayRoute.js";
 import { reporterDeck } from "./h2h/reportDeck.js";
 import { attachH2h, type H2h } from "./h2h/socket.js";
@@ -80,6 +81,10 @@ export interface AppServerOptions {
   admins?: ReadonlySet<string>;
   /** The Test Site switch (M13b, `GOJISIM_TEST_SITE`); on by default. */
   config?: SiteConfig;
+  /** #340: the results page's data (`RESULTS_DIR`; default `results` next to the records folder). */
+  resultsDir?: string;
+  /** #340: `RESULTS_UPLOAD_TOKEN` for the `tools/bots` upload; unset turns uploads off. */
+  resultsToken?: string | undefined;
   now?: () => number;
 }
 
@@ -128,6 +133,8 @@ export function createAppServer({
   cardsDir = fileURLToPath(new URL("../../web/public/cards/", import.meta.url)),
   recordsDir = "/data/records",
   roomsDir = join(dirname(recordsDir), "h2h-rooms"),
+  resultsDir = join(dirname(recordsDir), "results"),
+  resultsToken,
   maxRecordsBytes,
   uploadsPerMinute,
   reportsWebhook,
@@ -209,6 +216,7 @@ export function createAppServer({
     ...(now ? { now } : {}),
   });
   const cards = cardImages(cardsDir);
+  const results = resultsMiddleware({ dir: resultsDir, token: resultsToken });
   const app = webApp(distDir);
   const server = createServer(
     safeHandler(async (req, res) => {
@@ -241,6 +249,12 @@ export function createAppServer({
       // they run before the sign-in gate (which would answer a signed-out visitor otherwise).
       if (isAdminPath(path) && !(await passes((next) => admin(req, res, next))))
         return;
+      // #340: the script's upload carries its own token, not a session, so it runs before the gate.
+      if (
+        isResultsUploadPath(path) &&
+        !(await passes((next) => results(req, res, next)))
+      )
+        return;
       if (gate && !(await passes((next) => gate(req, res, next)))) return;
       // #150: without Discord sign-in there's no player (the Discord gate answers it itself).
       if (path === "/api/me") {
@@ -252,6 +266,7 @@ export function createAppServer({
       if (!(await passes((next) => decklog(req, res, next)))) return;
       if (replay && !(await passes((next) => replay(req, res, next)))) return;
       if (!(await passes((next) => games(req, res, next)))) return;
+      if (!(await passes((next) => results(req, res, next)))) return;
       if (!(await passes((next) => cards(req, res, next)))) return;
       await app(req, res);
     }),
@@ -359,6 +374,10 @@ if (
     commit: process.env.RAILWAY_GIT_COMMIT_SHA || null,
     config: siteConfig(process.env),
     admins: adminIdsFrom(process.env),
+    ...(process.env.RESULTS_DIR
+      ? { resultsDir: resolve(process.env.RESULTS_DIR) }
+      : {}),
+    resultsToken: process.env.RESULTS_UPLOAD_TOKEN?.trim() || undefined,
   }).listen(port, () => {
     console.log(
       `GojiSim server listening on http://localhost:${port}${discord ? " (Discord sign-in on)" : process.env.GOJISIM_PASSWORD ? " (password gate on)" : ""}`,

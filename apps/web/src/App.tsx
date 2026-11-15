@@ -39,6 +39,9 @@ export function App() {
         <a className={styles.item} href="/decks" data-testid="menu-decks">
           Deckbuilder
         </a>
+        <a className={styles.item} href="/results" data-testid="menu-results">
+          Bot results
+        </a>
         {admin && (
           <a
             className={styles.item}
