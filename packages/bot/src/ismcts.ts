@@ -70,6 +70,8 @@ export interface IsmctsSettings {
   cardRules: number;
   /** #305: 1 (the default) has card rule 7 take the counter before the zone 8 block; 0 is the old rule 7. */
   counterFirst: number;
+  /** Card rule 20 (#324, #327): 1 (the default) takes the counter without a block too; 0 is off. */
+  counterAlways: number;
   /** Card rule 22 (#336): 1 (the default) leaves out destroy-only strategies with no target; 0 off. */
   targetCheck: number;
   /** The Monster X plan's #335 and #338 fixes: 1 (the default) on; 0 is the old v2. */
@@ -113,6 +115,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   recognizer: 0,
   cardRules: 0,
   counterFirst: 1,
+  counterAlways: 1,
   targetCheck: 1,
   mxFixes: 1,
   wranglerPlan: 2,
@@ -417,6 +420,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
       const first = state;
       const options = {
         counterFirst: settings.counterFirst > 0,
+        counterAlways: settings.counterAlways > 0,
         targetCheck: settings.targetCheck > 0,
       };
       const unsafe = cardRulesDead(
@@ -617,10 +621,12 @@ function cardRulesSafe(
   me: PlayerId,
   own?: Decklist,
   counterFirst = 1,
+  counterAlways = 1,
   targetCheck = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
     counterFirst: counterFirst > 0,
+    counterAlways: counterAlways > 0,
     targetCheck: targetCheck > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
@@ -659,6 +665,7 @@ export function blunderAllowed(
     me,
     own,
     settings.counterFirst,
+    settings.counterAlways,
     settings.targetCheck,
   );
   const allowed =
@@ -705,6 +712,7 @@ export function decide(input: BotInput): Decision {
               input.view.viewer as PlayerId,
               input.knowledge.decks[input.view.viewer as PlayerId],
               settings.counterFirst,
+              settings.counterAlways,
               settings.targetCheck,
             )
           : [...legalActions];

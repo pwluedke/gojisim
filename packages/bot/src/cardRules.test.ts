@@ -929,6 +929,116 @@ describe(
       expect(bot.made).toBe(false);
     });
 
+    /**
+     * Rule 20 (#324, #327): your zone 8 already blocked (rule 7 out of it) by a rank 4 battle card,
+     * against a blue monster in their zone 8; the King EBP01-075 in hand makes the counter, with
+     * their rage setting their threat between your total without it and with it.
+     */
+    function counterNoBlock(oppAt: ZoneNumber = 8) {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      opp.invadingMonsterZone.push(add(state, real("ESD02-004"), "P2"));
+      opp.monsterPosition = oppAt;
+      p1.zones[8] = [[add(state, { ...real("ESD01-008"), rank: 4 }, "P1")]];
+      // Its printed rank 8 needs their monster in zone 8 (8.2.1); rank 1 elsewhere, as in #272's test.
+      const king = add(
+        state,
+        oppAt === 8 ? real("EBP01-075") : { ...real("EBP01-075"), rank: 1 },
+        "P1",
+      );
+      p1.hand = [king];
+      opp.rage = 0;
+      // Your total with the King in zone 1 (+3,000 per rage): enough rage to reach their threat.
+      const withKing = () => {
+        const s = advanceToDecision(
+          applyAction(state, {
+            type: "playBattle",
+            player: "P1",
+            cardInstanceId: king.instanceId,
+            zone: 1,
+          }),
+        );
+        return counterPowerOf(s, s.players[0] as PlayerState);
+      };
+      p1.rage = 0;
+      while (withKing() < getThreat(state, "P2")) p1.rage += 1;
+      // Their threat as high as that total reaches (rage adds 5,000 a point).
+      const target = withKing();
+      while (getThreat(state, "P2") + 5000 <= target) opp.rage += 1;
+      return { state, king };
+    }
+
+    it("rule 20 (#324, #327): with zone 8 already blocked, a way to make the counter this turn is taken: passing is left out (7.4.3)", () => {
+      const { state, king } = counterNoBlock();
+      const p1 = state.players[0] as PlayerState;
+      expect(counterPowerOf(state, p1)).toBeLessThan(getThreat(state, "P2"));
+      const legal = getLegalActions(state, "P1");
+      expect(blockingPlays(state, legal, "P1").size).toBe(0);
+      const dead = cardRulesDead(state, legal, "P1");
+      // The King in zone 1 makes it (zones 6 and 7 are rule 8's to leave out: its protection).
+      const zone1 = legal.find(
+        (a) =>
+          a.type === "playBattle" &&
+          a.cardInstanceId === king.instanceId &&
+          a.zone === 1,
+      );
+      expect(zone1).toBeDefined();
+      expect(dead.has(zone1!)).toBe(false);
+      for (const a of legal)
+        if (a.type === "pass") expect(dead.has(a)).toBe(true);
+      // `counterAlways: false` (the paired check's control): passing stays.
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        counterAlways: false,
+      });
+      for (const a of legal)
+        if (a.type === "pass") expect(off.has(a)).toBe(false);
+    });
+
+    it("rule 20 (Monarch, Nov 14): wherever their monster is (zone 3 here), a way to make the counter this turn is taken: passing is left out (7.4.3)", () => {
+      const { state, king } = counterNoBlock(3);
+      const legal = getLegalActions(state, "P1");
+      const dead = cardRulesDead(state, legal, "P1");
+      const zone1 = legal.find(
+        (a) =>
+          a.type === "playBattle" &&
+          a.cardInstanceId === king.instanceId &&
+          a.zone === 1,
+      );
+      expect(zone1).toBeDefined();
+      expect(dead.has(zone1!)).toBe(false);
+      for (const a of legal)
+        if (a.type === "pass") expect(dead.has(a)).toBe(true);
+    });
+
+    it("rule 20: with the counter made, a play after which it isn't made any more is left out (Baby Godzilla over your King)", () => {
+      const { state, king } = counterNoBlock();
+      const made = advanceToDecision(
+        applyAction(state, {
+          type: "playBattle",
+          player: "P1",
+          cardInstanceId: king.instanceId,
+          zone: 1,
+        }),
+      );
+      const p1 = made.players[0] as PlayerState;
+      expect(counterPowerOf(made, p1)).toBeGreaterThanOrEqual(
+        getThreat(made, "P2"),
+      );
+      // Baby Godzilla EBP02-030 (rank 1, no counter power) on top of the King covers its power.
+      const cover = add(made, real("EBP02-030"), "P1");
+      p1.hand.push(cover);
+      const legal = getLegalActions(made, "P1");
+      const onTop = legal.find(
+        (a) =>
+          a.type === "playBattle" &&
+          a.cardInstanceId === cover.instanceId &&
+          a.zone === 1,
+      );
+      expect(onTop).toBeDefined();
+      const dead = cardRulesDead(made, legal, "P1");
+      expect(dead.has(onTop!)).toBe(true);
+    });
+
     it("rule 22 (#336): Godzilla vs. Megaguirus EBP01-064 isn't activated when it can destroy nothing (no legal target); with a rank 4 or lower battle card of theirs, it is", () => {
       const { state, p1 } = withGodzilla1995();
       const opp = state.players[1] as PlayerState;
