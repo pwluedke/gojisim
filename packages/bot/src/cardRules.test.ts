@@ -929,6 +929,30 @@ describe(
       expect(bot.made).toBe(false);
     });
 
+    it("rule 22 (#336): Godzilla vs. Megaguirus EBP01-064 isn't activated when it can destroy nothing (no legal target); with a rank 4 or lower battle card of theirs, it is", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      opp.monsterPosition = 6;
+      for (const z of [1, 2, 3, 4, 5, 6, 7, 8] as const) opp.zones[z] = [];
+      const gvm = add(state, real("EBP01-064"), "P1");
+      p1.hand = [gvm];
+      const judge = () => {
+        const legal = getLegalActions(state, "P1");
+        const dead = cardRulesDead(state, legal, "P1");
+        const activations = legal.filter(
+          (a) =>
+            a.type === "activateStrategy" &&
+            a.cardInstanceId === gvm.instanceId,
+        );
+        expect(activations.length).toBeGreaterThan(0);
+        return activations.map((a) => dead.has(a));
+      };
+      for (const d of judge()) expect(d).toBe(true);
+      // A rank 4 battle card of theirs: the first mode destroys it.
+      opp.zones[3] = [[add(state, { ...real("ESD02-012"), rank: 4 }, "P2")]];
+      for (const d of judge()) expect(d).toBe(false);
+    });
+
     it("rule 2 (Paul, Nov 12): from zone 7, Godzilla vs. King Ghidorah EBP02-071 (awakening 6: destroy rank 6 or lower) clears the zone 8 blocker before the winning invasion", () => {
       const { state, p1 } = withGodzilla1995();
       const opp = state.players[1] as PlayerState;
