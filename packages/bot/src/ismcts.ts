@@ -74,6 +74,8 @@ export interface IsmctsSettings {
   ownPath: number;
   /** #339: 1 (the default) keeps a [revenge] card out of zone 8 unless it's stepped on; 0 is off. */
   revengeStep: number;
+  /** Card rule 24 (#325, #329): 1 (the default) discards a recurring card first; 0 is off. */
+  recurDiscard: number;
   /**
    * The Wrangler plan: 2 (the default) is v2 (`wranglerPlanV2.ts`, Paul, Nov 13) with the card
    * rules (Medium and Hard); 1 is v1 (`wranglerPlan.ts`, #276) with `rules` (Hard); 0 is off.
@@ -115,6 +117,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   counterFirst: 1,
   ownPath: 1,
   revengeStep: 1,
+  recurDiscard: 1,
   wranglerPlan: 2,
   wranglerV21: 1,
   festPlan: 0,
@@ -417,6 +420,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         counterFirst: settings.counterFirst > 0,
         ownPath: settings.ownPath > 0,
         revengeStep: settings.revengeStep > 0,
+        recurDiscard: settings.recurDiscard > 0,
       };
       const unsafe = cardRulesDead(
         first,
@@ -617,11 +621,13 @@ function cardRulesSafe(
   counterFirst = 1,
   ownPath = 1,
   revengeStep = 1,
+  recurDiscard = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
     counterFirst: counterFirst > 0,
     ownPath: ownPath > 0,
     revengeStep: revengeStep > 0,
+    recurDiscard: recurDiscard > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
   return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
@@ -661,6 +667,7 @@ export function blunderAllowed(
     settings.counterFirst,
     settings.ownPath,
     settings.revengeStep,
+    settings.recurDiscard,
   );
   const allowed =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
@@ -701,6 +708,7 @@ export function decide(input: BotInput): Decision {
               settings.counterFirst,
               settings.ownPath,
               settings.revengeStep,
+              settings.recurDiscard,
             )
           : [...legalActions];
     return {

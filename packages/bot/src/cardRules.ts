@@ -109,7 +109,9 @@ import type { Decklist } from "./types";
  * 21. #304 (Keldroc and Ian, Nov 14): no battle card into your own monster's next two zones (its
  *    advance or invasion crushes it there, 11.3) while that card has a legal play into an empty
  *    zone off the path; [revenge] cards excepted (rule 17 wants them crushed), and not while your
- *    monster can neither advance nor invade. Any deck.
+ *    monster can neither advance nor invade. Any deck. * 24. #325, #327, #329 (Keldroc; Paul: "Orange" is King Ghidorah (1998) EBP03-063): a card that
+ *    plays itself back from the discard pile (rule 4) is the one to discard. Paying for an
+ *    invasion, or discarding down (5.7.2), the others are left out while it can go. Any deck.
  */
 
 type Json = Record<string, unknown>;
@@ -859,6 +861,40 @@ function ownPathPlays(
   return dead;
 }
 
+/** Rule 24: discards of other cards while one that comes back from the discard pile can go. */
+function recurringDiscards(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const player = state.players.find((p) => p.id === me);
+  if (!player) return [];
+  const recurs = (cardId: number | null | undefined) =>
+    cardId !== null &&
+    cardId !== undefined &&
+    recursFromDiscard(state.cards[cardId]?.deckCardNumber ?? "");
+  const choice = state.pendingChoice;
+  // Discarding down (5.7.2): the picks of other cards while a recurring one is offered.
+  if (choice?.player === me && choice.rule === "5.7.2") {
+    const cardOf = (optionId: string) =>
+      choice.options.find((o) => o.id === optionId)?.cardId;
+    const picks = actions.filter(
+      (a): a is Extract<Action, { type: "choose" }> => a.type === "choose",
+    );
+    if (!picks.some((a) => recurs(cardOf(a.optionId)))) return [];
+    return picks.filter((a) => !recurs(cardOf(a.optionId)));
+  }
+  if (choice) return [];
+  // Paying for an invasion: the other payments while a recurring card can pay.
+  const invades = actions.filter(
+    (a): a is Extract<Action, { type: "invade" }> => a.type === "invade",
+  );
+  const payWith = (a: Extract<Action, { type: "invade" }>) =>
+    player.hand.find((h) => h.instanceId === a.cardInstanceId)?.cardId;
+  if (!invades.some((a) => recurs(payWith(a)))) return [];
+  return invades.filter((a) => !recurs(payWith(a)));
+}
+
 /** Rule 8: plays of zone-limited cards outside their zones, while a play inside them is legal. */
 function zoneLimitedPlays(
   state: GameState,
@@ -1223,6 +1259,8 @@ export interface CardRulesOptions {
   ownPath?: boolean;
   /** #339: a [revenge] card in zone 8 only when your monster steps on it (default); false is off. */
   revengeStep?: boolean;
+  /** Rule 24 (#325, #329): a card that comes back from the discard pile goes first (default). */
+  recurDiscard?: boolean;
 }
 
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
@@ -1281,6 +1319,9 @@ export function cardRulesDead(
     dead.add(action);
   for (const action of redundantStrategies(state, actions, me))
     dead.add(action);
+  if (options.recurDiscard !== false)
+    for (const action of recurringDiscards(state, actions, me))
+      if (!winsNow(state, action, me)) dead.add(action);
   if (options.ownPath !== false)
     for (const action of ownPathPlays(state, actions, me)) dead.add(action);
   // Rule 7: a way to make the counter (#305), else to block zone 8, is taken: every other move

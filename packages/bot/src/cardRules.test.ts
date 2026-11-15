@@ -1009,6 +1009,27 @@ describe(
       for (const d of judge("EBP01-073").on) expect(d).toBe(false);
     });
 
+    it("rule 24 (#325, Keldroc): paying for an invasion, the Orange (King Ghidorah (1998) EBP03-063, which comes back from the discard pile) goes, not Mecha-King Ghidorah EBP02-068", () => {
+      const { state, p1 } = withGodzilla1995();
+      const orange = add(state, real("EBP03-063"), "P1");
+      const mechaKing = add(state, real("EBP02-068"), "P1");
+      p1.hand = [orange, mechaKing];
+      const legal = getLegalActions(state, "P1");
+      const pay = (id: string) =>
+        legal.find((a) => a.type === "invade" && a.cardInstanceId === id);
+      expect(pay(orange.instanceId)).toBeDefined();
+      expect(pay(mechaKing.instanceId)).toBeDefined();
+      const dead = cardRulesDead(state, legal, "P1");
+      expect(dead.has(pay(mechaKing.instanceId)!)).toBe(true);
+      expect(dead.has(pay(orange.instanceId)!)).toBe(false);
+      // `recurDiscard: false` (the paired check's control): rule 24 is off.
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        recurDiscard: false,
+        ownPath: false,
+      });
+      expect(off.has(pay(mechaKing.instanceId)!)).toBe(false);
+    });
+
     it("rule 2 (Paul, Nov 12): from zone 7, Godzilla vs. King Ghidorah EBP02-071 (awakening 6: destroy rank 6 or lower) clears the zone 8 blocker before the winning invasion", () => {
       const { state, p1 } = withGodzilla1995();
       const opp = state.players[1] as PlayerState;
