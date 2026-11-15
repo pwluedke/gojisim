@@ -8,7 +8,7 @@ import { buildTestDeck, TEST_DECK_SETS } from "@gojisim/cards/test-decks";
 export interface DeckOption {
   key: string;
   label: string;
-  kind: "official" | "random" | "mine";
+  kind: "official" | "test" | "random" | "mine";
   /** The deck to play; random decks depend on the game seed. */
   build: (seed: number) => NamedDeck;
   /** A My decks deck's tags (Paul, Nov 9); none for the starters. */
@@ -69,13 +69,28 @@ export function myDeckOptions(
 }
 
 /**
- * The `/play` deck picker (#161): the two starters, then My decks. Random test decks and
- * `/debug` imports stay in `/debug`; decks are built and imported in the Deckbuilder.
+ * #359: the test decks from the server, as deck options keyed `test:<name>`, each playing its
+ * list as it is (for either seat; a bot seat gets it as its decklist like any other deck).
+ */
+export function testDeckOptions(decks: readonly NamedDeck[]): DeckOption[] {
+  return decks.map((deck) => ({
+    key: `test:${deck.name}`,
+    label: deck.name,
+    kind: "test",
+    build: () => deck,
+  }));
+}
+
+/**
+ * The `/play` deck picker (#161): the two starters, then (#359) the test decks, then My decks.
+ * Random test decks and `/debug` imports stay in `/debug`; decks are built and imported in the
+ * Deckbuilder.
  */
 export function playDeckOptions(
   mine: readonly { id: string; name: string; deck: NamedDeck }[],
+  tests: readonly NamedDeck[] = [],
 ): DeckOption[] {
-  return [...OFFICIAL, ...myDeckOptions(mine)];
+  return [...OFFICIAL, ...testDeckOptions(tests), ...myDeckOptions(mine)];
 }
 
 // Deck checks are cached per deck and day: the pickers check every option on each render, and
@@ -181,12 +196,13 @@ export function matchesDeckFilter(label: string, filter: string): boolean {
 }
 
 /**
- * The picker's groups (#161): the Starter decks, My decks, then (in `/debug`) the random test
- * decks, each in the options' order.
+ * The picker's groups (#161): the Starter decks, (#359, `/play`) the Test decks, My decks, then
+ * (in `/debug`) the random test decks, each in the options' order.
  */
 export function pickerGroups(options: readonly DeckOption[]): PickerGroup[] {
   const label: Record<DeckOption["kind"], string> = {
     official: "Starter decks",
+    test: "Test decks",
     mine: "My decks",
     random: "Random test decks",
   };

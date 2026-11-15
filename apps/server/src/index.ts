@@ -25,6 +25,7 @@ import {
   uploadsPerMinuteFrom,
 } from "./games.js";
 import { isResultsUploadPath, resultsMiddleware } from "./results.js";
+import { isTestDecksUploadPath, testDecksMiddleware } from "./testDecks.js";
 import { replayMiddleware } from "./h2h/replayRoute.js";
 import { reporterDeck } from "./h2h/reportDeck.js";
 import { attachH2h, type H2h } from "./h2h/socket.js";
@@ -85,6 +86,10 @@ export interface AppServerOptions {
   resultsDir?: string;
   /** #340: `RESULTS_UPLOAD_TOKEN` for the `tools/bots` upload; unset turns uploads off. */
   resultsToken?: string | undefined;
+  /** #359: the test decks (`TEST_DECKS_DIR`; default `test-decks` next to the records folder). */
+  testDecksDir?: string;
+  /** #359: `TEST_DECKS_UPLOAD_TOKEN` for `pnpm test-decks upload`; unset turns uploads off. */
+  testDecksToken?: string | undefined;
   now?: () => number;
 }
 
@@ -135,6 +140,8 @@ export function createAppServer({
   roomsDir = join(dirname(recordsDir), "h2h-rooms"),
   resultsDir = join(dirname(recordsDir), "results"),
   resultsToken,
+  testDecksDir = join(dirname(recordsDir), "test-decks"),
+  testDecksToken,
   maxRecordsBytes,
   uploadsPerMinute,
   reportsWebhook,
@@ -217,6 +224,10 @@ export function createAppServer({
   });
   const cards = cardImages(cardsDir);
   const results = resultsMiddleware({ dir: resultsDir, token: resultsToken });
+  const testDecks = testDecksMiddleware({
+    dir: testDecksDir,
+    token: testDecksToken,
+  });
   const app = webApp(distDir);
   const server = createServer(
     safeHandler(async (req, res) => {
@@ -255,6 +266,12 @@ export function createAppServer({
         !(await passes((next) => results(req, res, next)))
       )
         return;
+      // #359: the same for the test decks' upload.
+      if (
+        isTestDecksUploadPath(path) &&
+        !(await passes((next) => testDecks(req, res, next)))
+      )
+        return;
       if (gate && !(await passes((next) => gate(req, res, next)))) return;
       // #150: without Discord sign-in there's no player (the Discord gate answers it itself).
       if (path === "/api/me") {
@@ -267,6 +284,7 @@ export function createAppServer({
       if (replay && !(await passes((next) => replay(req, res, next)))) return;
       if (!(await passes((next) => games(req, res, next)))) return;
       if (!(await passes((next) => results(req, res, next)))) return;
+      if (!(await passes((next) => testDecks(req, res, next)))) return;
       if (!(await passes((next) => cards(req, res, next)))) return;
       await app(req, res);
     }),
@@ -378,6 +396,10 @@ if (
       ? { resultsDir: resolve(process.env.RESULTS_DIR) }
       : {}),
     resultsToken: process.env.RESULTS_UPLOAD_TOKEN?.trim() || undefined,
+    ...(process.env.TEST_DECKS_DIR
+      ? { testDecksDir: resolve(process.env.TEST_DECKS_DIR) }
+      : {}),
+    testDecksToken: process.env.TEST_DECKS_UPLOAD_TOKEN?.trim() || undefined,
   }).listen(port, () => {
     console.log(
       `GojiSim server listening on http://localhost:${port}${discord ? " (Discord sign-in on)" : process.env.GOJISIM_PASSWORD ? " (password gate on)" : ""}`,
