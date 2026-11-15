@@ -18,7 +18,8 @@ import {
  * `pnpm results run --plan <plan> --id <id> --name "<name>" --plans "<versions>"` builds a results
  * entry from finished plan reports and prints it; with `--upload` it sends it to the server
  * (`RESULTS_URL`, default the site) with the token in `RESULTS_UPLOAD_TOKEN`. Deck labels come
- * from `--label <matchup prefix>=<name>` (repeatable); a deck without one keeps its prefix.
+ * from `--label <matchup prefix>=<name>` (repeatable), or `--deck <name>` for every A side (plans
+ * whose matchup ids name only the opponent); a deck without one keeps its prefix.
  */
 
 const { values, positionals } = parseArgs({
@@ -38,6 +39,8 @@ const { values, positionals } = parseArgs({
     seeds: { type: "string", default: "paired, same seeds in both arms" },
     first: { type: "string" },
     label: { type: "string", multiple: true, default: [] },
+    /** One deck name for every matchup's A side, for plans whose ids name only the opponent. */
+    deck: { type: "string" },
     /** Count missed reachable counters from the kept records, with the issues that reported it. */
     missed: { type: "boolean", default: false },
     issues: { type: "string", multiple: true, default: [] },
@@ -53,7 +56,7 @@ const labels = new Map(
     return [k ?? "", v.join("=")] as const;
   }),
 );
-const label = (deck: string) => labels.get(deck) ?? deck;
+const label = (deck: string) => values.deck ?? labels.get(deck) ?? deck;
 const today = new Date().toISOString().slice(0, 10);
 
 /** A plan's finished reports, by matchup id. */

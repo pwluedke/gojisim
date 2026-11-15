@@ -22,6 +22,10 @@ export interface PlanReport {
   }[];
 }
 
+/** Whether a matchup id is a mirror: `x-vs-x` (an id naming only the opponent never is). */
+const isMirror = (id: string) =>
+  id.includes("-vs-") && sideOf(id, "a") === sideOf(id, "b");
+
 /** A matchup id's deck: the part before `-vs-` (the A deck) or after it. */
 export const sideOf = (id: string, side: "a" | "b") =>
   (side === "a" ? id.split("-vs-")[0] : id.split("-vs-")[1]) ?? id;
@@ -68,7 +72,7 @@ export function checkDecks(
   for (const id of Object.keys(a).sort()) {
     const ra = a[id];
     const rb = b[id];
-    if (!ra || !rb || sideOf(id, "a") === sideOf(id, "b")) continue;
+    if (!ra || !rb || isMirror(id)) continue;
     const ga = firstGames(ra, options.first);
     const gb = firstGames(rb, options.first);
     const n = Math.min(ga.length, gb.length);
@@ -124,7 +128,7 @@ export function mistakesByDeck(
   const decks = new Map<string, Mistake>();
   for (const id of Object.keys(counts).sort()) {
     const c = counts[id];
-    if (!c || sideOf(id, "a") === sideOf(id, "b")) continue;
+    if (!c || isMirror(id)) continue;
     const deck = label(sideOf(id, "a"));
     const m = decks.get(deck) ?? {
       ...mistake,
