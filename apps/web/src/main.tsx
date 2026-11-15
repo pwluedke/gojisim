@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { AdminPlayers } from "./AdminPlayers";
 import { App } from "./App";
 import { History } from "./History";
+import { ResultsPage } from "./ResultsPage";
 // The theme's variables apply to every page, `/debug` included (M5g).
 import "./theme.css";
 import "./fonts";
@@ -45,6 +46,8 @@ createRoot(root).render(
       </Suspense>
     ) : path.startsWith("/admin/players") ? (
       <AdminPlayers />
+    ) : path.startsWith("/results") ? (
+      <ResultsPage />
     ) : path.startsWith("/history") ? (
       <History />
     ) : path.startsWith("/online") ? (
