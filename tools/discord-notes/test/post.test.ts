@@ -147,3 +147,110 @@ describe("Discord post: editing a webhook message (Paul, Nov 12)", () => {
     expect(calls).toHaveLength(0);
   });
 });
+
+describe("Discord post through the bot to any channel or thread (Paul, Nov 15)", () => {
+  const BOT = "bot-secret-token";
+  const THREAD = "1450000000000000077";
+  const PARENT = "1570000000000000055";
+
+  it("with channel_id, posts through the bot to that channel or thread as a real reply, only the listed users pinged; the log has the channel id and message id only", async () => {
+    const { impl, calls } = fakeFetch(() =>
+      json({ id: "1570000000000000101" }),
+    );
+    const log: string[] = [];
+    const summary: string[] = [];
+    const id = await runPost({
+      webhook: WEBHOOK,
+      channelId: THREAD,
+      botToken: BOT,
+      message: `Thanks <@${IAN}>, fixed in #350.`,
+      mentions: IAN,
+      replyTo: PARENT,
+      fetchImpl: impl,
+      log: (l) => log.push(l),
+      summary: (l) => summary.push(l),
+    });
+    expect(id).toBe("1570000000000000101");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toBe(
+      `https://discord.com/api/v10/channels/${THREAD}/messages`,
+    );
+    expect(calls[0]?.init?.method).toBe("POST");
+    expect(
+      (calls[0]?.init?.headers as Record<string, string>)["Authorization"],
+    ).toBe(`Bot ${BOT}`);
+    const body = JSON.parse(String(calls[0]?.init?.body)) as {
+      content: string;
+      allowed_mentions: { parse: string[]; users: string[] };
+      message_reference?: { message_id: string };
+    };
+    expect(body.allowed_mentions).toEqual({ parse: [], users: [IAN] });
+    expect(body.message_reference?.message_id).toBe(PARENT);
+    // A real reply: no link line in the text.
+    expect(body.content).toBe(`Thanks <@${IAN}>, fixed in #350.`);
+    expect(log).toEqual([
+      "Discord answered HTTP 200",
+      `Channel id ${THREAD}, message id 1570000000000000101`,
+    ]);
+    expect(log.join("\n")).not.toMatch(/Thanks|bot-secret-token|secret-token/);
+    expect(summary.join("\n")).toContain(THREAD);
+  });
+
+  it("with channel_id and edit_id, PATCHes the bot's message in that channel", async () => {
+    const { impl, calls } = fakeFetch(() =>
+      json({ id: "1570000000000000101" }),
+    );
+    await runPost({
+      webhook: "",
+      channelId: THREAD,
+      botToken: BOT,
+      message: "Fixed in #350 (released).",
+      editId: "1570000000000000101",
+      fetchImpl: impl,
+      log: () => {},
+    });
+    expect(calls[0]?.url).toBe(
+      `https://discord.com/api/v10/channels/${THREAD}/messages/1570000000000000101`,
+    );
+    expect(calls[0]?.init?.method).toBe("PATCH");
+  });
+
+  it("refuses a channel_id that isn't an id, or a missing bot token, before any call", async () => {
+    const { impl, calls } = fakeFetch(() => json({}));
+    await expect(
+      runPost({
+        webhook: WEBHOOK,
+        channelId: "#general",
+        botToken: BOT,
+        message: "x",
+        fetchImpl: impl,
+        log: () => {},
+      }),
+    ).rejects.toThrow(/channel_id/);
+    await expect(
+      runPost({
+        webhook: WEBHOOK,
+        channelId: THREAD,
+        botToken: "",
+        message: "x",
+        fetchImpl: impl,
+        log: () => {},
+      }),
+    ).rejects.toThrow(/DISCORD_BOT_TOKEN/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("without channel_id, the #bugs webhook posts as before", async () => {
+    const { impl, calls } = fakeFetch(() =>
+      json({ id: "1570000000000000099" }),
+    );
+    await runPost({
+      webhook: WEBHOOK,
+      botToken: BOT,
+      message: "Hi",
+      fetchImpl: impl,
+      log: () => {},
+    });
+    expect(calls[0]?.url).toBe(`${WEBHOOK}?wait=true`);
+  });
+});

@@ -5,6 +5,9 @@ name: Discord post
 # ids in `mentions` can be pinged, never @everyone or roles. The new message's id goes to the run
 # summary, so `edit_id` can edit it later. The repo is public: the log shows only the HTTP status
 # and the message id, never the text or the webhook URL (docs/discord.md, `pnpm discord-post`).
+# Paul, Nov 15: with `channel_id` (a channel or thread id) it posts through the bot
+# (`DISCORD_BOT_TOKEN`) to that channel or thread instead; the log then shows the channel id and
+# the message id only.
 on:
   workflow_dispatch:
     inputs:
@@ -20,7 +23,11 @@ on:
         required: false
         default: ""
       edit_id:
-        description: "Optional: the id of a message this webhook posted, to edit it instead of posting"
+        description: "Optional: the id of a message this webhook (or, with channel_id, the bot) posted, to edit it"
+        required: false
+        default: ""
+      channel_id:
+        description: "Optional: a channel or thread id; posts there through the bot instead of the #bugs webhook"
         required: false
         default: ""
 
@@ -33,7 +40,7 @@ permissions:
 
 jobs:
   post:
-    name: Post to #bugs
+    name: Post to Discord
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -43,6 +50,8 @@ jobs:
       - name: Post
         env:
           DISCORD_BUGS_WEBHOOK: ${{ secrets.DISCORD_BUGS_WEBHOOK }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          CHANNEL_ID: ${{ inputs.channel_id }}
           MESSAGE: ${{ inputs.message }}
           REPLY_TO: ${{ inputs.reply_to }}
           MENTIONS: ${{ inputs.mentions }}
@@ -50,4 +59,5 @@ jobs:
         run: |
           # The URL is never printed; masked in case a tool does.
           if [ -n "$DISCORD_BUGS_WEBHOOK" ]; then echo "::add-mask::$DISCORD_BUGS_WEBHOOK"; fi
+          if [ -n "$DISCORD_BOT_TOKEN" ]; then echo "::add-mask::$DISCORD_BOT_TOKEN"; fi
           pnpm -s discord-post

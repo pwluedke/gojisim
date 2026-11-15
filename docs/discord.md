@@ -36,16 +36,18 @@ Then **Actions → Discord digest → Run workflow** to check: the log should sa
 
 Treat the token and the webhook like passwords. If one leaks, reset the bot token (step 1.3) or delete the webhook and make a new one, then replace the secret.
 
-# Posting to #bugs
+# Posting to Discord
 
-Paul posts to the GojiSim Discord's **#bugs** channel from GitHub, through the channel's webhook (`.github/workflows/discord-post.yml`). It's run by hand only; nothing else triggers it.
+Paul posts to the GojiSim Discord from GitHub (`.github/workflows/discord-post.yml`): to **#bugs** through the channel's webhook, or (Paul, Nov 15) to any channel or thread through the bot with `channel_id`. It's run by hand only; nothing else triggers it.
 
 - **How:** the `gojisim` repo → **Actions → Discord post → Run workflow**, with:
   - `message`: the text, up to 2,000 characters (Discord's limit, counting a reply link). Tag a user as `<@id>`.
   - `reply_to` (optional): the id of the #bugs message it answers. Right-click the message → **Copy Message ID**, with Developer Mode on. A webhook can't thread-reply in a text channel, so the post starts with a link to that message instead (`↪ Re: https://discord.com/channels/…`).
   - `mentions` (optional): the Discord user ids the message tags, comma-separated (Paul, Nov 12). Only they are pinged, and each one must appear in the text as `<@id>`. The in-app reports in Slack #gojisim-reports show a signed-in reporter's id (`from Ian (id …)`).
-  - `edit_id` (optional): the id of a message this webhook posted, to edit it (new text and mentions) instead of posting. Only the webhook's own messages can be edited.
+  - `edit_id` (optional): the id of a message this webhook posted, to edit it (new text and mentions) instead of posting. Only the webhook's own messages can be edited; with `channel_id`, the bot's own messages in that channel or thread.
+  - `channel_id` (optional, Paul, Nov 15): a channel or thread id (right-click → **Copy Channel ID**). The message goes there through the bot (`DISCORD_BOT_TOKEN`) instead of the #bugs webhook, and `reply_to` is then a real Discord reply. Without it, the #bugs webhook posts as before.
 - **The message id:** a post waits for Discord's answer, and the run's summary shows the new message's id, for a later `edit_id`.
 - **Mentions:** `@everyone` and roles are never pinged, and users only when listed in `mentions` (`allowed_mentions` lists those ids alone).
-- **What the log shows:** the repo is public, so the run's log shows only Discord's HTTP status and the message id, never the message or the webhook URL. A status that isn't 2xx fails the run. The code is `tools/discord-notes/src/post.ts` (`pnpm discord-post`).
+- **What the log shows:** the repo is public, so the run's log shows only Discord's HTTP status and the message id (with `channel_id`, also the channel id), never the message, the webhook URL or the bot token. A status that isn't 2xx fails the run. The code is `tools/discord-notes/src/post.ts` (`pnpm discord-post`).
 - **Setup (done):** #bugs → **Edit Channel → Integrations → Webhooks → New Webhook**, copy its URL, and store it as the repo secret `DISCORD_BUGS_WEBHOOK` (**Settings → Secrets and variables → Actions**). Treat it like a password: if it leaks, delete the webhook, make a new one and replace the secret.
+- **Setup for `channel_id` (Paul):** the bot uses the digest's `DISCORD_BOT_TOKEN` secret. Its role needs **Send Messages** and **Send Messages in Threads** (and **View Channels**) in the channels Monarch answers in; the digest's own reading needs only View Channels and Read Message History.
