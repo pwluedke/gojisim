@@ -1,0 +1,25 @@
+# Bot switches
+
+Every bot rule or plan change goes in behind a switch that defaults to on (Paul, Nov 14, 2026), so its A/B check runs both arms on one commit: the control sets the switch off (`aSettings: "<switch>=0"` in a plan), the other arm keeps the default. A switch is a field of `IsmctsSettings` (`src/ismcts.ts`), read from a bot's settings by `ismctsSettings`. Each check on `/results` (#340) names its switch.
+
+This list holds code facts only: no decks, lists or results. Status: **built** (in the code), **measured** (a paired check ran), **kept** (on by default after its check).
+
+| Switch         | Default                          | What it turns on                                                                                                            | From         | Status   |
+| -------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------ | -------- |
+| `rules`        | 0; 1 from Hard (`difficulty.ts`) | Paul's play rules at the search root (`rules.ts`): prunes and prior bonuses.                                                | #175         | kept     |
+| `recognizer`   | 0; 1 from Hard                   | The deck recognizer: the opponent's hidden cards drawn toward a recognized archetype (`recognizer.ts`).                     | #191         | kept     |
+| `cardRules`    | 0; 1 from Medium                 | The card-play rules (`cardRules.ts`), also on with `rules`.                                                                 | Paul, Nov 12 | kept     |
+| `counterFirst` | 1                                | Card rule 7 takes the counter before the zone 8 block; 0 is the old rule 7.                                                 | #305, #320   | kept     |
+| `wranglerPlan` | 2                                | The Wrangler plan: 2 is v2 (`wranglerPlanV2.ts`, with the card rules), 1 is v1 (`wranglerPlan.ts`, with `rules`), 0 is off. | #276, #311   | kept     |
+| `wranglerV21`  | 1                                | Wrangler plan v2.1 (#316, #317, #319, #321); 0 is v2.                                                                       | #332         | kept     |
+| `festPlan`     | 0                                | Slick's Red Fest plan (`festPlan.ts`), with `rules`. Off by default: its check wasn't a gain.                               | #307         | measured |
+| `cfPlan`       | 1                                | Paul's Constructed Future plan (`cfPlan.ts`), with `rules`.                                                                 | Paul         | kept     |
+| `mxPlan`       | 2                                | Paul's Monster X plan: 2 is v2 (`mxPlanV2.ts`), 1 is v1 (`mxPlan.ts`), 0 is off.                                            | #223, #227   | kept     |
+| `cfTarget`     | `auto`                           | Which card cost discards aim at in Paul's Constructed Future test (`cfTarget.ts`).                                          | Paul         | kept     |
+
+## Adding a switch
+
+1. Add the field to `IsmctsSettings` and its default (on) to `ISMCTS_DEFAULTS`; pass it to the rule or plan, whose code checks it.
+2. Add a test that the switch's off position is the old behavior.
+3. Add its row here, status **built**, in the same PR.
+4. Measure with the switch off as the control, then set the status from the result.
