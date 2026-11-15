@@ -5,6 +5,8 @@ import {
   type GameState,
   getLegalActions,
   type PlayerId,
+  sameColumn,
+  type ZoneNumber,
 } from "@gojisim/engine";
 import { counterPlays, winsNow } from "./cardRules";
 import { counters } from "./rules";
@@ -128,6 +130,50 @@ export function wranglerV2Verdict(
   // v2.1 (#321): discarding down (5.7.2), a monster card goes before a key card (a monster card
   // in the discard pile counts toward Godzilla Against Mechagodzilla's 8, too).
   const choice = state.pendingChoice;
+  // v2.2 (Ian's notes, point 7): at Despair's target pick (line 1 not deciding it), the battle
+  // cards in your monster's column first, then their cards in zones 1 and 2.
+  if (
+    v22 &&
+    choice?.player === me &&
+    choice.kind === "target" &&
+    player &&
+    opponent &&
+    state.resolution &&
+    state.cards[state.resolution.standby.sourceCardId]?.deckCardNumber ===
+      DESPAIR
+  ) {
+    const at = player.monsterPosition ?? 0;
+    const zoneOf = (instanceId: string) => {
+      const z = Object.entries(opponent.zones).find(([, stacks]) =>
+        stacks.some((stack) => stack.at(-1)?.instanceId === instanceId),
+      )?.[0];
+      return z === undefined ? undefined : (Number(z) as ZoneNumber);
+    };
+    const picks = actions.filter(
+      (a): a is Extract<Action, { type: "choose" }> => a.type === "choose",
+    );
+    // Line 1 already picked (a Mecha-King): it stands.
+    if (picks.some((a) => against.has(a))) return { against, rescued };
+    const aligned = picks.filter((a) => {
+      const z = zoneOf(a.optionId);
+      return (
+        z !== undefined &&
+        at > 0 &&
+        sameColumn(
+          { player: opponent.id, zone: z },
+          { player: me, zone: at as ZoneNumber },
+        )
+      );
+    });
+    const front = picks.filter((a) => {
+      const z = zoneOf(a.optionId);
+      return z === 1 || z === 2;
+    });
+    const best = aligned.length > 0 ? aligned : front;
+    if (best.length > 0)
+      for (const a of picks) if (!best.includes(a)) against.add(a);
+    return { against, rescued };
+  }
   if (v21 && choice?.player === me && choice.rule === "5.7.2") {
     const cardOf = (optionId: string) => {
       const id = choice.options.find((o) => o.id === optionId)?.cardId;

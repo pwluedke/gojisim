@@ -292,6 +292,40 @@ describe("the Wrangler plan v2", () => {
       if (a.type === "pass") expect(answer.against.has(a)).toBe(false);
   });
 
+  it("v2.2 (Ian's notes, point 7): at Despair's target pick, a battle card in your monster's column goes before others in reach", () => {
+    const { state, p1, p2 } = position([DESPAIR], 3, 2);
+    p1.rage = 2;
+    // Your monster in zone 3: their zone 3 is in its column, their zone 1 isn't (no Mecha-King).
+    const aligned = add(state, real("ESD02-012"), "P2");
+    const other = add(state, real("ESD02-012"), "P2");
+    p2.zones[3] = [[aligned]];
+    p2.zones[1] = [[other]];
+    const despair = getLegalActions(state, "P1").find(
+      (a) => a.type === "activateStrategy" && ofCard(state, p1, a) === DESPAIR,
+    )!;
+    const pick = advanceToDecision(applyAction(state, despair));
+    expect(pick.pendingChoice?.kind).toBe("target");
+    const legal = getLegalActions(pick, "P1");
+    const option = (id: string) =>
+      legal.find((a) => a.type === "choose" && a.optionId === id)!;
+    expect(option(aligned.instanceId)).toBeDefined();
+    expect(option(other.instanceId)).toBeDefined();
+    const { against } = wranglerV2Verdict(pick, legal, "P1", WRANGLER);
+    expect(against.has(option(aligned.instanceId))).toBe(false);
+    expect(against.has(option(other.instanceId))).toBe(true);
+    // v2.1 (`v22: false`): no preference.
+    const v21 = wranglerV2Verdict(
+      pick,
+      legal,
+      "P1",
+      WRANGLER,
+      undefined,
+      true,
+      false,
+    );
+    expect(v21.against.has(option(other.instanceId))).toBe(false);
+  });
+
   it("Godzilla (1954) EBP01-004 isn't stacked with a King on the board", () => {
     const { state, p1 } = position([GODZILLA_1954_WIPE], 3, 2);
     // EBP01-004 is rank 3: stack it on a rank 3 top.
