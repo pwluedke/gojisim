@@ -96,6 +96,8 @@ import type { Decklist } from "./types";
  *    an invasion while another card can pay (discarded, it never pays off);
  *    and nothing goes on top of your own [revenge] card while another zone is open (but a column
  *    card, which rule 3 places: Mecha-King Ghidorah in the opponent monster's column, #289).
+ *    #339 (Keldroc): a [revenge] card goes in zone 8 only when an invasion this turn takes your
+ *    own monster there (it's crushed there and its revenge fires).
  * 18. #290 (Keldroc and Monarch, Nov 13): at a "choose one", a mode that makes the opponent
  *    discard beats one that only mills your own deck (King Ghidorah (1991) EBP02-049: the hand
  *    discard, "9 times out of 10"), unless only the mill lets this turn's Mecha-King Ghidorah
@@ -327,6 +329,8 @@ function revengePlays(
   state: GameState,
   actions: readonly Action[],
   me: PlayerId,
+  /** `revengeStep` (#339): zone 8 only when your own monster steps on it this turn. */
+  step = true,
 ): Action[] {
   const player = state.players.find((p) => p.id === me);
   if (!player || state.pendingChoice || player.monsterPosition === null)
@@ -355,6 +359,12 @@ function revengePlays(
   );
   if (revengePays.length > 0 && revengePays.length < invades.length)
     dead.push(...revengePays);
+  // #339: an invasion this turn takes your monster into zone 8 (its icon covers the distance).
+  const stepsOnZone8 = invades.some(
+    (a) =>
+      a.type === "invade" &&
+      at + (dataOf(a.cardInstanceId)?.invadeZones ?? 1) >= 8,
+  );
   const byCard = new Map<string, Extract<Action, { type: "playBattle" }>[]>();
   for (const a of actions)
     if (a.type === "playBattle")
@@ -381,8 +391,14 @@ function revengePlays(
     const best = tiers
       .map((tier) => plays.filter((a) => tier(a.zone)))
       .find((t) => t.length > 0);
+    // #339 (Keldroc): a [revenge] card goes in zone 8 only when your own monster steps on it this
+    // turn (an invasion that reaches zone 8 crushes it there, 11.3, and its revenge fires).
+    if (step && revenge && !stepsOnZone8)
+      for (const a of plays)
+        if (a.zone === 8 && !dead.includes(a)) dead.push(a);
     if (!best) continue;
-    for (const a of plays) if (!best.includes(a)) dead.push(a);
+    for (const a of plays)
+      if (!best.includes(a) && !dead.includes(a)) dead.push(a);
   }
   return dead;
 }
@@ -1205,6 +1221,8 @@ export interface CardRulesOptions {
   counterFirst?: boolean;
   /** Rule 21 (#304): no battle card into your own monster's path (the default); false is off. */
   ownPath?: boolean;
+  /** #339: a [revenge] card in zone 8 only when your monster steps on it (default); false is off. */
+  revengeStep?: boolean;
 }
 
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
@@ -1254,7 +1272,13 @@ export function cardRulesDead(
   for (const action of heldMonsters(state, actions, me)) dead.add(action);
   for (const action of idleModes(state, actions, me)) dead.add(action);
   for (const action of millModes(state, actions, me)) dead.add(action);
-  for (const action of revengePlays(state, actions, me)) dead.add(action);
+  for (const action of revengePlays(
+    state,
+    actions,
+    me,
+    options.revengeStep !== false,
+  ))
+    dead.add(action);
   for (const action of redundantStrategies(state, actions, me))
     dead.add(action);
   if (options.ownPath !== false)

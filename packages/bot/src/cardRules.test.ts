@@ -976,6 +976,39 @@ describe(
       for (const a of onPath) expect(dead.has(a)).toBe(false);
     });
 
+    it("#339 (Keldroc): a [revenge] card (Dorat EBP02-058) goes in zone 8 only when an invasion this turn takes your own monster there", () => {
+      const judge = (pay: string) => {
+        const { state, p1 } = withGodzilla1995();
+        // Your monster in zone 6; your own Dorat in zone 7: zone 8 is the only zone ahead.
+        p1.monsterPosition = 6;
+        p1.zones[7] = [[add(state, real("EBP02-058"), "P1")]];
+        const dorat = add(state, { ...real("EBP02-058"), rank: 1 }, "P1");
+        p1.hand = [dorat, add(state, real(pay), "P1")];
+        const legal = getLegalActions(state, "P1");
+        const at8 = legal.filter(
+          (a) =>
+            a.type === "playBattle" &&
+            a.cardInstanceId === dorat.instanceId &&
+            a.zone === 8,
+        );
+        expect(at8.length).toBeGreaterThan(0);
+        const dead = cardRulesDead(state, legal, "P1");
+        const off = cardRulesDead(state, legal, "P1", undefined, {
+          revengeStep: false,
+        });
+        return {
+          on: at8.map((a) => dead.has(a)),
+          off: at8.map((a) => off.has(a)),
+        };
+      };
+      // An icon-1 invasion only reaches zone 7: zone 8 is left out (but not with the switch off).
+      const one = judge("EBP01-002");
+      for (const d of one.on) expect(d).toBe(true);
+      for (const d of one.off) expect(d).toBe(false);
+      // An icon-2 invasion (EBP01-073) takes your monster to zone 8: the Dorat may go there.
+      for (const d of judge("EBP01-073").on) expect(d).toBe(false);
+    });
+
     it("rule 2 (Paul, Nov 12): from zone 7, Godzilla vs. King Ghidorah EBP02-071 (awakening 6: destroy rank 6 or lower) clears the zone 8 blocker before the winning invasion", () => {
       const { state, p1 } = withGodzilla1995();
       const opp = state.players[1] as PlayerState;
