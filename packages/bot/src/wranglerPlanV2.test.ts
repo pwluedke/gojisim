@@ -124,14 +124,24 @@ describe("the Wrangler plan v2", () => {
   });
 
   it("#317 (v2.1): a push (Godzilla Landing) is argued against unless a follow-up comes this turn: the counter, or a rank 7-8 battle card; trampling alone isn't one", () => {
-    const landings = (state: GameState, p1: PlayerState) => {
+    // v2.2's rule (`v23: false`); v2.3 takes the counter alone as a follow-up (test below).
+    const landings = (state: GameState, p1: PlayerState, v23 = false) => {
       const legal = getLegalActions(state, "P1");
       const found = legal.filter(
         (a) =>
           a.type === "activateStrategy" && ofCard(state, p1, a) === LANDING,
       );
       expect(found.length).toBeGreaterThan(0);
-      const { against } = wranglerV2Verdict(state, legal, "P1", WRANGLER);
+      const { against } = wranglerV2Verdict(
+        state,
+        legal,
+        "P1",
+        WRANGLER,
+        undefined,
+        true,
+        true,
+        v23,
+      );
       return found.map((a) => against.has(a));
     };
     // Nothing after it: argued against.
@@ -145,6 +155,8 @@ describe("the Wrangler plan v2", () => {
     // (8.2.1). Without the King in hand, the same push is argued against.
     const king = position([LANDING, KING], 4, 7);
     for (const a of landings(king.state, king.p1)) expect(a).toBe(false);
+    // v2.3 (Ian): a rank 7-8 play after the push isn't a follow-up any more, only the counter.
+    for (const a of landings(king.state, king.p1, true)) expect(a).toBe(true);
     const noKing = position([LANDING], 4, 7);
     for (const a of landings(noKing.state, noKing.p1)) expect(a).toBe(true);
     // `v21: false` (the paired check's control) is v2: the trample alone allows it.
@@ -178,7 +190,7 @@ describe("the Wrangler plan v2", () => {
       expect(against.has(a)).toBe(![1, 2, 8].includes(a.zone));
   });
 
-  it("churn from turn 1: rage discards over passing, but the held Godzilla (1954) EBP01-004 stays until a King is out", () => {
+  it("churn from turn 1: rage discards over passing, but the held Godzilla (1954) EBP01-004 stays until a King is out (v2.2; v2.3 pitches it too)", () => {
     const { state, p1 } = position(["EBP01-002", GODZILLA_1954_WIPE], 1, 1, 1);
     const legal = getLegalActions(state, "P1");
     const { against, rescued } = wranglerV2Verdict(
@@ -186,7 +198,15 @@ describe("the Wrangler plan v2", () => {
       legal,
       "P1",
       WRANGLER,
+      undefined,
+      true,
+      true,
+      false,
     );
+    // v2.3 (Ian): every monster card but Godzilla (2004) is pitched, Godzilla (1954) EBP01-004 too.
+    const v23 = wranglerV2Verdict(state, legal, "P1", WRANGLER);
+    for (const a of legal)
+      if (a.type === "gainRage") expect(v23.rescued.has(a)).toBe(true);
     for (const a of legal) {
       if (a.type === "pass") expect(against.has(a)).toBe(true);
       if (a.type === "gainRage") {
@@ -373,6 +393,33 @@ describe("the Wrangler plan v2", () => {
     const yes = legal.find((a) => a.type === "choose" && a.optionId === "yes")!;
     const { against } = wranglerV2Verdict(s, legal, "P1", WRANGLER);
     expect(against.has(yes)).toBe(true);
+  });
+
+  it("v2.3 (Ian): against Monster X, with fewer than 2 battle cards in hand, dig (Despair over passing)", () => {
+    const { state, p1, p2 } = position([KING, DESPAIR], 3, 2);
+    p2.invadingMonsterZone = [add(state, real("EBP04-032"), "P2")];
+    const legal = getLegalActions(state, "P1");
+    const despair = legal.filter(
+      (a) => a.type === "activateStrategy" && ofCard(state, p1, a) === DESPAIR,
+    );
+    expect(despair.length).toBeGreaterThan(0);
+    const dig = wranglerV2Verdict(state, legal, "P1", WRANGLER);
+    for (const a of legal)
+      if (a.type === "pass") expect(dig.against.has(a)).toBe(true);
+    for (const a of despair) expect(dig.rescued.has(a)).toBe(true);
+    // v2.2 (`v23: false`): one battle card is an answer; passing stays.
+    const v22 = wranglerV2Verdict(
+      state,
+      legal,
+      "P1",
+      WRANGLER,
+      undefined,
+      true,
+      true,
+      false,
+    );
+    for (const a of legal)
+      if (a.type === "pass") expect(v22.against.has(a)).toBe(false);
   });
 
   it("Godzilla (1954) EBP01-004 isn't stacked with a King on the board", () => {

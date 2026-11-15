@@ -79,6 +79,8 @@ export interface IsmctsSettings {
   wranglerV21: number;
   /** v2.2 of the Wrangler plan (#318): 1 (the default) on; 0 is v2.1. */
   wranglerV22: number;
+  /** v2.3 of the Wrangler plan (Ian's guide review): 1 (the default) on; 0 is v2.2. */
+  wranglerV23: number;
   /**
    * Slick's Red Fest plan (`festPlan.ts`): 1 applies it, with `rules` on. Off by default: measured
    * Nov 13 it wasn't a gain (paired seeds, the August list and the bots' Red Fest); on for tuning.
@@ -114,6 +116,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   wranglerPlan: 2,
   wranglerV21: 1,
   wranglerV22: 1,
+  wranglerV23: 1,
   festPlan: 0,
   cfTarget: "auto",
   cfPlan: 1,
@@ -481,6 +484,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
             theirs,
             settings.wranglerV21 > 0,
             settings.wranglerV22 > 0,
+            settings.wranglerV23 > 0,
           )
         : wranglerVerdict(
             first,

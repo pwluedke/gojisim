@@ -120,6 +120,8 @@ export function wranglerV2Verdict(
   v21 = true,
   /** v2.2's changes (#318); `false` is v2.1, for the paired check. */
   v22 = true,
+  /** v2.3's changes (Ian's guide review, Nov 15); `false` is v2.2. */
+  v23 = true,
 ): { against: Set<Action>; rescued: Set<Action> } {
   if (!isWranglerDeck(own)) return { against: new Set(), rescued: new Set() };
   // Line 1 (v1's Despair line) goes first.
@@ -278,11 +280,13 @@ export function wranglerV2Verdict(
 
   // Push only when a follow-up comes this turn (#317): after it, the counter is made or can be
   // made, or a rank 7-8 battle card can be played.
+  // v2.3 (Ian): only the counter is a follow-up, not a rank 7-8 battle card play.
   const followUp = (s: GameState) => {
     if (counters(s, me)) return true;
     if (s.turnPlayer !== me) return false;
     const legal = getLegalActions(s, me);
     if (counterPlays(s, legal, me).size > 0) return true;
+    if (v23) return false;
     const hand = s.players.find((p) => p.id === me)?.hand ?? [];
     return legal.some((a) => {
       if (a.type !== "playBattle") return false;
@@ -333,8 +337,12 @@ export function wranglerV2Verdict(
   // Churn from turn 1: rage discards over passing, freed from the holds; the held cards stay
   // (Godzilla (1954) EBP01-004 may go once your Kings are out). With a King in zones 1-5 and under
   // 3 rage, rage first.
+  // v2.3 (Ian): every monster card is pitched for rage, from turn 1, but Godzilla (2004).
   const held = (n: string | undefined) =>
-    n !== undefined && HELD.has(n) && !(n === GODZILLA_1954_WIPE && kingsOut);
+    n !== undefined &&
+    (v23
+      ? n === GODZILLA_2004
+      : HELD.has(n) && !(n === GODZILLA_1954_WIPE && kingsOut));
   const churn = actions.filter(
     (a) => a.type === "gainRage" && !held(number(a)),
   );
@@ -364,9 +372,18 @@ export function wranglerV2Verdict(
   // phase draws up to the hand size (7.5.4), so each card out of the hand this turn is one more
   // card drawn. Rage discards of the cards it needn't hold and Despair, even for no value, over
   // passing (Monarch: "play or rage away cards it doesn't need to hold").
-  const noAnswer = !player.hand.some(
+  const battlesInHand = player.hand.filter(
     (c) => state.cards[c.cardId]?.type === "Battle",
-  );
+  ).length;
+  // v2.3 (Ian): against Monster X, whose first two ranks take 2 battle cards to counter, dig until
+  // the hand holds 2.
+  const vsMonsterX =
+    theirs?.monsterDeck.some((c) => c.name.startsWith("Monster X")) ??
+    opponent.invadingMonsterZone.some((c) =>
+      state.cards[c.cardId]?.name.startsWith("Monster X"),
+    );
+  const noAnswer =
+    battlesInHand === 0 || (v23 && vsMonsterX && battlesInHand < 2);
   if (v22 && noAnswer) {
     const out = actions.filter(
       (a) =>
