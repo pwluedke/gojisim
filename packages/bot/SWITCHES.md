@@ -12,7 +12,7 @@ This list holds code facts only: no decks, lists or results. Status: **built** (
 | `counterFirst` | 1                                | Card rule 7 takes the counter before the zone 8 block; 0 is the old rule 7.                                                 | #305, #320   | kept     |
 | `wranglerPlan` | 2                                | The Wrangler plan: 2 is v2 (`wranglerPlanV2.ts`, with the card rules), 1 is v1 (`wranglerPlan.ts`, with `rules`), 0 is off. | #276, #311   | kept     |
 | `wranglerV21`  | 1                                | Wrangler plan v2.1 (#316, #317, #319, #321); 0 is v2.                                                                       | #332         | kept     |
-| `festPlan`     | 0                                | Slick's Red Fest plan (`festPlan.ts`), with `rules`. Off by default: its check wasn't a gain.                               | #307         | measured |
+| `festPlan`     | 0                                | Slick's Red Fest plan (`festPlan.ts`), with `rules`. Off by default.                                                        | #307         | measured |
 | `cfPlan`       | 1                                | Paul's Constructed Future plan (`cfPlan.ts`), with `rules`.                                                                 | Paul         | kept     |
 | `mxPlan`       | 2                                | Paul's Monster X plan: 2 is v2 (`mxPlanV2.ts`), 1 is v1 (`mxPlan.ts`), 0 is off.                                            | #223, #227   | kept     |
 | `cfTarget`     | `auto`                           | Which card cost discards aim at in Paul's Constructed Future test (`cfTarget.ts`).                                          | Paul         | kept     |
