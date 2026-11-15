@@ -69,6 +69,11 @@ export interface Settings {
    * hover opens it (hand, board, battle log, modals); the raised hand card stays.
    */
   hoverPreview: boolean;
+  /**
+   * #355: playing a card to a zone, a discard (invasion, rage, cost) and a strategy wait for
+   * Confirm or Cancel before the move is sent (default off).
+   */
+  confirmMoves: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -92,6 +97,7 @@ export const DEFAULT_SETTINGS: Settings = {
   volume: 50,
   skipFirstPick: false,
   hoverPreview: true,
+  confirmMoves: false,
 };
 
 /** Applies a theme to the page (`:root[data-theme]`, see `theme.css`). */

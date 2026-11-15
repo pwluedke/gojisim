@@ -905,6 +905,13 @@
   display: block;
 }
 
+/* #355: two short checkbox settings on one row (Invade arrow, Confirm moves). */
+.settingsPair {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-3);
+}
+
 /* Checkbox rows 2 px apart instead of the box's default 6 px (19 px rows), so the left column
    still fits at 1440 × 900 with Card preview on hover added (#174). */
 .settings input[type="checkbox"] {
