@@ -20,8 +20,8 @@ import {
 } from "./wranglerPlan";
 
 /**
- * The Wrangler plan v2 (Paul, Nov 13: the Wrangler as a red rage counter deck; the rules doc
- * `claude/wrangler-bot-rules.md` v2, via Monarch), for a "Red Counter (Wrangler)" deck. Like v1 a
+ * The Wrangler plan v2 (Paul, Nov 13: the Wrangler as a red rage counter deck; the Wrangler play
+ * guide, `claude/wrangler-play-guide.md` v2, via Monarch), for a "Red Counter (Wrangler)" deck. Like v1 a
  * preference (the search favors the moves it doesn't argue against), each line only when the
  * bot's own list has its cards; with the card rules (Medium and Hard). `wranglerPlan=2` (the
  * default); `wranglerPlan=1` is v1.
