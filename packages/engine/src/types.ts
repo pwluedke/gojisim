@@ -322,6 +322,11 @@ export interface PendingChoice {
    * and the token going there, so the board can show them until every token is placed.
    */
   picked?: { zone: string; cardId: number }[];
+  /**
+   * #357: for a zone choice, the card being placed (its card id), so the board can hold it in a
+   * tray and play it like a hand card. Derived state: records carry only the picks.
+   */
+  placing?: number;
 }
 
 export interface GameResult {

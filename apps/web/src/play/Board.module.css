@@ -337,6 +337,16 @@
   box-shadow: var(--panel-shadow);
 }
 
+/* #357: on a phone there's no room left of the mat; the prompt sits above it, on screen. */
+@media (max-width: 700px) {
+  .beside {
+    position: static;
+    width: auto;
+    max-width: calc(100vw - 2 * var(--space-4));
+    margin-bottom: var(--space-2);
+  }
+}
+
 .centerLine {
   border-top: 3px solid var(--color-center-line);
 }
@@ -910,6 +920,72 @@
 .settings input[type="checkbox"] {
   margin-block: 1px;
   vertical-align: -2px;
+}
+
+/* #357: a zone choice's tray: the card being placed, beside your mat. */
+.zoneTray {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.zoneTrayText {
+  font-weight: 600;
+}
+
+.zoneTrayCard {
+  width: calc(var(--card-w, 72px) * 0.9);
+  aspect-ratio: 5 / 7;
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.zoneTrayCard img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.zoneTrayDragging {
+  opacity: 0.4;
+}
+
+.zoneTrayButtons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* #357: a lit zone of a zone choice: the tray card ghosted on hover, and its zone number. */
+.choiceZone {
+  position: relative;
+}
+
+.zoneGhost {
+  position: absolute;
+  inset: 8%;
+  width: 84%;
+  height: 84%;
+  object-fit: contain;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.zoneKeyHint {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  min-width: 18px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--color-chip);
+  color: var(--color-chip-text);
+  font-size: var(--font-size-sm);
+  text-align: center;
+  pointer-events: none;
 }
 
 /* Where the bot's last move landed, for the delay time. */
