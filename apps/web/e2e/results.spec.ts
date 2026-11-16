@@ -92,3 +92,47 @@ test("at phone width the page has no sideways scroll", async ({ page }) => {
   ]);
   expect(scroll).toBeLessThanOrEqual(width);
 });
+
+test("#365: the Kaiju Classroom agreement, per deck over time and by bot version", async ({
+  page,
+}) => {
+  const row = (
+    date: string,
+    deck: string,
+    botVersion: string,
+    turns: number,
+    same: number,
+  ) => ({
+    date,
+    deck,
+    botVersion,
+    turns,
+    same,
+    aboutSame: 0,
+    worse: turns - same,
+    better: 0,
+  });
+  await page.route("**/api/results/classroom", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        rows: [
+          row("2026-11-14", "Wrangler", "2026-11-14", 4, 1),
+          row("2026-11-15", "Wrangler", "2026-11-15", 4, 3),
+          row("2026-11-15", "Ghidorat", "2026-11-15", 2, 2),
+          row("2026-11-15", "Other deck (sample)", "2026-11-15", 2, 0),
+        ],
+      }),
+    }),
+  );
+  await open(page);
+  const agreement = page.getByTestId("agreement");
+  await expect(agreement.getByTestId("agreement-series")).toHaveCount(2);
+  await expect(agreement.getByTestId("agreement-row")).toHaveCount(3);
+  await expect(agreement.getByTestId("agreement-row").nth(1)).toContainText(
+    "1 (25.0%)",
+  );
+  await page.getByTestId("results-show-all").check();
+  await expect(agreement.getByTestId("agreement-series")).toHaveCount(3);
+});

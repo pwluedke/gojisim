@@ -25,6 +25,8 @@ import {
   uploadsPerMinuteFrom,
 } from "./games.js";
 import { isResultsUploadPath, resultsMiddleware } from "./results.js";
+import { classroomStore } from "./classroom.js";
+import { isTestDecksUploadPath, testDecksMiddleware } from "./testDecks.js";
 import { replayMiddleware } from "./h2h/replayRoute.js";
 import { reporterDeck } from "./h2h/reportDeck.js";
 import { attachH2h, type H2h } from "./h2h/socket.js";
@@ -85,6 +87,10 @@ export interface AppServerOptions {
   resultsDir?: string;
   /** #340: `RESULTS_UPLOAD_TOKEN` for the `tools/bots` upload; unset turns uploads off. */
   resultsToken?: string | undefined;
+  /** #359: the test decks (`TEST_DECKS_DIR`; default `test-decks` next to the records folder). */
+  testDecksDir?: string;
+  /** #359: `TEST_DECKS_UPLOAD_TOKEN` for `pnpm test-decks upload`; unset turns uploads off. */
+  testDecksToken?: string | undefined;
   now?: () => number;
 }
 
@@ -135,6 +141,8 @@ export function createAppServer({
   roomsDir = join(dirname(recordsDir), "h2h-rooms"),
   resultsDir = join(dirname(recordsDir), "results"),
   resultsToken,
+  testDecksDir = join(dirname(recordsDir), "test-decks"),
+  testDecksToken,
   maxRecordsBytes,
   uploadsPerMinute,
   reportsWebhook,
@@ -168,6 +176,27 @@ export function createAppServer({
   // M9a: head to head (Discord sign-in only), attached once the server exists.
   let h2h: H2h | null = null;
   const decklog = decklogMiddleware(fetchImpl);
+  // #365: Kaiju Classroom's agreement, kept next to the results from each uploaded record.
+  const classroom = classroomStore(resultsDir);
+  const posted = reportPoster({
+    webhook: reportsWebhook,
+    slackWebhook: slackReportsWebhook,
+    bugsWebhook,
+    botFeedbackWebhook,
+    // Paul, Nov 12: the reporter's Discord id in the Slack post, from the players table.
+    ...(discord
+      ? {
+          discordIdOf: (id: string) =>
+            playerById(discord.db, id)?.discordId ?? null,
+        }
+      : {}),
+    // Paul, Nov 12: a head to head reporter's own deck, for the Slack post's deck lists.
+    reporterDeckOf: (gameId, playerId) =>
+      h2h
+        ? reporterDeck(h2h.rooms, discord?.db, recordsDir, gameId, playerId)
+        : Promise.resolve(null),
+    fetchImpl: reportsFetch ?? fetchImpl,
+  });
   const games = gamesMiddleware({
     config,
     recordsDir,
@@ -176,25 +205,11 @@ export function createAppServer({
     // #151: with Discord sign-in, uploads carry the player and are indexed per player.
     ...(discord ? { playerOf: requestPlayer, db: discord.db } : {}),
     isH2hGame: (id) => h2h?.isGame(id) ?? false,
-    onStored: reportPoster({
-      webhook: reportsWebhook,
-      slackWebhook: slackReportsWebhook,
-      bugsWebhook,
-      botFeedbackWebhook,
-      // Paul, Nov 12: the reporter's Discord id in the Slack post, from the players table.
-      ...(discord
-        ? {
-            discordIdOf: (id: string) =>
-              playerById(discord.db, id)?.discordId ?? null,
-          }
-        : {}),
-      // Paul, Nov 12: a head to head reporter's own deck, for the Slack post's deck lists.
-      reporterDeckOf: (gameId, playerId) =>
-        h2h
-          ? reporterDeck(h2h.rooms, discord?.db, recordsDir, gameId, playerId)
-          : Promise.resolve(null),
-      fetchImpl: reportsFetch ?? fetchImpl,
-    }),
+    onStored: (record, earlier, file) =>
+      Promise.all([
+        posted(record, earlier, file),
+        classroom.onStored(record, file),
+      ]),
     ...(now ? { now } : {}),
   });
   // #152: My decks and Settings per player (404 without Discord sign-in).
@@ -217,6 +232,10 @@ export function createAppServer({
   });
   const cards = cardImages(cardsDir);
   const results = resultsMiddleware({ dir: resultsDir, token: resultsToken });
+  const testDecks = testDecksMiddleware({
+    dir: testDecksDir,
+    token: testDecksToken,
+  });
   const app = webApp(distDir);
   const server = createServer(
     safeHandler(async (req, res) => {
@@ -255,6 +274,12 @@ export function createAppServer({
         !(await passes((next) => results(req, res, next)))
       )
         return;
+      // #359: the same for the test decks' upload.
+      if (
+        isTestDecksUploadPath(path) &&
+        !(await passes((next) => testDecks(req, res, next)))
+      )
+        return;
       if (gate && !(await passes((next) => gate(req, res, next)))) return;
       // #150: without Discord sign-in there's no player (the Discord gate answers it itself).
       if (path === "/api/me") {
@@ -266,7 +291,10 @@ export function createAppServer({
       if (!(await passes((next) => decklog(req, res, next)))) return;
       if (replay && !(await passes((next) => replay(req, res, next)))) return;
       if (!(await passes((next) => games(req, res, next)))) return;
+      if (!(await passes((next) => classroom.middleware(req, res, next))))
+        return;
       if (!(await passes((next) => results(req, res, next)))) return;
+      if (!(await passes((next) => testDecks(req, res, next)))) return;
       if (!(await passes((next) => cards(req, res, next)))) return;
       await app(req, res);
     }),
@@ -378,6 +406,10 @@ if (
       ? { resultsDir: resolve(process.env.RESULTS_DIR) }
       : {}),
     resultsToken: process.env.RESULTS_UPLOAD_TOKEN?.trim() || undefined,
+    ...(process.env.TEST_DECKS_DIR
+      ? { testDecksDir: resolve(process.env.TEST_DECKS_DIR) }
+      : {}),
+    testDecksToken: process.env.TEST_DECKS_UPLOAD_TOKEN?.trim() || undefined,
   }).listen(port, () => {
     console.log(
       `GojiSim server listening on http://localhost:${port}${discord ? " (Discord sign-in on)" : process.env.GOJISIM_PASSWORD ? " (password gate on)" : ""}`,

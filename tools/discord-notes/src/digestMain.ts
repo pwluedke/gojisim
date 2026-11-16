@@ -8,7 +8,7 @@ import { runDigest } from "./digestRun";
  * `pnpm discord-digest [--hours 3] [--overlap-minutes 10] [--seen file]` (#140, every 3 hours
  * since #148): the GitHub Action's run. `--seen` is a JSON list of the Discord message ids already
  * posted (the workflow keeps it in the Actions cache), so the overlap never posts twice. It reads the GojiSim
- * Discord server's COMMUNITY channels and their threads with Paul's bot (`DISCORD_BOT_TOKEN`,
+ * Discord server's channels in every category (Paul, Nov 15) and their threads with Paul's bot (`DISCORD_BOT_TOKEN`,
  * `DISCORD_GUILD_ID`), and posts the last `hours` of messages to Slack #gojisim-discord-digest
  * (`SLACK_DIGEST_WEBHOOK`). Nothing new, nothing posted. The repo is public, so the log has counts
  * only: never message text, names, or the token or webhook.

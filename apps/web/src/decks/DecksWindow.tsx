@@ -9,9 +9,10 @@ import {
   type SavedDeck,
   tagsOf,
 } from "../game/deckStore";
-import { checkDeck, deckOptions } from "../game/decks";
+import { checkDeck, deckOptions, testDeckOptions } from "../game/decks";
 import { deckName } from "../game/importDeck";
 import { downloadText } from "../game/session";
+import { useTestDecks } from "../game/testDecks";
 import type { useMyDecks } from "../game/useMyDecks";
 import { copyName } from "./deckDraft";
 import { matchesSearch } from "./deckFolders";
@@ -44,6 +45,10 @@ export function DecksWindow({
     () => deckOptions([]).filter((o) => o.kind === "official"),
     [],
   );
+  // #359: the server's test decks, after the starters: Load opens a copy, and saving makes it
+  // yours (the server's list changes only through the upload).
+  const testDecks = useTestDecks();
+  const tests = useMemo(() => testDeckOptions(testDecks), [testDecks]);
   const [query, setQuery] = useState("");
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [menu, setMenu] = useState<string | null>(null);
@@ -212,6 +217,41 @@ export function DecksWindow({
                   <span className={styles.menuSpace} />
                 </li>
               ))}
+            </FolderGroup>
+          )}
+          {!searching && tests.length > 0 && (
+            <FolderGroup
+              name="Test decks"
+              count={tests.length}
+              open={!closed.has("Test decks")}
+              onToggle={() => toggle("Test decks")}
+            >
+              {tests.map((t) => {
+                const deck = t.build(0);
+                const legal = checkDeck(deck).legal;
+                return (
+                  <li
+                    key={t.key}
+                    className={styles.row}
+                    data-testid="db-test-deck"
+                  >
+                    <span className={styles.name}>{t.label}</span>
+                    <span className={styles.legal} data-legal={String(legal)}>
+                      {legal ? "Legal" : "Not legal"}
+                    </span>
+                    <button
+                      type="button"
+                      data-testid="db-load"
+                      data-primary
+                      data-small
+                      onClick={() => onLoad({ ...deck, name: t.label }, null)}
+                    >
+                      Load
+                    </button>
+                    <span className={styles.menuSpace} />
+                  </li>
+                );
+              })}
             </FolderGroup>
           )}
           {my.decks.length === 0 && (

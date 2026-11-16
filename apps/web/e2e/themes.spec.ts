@@ -117,9 +117,9 @@ for (const theme of THEMES)
         JSON.stringify({ animation: "off", theme: t }),
       );
     }, theme);
-    // Turn 10: a zone choice (lit zones and the banner), change chips, a long battle log.
+    // Turn 10: a zone choice (lit zones and the tray), change chips, a long battle log.
     await loadFixture(page, "zone");
-    await expect(page.getByTestId("choice-banner")).toBeVisible();
+    await expect(page.getByTestId("zone-tray")).toBeVisible();
     expect(await contrastProblems(page)).toEqual([]);
     // A search choice: the choice modal with its cards and Find nothing.
     await loadFixture(page, "search");
