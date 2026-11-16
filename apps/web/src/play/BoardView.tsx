@@ -769,10 +769,13 @@ function Mat({
   glow,
   mat,
   warning,
+  banner = null,
 }: {
   model: BoardModel;
   player: PlayerAreasView;
   side: "opp" | "you";
+  /** Kaiju Classroom's bot-turn banner (Paul, Nov 15), over this mat's top right corner. */
+  banner?: ReactNode;
   /** Why this player's deck is illegal, one plain reason per line (M13b); empty or absent when legal. */
   warning?: readonly string[] | undefined;
   /** The turn glow's current color name (M5f), or `null` when this mat doesn't glow. */
@@ -794,6 +797,7 @@ function Mat({
           : undefined
       }
     >
+      {banner}
       {mat && (
         <div
           className={styles.matImage}
@@ -896,6 +900,7 @@ export function BoardView({
   model,
   prompt,
   beside = null,
+  matBanner = null,
   actions = [],
   locked = true,
   onAction = () => {},
@@ -929,6 +934,11 @@ export function BoardView({
    * over the gap and, where the window is narrow, the sidebar's edge, never wholly inside it.
    */
   beside?: ReactNode;
+  /**
+   * A banner over the top mat's top right corner (Kaiju Classroom's bot turn, Paul, Nov 15); it
+   * takes no clicks or hovers, so the cards under it work as usual.
+   */
+  matBanner?: ReactNode;
   /** The bottom player's legal actions (M5b); empty while they can't act. */
   actions?: readonly Action[];
   /** True while the bottom player can't act (a bot decides, or the game is over). */
@@ -1225,6 +1235,7 @@ export function BoardView({
                 glow={glowFor(opp)}
                 mat={mat}
                 warning={deckWarnings[opp.id]}
+                banner={matBanner}
               />
             </div>
             <div className={styles.centerLine} />

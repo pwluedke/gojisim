@@ -66,6 +66,15 @@ test("one Classroom bot turn: played in the sandbox, submitted, compared and rat
   await expect(page.getByTestId("prompt-step")).toContainText("your turn");
   await expect(page.getByTestId("opponent-hand-count")).toBeVisible();
   await expect(page.getByTestId("concede")).toHaveCount(0);
+  // Paul, Nov 15: "XILIEN CONTROL" over the mat for the whole bot turn; it takes no pointer
+  // events, so the cards under it can be hovered and clicked.
+  const xilien = page.getByTestId("xilien-banner");
+  await expect(xilien).toContainText("XILIEN CONTROL");
+  await expect(xilien).toContainText("You are playing as the bot");
+  await expect(xilien).toHaveCSS("pointer-events", "none");
+  await expect(
+    page.getByTestId("mat-opp").getByTestId("xilien-banner"),
+  ).toHaveCount(1);
   // Submit: end the bot's main phase without a play (the bot's own turn makes some).
   await page.getByTestId("pass").click();
   await expect(page.getByTestId("confirm-dialog")).toContainText(
@@ -87,6 +96,22 @@ test("one Classroom bot turn: played in the sandbox, submitted, compared and rat
   await expect(page.getByTestId("classroom-differences")).toContainText(
     "Bot's",
   );
+
+  // Paul, Nov 15: Hide folds the comparison to a bar; the board can be looked at (a hovered card
+  // shows its preview) while the game still waits; Show brings it back as it was.
+  await page.getByTestId("classroom-hide").click();
+  await expect(compare).toHaveCount(0);
+  await expect(page.getByTestId("classroom-bar")).toContainText(
+    "Kaiju Classroom: rate the bot's turn",
+  );
+  // The banner stays up while the comparison is hidden.
+  await expect(xilien).toBeVisible();
+  await expect(root).toHaveAttribute("data-classroom-stage", "compare");
+  await page.locator('[data-testid="hand-card"]').first().hover();
+  await expect(page.getByTestId("card-preview")).toBeVisible();
+  await page.getByTestId("classroom-show").click();
+  await expect(compare).toBeVisible();
+  await expect(page.getByTestId("classroom-bar")).toHaveCount(0);
 
   // Worse asks why and files a Bad Bot! report with the record, like the in-game button.
   await page.getByTestId("classroom-rate-worse").click();
@@ -146,4 +171,66 @@ test("one Classroom bot turn: played in the sandbox, submitted, compared and rat
     timeout: BOT_TURN,
   });
   await expect(root).not.toHaveAttribute("data-classroom-stage", /.+/);
+  // The player's own turn: no banner.
+  await expect(xilien).toHaveCount(0);
+
+  // Paul, Nov 15: the same play opens the same window. The record again, with the turn unrated
+  // and the player's sandbox moves set to the bot's own, so the two end positions match.
+  const sameRecord = JSON.parse(request.postData() ?? "{}") as Record<
+    string,
+    unknown
+  >;
+  const {
+    rating: _r,
+    reason: _w,
+    botEndIndex: _b,
+    same: _s,
+    ...open
+  } = turn as NonNullable<typeof turn>;
+  sameRecord["classroomTurns"] = [{ ...open, playerActions: own as unknown[] }];
+  sameRecord["botFeedback"] = [];
+  const loadSame = async () => {
+    await page.goto("/play?mode=bot");
+    await page.getByTestId("load-record").setInputFiles({
+      name: "classroom-same.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(sameRecord)),
+    });
+  };
+  await loadSame();
+  const same = page.getByTestId("classroom-same");
+  await expect(same).toBeVisible({ timeout: BOT_TURN });
+  await expect(page.getByTestId("classroom-same-text")).toHaveText(
+    "The bot made the same play you did.",
+  );
+  await expect(same).toContainText("Press Space to continue.");
+  await expect(page.getByTestId("classroom-compare")).toHaveCount(0);
+  await expect(xilien).toBeVisible();
+  // Hide works as on the difference window; the game waits.
+  await page.getByTestId("classroom-hide").click();
+  await expect(same).toHaveCount(0);
+  await expect(page.getByTestId("classroom-bar")).toContainText(
+    "the bot made the same play you did",
+  );
+  await expect(root).toHaveAttribute("data-classroom-stage", "compare");
+  await expect(xilien).toBeVisible();
+  await page.getByTestId("classroom-show").click();
+  await expect(same).toBeVisible();
+  // Space continues (as Continue does): the turn is rated "same" and the game goes on.
+  await page.keyboard.press("Space");
+  await expect(same).toHaveCount(0);
+  await expect(page.getByTestId("prompt-step")).toContainText("your turn", {
+    timeout: BOT_TURN,
+  });
+  await expect(root).not.toHaveAttribute("data-classroom-stage", /.+/);
+  await expect(xilien).toHaveCount(0);
+
+  // The Continue button does the same.
+  await loadSame();
+  await expect(same).toBeVisible({ timeout: BOT_TURN });
+  await page.getByTestId("classroom-continue").click();
+  await expect(same).toHaveCount(0);
+  await expect(page.getByTestId("prompt-step")).toContainText("your turn", {
+    timeout: BOT_TURN,
+  });
 });
