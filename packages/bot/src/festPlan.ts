@@ -28,8 +28,9 @@ import type { Decklist } from "./types";
  * its same-column push (advancing into the column of their monster pushes it forward) with a
  * counter to follow this turn (up to 3 battle card plays); then it isn't argued against, and no
  * other invasion at rank I is allowed (the early exception included).
- * Line 5, wall up (#400, Slick, `festWall`): against Monster X, once behind in the counter race
- * (countered more often than it has countered), stop racing: below rank IV no invasion but one
+ * Line 5, wall up (#400, Slick, `festWall`): against Monster X, once losing the counter race
+ * (Slick: about to be two ranks ahead of them, a countered monster going up a rank: 2 ranks
+ * above their monster, or 1 with your monster in zones 6-8), stop racing: below rank IV no invasion but one
  * that wins this turn; Heat Ray ESD01-016 is held for the invasion win (only when an invasion after it wins);
  * the rank IV Godzilla (2023) EBP01-010 isn't raged away or paid with. Hoard and rage toward the
  * rank IV Fest (line 5's rage over passing).
@@ -53,6 +54,10 @@ export const GODZILLA_2023_IV = "EBP01-010";
 const INVADE_FROM_RANK = 4;
 /** Line 2's exception: monster cards in hand to rage. */
 const RAGE_CARDS = 3;
+/** Line 5, wall up (Slick): ranks ahead of their monster that mean the counter race is lost. */
+const WALL_RANKS = 2;
+/** A monster in this zone or beyond can be countered (5.15.1.1). */
+const COUNTERED_FROM = 6;
 /** Line 5: battle cards in your zones for the rank IV Fest's guard. */
 const FEST_GUARD_CARDS = 2;
 
@@ -220,11 +225,17 @@ export function festVerdict(
       for (const a of actions) if (a.type === "pass") against.add(a);
   }
 
-  // Line 5, wall up (#400, Slick): against Monster X and behind in the counter race.
-  // The log's counter entries name the player countered (5.15.1).
-  const countered = (who: PlayerId) =>
-    state.log.filter((e) => e.type === "counter" && e.player === who).length;
-  if (wall && vsMonsterX && countered(me) > countered(opponent.id)) {
+  // Line 5, wall up (#400, Slick): against Monster X and losing the counter race, which Slick
+  // counts as "about to be two ranks ahead of them" (a countered monster goes up a rank,
+  // 5.15.1.2): 2 ranks above their monster, or 1 with their counter likely next turn (your
+  // monster in zones 6-8, where it can be countered).
+  const theirTop = opponent.invadingMonsterZone.at(-1);
+  const theirRank = (theirTop && state.cards[theirTop.cardId]?.rank) ?? 0;
+  const at = player.monsterPosition ?? 0;
+  const losingRace =
+    rank - theirRank >= WALL_RANKS ||
+    (rank - theirRank === WALL_RANKS - 1 && at >= COUNTERED_FROM);
+  if (wall && vsMonsterX && losingRace) {
     // Below rank IV: no invasion but one that wins now (from rank IV, line 5 goes for it).
     if (rank < INVADE_FROM_RANK)
       for (const a of invades) if (!winsNow(state, a, me)) against.add(a);

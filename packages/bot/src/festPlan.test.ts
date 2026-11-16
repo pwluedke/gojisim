@@ -245,24 +245,21 @@ describe("the Red Fest plan", () => {
       if (a.type === "pass") expect(plain.against.has(a)).toBe(false);
   });
 
-  it("line 5, wall up (#400, Slick): against Monster X and behind in the counter race, no invasion below rank IV but a winning one, and Heat Ray and the rank IV Godzilla (2023) are held", () => {
+  it("line 5, wall up (#400, Slick): against Monster X and losing the counter race (two ranks ahead of them, or one with their counter likely), no invasion below rank IV but a winning one, and Heat Ray and the rank IV Godzilla (2023) are held", () => {
     const monsterX = getAllCards().find(
       (c) =>
         c.name === "Monster X" && c.type === "Monster" && c.parentId === null,
     ) as Card;
     const theirs: Decklist = { monsterDeck: [monsterX], mainDeck: [] };
-    const verdict = (behind: boolean, wall = true) => {
-      const { state, p1 } = position(
-        "EBP01-012",
+    // Your rank III Fest against their rank I: two ranks ahead, the counter race lost (Slick).
+    const verdict = (theirTop: string, wall = true, myAt?: ZoneNumber) => {
+      const { state, p1, p2 } = position(
+        "EBP01-013",
         [HEAT_RAY, GODZILLA_2023_IV, "ESD01-005"],
         4,
       );
-      // Countered twice, countered them once (the log's counter entries name the countered).
-      const entry = (player: "P1" | "P2") =>
-        ({ seq: 0, type: "counter", player, payload: {} }) as never;
-      state.log = behind
-        ? [...state.log, entry("P1"), entry("P1"), entry("P2")]
-        : [...state.log, entry("P2")];
+      p2.invadingMonsterZone = [add(state, real(theirTop), "P2")];
+      if (myAt) p1.monsterPosition = myAt;
       const legal = getLegalActions(state, "P1");
       const { against } = festVerdict(
         state,
@@ -286,14 +283,17 @@ describe("the Red Fest plan", () => {
         ),
       };
     };
-    const walled = verdict(true);
+    const walled = verdict("ESD02-001");
     expect(walled.rage2023.length).toBeGreaterThan(0);
     for (const d of walled.rage2023) expect(d).toBe(true);
     expect(walled.heatRay.length).toBeGreaterThan(0);
     for (const d of walled.heatRay) expect(d).toBe(true);
-    // Ahead in the counter race: no wall.
-    for (const d of verdict(false).rage2023) expect(d).toBe(false);
+    // One rank ahead (their rank II): no wall, unless your monster is where their counter can
+    // reach it (zones 6-8) next turn.
+    for (const d of verdict("ESD02-002").rage2023) expect(d).toBe(false);
+    for (const d of verdict("ESD02-002", true, 6).rage2023)
+      expect(d).toBe(true);
     // `festWall: false` (the paired check's control).
-    for (const d of verdict(true, false).rage2023) expect(d).toBe(false);
+    for (const d of verdict("ESD02-001", false).rage2023) expect(d).toBe(false);
   });
 });
