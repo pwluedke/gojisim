@@ -82,6 +82,8 @@ export interface IsmctsSettings {
   ownCover: number;
   /** Card rule 22 (#336): 1 (the default) leaves out destroy-only strategies with no target; 0 off. */
   targetCheck: number;
+  /** Card rule 30 (#386): 1 (the default) picks a destroy-only strategy's strongest mode; 0 off. */
+  modeBest: number;
   /** The Monster X plan's #335 (no idle Landing): 1 (the default) on; 0 is the old rule 9. */
   mxLanding: number;
   /** The Monster X plan's #338 (Manda's discount as a setup play): 1 (default) on; 0 old rule 3. */
@@ -144,6 +146,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   recurDiscard: 1,
   ownCover: 1,
   targetCheck: 1,
+  modeBest: 1,
   mxLanding: 1,
   mxManda: 1,
   mxTargets: 1,
@@ -471,6 +474,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         recurDiscard: settings.recurDiscard > 0,
         ownCover: settings.ownCover > 0,
         targetCheck: settings.targetCheck > 0,
+        modeBest: settings.modeBest > 0,
       };
       const unsafe = cardRulesDead(
         first,
@@ -694,6 +698,7 @@ function cardRulesSafe(
   recurDiscard = 1,
   ownCover = 1,
   targetCheck = 1,
+  modeBest = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
     counterFirst: counterFirst > 0,
@@ -703,6 +708,7 @@ function cardRulesSafe(
     recurDiscard: recurDiscard > 0,
     ownCover: ownCover > 0,
     targetCheck: targetCheck > 0,
+    modeBest: modeBest > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
   return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
@@ -770,6 +776,7 @@ export function blunderAllowed(
     settings.recurDiscard,
     settings.ownCover,
     settings.targetCheck,
+    settings.modeBest,
   );
   const sure =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
@@ -849,6 +856,7 @@ export function decide(input: BotInput): Decision {
               settings.recurDiscard,
               settings.ownCover,
               settings.targetCheck,
+              settings.modeBest,
             )
           : [...legalActions];
     return {
