@@ -26,7 +26,12 @@ import recognizer from "./recognizer";
 import recurDiscard from "./recurDiscard";
 import revengeStep from "./revengeStep";
 import rules from "./rules";
+import tanglerBuild from "./tanglerBuild";
+import tanglerDiscard from "./tanglerDiscard";
 import tanglerEarly from "./tanglerEarly";
+import tanglerFear from "./tanglerFear";
+import tanglerPlan from "./tanglerPlan";
+import tanglerStop from "./tanglerStop";
 import targetAll from "./targetAll";
 import targetCheck from "./targetCheck";
 import targetKey from "./targetKey";
@@ -65,7 +70,12 @@ export const SWITCHES = [
   recurDiscard,
   revengeStep,
   rules,
+  tanglerBuild,
+  tanglerDiscard,
   tanglerEarly,
+  tanglerFear,
+  tanglerPlan,
+  tanglerStop,
   targetAll,
   targetCheck,
   targetKey,
