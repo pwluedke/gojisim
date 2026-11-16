@@ -94,6 +94,8 @@ export interface IsmctsSettings {
   mxTargets: number;
   /** The Monster X plan's #370: 1 (the default) keeps the white Monster X unless it fires; 0 off. */
   mxWhiteKeep: number;
+  /** The Monster X plan's #373: 1 (the default) skips a Fear that blocks next turn's strategy. */
+  mxFearReach: number;
   /** Monster X plan rule 17 (#371): 1 (the default) keeps protected cards in zones 1-5; 0 off. */
   mxProtectZones: number;
   /**
@@ -158,6 +160,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   mxManda: 1,
   mxTargets: 1,
   mxWhiteKeep: 1,
+  mxFearReach: 1,
   mxProtectZones: 1,
   wranglerPlan: 2,
   wranglerV21: 1,
@@ -239,6 +242,8 @@ export function mxPlanFavored(
   targets = 1,
   /** `mxWhiteKeep` (#370). */
   whiteKeep = 1,
+  /** `mxFearReach` (#373). */
+  fearReach = 1,
   /** `mxProtectZones` (#371). */
   protectZones = 1,
 ): Map<string, number> {
@@ -252,6 +257,7 @@ export function mxPlanFavored(
           manda > 0,
           targets > 0,
           whiteKeep > 0,
+          fearReach > 0,
           protectZones > 0,
         )
       : mxPlanVerdict(state, actions, player);
@@ -568,6 +574,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         settings.mxManda,
         settings.mxTargets,
         settings.mxWhiteKeep,
+        settings.mxFearReach,
         settings.mxProtectZones,
       );
     // #276: the Wrangler plan, a preference like the Monster X plan, that frees what its line
@@ -860,6 +867,7 @@ export function blunderAllowed(
     settings.mxManda,
     settings.mxTargets,
     settings.mxWhiteKeep,
+    settings.mxFearReach,
     settings.mxProtectZones,
   );
   const planned = allowed.filter((a) => favored.has(keyOf(a)));

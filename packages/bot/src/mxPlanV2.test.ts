@@ -502,6 +502,7 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
       true,
       true,
       true,
+      true,
       false,
     );
     expect([...off.values()]).not.toContain(17);
@@ -673,5 +674,55 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     });
     for (const a of costPlays(two))
       expect(ruleOf(two, (b) => b === a)).not.toContain(3);
+  });
+
+  it("rules 4, 5 (#373, Paul's R-5 on his game 1dfdd328, turn 9): no Entangling Fear that holds your monster in zone 4 while Godzilla vs. Megaguirus (rank 5) needs next turn's advance (8.3.1) and the counter is made", () => {
+    const fearPlays = (s: ReturnType<typeof position>) =>
+      s.legal.filter(
+        (a) =>
+          a.type === "activateStrategy" &&
+          numberOf(s.state, s.p1, a) === "EBP04-081",
+      );
+    // Your monster in zone 4, the counter made (three Kaizer Ghidorah EBP04-068), GvM in hand.
+    // Turn 4: rule 14 (b) doesn't invade toward GvM's zone yet, so it's rule 4's call alone.
+    const reach = position({
+      turn: 4,
+      position: 4,
+      hand: ["EBP04-081", "EBP01-064"],
+      oppPosition: 4,
+      zones: { 1: "EBP04-068", 2: "EBP04-068", 3: "EBP04-068" },
+      oppZones: { 8: "EBP04-038" },
+    });
+    const me = reach.state.players[0] as PlayerState;
+    expect(counterPowerOf(reach.state, me)).toBeGreaterThanOrEqual(
+      getThreat(reach.state, "P2"),
+    );
+    expect(fearPlays(reach).length).toBeGreaterThan(0);
+    for (const a of fearPlays(reach))
+      expect(ruleOf(reach, (b) => b === a)).toContain(4);
+    // `mxFearReach: false` (the paired check's control; `mxWhiteKeep` on): rule 4 casts Fear whenever it can.
+    for (const a of fearPlays(reach))
+      expect(
+        mxPlanV2Verdict(
+          reach.state,
+          reach.legal,
+          "P1",
+          true,
+          true,
+          true,
+          true,
+          false,
+        ).has(a),
+      ).toBe(false);
+    // No rank 5 strategy waiting: Fear as before.
+    const plain = position({
+      turn: 4,
+      position: 4,
+      hand: ["EBP04-081"],
+      oppPosition: 4,
+      zones: { 1: "EBP04-068", 2: "EBP04-068", 3: "EBP04-068" },
+      oppZones: { 8: "EBP04-038" },
+    });
+    for (const a of fearPlays(plain)) expect(against(plain).has(a)).toBe(false);
   });
 });
