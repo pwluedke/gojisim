@@ -460,6 +460,54 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     expect(zones(false)).toEqual([4, 5, 6]);
   });
 
+  it("rule 17 (#371, Paul's record 1dfdd328 move 29): with Monster Island EBP01-080 in your cards, a rank 5 or lower card goes to zones 1-5 off your monster's path, not 6-8; the blue Monster X may go to zone 8 with Kaizer Ghidorah EBP04-068 to evolve into there", () => {
+    const rules = (setup: Setup, number: string, zone: number) => {
+      const s = position({ turn: 5, position: 3, oppPosition: 7, ...setup });
+      const plays = s.legal.filter(
+        (a) =>
+          a.type === "playBattle" &&
+          a.zone === zone &&
+          numberOf(s.state, s.p1, a) === number,
+      );
+      expect(plays.length).toBeGreaterThan(0);
+      return ruleOf(s, (a) => plays.includes(a));
+    };
+    const withIsland = {
+      hand: ["EBP03-067", "EBP04-047", "EBP04-068"],
+      deck: ["EBP01-080"],
+    };
+    // The white Monster X: zones 1 and 2, not 6-8 (zones 4 and 5 are its monster's path).
+    for (const z of [6, 7, 8])
+      expect(rules(withIsland, "EBP03-067", z)).toContain(17);
+    for (const z of [1, 2])
+      expect(rules(withIsland, "EBP03-067", z)).not.toContain(17);
+    // The blue Monster X: zone 8 is fine with Kaizer Ghidorah to come; zone 7 isn't.
+    expect(rules(withIsland, "EBP04-047", 8)).not.toContain(17);
+    expect(rules(withIsland, "EBP04-047", 7)).toContain(17);
+    // No Kaizer Ghidorah: zone 8 is a speed bump too.
+    expect(
+      rules({ hand: ["EBP04-047"], deck: ["EBP01-080"] }, "EBP04-047", 8),
+    ).toContain(17);
+    // No Monster Island in your cards: no protection to keep them in.
+    expect(
+      rules({ hand: ["EBP03-067"], deck: [] }, "EBP03-067", 8),
+    ).not.toContain(17);
+    // `mxProtectZones: false` (the paired check's control).
+    const s = position({ turn: 5, position: 3, oppPosition: 7, ...withIsland });
+    const off = mxPlanV2Verdict(
+      s.state,
+      s.legal,
+      "P1",
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+    );
+    expect([...off.values()]).not.toContain(17);
+  });
+
   it("rule 12: Monster Island with zones 1-5 full, or once the opponent has shown a board wipe", () => {
     const island = (setup: Setup) => {
       const s = position({ turn: 6, hand: ["EBP01-080"], ...setup });

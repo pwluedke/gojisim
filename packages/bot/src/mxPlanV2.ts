@@ -71,6 +71,10 @@ import {
  * - 16 (#352, Tuscancow): choosing one of the opponent's zones or battle cards (to destroy), one
  *   holding their Monster X (EBP04-047, EBP03-067) or Kaizer Ghidorah EBP04-068 goes first, the
  *   most of them first. (15 is v3's, not built.)
+ * - 17 (#371, Paul, `mxProtectZones`): with Godzilla and its son on Monster Island EBP01-080 in
+ *   your cards (it protects your rank 5 or lower battle cards in zones 1-5), such a card goes to
+ *   zones 1-5 off your monster's path, not 6-8, while it can; but the blue Monster X EBP04-047 may
+ *   go to zone 8 with Kaizer Ghidorah EBP04-068 to evolve into there (a rank 8 wall).
  */
 const EARLY_TURNS = 4;
 const KAIZER_WIPE = "EBP04-035";
@@ -102,6 +106,12 @@ export function mandaSetup(
   }
   return (cost?.colors ?? []).some((c) => !discardColors.has(c));
 }
+
+/** Rule 17 (#371): the rank Monster Island's protection covers, and its zones. */
+const PROTECTED_RANK = 5;
+const PROTECTED_ZONES = [1, 2, 3, 4, 5];
+/** Rule 17: your monster's next zones (it crushes your own battle cards there, 11.3). */
+const OWN_PATH = 2;
 
 /** Rule 16: the opponent's cards a zone or target choice goes for first. */
 const KEY_TARGETS = new Set([MONSTER_X_BATTLE, "EBP03-067", KAIZER_BATTLE]);
@@ -190,6 +200,8 @@ export function mxPlanV2Verdict(
   whiteKeep = true,
   /** `mxFearReach` (#373): no Entangling Fear that keeps next turn's strategy out of reach. */
   fearReach = true,
+  /** `mxProtectZones` (#371): rule 17, protected cards in zones 1-5; `false` is off. */
+  protectZones = true,
 ): Map<Action, number> {
   const dead = new Map<Action, number>();
   const kill = (a: Action, rule: number) => {
@@ -389,6 +401,32 @@ export function mxPlanV2Verdict(
       !KAIZER_BATTLE_ZONES.includes(a.zone)
     )
       kill(a, 11);
+  // Rule 17 (#371): Monster Island's cards in the zones it protects, off your monster's path.
+  const mine = [
+    ...me.hand,
+    ...me.deck,
+    ...me.strategyZones.flatMap((z) => z.map((s) => s.card)),
+  ];
+  const has = (n: string) =>
+    mine.some((c) => cardData(state, c)?.deckCardNumber === n);
+  if (protectZones && has(MONSTER_ISLAND)) {
+    const at = me.monsterPosition ?? 0;
+    const safe = (z: number) =>
+      PROTECTED_ZONES.includes(z) && !(z >= at && z <= at + OWN_PATH);
+    const kaizer = has(KAIZER_BATTLE);
+    for (const a of plays) {
+      if (a.zone <= 5) continue;
+      const card = cardData(state, handCard(a.cardInstanceId));
+      if (!isBattle(card) || (card?.rank ?? 0) > PROTECTED_RANK) continue;
+      // Paul: the blue Monster X in zone 8 evolves into a rank 8 Kaizer Ghidorah there.
+      if (a.zone === 8 && card?.deckCardNumber === MONSTER_X_BATTLE && kaizer)
+        continue;
+      if (
+        plays.some((b) => b.cardInstanceId === a.cardInstanceId && safe(b.zone))
+      )
+        kill(a, 17);
+    }
+  }
   // Rule 1: a battle card that adds a new color in your zones, up to 4 colors; early, no pass
   // while a battle card can still be played.
   if (colorsNow.size < TARGET_COLORS) {

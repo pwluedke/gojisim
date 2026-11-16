@@ -115,6 +115,8 @@ export interface IsmctsSettings {
   mxFearReach: number;
   /** Card rule 23b (#345): 1 (the default) covers your own token before a battle card; 0 off. */
   coverToken: number;
+  /** Monster X plan rule 17 (#371): 1 (the default) keeps protected cards in zones 1-5; 0 off. */
+  mxProtectZones: number;
   /**
    * The Wrangler plan: 2 (the default) is v2 (`wranglerPlanV2.ts`, Paul, Nov 13) with the card
    * rules (Medium and Hard); 1 is v1 (`wranglerPlan.ts`, #276) with `rules` (Hard); 0 is off.
@@ -188,6 +190,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   mxWhiteKeep: 1,
   mxFearReach: 1,
   coverToken: 1,
+  mxProtectZones: 1,
   wranglerPlan: 2,
   wranglerV21: 1,
   wranglerV22: 1,
@@ -271,6 +274,8 @@ export function mxPlanFavored(
   whiteKeep = 1,
   /** `mxFearReach` (#373). */
   fearReach = 1,
+  /** `mxProtectZones` (#371). */
+  protectZones = 1,
 ): Map<string, number> {
   const against =
     version >= 2
@@ -283,6 +288,7 @@ export function mxPlanFavored(
           targets > 0,
           whiteKeep > 0,
           fearReach > 0,
+          protectZones > 0,
         )
       : mxPlanVerdict(state, actions, player);
   const keep = actions.filter((a) => a.type !== "concede" && !against.has(a));
@@ -610,6 +616,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         settings.mxTargets,
         settings.mxWhiteKeep,
         settings.mxFearReach,
+        settings.mxProtectZones,
       );
     // #276: the Wrangler plan, a preference like the Monster X plan, that frees what its line
     // needs from Paul's rules' holds.
@@ -924,6 +931,7 @@ export function blunderAllowed(
     settings.mxTargets,
     settings.mxWhiteKeep,
     settings.mxFearReach,
+    settings.mxProtectZones,
   );
   const planned = allowed.filter((a) => favored.has(keyOf(a)));
   return planned.length > 0 ? planned : allowed;
