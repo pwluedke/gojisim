@@ -20,6 +20,30 @@ export const MENTIONS_MAX = 100;
 
 const SNOWFLAKE = /^[0-9]{15,22}$/;
 
+/** Paul, Nov 15: reaction names the `reactions` input takes, and the emoji they add. */
+const REACTION_NAMES: Record<string, string> = {
+  white_check_mark: "✅",
+  x: "❌",
+};
+
+/** The `reactions` input: comma-separated names (`white_check_mark,x`) or the emoji themselves. */
+export function parseReactions(input: string): string[] {
+  const out: string[] = [];
+  for (const raw of input
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)) {
+    const emoji = REACTION_NAMES[raw.replace(/^:|:$/g, "")] ?? raw;
+    // An emoji is a few code points and no letters or digits (a typo'd name is refused).
+    if (/[A-Za-z0-9_]/.test(emoji) || [...emoji].length > 8)
+      throw new Error(
+        `reactions takes ${Object.keys(REACTION_NAMES).join(", ")} or emoji: not "${raw}".`,
+      );
+    if (!out.includes(emoji)) out.push(emoji);
+  }
+  return out;
+}
+
 /** The `mentions` input: comma-separated Discord user ids, each once. Empty is none. */
 export function parseMentions(input: string): string[] {
   const ids = [
@@ -75,6 +99,8 @@ export interface PostOptions {
   webhook: string;
   /** A channel or thread id: post through the bot there instead of the #bugs webhook. */
   channelId?: string;
+  /** Reactions the bot adds to its own new message (`white_check_mark,x`). */
+  reactions?: string;
   /** `DISCORD_BOT_TOKEN`, for `channelId`. */
   botToken?: string;
   message: string;
@@ -93,6 +119,7 @@ export async function runPost({
   webhook,
   channelId = "",
   botToken = "",
+  reactions = "",
   message,
   replyTo = "",
   mentions = "",
@@ -110,6 +137,7 @@ export async function runPost({
       throw new Error(`${name} must be a Discord message id (digits only).`);
   const users = parseMentions(mentions);
   checkTagged(message, users);
+  const emoji = parseReactions(reactions);
   const viaBot = (channel: string) =>
     botPost({
       channelId: channel,
@@ -118,6 +146,7 @@ export async function runPost({
       replyTo,
       users,
       editId,
+      emoji,
       fetchImpl,
       log,
       summary,
@@ -139,6 +168,8 @@ export async function runPost({
       );
     }
   }
+  if (emoji.length > 0)
+    log("::warning::Reactions need the bot; the webhook post has none.");
   let text = message;
   // A webhook can't thread-reply in a text channel, so a reply starts with a link to the message.
   // The webhook's own record names its server and channel.
@@ -205,10 +236,12 @@ async function botPost({
   replyTo,
   users,
   editId,
+  emoji,
   fetchImpl,
   log,
   summary,
 }: {
+  emoji: string[];
   channelId: string;
   botToken: string;
   message: string;
@@ -257,6 +290,21 @@ async function botPost({
   const id = ((await res.json()) as { id?: string }).id ?? editId;
   if (!id) throw new Error("Discord's answer had no message id.");
   log(`Channel id ${channelId}, message id ${id}`);
+  // Paul, Nov 15: the reactions Paul approves or declines with, on the bot's own new message.
+  for (const e of editId ? [] : emoji) {
+    const r = await fetchImpl(
+      `${API}/channels/${channelId}/messages/${id}/reactions/${encodeURIComponent(e)}/@me`,
+      {
+        method: "PUT",
+        headers: { Authorization: `Bot ${botToken}` },
+        signal: AbortSignal.timeout(20_000),
+      },
+    );
+    if (!r.ok)
+      log(
+        `::warning::A reaction couldn't be added (HTTP ${r.status}); the bot needs Add Reactions there.`,
+      );
+  }
   summary(
     editId
       ? `Edited message \`${id}\` in channel \`${channelId}\`.`

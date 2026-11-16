@@ -13,6 +13,7 @@ const summaryFile = env("GITHUB_STEP_SUMMARY");
 runPost({
   webhook: env("DISCORD_BUGS_WEBHOOK"),
   channelId: env("CHANNEL_ID"),
+  reactions: env("REACTIONS"),
   botToken: env("DISCORD_BOT_TOKEN"),
   // The text as typed (not trimmed).
   message: process.env["MESSAGE"] ?? "",
