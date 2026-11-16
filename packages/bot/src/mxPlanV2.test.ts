@@ -583,4 +583,48 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
         .map((a) => (a.type === "choose" ? a.optionId : "")),
     ).toEqual(["P2:1", "P2:2"]);
   });
+
+  it("rule 3 (#370, Paul's R-3 on his game 1dfdd328, turn 1): the white Monster X EBP03-067 isn't Manda (2004)'s discount discard just because the discard pile lacks white; only with 2+ colors in zones", () => {
+    const costPlays = (s: ReturnType<typeof position>) =>
+      s.legal.filter(
+        (a) =>
+          a.type === "playBattle" &&
+          numberOf(s.state, s.p1, a) === "EBP04-045" &&
+          a.costCardInstanceId !== undefined,
+      );
+    // Turn 1: an empty discard pile (white would be a new color) and one color in zones.
+    const turn1 = position({
+      turn: 1,
+      hand: ["EBP04-045", "EBP03-067"],
+      zones: { 1: "EBP04-038" },
+      oppPosition: 4,
+      oppZones: { 8: "EBP04-038" },
+    });
+    expect(costPlays(turn1).length).toBeGreaterThan(0);
+    for (const a of costPlays(turn1))
+      expect(ruleOf(turn1, (b) => b === a)).toContain(3);
+    // `mxWhiteKeep: false` (the paired check's control): #338's (b) lets the new color go.
+    for (const a of costPlays(turn1))
+      expect(
+        mxPlanV2Verdict(
+          turn1.state,
+          turn1.legal,
+          "P1",
+          true,
+          true,
+          true,
+          false,
+        ).get(a),
+      ).not.toBe(3);
+    // Two colors in zones (a): the discount cheats it out, as #338 says.
+    const two = position({
+      turn: 1,
+      hand: ["EBP04-045", "EBP03-067"],
+      zones: { 1: "EBP04-038", 2: "EBP04-066" },
+      oppPosition: 4,
+      oppZones: { 8: "EBP04-038" },
+    });
+    for (const a of costPlays(two))
+      expect(ruleOf(two, (b) => b === a)).not.toContain(3);
+  });
 });

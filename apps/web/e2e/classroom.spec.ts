@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+import { dragWindowAndHover } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -10,6 +11,43 @@ test.use({ viewport: { width: 1440, height: 900 } });
  */
 
 const BOT_TURN = 60_000;
+
+type Box = { x: number; y: number; width: number; height: number };
+const intersects = (a: Box, b: Box) =>
+  a.x < b.x + b.width &&
+  b.x < a.x + a.width &&
+  a.y < b.y + b.height &&
+  b.y < a.y + a.height;
+
+/**
+ * The XILIEN CONTROL banner (Paul, Nov 15): it overlaps the player's mat and runs past its right
+ * edge, and it covers none of the mat's areas (the counter power, the zones, the deck).
+ */
+async function expectBannerPlaced(page: Page) {
+  const mat = await page.getByTestId("mat-you").boundingBox();
+  const banner = await page.getByTestId("xilien-banner").boundingBox();
+  if (!mat || !banner) throw new Error("no box");
+  expect(intersects(banner, mat)).toBe(true);
+  expect(banner.x + banner.width).toBeGreaterThan(mat.x + mat.width);
+  const cells = page.getByTestId("mat-you").getByTestId("mat-cell");
+  const areas = await cells.evaluateAll((els) =>
+    els.map((el) => {
+      const r = el.getBoundingClientRect();
+      return {
+        area: el.getAttribute("data-area"),
+        x: r.x,
+        y: r.y,
+        width: r.width,
+        height: r.height,
+      };
+    }),
+  );
+  expect(areas.map((a) => a.area)).toContain("counter");
+  for (const cell of areas)
+    expect(intersects(banner, cell), `the banner covers ${cell.area}`).toBe(
+      false,
+    );
+}
 
 test("the mode picker sits with the bot level; a normal game stays a normal game", async ({
   page,
@@ -32,6 +70,8 @@ test("the mode picker sits with the bot level; a normal game stays a normal game
   await expect(page.getByTestId("board")).toBeVisible();
   await expect(page.locator(".gojisim[data-classroom]")).toHaveCount(0);
   await expect(page.getByTestId("classroom-banner")).toHaveCount(0);
+  // Paul, Nov 16: the same game, the player's own view (P1's cards on the bottom mat): no banner.
+  await expect(page.getByTestId("xilien-banner")).toHaveCount(0);
 });
 
 test("one Classroom bot turn: played in the sandbox, submitted, compared and rated Worse with a Bad Bot! report", async ({
@@ -72,9 +112,15 @@ test("one Classroom bot turn: played in the sandbox, submitted, compared and rat
   await expect(xilien).toContainText("XILIEN CONTROL");
   await expect(xilien).toContainText("You are playing as the bot");
   await expect(xilien).toHaveCSS("pointer-events", "none");
+  // Paul, Nov 15: on the mat the player plays on (the bottom one), in the open strip at its top
+  // right of the counter power, running past the mat's right edge; at both window sizes.
   await expect(
-    page.getByTestId("mat-opp").getByTestId("xilien-banner"),
+    page.getByTestId("mat-you").getByTestId("xilien-banner"),
   ).toHaveCount(1);
+  await expectBannerPlaced(page);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expectBannerPlaced(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
   // Submit: end the bot's main phase without a play (the bot's own turn makes some).
   await page.getByTestId("pass").click();
   await expect(page.getByTestId("confirm-dialog")).toContainText(
@@ -97,21 +143,23 @@ test("one Classroom bot turn: played in the sandbox, submitted, compared and rat
     "Bot's",
   );
 
+  // Paul, Nov 16: a floating window, dragged by its title, the board's cards preview beside it.
+  await dragWindowAndHover(page, "classroom-compare");
   // Paul, Nov 15: Hide folds the comparison to a bar; the board can be looked at (a hovered card
   // shows its preview) while the game still waits; Show brings it back as it was.
-  await page.getByTestId("classroom-hide").click();
-  await expect(compare).toHaveCount(0);
-  await expect(page.getByTestId("classroom-bar")).toContainText(
+  await page.getByTestId("window-hide").click();
+  await expect(compare).toBeHidden();
+  await expect(page.getByTestId("window-show")).toContainText(
     "Kaiju Classroom: rate the bot's turn",
   );
-  // The banner stays up while the comparison is hidden.
-  await expect(xilien).toBeVisible();
+  // Paul, Nov 16: back on the player's own view (their cards on the bottom mat), no banner.
+  await expect(xilien).toHaveCount(0);
   await expect(root).toHaveAttribute("data-classroom-stage", "compare");
   await page.locator('[data-testid="hand-card"]').first().hover();
   await expect(page.getByTestId("card-preview")).toBeVisible();
-  await page.getByTestId("classroom-show").click();
+  await page.getByTestId("window-show").click();
   await expect(compare).toBeVisible();
-  await expect(page.getByTestId("classroom-bar")).toHaveCount(0);
+  await expect(page.getByTestId("window-show")).toHaveCount(0);
 
   // Worse asks why and files a Bad Bot! report with the record, like the in-game button.
   await page.getByTestId("classroom-rate-worse").click();
@@ -204,17 +252,18 @@ test("one Classroom bot turn: played in the sandbox, submitted, compared and rat
     "The bot made the same play you did.",
   );
   await expect(same).toContainText("Press Space to continue.");
+  await dragWindowAndHover(page, "classroom-same");
   await expect(page.getByTestId("classroom-compare")).toHaveCount(0);
-  await expect(xilien).toBeVisible();
+  await expect(xilien).toHaveCount(0);
   // Hide works as on the difference window; the game waits.
-  await page.getByTestId("classroom-hide").click();
-  await expect(same).toHaveCount(0);
-  await expect(page.getByTestId("classroom-bar")).toContainText(
+  await page.getByTestId("window-hide").click();
+  await expect(same).toBeHidden();
+  await expect(page.getByTestId("window-show")).toContainText(
     "the bot made the same play you did",
   );
   await expect(root).toHaveAttribute("data-classroom-stage", "compare");
-  await expect(xilien).toBeVisible();
-  await page.getByTestId("classroom-show").click();
+  await expect(xilien).toHaveCount(0);
+  await page.getByTestId("window-show").click();
   await expect(same).toBeVisible();
   // Space continues (as Continue does): the turn is rated "same" and the game goes on.
   await page.keyboard.press("Space");
