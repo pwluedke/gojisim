@@ -644,15 +644,15 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
     return next;
   };
   const classroomOpen = stage?.kind === "compare" || classroomReport !== null;
-  // Paul, Nov 15: "XILIEN CONTROL" over the mat for the whole bot turn of a Classroom game (the
-  // sandbox, the bot's own turn and its comparison), gone on the player's own turn. The bot's
-  // last main phase move can end its turn, so an open comparison keeps it up too.
+  // Paul, Nov 16: "XILIEN CONTROL" only while the mat in front of the player shows the bot's
+  // cards (the Classroom sandbox, where the player sits in the bot's seat); with the player's own
+  // cards on that mat, it's hidden, whatever the turn or the comparison.
   const classroomSeat = realSession ? classroomBotSeat(realSession) : null;
   const xilien =
     classroomSeat !== null &&
     result === null &&
     pending === null &&
-    (stage !== null || real.state?.turnPlayer === classroomSeat);
+    liveBottom === classroomSeat;
 
   // A deck search by a human seat, found or not, opens the search modal (M5e). An undo shortens
   // the log, so its searches are never shown again.

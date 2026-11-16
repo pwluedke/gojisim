@@ -69,6 +69,8 @@ test("the mode picker sits with the bot level; a normal game stays a normal game
   await expect(page.getByTestId("board")).toBeVisible();
   await expect(page.locator(".gojisim[data-classroom]")).toHaveCount(0);
   await expect(page.getByTestId("classroom-banner")).toHaveCount(0);
+  // Paul, Nov 16: the same game, the player's own view (P1's cards on the bottom mat): no banner.
+  await expect(page.getByTestId("xilien-banner")).toHaveCount(0);
 });
 
 test("one Classroom bot turn: played in the sandbox, submitted, compared and rated Worse with a Bad Bot! report", async ({
@@ -147,8 +149,8 @@ test("one Classroom bot turn: played in the sandbox, submitted, compared and rat
   await expect(page.getByTestId("classroom-bar")).toContainText(
     "Kaiju Classroom: rate the bot's turn",
   );
-  // The banner stays up while the comparison is hidden.
-  await expect(xilien).toBeVisible();
+  // Paul, Nov 16: back on the player's own view (their cards on the bottom mat), no banner.
+  await expect(xilien).toHaveCount(0);
   await expect(root).toHaveAttribute("data-classroom-stage", "compare");
   await page.locator('[data-testid="hand-card"]').first().hover();
   await expect(page.getByTestId("card-preview")).toBeVisible();
@@ -248,7 +250,7 @@ test("one Classroom bot turn: played in the sandbox, submitted, compared and rat
   );
   await expect(same).toContainText("Press Space to continue.");
   await expect(page.getByTestId("classroom-compare")).toHaveCount(0);
-  await expect(xilien).toBeVisible();
+  await expect(xilien).toHaveCount(0);
   // Hide works as on the difference window; the game waits.
   await page.getByTestId("classroom-hide").click();
   await expect(same).toHaveCount(0);
@@ -256,7 +258,7 @@ test("one Classroom bot turn: played in the sandbox, submitted, compared and rat
     "the bot made the same play you did",
   );
   await expect(root).toHaveAttribute("data-classroom-stage", "compare");
-  await expect(xilien).toBeVisible();
+  await expect(xilien).toHaveCount(0);
   await page.getByTestId("classroom-show").click();
   await expect(same).toBeVisible();
   // Space continues (as Continue does): the turn is rated "same" and the game goes on.
