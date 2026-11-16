@@ -72,6 +72,8 @@ export interface IsmctsSettings {
   counterFirst: number;
   /** Card rule 20 (#324, #327): 1 (the default) takes the counter without a block too; 0 is off. */
   counterAlways: number;
+  /** #358: 1 (the default) keys a field card's choice option by its zone too; 0 by card id only. */
+  targetKey: number;
   /** Card rule 21 (#304): 1 (the default) keeps battle cards off your own monster's path; 0 is off. */
   ownPath: number;
   /** #339: 1 (the default) keeps a [revenge] card out of zone 8 unless it's stepped on; 0 is off. */
@@ -145,6 +147,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   cardRules: 0,
   counterFirst: 1,
   counterAlways: 1,
+  targetKey: 1,
   ownPath: 1,
   revengeStep: 1,
   recurDiscard: 1,
@@ -297,9 +300,15 @@ function cardIdOf(state: GameState, instanceId: string): number | null {
 /**
  * A key for an action that does not depend on hidden instance ids: type + card id + zone or
  * strategy zone, and for choices the kind and the option's card id (or its id when it names no
- * card: a zone, yes/no, done). Determinizations then share tree nodes.
+ * card: a zone, yes/no, done). Determinizations then share tree nodes. #358 (`byZone`, the
+ * `targetKey` switch): an option naming a card on the field adds where it is (`@P2:8`), public
+ * information, so copies of one card in different zones are different moves.
  */
-export function actionKey(state: GameState, action: Action): string {
+export function actionKey(
+  state: GameState,
+  action: Action,
+  byZone = true,
+): string {
   switch (action.type) {
     case "playBattle":
       // A play on top of the card there (M2, EBP03-051) is a different move, and so is each
@@ -318,13 +327,30 @@ export function actionKey(state: GameState, action: Action): string {
       const option = choice?.options.find((o) => o.id === action.optionId);
       const named =
         option?.cardId !== null && option?.cardId !== undefined
-          ? `card${option.cardId}`
+          ? `card${option.cardId}${byZone ? fieldAt(state, action.optionId) : ""}`
           : action.optionId;
       return `choose:${choice?.kind}:${option?.abilityId ?? ""}:${named}`;
     }
     default:
       return action.type;
   }
+}
+
+/** The exported key, for the search's own `actionKey` (which follows `targetKey`). */
+const keyAction = (state: GameState, action: Action, byZone: boolean) =>
+  actionKey(state, action, byZone);
+
+/** #358: where a field card is, as `@<player>:<zone>`, or "" off the field (hand, deck, pile). */
+function fieldAt(state: GameState, instanceId: string): string {
+  for (const p of state.players)
+    for (const zone of [1, 2, 3, 4, 5, 6, 7, 8] as const)
+      if (
+        p.zones[zone].some((stack) =>
+          stack.some((c) => c.instanceId === instanceId),
+        )
+      )
+        return `@${p.id}:${zone}`;
+  return "";
 }
 
 interface Node {
@@ -416,6 +442,9 @@ function ucb(child: Node, exploration: number): number {
 
 /** Runs the search; returns root children by key, and the root keys of the real legal actions. */
 export function search(input: BotInput, settings: IsmctsSettings) {
+  // #358: every key in this search follows `targetKey`.
+  const actionKey = (state: GameState, action: Action) =>
+    keyAction(state, action, settings.targetKey > 0);
   const { view, knowledge, rng } = input;
   const me = view.viewer as PlayerId;
   const root = newNode(null);
@@ -764,7 +793,7 @@ export function blunderAllowed(
   /** The bot's own decklist, for the card-play rules (rule 6). */
   own?: Decklist,
 ): Action[] {
-  const keyOf = (a: Action) => actionKey(state, a);
+  const keyOf = (a: Action) => actionKey(state, a, settings.targetKey > 0);
   const keep = combineDead(
     legalActions,
     keyOf,

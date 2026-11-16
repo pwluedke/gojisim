@@ -18,6 +18,7 @@ import { copyName } from "./deckDraft";
 import { matchesSearch } from "./deckFolders";
 import { byName, hasAllTags, tagCounts, toggleTag } from "./deckTags";
 import { useDeckResults } from "./useDeckResults";
+import { FloatingWindow } from "../play/FloatingWindow";
 import styles from "./DecksWindow.module.css";
 
 /**
@@ -127,116 +128,277 @@ export function DecksWindow({
   };
 
   return (
-    <div
-      className={styles.backdrop}
-      data-testid="db-decks-window"
-      data-decks-stored={String(my.stored)}
-      role="dialog"
-      aria-label="My decks"
+    // Paul, Nov 16: every window is movable: dragged by its header, kept in the viewport.
+    <FloatingWindow
+      bare
+      backdrop
+      zIndex={50}
+      testId="db-decks-window"
+      className={styles.window}
+      attrs={{
+        "data-decks-stored": String(my.stored),
+        "aria-label": "My decks",
+      }}
     >
-      <section className={styles.window}>
-        <header className={styles.head}>
-          <h2>My decks</h2>
-          <span className={styles.count} data-testid="db-decks-count">
-            {my.decks.length} {my.decks.length === 1 ? "deck" : "decks"}
-          </span>
-          <span className={styles.spacer} />
-          <button
-            type="button"
-            className={styles.close}
-            data-testid="db-decks-close"
-            aria-label="Close"
-            title="Close"
-            onClick={onClose}
+      <header className={styles.head} data-drag-handle>
+        <h2>My decks</h2>
+        <span className={styles.count} data-testid="db-decks-count">
+          {my.decks.length} {my.decks.length === 1 ? "deck" : "decks"}
+        </span>
+        <span className={styles.spacer} />
+        <button
+          type="button"
+          className={styles.close}
+          data-testid="db-decks-close"
+          aria-label="Close"
+          title="Close"
+          onClick={onClose}
+        >
+          ✕
+        </button>
+      </header>
+      <div className={styles.searchRow}>
+        <label className={styles.search}>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
           >
-            ✕
-          </button>
-        </header>
-        <div className={styles.searchRow}>
-          <label className={styles.search}>
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden="true"
-            >
-              <circle cx="11" cy="11" r="7" />
-              <path d="M20 20l-4-4" />
-            </svg>
-            <input
-              type="search"
-              data-testid="db-decks-search"
-              aria-label="Search my decks"
-              placeholder="Search decks or tags"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </label>
-          <button
-            type="button"
-            data-testid="db-decks-import"
-            onClick={onImport}
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-4-4" />
+          </svg>
+          <input
+            type="search"
+            data-testid="db-decks-search"
+            aria-label="Search my decks"
+            placeholder="Search decks or tags"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </label>
+        <button type="button" data-testid="db-decks-import" onClick={onImport}>
+          Import
+        </button>
+      </div>
+      {!my.persistent && (
+        <p className={styles.notice} data-testid="decks-session-only">
+          This browser isn't saving decks (storage is off), so they last for
+          this visit only.
+        </p>
+      )}
+      <div className={styles.list}>
+        {!searching && (
+          <FolderGroup
+            name="Starter decks"
+            count={starters.length}
+            open={!closed.has("Starter decks")}
+            onToggle={() => toggle("Starter decks")}
           >
-            Import
-          </button>
-        </div>
-        {!my.persistent && (
-          <p className={styles.notice} data-testid="decks-session-only">
-            This browser isn't saving decks (storage is off), so they last for
-            this visit only.
-          </p>
+            {starters.map((s) => (
+              <li key={s.key} className={styles.row} data-testid="db-starter">
+                <span className={styles.name}>{s.label}</span>
+                <span className={styles.legal} data-legal="true">
+                  Legal
+                </span>
+                <button
+                  type="button"
+                  data-testid="db-load"
+                  data-primary
+                  data-small
+                  onClick={() => onLoad({ ...s.build(0), name: s.label }, null)}
+                >
+                  Load
+                </button>
+                <span className={styles.menuSpace} />
+              </li>
+            ))}
+          </FolderGroup>
         )}
-        <div className={styles.list}>
-          {!searching && (
-            <FolderGroup
-              name="Starter decks"
-              count={starters.length}
-              open={!closed.has("Starter decks")}
-              onToggle={() => toggle("Starter decks")}
-            >
-              {starters.map((s) => (
-                <li key={s.key} className={styles.row} data-testid="db-starter">
-                  <span className={styles.name}>{s.label}</span>
-                  <span className={styles.legal} data-legal="true">
-                    Legal
+        {!searching && tests.length > 0 && (
+          <FolderGroup
+            name="Test decks"
+            count={tests.length}
+            open={!closed.has("Test decks")}
+            onToggle={() => toggle("Test decks")}
+          >
+            {tests.map((t) => {
+              const deck = t.build(0);
+              const legal = checkDeck(deck).legal;
+              return (
+                <li
+                  key={t.key}
+                  className={styles.row}
+                  data-testid="db-test-deck"
+                >
+                  <span className={styles.name}>{t.label}</span>
+                  <span className={styles.legal} data-legal={String(legal)}>
+                    {legal ? "Legal" : "Not legal"}
                   </span>
                   <button
                     type="button"
                     data-testid="db-load"
                     data-primary
                     data-small
-                    onClick={() =>
-                      onLoad({ ...s.build(0), name: s.label }, null)
-                    }
+                    onClick={() => onLoad({ ...deck, name: t.label }, null)}
                   >
                     Load
                   </button>
                   <span className={styles.menuSpace} />
                 </li>
-              ))}
-            </FolderGroup>
-          )}
-          {!searching && tests.length > 0 && (
-            <FolderGroup
-              name="Test decks"
-              count={tests.length}
-              open={!closed.has("Test decks")}
-              onToggle={() => toggle("Test decks")}
-            >
-              {tests.map((t) => {
-                const deck = t.build(0);
-                const legal = checkDeck(deck).legal;
-                return (
-                  <li
-                    key={t.key}
-                    className={styles.row}
-                    data-testid="db-test-deck"
+              );
+            })}
+          </FolderGroup>
+        )}
+        {my.decks.length === 0 && (
+          <p className={styles.empty}>
+            No saved decks yet. Import one, or build one here.
+          </p>
+        )}
+        {counts.length > 0 && (
+          <div className={styles.tags} data-testid="db-tags">
+            {counts.map(({ tag, count }) => {
+              const on = hasAllTags(selected, [tag]);
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  data-small
+                  data-testid="db-tag"
+                  data-tag={tag}
+                  aria-pressed={on}
+                  className={styles.tag}
+                  onClick={() => setSelected((s) => toggleTag(s, tag))}
+                >
+                  {tag} <span className={styles.tagCount}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {my.decks.length > 0 && shown.length === 0 && (
+          <p className={styles.empty} data-testid="db-decks-none">
+            No decks match
+            {query.trim() ? ` “${query.trim()}”` : ""}
+            {selected.length > 0 ? ` with ${selected.join(" + ")}` : ""}.
+          </p>
+        )}
+        <ul className={styles.flat} data-testid="db-deck-list">
+          {shown.map(({ d, tags }) => {
+            const deck = deckOf(d);
+            const legal = deck ? checkDeck(deck).legal : false;
+            const result = resultOf(d, tags);
+            return (
+              <li
+                key={d.id}
+                className={styles.row}
+                data-testid="db-deck"
+                data-deck-name={d.name}
+              >
+                {renaming?.id === d.id ? (
+                  <span className={styles.rename}>
+                    <input
+                      data-testid="rename-input"
+                      aria-label={`New name for ${d.name}`}
+                      value={renaming.name}
+                      autoFocus
+                      onChange={(e) =>
+                        setRenaming({ id: d.id, name: e.target.value })
+                      }
+                    />
+                    <button
+                      type="button"
+                      data-testid="rename-save"
+                      data-small
+                      disabled={!renaming.name.trim()}
+                      onClick={() => {
+                        my.rename(d.id, renaming.name);
+                        setRenaming(null);
+                      }}
+                    >
+                      Save
+                    </button>
+                  </span>
+                ) : tagging?.id === d.id ? (
+                  <span className={styles.rename}>
+                    <input
+                      data-testid="tags-input"
+                      aria-label={`Tags for ${d.name}, separated by commas`}
+                      placeholder="Meta, Bot training"
+                      value={tagging.text}
+                      autoFocus
+                      onChange={(e) =>
+                        setTagging({ id: d.id, text: e.target.value })
+                      }
+                    />
+                    <button
+                      type="button"
+                      data-testid="tags-save"
+                      data-small
+                      onClick={() => {
+                        my.retag(d.id, tagging.text.split(","));
+                        setTagging(null);
+                      }}
+                    >
+                      Save
+                    </button>
+                  </span>
+                ) : (
+                  <span
+                    className={styles.name}
+                    data-testid="db-deck-name"
+                    title={d.name}
                   >
-                    <span className={styles.name}>{t.label}</span>
-                    <span className={styles.legal} data-legal={String(legal)}>
+                    {d.name}
+                    {result && (
+                      <span
+                        className={styles.result}
+                        data-testid="db-deck-result"
+                      >
+                        , {result}
+                      </span>
+                    )}
+                    {tags.length > 0 && (
+                      <span
+                        className={styles.rowTags}
+                        data-testid="db-row-tags"
+                      >
+                        {tags.join(" · ")}
+                      </span>
+                    )}
+                  </span>
+                )}
+                {deleting === d.id ? (
+                  <span className={styles.confirm}>
+                    <button
+                      type="button"
+                      data-testid="db-delete-confirm"
+                      data-danger
+                      data-small
+                      onClick={() => {
+                        my.remove(d.id);
+                        setDeleting(null);
+                      }}
+                    >
+                      Delete {d.name}
+                    </button>
+                    <button
+                      type="button"
+                      data-small
+                      onClick={() => setDeleting(null)}
+                    >
+                      Keep
+                    </button>
+                  </span>
+                ) : (
+                  <>
+                    <span
+                      className={styles.legal}
+                      data-legal={legal ? "true" : "false"}
+                    >
                       {legal ? "Legal" : "Not legal"}
                     </span>
                     <button
@@ -244,326 +406,158 @@ export function DecksWindow({
                       data-testid="db-load"
                       data-primary
                       data-small
-                      onClick={() => onLoad({ ...deck, name: t.label }, null)}
+                      onClick={() => load(d)}
                     >
                       Load
                     </button>
-                    <span className={styles.menuSpace} />
-                  </li>
-                );
-              })}
-            </FolderGroup>
-          )}
-          {my.decks.length === 0 && (
-            <p className={styles.empty}>
-              No saved decks yet. Import one, or build one here.
-            </p>
-          )}
-          {counts.length > 0 && (
-            <div className={styles.tags} data-testid="db-tags">
-              {counts.map(({ tag, count }) => {
-                const on = hasAllTags(selected, [tag]);
-                return (
-                  <button
-                    key={tag}
-                    type="button"
-                    data-small
-                    data-testid="db-tag"
-                    data-tag={tag}
-                    aria-pressed={on}
-                    className={styles.tag}
-                    onClick={() => setSelected((s) => toggleTag(s, tag))}
-                  >
-                    {tag} <span className={styles.tagCount}>{count}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          {my.decks.length > 0 && shown.length === 0 && (
-            <p className={styles.empty} data-testid="db-decks-none">
-              No decks match
-              {query.trim() ? ` “${query.trim()}”` : ""}
-              {selected.length > 0 ? ` with ${selected.join(" + ")}` : ""}.
-            </p>
-          )}
-          <ul className={styles.flat} data-testid="db-deck-list">
-            {shown.map(({ d, tags }) => {
-              const deck = deckOf(d);
-              const legal = deck ? checkDeck(deck).legal : false;
-              const result = resultOf(d, tags);
-              return (
-                <li
-                  key={d.id}
-                  className={styles.row}
-                  data-testid="db-deck"
-                  data-deck-name={d.name}
-                >
-                  {renaming?.id === d.id ? (
-                    <span className={styles.rename}>
-                      <input
-                        data-testid="rename-input"
-                        aria-label={`New name for ${d.name}`}
-                        value={renaming.name}
-                        autoFocus
-                        onChange={(e) =>
-                          setRenaming({ id: d.id, name: e.target.value })
-                        }
-                      />
-                      <button
-                        type="button"
-                        data-testid="rename-save"
-                        data-small
-                        disabled={!renaming.name.trim()}
-                        onClick={() => {
-                          my.rename(d.id, renaming.name);
-                          setRenaming(null);
-                        }}
-                      >
-                        Save
-                      </button>
-                    </span>
-                  ) : tagging?.id === d.id ? (
-                    <span className={styles.rename}>
-                      <input
-                        data-testid="tags-input"
-                        aria-label={`Tags for ${d.name}, separated by commas`}
-                        placeholder="Meta, Bot training"
-                        value={tagging.text}
-                        autoFocus
-                        onChange={(e) =>
-                          setTagging({ id: d.id, text: e.target.value })
-                        }
-                      />
-                      <button
-                        type="button"
-                        data-testid="tags-save"
-                        data-small
-                        onClick={() => {
-                          my.retag(d.id, tagging.text.split(","));
-                          setTagging(null);
-                        }}
-                      >
-                        Save
-                      </button>
-                    </span>
-                  ) : (
-                    <span
-                      className={styles.name}
-                      data-testid="db-deck-name"
-                      title={d.name}
-                    >
-                      {d.name}
-                      {result && (
-                        <span
-                          className={styles.result}
-                          data-testid="db-deck-result"
-                        >
-                          , {result}
-                        </span>
-                      )}
-                      {tags.length > 0 && (
-                        <span
-                          className={styles.rowTags}
-                          data-testid="db-row-tags"
-                        >
-                          {tags.join(" · ")}
-                        </span>
-                      )}
-                    </span>
-                  )}
-                  {deleting === d.id ? (
-                    <span className={styles.confirm}>
-                      <button
-                        type="button"
-                        data-testid="db-delete-confirm"
-                        data-danger
-                        data-small
-                        onClick={() => {
-                          my.remove(d.id);
-                          setDeleting(null);
-                        }}
-                      >
-                        Delete {d.name}
-                      </button>
-                      <button
-                        type="button"
-                        data-small
-                        onClick={() => setDeleting(null)}
-                      >
-                        Keep
-                      </button>
-                    </span>
-                  ) : (
-                    <>
-                      <span
-                        className={styles.legal}
-                        data-legal={legal ? "true" : "false"}
-                      >
-                        {legal ? "Legal" : "Not legal"}
-                      </span>
-                      <button
-                        type="button"
-                        data-testid="db-load"
-                        data-primary
-                        data-small
-                        onClick={() => load(d)}
-                      >
-                        Load
-                      </button>
-                      <DeckMenu
-                        name={d.name}
-                        open={menu === d.id}
-                        onOpen={(open) => setMenu(open ? d.id : null)}
-                        items={[
-                          {
-                            id: "db-duplicate",
-                            label: "Duplicate",
-                            run: () => duplicate(d),
-                          },
-                          {
-                            id: "rename-deck",
-                            label: "Rename",
-                            run: () => setRenaming({ id: d.id, name: d.name }),
-                          },
-                          {
-                            id: "db-edit-tags",
-                            label: "Edit tags",
-                            run: () =>
-                              setTagging({ id: d.id, text: tags.join(", ") }),
-                          },
-                          {
-                            id: "copy-deck",
-                            label: "Copy deck list",
-                            run: () => void copy(d),
-                          },
-                          {
-                            id: "db-export-deck",
-                            label: "Export",
-                            run: () =>
-                              downloadText(
-                                d.list,
-                                `${deckName(d.name) || "deck"}.txt`,
-                              ),
-                          },
-                          {
-                            id: "db-delete",
-                            label: "Delete",
-                            danger: true,
-                            run: () => setDeleting(d.id),
-                          },
-                        ]}
-                      />
-                    </>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-        {note && (
-          <p className={styles.notice} data-testid="db-decks-note">
-            {note}
-          </p>
-        )}
-        <footer className={styles.foot}>
-          <button
-            type="button"
-            data-testid="db-export-all"
-            data-small
-            disabled={my.decks.length === 0}
-            onClick={() =>
-              downloadText(backupJson(my.decks), "gojisim-my-decks.json")
-            }
-          >
-            Export all
-          </button>
-          <button
-            type="button"
-            data-testid="db-import-backup"
-            data-small
-            onClick={() => backup.current?.click()}
-          >
-            Import backup
-          </button>
-          {replacing ? (
-            <span className={styles.confirm}>
-              <button
-                type="button"
-                data-testid="db-replace-confirm"
-                data-danger
-                data-small
-                onClick={() => {
-                  my.replaceAll(...replacing);
-                  setNote(
-                    `Replaced My decks with the backup's ${replacing.length} deck${replacing.length === 1 ? "" : "s"}.`,
-                  );
-                  setReplacing(null);
-                }}
-              >
-                Replace all {my.decks.length} with {replacing.length}
-              </button>
-              <button
-                type="button"
-                data-small
-                onClick={() => setReplacing(null)}
-              >
-                Keep mine
-              </button>
-            </span>
-          ) : (
+                    <DeckMenu
+                      name={d.name}
+                      open={menu === d.id}
+                      onOpen={(open) => setMenu(open ? d.id : null)}
+                      items={[
+                        {
+                          id: "db-duplicate",
+                          label: "Duplicate",
+                          run: () => duplicate(d),
+                        },
+                        {
+                          id: "rename-deck",
+                          label: "Rename",
+                          run: () => setRenaming({ id: d.id, name: d.name }),
+                        },
+                        {
+                          id: "db-edit-tags",
+                          label: "Edit tags",
+                          run: () =>
+                            setTagging({ id: d.id, text: tags.join(", ") }),
+                        },
+                        {
+                          id: "copy-deck",
+                          label: "Copy deck list",
+                          run: () => void copy(d),
+                        },
+                        {
+                          id: "db-export-deck",
+                          label: "Export",
+                          run: () =>
+                            downloadText(
+                              d.list,
+                              `${deckName(d.name) || "deck"}.txt`,
+                            ),
+                        },
+                        {
+                          id: "db-delete",
+                          label: "Delete",
+                          danger: true,
+                          run: () => setDeleting(d.id),
+                        },
+                      ]}
+                    />
+                  </>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      {note && (
+        <p className={styles.notice} data-testid="db-decks-note">
+          {note}
+        </p>
+      )}
+      <footer className={styles.foot}>
+        <button
+          type="button"
+          data-testid="db-export-all"
+          data-small
+          disabled={my.decks.length === 0}
+          onClick={() =>
+            downloadText(backupJson(my.decks), "gojisim-my-decks.json")
+          }
+        >
+          Export all
+        </button>
+        <button
+          type="button"
+          data-testid="db-import-backup"
+          data-small
+          onClick={() => backup.current?.click()}
+        >
+          Import backup
+        </button>
+        {replacing ? (
+          <span className={styles.confirm}>
             <button
               type="button"
-              data-testid="db-replace-backup"
+              data-testid="db-replace-confirm"
+              data-danger
               data-small
-              title="Delete every deck in My decks (here and in your account), then import the backup"
-              onClick={() => replaceFile.current?.click()}
+              onClick={() => {
+                my.replaceAll(...replacing);
+                setNote(
+                  `Replaced My decks with the backup's ${replacing.length} deck${replacing.length === 1 ? "" : "s"}.`,
+                );
+                setReplacing(null);
+              }}
             >
-              Replace with backup
+              Replace all {my.decks.length} with {replacing.length}
             </button>
-          )}
-          <input
-            ref={replaceFile}
-            type="file"
-            accept="application/json,.json"
-            hidden
-            data-testid="db-replace-file"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              e.target.value = "";
-              if (!file) return;
-              const { decks, problems } = readBackup(await file.text());
-              if (decks.length === 0) {
-                setNote(["Nothing replaced.", ...problems].join(" "));
-                return;
-              }
-              setReplacing(decks);
-              if (problems.length > 0) setNote(problems.join(" "));
-            }}
-          />
-          <input
-            ref={backup}
-            type="file"
-            accept="application/json,.json"
-            hidden
-            data-testid="db-backup-file"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              e.target.value = "";
-              if (!file) return;
-              const { decks, problems } = readBackup(await file.text());
-              my.add(...decks);
-              setNote(
-                [
-                  `Restored ${decks.length} deck${decks.length === 1 ? "" : "s"}.`,
-                  ...problems,
-                ].join(" "),
-              );
-            }}
-          />
-        </footer>
-      </section>
-    </div>
+            <button type="button" data-small onClick={() => setReplacing(null)}>
+              Keep mine
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            data-testid="db-replace-backup"
+            data-small
+            title="Delete every deck in My decks (here and in your account), then import the backup"
+            onClick={() => replaceFile.current?.click()}
+          >
+            Replace with backup
+          </button>
+        )}
+        <input
+          ref={replaceFile}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          data-testid="db-replace-file"
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (!file) return;
+            const { decks, problems } = readBackup(await file.text());
+            if (decks.length === 0) {
+              setNote(["Nothing replaced.", ...problems].join(" "));
+              return;
+            }
+            setReplacing(decks);
+            if (problems.length > 0) setNote(problems.join(" "));
+          }}
+        />
+        <input
+          ref={backup}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          data-testid="db-backup-file"
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (!file) return;
+            const { decks, problems } = readBackup(await file.text());
+            my.add(...decks);
+            setNote(
+              [
+                `Restored ${decks.length} deck${decks.length === 1 ? "" : "s"}.`,
+                ...problems,
+              ].join(" "),
+            );
+          }}
+        />
+      </footer>
+    </FloatingWindow>
   );
 }
 
