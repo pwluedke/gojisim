@@ -5,14 +5,15 @@ test.use({ viewport: { width: 1440, height: 900 } });
 
 /** Tester fixes 1: Undo, View board and the preview in the choice modal; the whole-deck search. */
 
-test("Undo [U] in the modal takes back the confirmed discard; the left panel's button is under the backdrop", async ({
+test("Undo [U] in the modal takes back the confirmed discard; with no backdrop (Paul, Nov 16), the left panel stays in view", async ({
   page,
 }) => {
   await loadFixture(page, "undo-discard");
   const modal = page.getByTestId("choice-modal");
   await expect(modal).toHaveAttribute("data-kind", "target");
   await expect(page.getByTestId("choice-source")).toContainText("EBP03-017");
-  // The left panel's Undo is under the modal's backdrop: what the page shows there is the backdrop.
+  // Paul, Nov 16: the choice is a floating window with no backdrop; the left panel's Undo is in
+  // view, not covered (the window opens centered, over the board).
   const left = await page.getByTestId("undo").boundingBox();
   const covered = await page.evaluate(
     ([x, y]) =>
@@ -21,7 +22,7 @@ test("Undo [U] in the modal takes back the confirmed discard; the left panel's b
         ?.closest('[data-testid="undo"]') === null,
     [left!.x + left!.width / 2, left!.y + left!.height / 2],
   );
-  expect(covered).toBe(true);
+  expect(covered).toBe(false);
   const undo = page.getByTestId("choice-undo");
   await expect(undo).toHaveText("Undo [U]");
   await undo.click();
@@ -73,11 +74,16 @@ test("hovering a card in the modal opens the large preview above it", async ({
     "data-card-id",
     cardId as string,
   );
-  // Above the modal: it renders in the modal's own layer, over the backdrop (the preview ignores
-  // the pointer, decision 198, so a hit test can't see it).
-  await expect(
-    page.getByTestId("choice-modal").getByTestId("card-preview"),
-  ).toBeVisible();
+  // Above the window: its own layer over the floating windows (the preview ignores the pointer,
+  // decision 198, so a hit test can't see it).
+  await expect(preview.getByTestId("card-preview")).toBeVisible();
+  const layer = await preview.evaluate((el) =>
+    Number(getComputedStyle(el).zIndex),
+  );
+  const window = await page
+    .getByTestId("choice-modal")
+    .evaluate((el) => Number(getComputedStyle(el).zIndex));
+  expect(layer).toBeGreaterThan(window);
   await page.mouse.move(5, 5);
   await expect(preview).toHaveCount(0);
 });

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { firstSecondArt } from "../game/officialArt";
 import type { Session } from "../game/session";
 import board from "./Board.module.css";
+import { FloatingWindow } from "./FloatingWindow";
 import styles from "./NewGame.module.css";
 import { useViewBoard, ViewBoardBanner, ViewBoardButton } from "./ViewBoard";
 
@@ -96,26 +97,26 @@ export function FirstPick({
   });
 
   return (
-    <div
-      className={view.viewing ? board.modalBackdropHidden : board.modalBackdrop}
-      data-testid="first-pick-backdrop"
-      data-viewing-board={view.viewing ? "true" : undefined}
-    >
+    // Paul, Nov 16: a window over the board (dragged, hidden to a tab); the game waits on it.
+    <>
       {view.viewing && <ViewBoardBanner onReturn={view.toggle} />}
-      <div
-        className={board.modal}
-        style={view.viewing ? { visibility: "hidden" } : undefined}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="first-pick-title"
-        data-testid="first-pick"
-        data-picker={picker}
-        data-peeking={peeking ? "true" : "false"}
+      <FloatingWindow
+        title={
+          <span id="first-pick-title">
+            Pick a card. It decides who goes first.
+          </span>
+        }
+        tabLabel="First / Second"
+        testId="first-pick"
+        labelledBy="first-pick-title"
+        className={view.viewing ? board.floatingAway : undefined}
+        attrs={{
+          "data-viewing-board": view.viewing ? "true" : undefined,
+          "data-picker": picker,
+          "data-peeking": peeking ? "true" : "false",
+        }}
       >
         <ViewBoardButton onClick={view.toggle} />
-        <h2 id="first-pick-title" className={board.modalHeading}>
-          Pick a card. It decides who goes first.
-        </h2>
         <p>
           {picked
             ? `You go ${goesFirst ? "first" : "second"}.`
@@ -177,7 +178,7 @@ export function FirstPick({
             </button>
           </div>
         )}
-      </div>
-    </div>
+      </FloatingWindow>
+    </>
   );
 }

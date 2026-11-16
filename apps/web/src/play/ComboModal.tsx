@@ -1,6 +1,7 @@
 import type { Card, Combo } from "@gojisim/cards";
 import { useEffect, useState } from "react";
 import styles from "./Board.module.css";
+import { FloatingWindow } from "./FloatingWindow";
 import type { BoardModel } from "./model";
 import { Preview } from "./Preview";
 
@@ -40,20 +41,28 @@ export function ComboModal({
   });
 
   return (
-    <div className={styles.modalBackdrop} data-testid="combo-modal">
-      <div
-        className={`${styles.modal} ${styles.comboModal} ${shake ? styles.comboShake : ""}`}
-        role="dialog"
-        aria-labelledby="combo-name"
-        data-shake={shake ? "true" : undefined}
-      >
-        <div
-          className={styles.comboName}
-          id="combo-name"
-          data-testid="combo-name"
-        >
-          {combo.name}
+    <>
+      {previewed && (
+        <div className={styles.previewOverModal}>
+          <Preview model={model} card={previewed} />
         </div>
+      )}
+      <FloatingWindow
+        title={
+          <span
+            className={styles.comboName}
+            id="combo-name"
+            data-testid="combo-name"
+          >
+            {combo.name}
+          </span>
+        }
+        tabLabel={combo.name}
+        testId="combo-modal"
+        className={`${styles.comboModal} ${shake ? styles.comboShake : ""}`}
+        labelledBy="combo-name"
+        attrs={{ "data-shake": shake ? "true" : undefined }}
+      >
         <div className={styles.muted} data-testid="combo-who">
           Combo · {who}
         </div>
@@ -110,8 +119,7 @@ export function ComboModal({
             Close [Space]
           </button>
         </div>
-      </div>
-      {previewed && <Preview model={model} card={previewed} />}
-    </div>
+      </FloatingWindow>
+    </>
   );
 }

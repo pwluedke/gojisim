@@ -116,11 +116,10 @@ export function ReportModal({
       tabLabel={copy.tab}
       testId={`${kind}-modal`}
       className={styles.reportWindow}
+      labelledBy="report-title"
     >
       <form
         className={styles.reportModal}
-        role="dialog"
-        aria-labelledby="report-title"
         onSubmit={(e) => {
           e.preventDefault();
           if (ready && !blocked)
