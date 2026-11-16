@@ -25,6 +25,7 @@ import {
 } from "../game/decks";
 import { deckOf } from "../game/deckStore";
 import { PLAYER_IDS, type PlayerId, randomSeed } from "../game/session";
+import { useTestDecks } from "../game/testDecks";
 import { useMyDecks } from "../game/useMyDecks";
 import styles from "./NewGame.module.css";
 import { Tooltip } from "./Tooltip";
@@ -80,15 +81,14 @@ function Legality({
 }
 
 /**
- * The `/play` new-game screen (M5a): a deck for each seat (#161: the Starter decks, then My decks,
- * each with a legality badge), Human or Bot per seat, and the
- * difficulty slider with its presets. M5e: Casual (undo allowed) or Tournament (no undo), stored
+ * The `/play` new-game screen (M5a): a deck for each seat (#161: the Starter decks, #359's Test
+ * decks, then My decks, each with a legality badge), Human or Bot per seat, and the difficulty slider with its presets. M5e: Casual (undo allowed) or Tournament (no undo), stored
  * in the game record. Tournament games take legal decks only: an illegal deck can't be picked, and
  * the seat says why. Casual games play it with a warning on the board.
  *
  * The whole screen fits at 1280×800 with no page scroll (Monarch, Oct 26, 2026): compact 36 px
  * controls, the seats side by side, a link to the Deckbuilder, and the game options in one block at
- * the bottom. Each seat's Randomize picks from the Starter decks and My decks; switching the match type
+ * the bottom. Each seat's Randomize picks from the whole list (#359: the Test decks too); switching the match type
  * resets both seats to the starters.
  */
 export function NewGame({
@@ -107,17 +107,21 @@ export function NewGame({
     picked: [DeckOption, DeckOption],
     seats: Record<PlayerId, SeatConfig>,
     matchMode: MatchMode,
+    /** #365: Kaiju Classroom (the player plays each bot turn first), against one bot only. */
+    classroom: boolean,
   ) => void;
 }) {
-  // #161: the starters, then My decks (synced when signed in); nothing else.
+  // #161: the starters, then (#359) the server's test decks, then My decks (synced when signed
+  // in); nothing else.
   const my = useMyDecks();
+  const tests = useTestDecks();
   const options = useMemo(() => {
     const mine = my.decks.flatMap((saved) => {
       const deck = deckOf(saved);
       return deck ? [{ id: saved.id, name: saved.name, deck }] : [];
     });
-    return playDeckOptions(mine);
-  }, [my.decks]);
+    return playDeckOptions(mine, tests);
+  }, [my.decks, tests]);
   // #179: each seat's filter, narrowing its dropdown by deck name or tag as you type; Paul, Nov
   // 9: each seat's tag buttons narrow it to My decks with all the chosen tags.
   const [filters, setFilters] = useState<Record<PlayerId, string>>({
@@ -158,6 +162,8 @@ export function NewGame({
   const [recordName, setRecordName] = useState<string | null>(null);
   const [seed, setSeed] = useState(() => String(randomSeed()));
   const [matchMode, setMatchMode] = useState<MatchMode>("casual");
+  // #365: the game mode against a bot, beside the bot level: a normal game or Kaiju Classroom.
+  const [classroomPicked, setClassroomPicked] = useState(false);
   const byKey = (key: string) =>
     options.find((o) => o.key === key) ?? (options[0] as DeckOption);
   const tournament = matchMode === "tournament";
@@ -176,7 +182,8 @@ export function NewGame({
   const blocked = tournament
     ? PLAYER_IDS.filter((id) => problemsOf(keys[id]).length > 0)
     : [];
-  // Randomize draws from the Starter decks and My decks, legal decks only in a Tournament game.
+  // Randomize draws from the whole list (the Starter decks, #359's Test decks and My decks), legal
+  // decks only in a Tournament game.
   const randomCandidates = pickerGroups(options)
     .flatMap((group) => group.options)
     .filter((o) => !tournament || problemsOf(o.key).length === 0)
@@ -185,6 +192,9 @@ export function NewGame({
     const key = randomDeckKey(randomCandidates, keys[id]);
     if (key) setKeys((k) => ({ ...k, [id]: key }));
   };
+  const vsOneBot =
+    PLAYER_IDS.filter((id) => seats[id].kind === "human").length === 1 &&
+    PLAYER_IDS.filter((id) => seats[id].kind === "bot").length === 1;
   return (
     <form
       className={styles.screen}
@@ -196,6 +206,7 @@ export function NewGame({
           [byKey(keys.P1), byKey(keys.P2)],
           seats,
           matchMode,
+          classroomPicked && vsOneBot,
         );
       }}
     >
@@ -437,6 +448,25 @@ export function NewGame({
                       {BETA_LOCK_NOTE}
                     </span>
                   )}
+                </div>
+              )}
+              {seat.kind === "bot" && vsOneBot && (
+                <div
+                  className={styles.line}
+                  title="Kaiju Classroom: you play each of the bot's turns first, from its seat; then the bot plays its own and you compare. Left out of statistics and achievements."
+                >
+                  <span>Mode</span>
+                  <select
+                    aria-label="Game mode"
+                    data-testid="game-mode"
+                    value={classroomPicked ? "classroom" : "game"}
+                    onChange={(e) =>
+                      setClassroomPicked(e.target.value === "classroom")
+                    }
+                  >
+                    <option value="game">Normal game</option>
+                    <option value="classroom">Kaiju Classroom</option>
+                  </select>
                 </div>
               )}
             </div>

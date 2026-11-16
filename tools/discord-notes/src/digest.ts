@@ -2,7 +2,7 @@ import type { ApiChannel, ApiMessage, ApiUser } from "./discordApi";
 import { clean } from "./notes";
 
 /**
- * The daily digest's text (#140): one section per COMMUNITY channel (its threads under it), each
+ * The daily digest's text (#140): grouped by category, then one section per channel (its threads under it), each
  * message with its author, time and text; a reply under its parent's author and first 80
  * characters; attachments as links. Pure; `digestMain.ts` reads Discord and posts to Slack.
  */
@@ -65,6 +65,8 @@ export function messageLines(m: ApiMessage): string[] {
 
 export interface ChannelMessages {
   channel: ApiChannel;
+  /** Its category's name (Paul, Nov 15: the digest is grouped by category, then channel). */
+  category?: string;
   /** The channel's own messages, oldest first. */
   messages: ApiMessage[];
   /** Its threads that have new messages, each oldest first. */
@@ -81,7 +83,8 @@ const kept = (messages: readonly ApiMessage[]) =>
 /** Each channel's section as blocks (a heading, then one block per message), skipping empty ones. */
 export function sections(channels: readonly ChannelMessages[]): string[][] {
   const out: string[][] = [];
-  for (const { channel, messages, threads } of channels) {
+  let shown: string | undefined;
+  for (const { channel, category, messages, threads } of channels) {
     const blocks: string[] = [];
     for (const m of kept(messages)) blocks.push(messageLines(m).join("\n"));
     for (const { thread, messages: inThread } of threads) {
@@ -95,8 +98,17 @@ export function sections(channels: readonly ChannelMessages[]): string[][] {
             .join("\n"),
         );
     }
-    if (blocks.length > 0)
-      out.push([`*#${slackEscape(channel.name)}*`, ...blocks]);
+    if (blocks.length === 0) continue;
+    const heading = `*#${slackEscape(channel.name)}*`;
+    // The category's heading over its first channel with news.
+    if (category !== undefined && category !== shown) {
+      shown = category;
+      out.push([
+        `*${slackEscape(category === "" ? "No category" : category.toUpperCase())}*`,
+        heading,
+        ...blocks,
+      ]);
+    } else out.push([heading, ...blocks]);
   }
   return out;
 }

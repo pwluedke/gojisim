@@ -49,12 +49,12 @@ test("clicking a log line shows that moment read-only; Back to live returns", as
 }) => {
   await loadFixture(page, "zone");
   const liveTurn = await page.getByTestId("turn").textContent();
-  await expect(page.getByTestId("choice-banner")).toBeVisible();
+  await expect(page.getByTestId("zone-tray")).toBeVisible();
   // An early line: the board after it, from the human's side.
   await logLines(page).nth(3).click();
   await expect(page.getByTestId("history-banner")).toBeVisible();
   await expect(page.getByTestId("turn")).not.toHaveText(liveTurn ?? "");
-  await expect(page.getByTestId("choice-banner")).toHaveCount(0);
+  await expect(page.getByTestId("zone-tray")).toHaveCount(0);
   await expect(page.locator("[data-zone-choice]")).toHaveCount(0);
   await expect(page.getByTestId("your-hand")).toHaveAttribute(
     "data-locked",
@@ -64,7 +64,7 @@ test("clicking a log line shows that moment read-only; Back to live returns", as
   await page.getByTestId("back-to-live").click();
   await expect(page.getByTestId("history-banner")).toHaveCount(0);
   await expect(page.getByTestId("turn")).toHaveText(liveTurn ?? "");
-  await expect(page.getByTestId("choice-banner")).toBeVisible();
+  await expect(page.getByTestId("zone-tray")).toBeVisible();
 });
 
 test("while viewing history the bot keeps thinking, but nothing is applied until Back to live", async ({

@@ -5,7 +5,13 @@
  * so the new message's id can be kept, and `edit_id` later edits that message instead of
  * posting. A webhook can only edit its own messages. The repo is public: the log has the HTTP
  * status and the message id only, never the text or the webhook URL (docs/discord.md).
+ *
+ * Paul, Nov 15: with `channel_id` (a channel or thread id) the post goes through the bot
+ * (`DISCORD_BOT_TOKEN`) to that channel or thread instead, so Monarch can answer anywhere; a
+ * reply is then a real Discord reply. The log shows only the channel id and the message id.
  */
+
+const API = "https://discord.com/api/v10";
 
 /** Discord's message limit, counting a reply link. */
 export const MESSAGE_MAX = 2000;
@@ -67,6 +73,10 @@ export function postRequest(
 
 export interface PostOptions {
   webhook: string;
+  /** A channel or thread id: post through the bot there instead of the #bugs webhook. */
+  channelId?: string;
+  /** `DISCORD_BOT_TOKEN`, for `channelId`. */
+  botToken?: string;
   message: string;
   replyTo?: string;
   mentions?: string;
@@ -81,6 +91,8 @@ export interface PostOptions {
 /** Posts or edits; returns the message id. Throws with a message that names neither the text nor the URL. */
 export async function runPost({
   webhook,
+  channelId = "",
+  botToken = "",
   message,
   replyTo = "",
   mentions = "",
@@ -89,8 +101,8 @@ export async function runPost({
   log = (line) => console.log(line),
   summary = () => {},
 }: PostOptions): Promise<string> {
-  if (!webhook) throw new Error("The DISCORD_BUGS_WEBHOOK secret isn't set.");
   for (const [name, id] of [
+    ["channel_id", channelId],
     ["reply_to", replyTo],
     ["edit_id", editId],
   ] as const)
@@ -98,21 +110,41 @@ export async function runPost({
       throw new Error(`${name} must be a Discord message id (digits only).`);
   const users = parseMentions(mentions);
   checkTagged(message, users);
+  const viaBot = (channel: string) =>
+    botPost({
+      channelId: channel,
+      botToken,
+      message,
+      replyTo,
+      users,
+      editId,
+      fetchImpl,
+      log,
+      summary,
+    });
+  if (channelId) return viaBot(channelId);
+  if (!webhook) throw new Error("The DISCORD_BUGS_WEBHOOK secret isn't set.");
+  // Paul, Nov 15 (the bot is "Monarch"): #bugs posts go through the bot too, to the webhook's
+  // own channel, so every post shows as Monarch; the webhook is the fallback when that fails.
+  if (botToken) {
+    try {
+      return await viaBot((await webhookChannel(webhook, fetchImpl)).channel);
+    } catch (e) {
+      const status =
+        e instanceof Error
+          ? (/HTTP \d+/.exec(e.message)?.[0] ?? "no answer")
+          : "no answer";
+      log(
+        `The bot post failed (${status}); posting through the #bugs webhook.`,
+      );
+    }
+  }
   let text = message;
   // A webhook can't thread-reply in a text channel, so a reply starts with a link to the message.
   // The webhook's own record names its server and channel.
   if (replyTo) {
-    const res = await fetchImpl(webhook, {
-      signal: AbortSignal.timeout(20_000),
-    });
-    if (!res.ok) throw new Error("Couldn't read the webhook's channel.");
-    const info = (await res.json()) as {
-      guild_id?: string;
-      channel_id?: string;
-    };
-    if (!info.guild_id || !info.channel_id)
-      throw new Error("The webhook's record has no server or channel.");
-    text = `↪ Re: https://discord.com/channels/${info.guild_id}/${info.channel_id}/${replyTo}\n${message}`;
+    const { guild, channel } = await webhookChannel(webhook, fetchImpl);
+    text = `↪ Re: https://discord.com/channels/${guild}/${channel}/${replyTo}\n${message}`;
   }
   const length = [...text].length;
   if (length > MESSAGE_MAX)
@@ -140,6 +172,95 @@ export async function runPost({
     editId
       ? `Edited #bugs message \`${id}\`.`
       : `Posted #bugs message \`${id}\` (edit it later with \`edit_id\`).`,
+  );
+  return id;
+}
+
+/** The webhook's own record: its server and channel (#bugs). */
+async function webhookChannel(
+  webhook: string,
+  fetchImpl: typeof fetch,
+): Promise<{ guild: string; channel: string }> {
+  const res = await fetchImpl(webhook, {
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!res.ok) throw new Error("Couldn't read the webhook's channel.");
+  const info = (await res.json()) as {
+    guild_id?: string;
+    channel_id?: string;
+  };
+  if (!info.guild_id || !info.channel_id)
+    throw new Error("The webhook's record has no server or channel.");
+  return { guild: info.guild_id, channel: info.channel_id };
+}
+
+/**
+ * Paul, Nov 15: a post or an edit in any channel or thread through the bot. A reply is a real
+ * Discord reply (`message_reference`); only the listed users can be pinged, as with the webhook.
+ */
+async function botPost({
+  channelId,
+  botToken,
+  message,
+  replyTo,
+  users,
+  editId,
+  fetchImpl,
+  log,
+  summary,
+}: {
+  channelId: string;
+  botToken: string;
+  message: string;
+  replyTo: string;
+  users: string[];
+  editId: string;
+  fetchImpl: typeof fetch;
+  log: (line: string) => void;
+  summary: (line: string) => void;
+}): Promise<string> {
+  if (!botToken) throw new Error("The DISCORD_BOT_TOKEN secret isn't set.");
+  const length = [...message].length;
+  if (length > MESSAGE_MAX)
+    throw new Error(
+      `The post is ${length} characters; Discord's limit is ${MESSAGE_MAX}.`,
+    );
+  const body = {
+    ...postPayload(message, users),
+    ...(replyTo && !editId
+      ? {
+          message_reference: { message_id: replyTo, fail_if_not_exists: false },
+        }
+      : {}),
+  };
+  const res = await fetchImpl(
+    editId
+      ? `${API}/channels/${channelId}/messages/${editId}`
+      : `${API}/channels/${channelId}/messages`,
+    {
+      method: editId ? "PATCH" : "POST",
+      headers: {
+        Authorization: `Bot ${botToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(20_000),
+    },
+  );
+  log(`Discord answered HTTP ${res.status}`);
+  if (!res.ok)
+    throw new Error(
+      editId
+        ? `The edit failed (HTTP ${res.status}). Only the bot's own messages can be edited.`
+        : `The post failed (HTTP ${res.status}). Check the bot can send messages in that channel or thread.`,
+    );
+  const id = ((await res.json()) as { id?: string }).id ?? editId;
+  if (!id) throw new Error("Discord's answer had no message id.");
+  log(`Channel id ${channelId}, message id ${id}`);
+  summary(
+    editId
+      ? `Edited message \`${id}\` in channel \`${channelId}\`.`
+      : `Posted message \`${id}\` in channel \`${channelId}\` (edit it later with \`edit_id\` and the same \`channel_id\`).`,
   );
   return id;
 }

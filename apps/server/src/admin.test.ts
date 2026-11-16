@@ -205,6 +205,29 @@ describe("#235: the players page for admins", () => {
     });
   });
 
+  it("#365: a Kaiju Classroom game counts as a game but not as a win or loss", () => {
+    const { db, bo } = seeded();
+    const before = playersReport(db, NOW, null).players.find((p) =>
+      p.name.startsWith("=Bo"),
+    );
+    indexGame(
+      db,
+      {
+        gameId: "classroom-1",
+        playerId: bo,
+        file: "c.json",
+        record: { ...botRecord(90, "P1"), classroom: true },
+      },
+      NOW,
+    );
+    const after = playersReport(db, NOW, null).players.find((p) =>
+      p.name.startsWith("=Bo"),
+    );
+    expect(after?.botGames).toBe((before?.botGames ?? 0) + 1);
+    expect(after?.wins).toBe(before?.wins);
+    expect(after?.losses).toBe(before?.losses);
+  });
+
   it("a season filter counts only that season's games", () => {
     const { db } = seeded();
     const beta = playersReport(db, NOW, "beta");

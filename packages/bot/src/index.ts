@@ -14,6 +14,13 @@ import type { Bot } from "./types";
 
 export const BOT_PACKAGE = "@gojisim/bot";
 
+/**
+ * #365: the bot's version, saved with each Kaiju Classroom turn so `/results` can chart the
+ * agreement by version. Bumped (to the day's date, with a letter for a second change that day)
+ * by every PR that changes how the bot plays (`SWITCHES.md`).
+ */
+export const BOT_VERSION = "2026-11-15";
+
 export const BOT_DEPENDENCIES: readonly string[] = [
   ENGINE_PACKAGE,
   ...ENGINE_DEPENDENCIES,

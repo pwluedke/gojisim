@@ -2413,6 +2413,9 @@ function perform(state: GameState, effect: Effect): Outcome {
               abilityId,
             })),
           );
+          // #357: the card going there, for the board's tray.
+          if (card && state.pendingChoice)
+            state.pendingChoice.placing = card.cardId;
           return "paused";
         }
       }
@@ -2686,6 +2689,9 @@ function perform(state: GameState, effect: Effect): Outcome {
               ? [{ id: "done", cardId: null, abilityId }]
               : []),
           ]);
+          // #357: the card being moved, for the board's tray.
+          if (state.pendingChoice)
+            state.pendingChoice.placing = target.card.cardId;
           return "paused";
         }
       }
@@ -3218,6 +3224,8 @@ function perform(state: GameState, effect: Effect): Outcome {
               abilityId,
             })),
           );
+          // #357: the token being played, for the board's tray.
+          if (state.pendingChoice) state.pendingChoice.placing = token.id;
           // #250: the zones already picked show their token until the last one is placed.
           if (zones.length > 0 && state.pendingChoice)
             state.pendingChoice.picked = zones.map((zone) => ({

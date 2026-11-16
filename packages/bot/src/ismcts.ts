@@ -78,6 +78,16 @@ export interface IsmctsSettings {
   revengeStep: number;
   /** Card rule 24 (#325, #329): 1 (the default) discards a recurring card first; 0 is off. */
   recurDiscard: number;
+  /** Card rule 23 (#345): 1 (the default) keeps plays off your own battle cards; 0 is off. */
+  ownCover: number;
+  /** Card rule 22 (#336): 1 (the default) leaves out destroy-only strategies with no target; 0 off. */
+  targetCheck: number;
+  /** The Monster X plan's #335 (no idle Landing): 1 (the default) on; 0 is the old rule 9. */
+  mxLanding: number;
+  /** The Monster X plan's #338 (Manda's discount as a setup play): 1 (default) on; 0 old rule 3. */
+  mxManda: number;
+  /** The Monster X plan's rule 16 (#352): 1 (the default) targets their Monster X first; 0 off. */
+  mxTargets: number;
   /**
    * The Wrangler plan: 2 (the default) is v2 (`wranglerPlanV2.ts`, Paul, Nov 13) with the card
    * rules (Medium and Hard); 1 is v1 (`wranglerPlan.ts`, #276) with `rules` (Hard); 0 is off.
@@ -129,6 +139,11 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   ownPath: 1,
   revengeStep: 1,
   recurDiscard: 1,
+  ownCover: 1,
+  targetCheck: 1,
+  mxLanding: 1,
+  mxManda: 1,
+  mxTargets: 1,
   wranglerPlan: 2,
   wranglerV21: 1,
   wranglerV22: 1,
@@ -200,10 +215,23 @@ export function mxPlanFavored(
   player: PlayerId,
   keyOf: (a: Action) => string,
   version = 2,
+  /** `mxLanding` (#335). */
+  landing = 1,
+  /** `mxManda` (#338). */
+  manda = 1,
+  /** `mxTargets` (#352). */
+  targets = 1,
 ): Map<string, number> {
   const against =
     version >= 2
-      ? mxPlanV2Verdict(state, actions, player)
+      ? mxPlanV2Verdict(
+          state,
+          actions,
+          player,
+          landing > 0,
+          manda > 0,
+          targets > 0,
+        )
       : mxPlanVerdict(state, actions, player);
   const keep = actions.filter((a) => a.type !== "concede" && !against.has(a));
   if (against.size === 0 || keep.length === 0) return new Map();
@@ -437,6 +465,8 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         ownPath: settings.ownPath > 0,
         revengeStep: settings.revengeStep > 0,
         recurDiscard: settings.recurDiscard > 0,
+        ownCover: settings.ownCover > 0,
+        targetCheck: settings.targetCheck > 0,
       };
       const unsafe = cardRulesDead(
         first,
@@ -485,6 +515,9 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         me,
         (a) => actionKey(state, a),
         settings.mxPlan,
+        settings.mxLanding,
+        settings.mxManda,
+        settings.mxTargets,
       );
     // #276: the Wrangler plan, a preference like the Monster X plan, that frees what its line
     // needs from Paul's rules' holds.
@@ -655,6 +688,8 @@ function cardRulesSafe(
   ownPath = 1,
   revengeStep = 1,
   recurDiscard = 1,
+  ownCover = 1,
+  targetCheck = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
     counterFirst: counterFirst > 0,
@@ -662,6 +697,8 @@ function cardRulesSafe(
     ownPath: ownPath > 0,
     revengeStep: revengeStep > 0,
     recurDiscard: recurDiscard > 0,
+    ownCover: ownCover > 0,
+    targetCheck: targetCheck > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
   return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
@@ -727,6 +764,8 @@ export function blunderAllowed(
     settings.ownPath,
     settings.revengeStep,
     settings.recurDiscard,
+    settings.ownCover,
+    settings.targetCheck,
   );
   const sure =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
@@ -757,7 +796,16 @@ export function blunderAllowed(
       ? [pass]
       : sure;
   if (settings.mxPlan === 0) return allowed;
-  const favored = mxPlanFavored(state, allowed, me, keyOf, settings.mxPlan);
+  const favored = mxPlanFavored(
+    state,
+    allowed,
+    me,
+    keyOf,
+    settings.mxPlan,
+    settings.mxLanding,
+    settings.mxManda,
+    settings.mxTargets,
+  );
   const planned = allowed.filter((a) => favored.has(keyOf(a)));
   return planned.length > 0 ? planned : allowed;
 }
@@ -795,6 +843,8 @@ export function decide(input: BotInput): Decision {
               settings.ownPath,
               settings.revengeStep,
               settings.recurDiscard,
+              settings.ownCover,
+              settings.targetCheck,
             )
           : [...legalActions];
     return {

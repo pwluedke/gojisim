@@ -1140,6 +1140,70 @@ describe(
       expect(off.has(pay(mechaKing.instanceId)!)).toBe(false);
     });
 
+    it("rule 23 (#345, Slick): a King isn't played over your own Kings in zones 1 and 2 while zones 3 and 4 are open", () => {
+      const { state, p1 } = withGodzilla1995();
+      // Your monster in zone 6 (its path is 7 and 8). Rank 1 Kings, playable anywhere (8.2.1).
+      p1.zones[1] = [[add(state, { ...real("EBP01-075"), rank: 1 }, "P1")]];
+      p1.zones[2] = [[add(state, { ...real("EBP01-075"), rank: 1 }, "P1")]];
+      for (const z of [3, 4, 5, 7, 8] as const) p1.zones[z] = [];
+      const king = add(state, { ...real("EBP01-075"), rank: 1 }, "P1");
+      p1.hand = [king];
+      const legal = getLegalActions(state, "P1");
+      const play = (zone: number) =>
+        legal.find(
+          (a) =>
+            a.type === "playBattle" &&
+            a.cardInstanceId === king.instanceId &&
+            a.zone === zone,
+        );
+      expect(play(1)).toBeDefined();
+      expect(play(3)).toBeDefined();
+      const dead = cardRulesDead(state, legal, "P1");
+      expect(dead.has(play(1)!)).toBe(true);
+      expect(dead.has(play(2)!)).toBe(true);
+      expect(dead.has(play(3)!)).toBe(false);
+      // `ownCover: false` (the paired check's control): covering is the search's call again.
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        ownCover: false,
+      });
+      expect(off.has(play(1)!)).toBe(false);
+    });
+
+    it("rule 22 (#336): Godzilla vs. Megaguirus EBP01-064 isn't activated when it can destroy nothing (no legal target); with a rank 4 or lower battle card of theirs, it is", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      opp.monsterPosition = 6;
+      for (const z of [1, 2, 3, 4, 5, 6, 7, 8] as const) opp.zones[z] = [];
+      const gvm = add(state, real("EBP01-064"), "P1");
+      p1.hand = [gvm];
+      const judge = () => {
+        const legal = getLegalActions(state, "P1");
+        const dead = cardRulesDead(state, legal, "P1");
+        const activations = legal.filter(
+          (a) =>
+            a.type === "activateStrategy" &&
+            a.cardInstanceId === gvm.instanceId,
+        );
+        expect(activations.length).toBeGreaterThan(0);
+        return activations.map((a) => dead.has(a));
+      };
+      for (const d of judge()) expect(d).toBe(true);
+      // `targetCheck: false` (the paired check's control): rule 22 is off.
+      const legal = getLegalActions(state, "P1");
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        targetCheck: false,
+      });
+      for (const a of legal)
+        if (
+          a.type === "activateStrategy" &&
+          a.cardInstanceId === gvm.instanceId
+        )
+          expect(off.has(a)).toBe(false);
+      // A rank 4 battle card of theirs: the first mode destroys it.
+      opp.zones[3] = [[add(state, { ...real("ESD02-012"), rank: 4 }, "P2")]];
+      for (const d of judge()) expect(d).toBe(false);
+    });
+
     it("rule 2 (Paul, Nov 12): from zone 7, Godzilla vs. King Ghidorah EBP02-071 (awakening 6: destroy rank 6 or lower) clears the zone 8 blocker before the winning invasion", () => {
       const { state, p1 } = withGodzilla1995();
       const opp = state.players[1] as PlayerState;

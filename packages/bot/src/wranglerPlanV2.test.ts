@@ -550,7 +550,14 @@ describe("the Wrangler plan v2", () => {
         iii.state,
         iiiLegal,
         "P1",
-        { ...ISMCTS_DEFAULTS, cardRules: 1, wranglerBioHard: bioHard },
+        // Card rule 22 (`targetCheck`) would also leave out a Despair with nothing to destroy;
+        // off here, so only `wranglerBioHard` decides.
+        {
+          ...ISMCTS_DEFAULTS,
+          cardRules: 1,
+          targetCheck: 0,
+          wranglerBioHard: bioHard,
+        },
         WRANGLER,
       );
     for (const a of despair) expect(blunder(1).includes(a)).toBe(false);
