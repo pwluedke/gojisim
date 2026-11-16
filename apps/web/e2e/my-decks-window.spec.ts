@@ -228,3 +228,35 @@ test("Paul, Nov 9: the Deckbuilder edits a deck's tags; saving keeps them", asyn
     "Mine · Tournament",
   );
 });
+
+test("the ⋯ menu keeps its focus when the window re-renders under it (the test decks arriving late)", async ({
+  page,
+}) => {
+  // Hold `/api/test-decks` until the menu is open: its answer re-renders the window.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route("**/api/test-decks", async (route) => {
+    await held;
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        decks: [
+          { name: "Sample A", list: starter },
+          { name: "Sample B", list: starter },
+        ],
+      }),
+    });
+  });
+  await withDecks(page);
+  await page.getByTestId("db-my-decks").click();
+  await row(page, "Rager").getByTestId("db-deck-menu").click();
+  const menu = row(page, "Rager").getByTestId("db-deck-menu-list");
+  await expect(menu.getByTestId("db-duplicate")).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(menu.getByTestId("rename-deck")).toBeFocused();
+  release();
+  await expect(win(page).getByTestId("db-test-deck")).toHaveCount(2);
+  // The menu stays open, with focus where the arrow left it.
+  await expect(menu).toBeVisible();
+  await expect(menu.getByTestId("rename-deck")).toBeFocused();
+});
