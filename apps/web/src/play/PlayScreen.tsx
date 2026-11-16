@@ -65,6 +65,7 @@ import {
   installErrorCapture,
   onError,
 } from "../game/errors";
+import { FloatingWindow } from "./FloatingWindow";
 import { ReportModal } from "./ReportModal";
 import { ClassroomCompare, ClassroomSame } from "./ClassroomCompare";
 import {
@@ -644,15 +645,15 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
     return next;
   };
   const classroomOpen = stage?.kind === "compare" || classroomReport !== null;
-  // Paul, Nov 15: "XILIEN CONTROL" over the mat for the whole bot turn of a Classroom game (the
-  // sandbox, the bot's own turn and its comparison), gone on the player's own turn. The bot's
-  // last main phase move can end its turn, so an open comparison keeps it up too.
+  // Paul, Nov 16: "XILIEN CONTROL" only while the mat in front of the player shows the bot's
+  // cards (the Classroom sandbox, where the player sits in the bot's seat); with the player's own
+  // cards on that mat, it's hidden, whatever the turn or the comparison.
   const classroomSeat = realSession ? classroomBotSeat(realSession) : null;
   const xilien =
     classroomSeat !== null &&
     result === null &&
     pending === null &&
-    (stage !== null || real.state?.turnPlayer === classroomSeat);
+    liveBottom === classroomSeat;
 
   // A deck search by a human seat, found or not, opens the search modal (M5e). An undo shortens
   // the log, so its searches are never shown again.
@@ -1913,27 +1914,25 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
           </div>
         )}
         {overlay === "shortcuts" && (
-          <div
-            className={styles.modalBackdrop}
-            data-testid="shortcut-list"
-            onClick={() => setOverlay(null)}
+          // Paul, Nov 16: a floating window (? or Esc closes it; no backdrop to click).
+          <FloatingWindow
+            title="Keyboard shortcuts"
+            tabLabel="Keyboard shortcuts"
+            testId="shortcut-list"
           >
-            <div className={styles.modal}>
-              <div className={styles.modalHeading}>Keyboard shortcuts</div>
-              <table className={styles.shortcuts}>
-                <tbody>
-                  {SHORTCUTS.map(([key, what]) => (
-                    <tr key={key}>
-                      <td>
-                        <kbd>{key}</kbd>
-                      </td>
-                      <td>{what}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+            <table className={styles.shortcuts}>
+              <tbody>
+                {SHORTCUTS.map(([key, what]) => (
+                  <tr key={key}>
+                    <td>
+                      <kbd>{key}</kbd>
+                    </td>
+                    <td>{what}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </FloatingWindow>
         )}
         {pending && (
           <FirstPick
@@ -2000,40 +1999,41 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
           !animating &&
           !announcing &&
           !callout && (
-            <div className={styles.modalBackdrop} data-testid="game-over-modal">
-              <div className={styles.modal}>
-                <div
-                  className={styles.modalHeading}
-                  data-testid="game-over-heading"
-                >
+            // Paul, Nov 16: a floating window like the others (dragged, Hide, the board in view).
+            <FloatingWindow
+              title={
+                <span data-testid="game-over-heading">
                   {outcomeHeading(gameOver.key)}
-                </div>
-                <p data-testid="game-over-line" data-outcome={gameOver.key}>
-                  {gameOver.line}
-                </p>
-                <div className={styles.modalButtons}>
-                  {lastSetup.current && (
-                    <button
-                      type="button"
-                      className={`${styles.button} ${styles.passButton}`}
-                      data-testid="rematch"
-                      data-primary
-                      onClick={rematch}
-                    >
-                      Rematch
-                    </button>
-                  )}
+                </span>
+              }
+              tabLabel={outcomeHeading(gameOver.key)}
+              testId="game-over-modal"
+            >
+              <p data-testid="game-over-line" data-outcome={gameOver.key}>
+                {gameOver.line}
+              </p>
+              <div className={styles.modalButtons}>
+                {lastSetup.current && (
                   <button
                     type="button"
-                    className={styles.button}
-                    data-testid="game-over-close"
-                    onClick={closeGameOver}
+                    className={`${styles.button} ${styles.passButton}`}
+                    data-testid="rematch"
+                    data-primary
+                    onClick={rematch}
                   >
-                    Close [Space]
+                    Rematch
                   </button>
-                </div>
+                )}
+                <button
+                  type="button"
+                  className={styles.button}
+                  data-testid="game-over-close"
+                  onClick={closeGameOver}
+                >
+                  Close [Space]
+                </button>
               </div>
-            </div>
+            </FloatingWindow>
           )}
         {(reporting === "badBot" || reporting === "goodBot") && badBotMove && (
           <ReportModal
@@ -2163,7 +2163,10 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
           </div>
         )}
         {confirming && (
-          <div className={styles.modalBackdrop} data-testid="confirm-dialog">
+          <div
+            className={`${styles.modalBackdrop} ${styles.confirmBackdrop}`}
+            data-testid="confirm-dialog"
+          >
             <div className={styles.modal}>
               <div className={styles.modalHeading}>
                 {confirming === "move" && pendingMove
