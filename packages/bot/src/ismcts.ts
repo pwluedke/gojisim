@@ -32,7 +32,7 @@ import {
   cardRulesDead,
   rescuedPlays,
 } from "./cardRules";
-import { festVerdict } from "./festPlan";
+import { type FestOptions, festVerdict } from "./festPlan";
 import { wranglerVerdict } from "./wranglerPlan";
 import { type WranglerOptions, wranglerV2Verdict } from "./wranglerPlanV2";
 import { applyRules } from "./rules";
@@ -525,6 +525,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         me,
         input.knowledge.decks[me],
         input.knowledge.decks[first.players.find((p) => p.id !== me)?.id ?? ""],
+        groupOptions(settings, "fest") as FestOptions,
       );
       if (against.size > 0)
         for (const a of input.legalActions)
