@@ -521,19 +521,17 @@ export function search(input: BotInput, settings: IsmctsSettings) {
           );
       const { against, rescued } = verdict;
       for (const a of rescued) dead.delete(actionKey(first, a));
-      // wranglerBioHard: its prunes join the root's dead keys, while a move is left.
+      // wranglerBioHard: its prunes join the root's dead keys (pass comes back if they'd leave none).
       const pruned = "pruned" in verdict ? verdict.pruned : undefined;
-      if (
-        pruned &&
-        pruned.size > 0 &&
-        input.legalActions.some(
-          (a) =>
-            a.type !== "concede" &&
-            !pruned.has(a) &&
-            !dead.has(actionKey(first, a)),
-        )
-      )
-        for (const a of pruned) dead.add(actionKey(first, a));
+      if (pruned && pruned.size > 0) {
+        const revived = withPrunes(input.legalActions, pruned, dead, (a) =>
+          actionKey(first, a),
+        );
+        if (revived)
+          avoid = new Set(
+            [...avoid].filter((i) => input.legalActions[i] !== revived),
+          );
+      }
       avoid = new Set(
         [...avoid].filter((i) => !rescued.has(input.legalActions[i] as Action)),
       );
@@ -670,6 +668,30 @@ function cardRulesSafe(
 }
 
 /**
+ * `wranglerBioHard`: adds the plan's prunes to the root's dead keys. Paul's prunes outrank the
+ * softer rules, so when they'd leave no move, pass (never one of them) comes back first; with no
+ * pass either, nothing is pruned. Returns the revived pass, if any.
+ */
+export function withPrunes(
+  legal: readonly Action[],
+  pruned: ReadonlySet<Action>,
+  dead: Set<string>,
+  keyOf: (a: Action) => string,
+): Action | undefined {
+  const left = () =>
+    legal.some(
+      (a) => a.type !== "concede" && !pruned.has(a) && !dead.has(keyOf(a)),
+    );
+  let revived: Action | undefined;
+  if (!left()) {
+    revived = legal.find((a) => a.type === "pass" && !pruned.has(a));
+    if (revived) dead.delete(keyOf(revived));
+  }
+  if (left()) for (const a of pruned) dead.add(keyOf(a));
+  return revived;
+}
+
+/**
  * The moves a blunder pick (#132, no search) chooses among with Paul's rules on (#189): what the
  * general rules and the plans leave, as at the search root (#223), and of those the Monster X
  * plan's moves when it has any.
@@ -727,7 +749,13 @@ export function blunderAllowed(
         ).pruned
       : undefined;
   const unpruned = pruned ? sure.filter((a) => !pruned.has(a)) : sure;
-  const allowed = unpruned.some((a) => a.type !== "concede") ? unpruned : sure;
+  // Paul's prunes outrank the softer rules: with nothing else left, the bot passes.
+  const pass = legalActions.find((a) => a.type === "pass" && !pruned?.has(a));
+  const allowed = unpruned.some((a) => a.type !== "concede")
+    ? unpruned
+    : pass
+      ? [pass]
+      : sure;
   if (settings.mxPlan === 0) return allowed;
   const favored = mxPlanFavored(state, allowed, me, keyOf, settings.mxPlan);
   const planned = allowed.filter((a) => favored.has(keyOf(a)));

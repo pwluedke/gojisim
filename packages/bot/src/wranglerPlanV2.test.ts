@@ -15,7 +15,7 @@ import {
   type ZoneNumber,
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
-import { blunderAllowed, ISMCTS_DEFAULTS } from "./ismcts";
+import { blunderAllowed, ISMCTS_DEFAULTS, withPrunes } from "./ismcts";
 import type { Decklist } from "./types";
 import { DESPAIR, GAM } from "./wranglerPlan";
 import {
@@ -566,6 +566,39 @@ describe("the Wrangler plan v2", () => {
     const pruned = hardVerdict(spread.state, spreadLegal, true);
     for (const a of spreadLegal)
       if (a.type === "playBattle") expect(pruned.has(a)).toBe(false);
+  });
+
+  it("wranglerBioHard: its prunes outrank the softer rules; with only a pruned move and a ruled-out pass left, the pass comes back (the check's record: Slithering Disaster vs Rose Form in zone 5)", () => {
+    const push = {
+      type: "activateStrategy",
+      player: "P1",
+      cardInstanceId: "c1",
+      strategyZone: 1,
+    } as Action;
+    const pass = { type: "pass", player: "P1" } as Action;
+    const play = {
+      type: "playBattle",
+      player: "P1",
+      cardInstanceId: "c2",
+      zone: 1,
+    } as Action;
+    const keyOf = (a: Action) => JSON.stringify(a);
+    // Pass ruled out by another rule, the push pruned: pass comes back, the push is dead.
+    const dead = new Set([keyOf(pass)]);
+    expect(withPrunes([push, pass], new Set([push]), dead, keyOf)).toBe(pass);
+    expect(dead.has(keyOf(push))).toBe(true);
+    expect(dead.has(keyOf(pass))).toBe(false);
+    // Another live move: nothing comes back, and the push is pruned.
+    const dead2 = new Set([keyOf(pass)]);
+    expect(withPrunes([push, pass, play], new Set([push]), dead2, keyOf)).toBe(
+      undefined,
+    );
+    expect(dead2.has(keyOf(push))).toBe(true);
+    expect(dead2.has(keyOf(pass))).toBe(true);
+    // No pass at all (a choice): nothing is pruned.
+    const dead3 = new Set<string>();
+    withPrunes([push], new Set([push]), dead3, keyOf);
+    expect(dead3.size).toBe(0);
   });
 
   it("Godzilla (1954) EBP01-004 isn't stacked with a King on the board", () => {
