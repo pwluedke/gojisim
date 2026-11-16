@@ -219,6 +219,12 @@
   z-index: 5;
 }
 
+/* #404: for a card in the grid's right half, the preview opens on the left, off its + button. */
+.detailLeft {
+  right: auto;
+  left: 8px;
+}
+
 .cellImage {
   flex: 1;
   min-height: 0;

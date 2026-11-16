@@ -98,9 +98,12 @@ export function Deckbuilder() {
   );
   const shown = useMemo(() => applyFilter(pool, filter), [pool, filter]);
   // The hovered card (a grid card or a deck slot), previewed while no card detail is open.
+  // #404: `left` puts the preview on the grid's left side, for a card in the right half (the
+  // preview would cover its + button otherwise).
   const [hovered, setHovered] = useState<{
     entry: PoolEntry;
     print: Card;
+    left?: boolean;
   } | null>(null);
   // #165: the card in the detail panel, by its deck card number.
   const [selected, setSelected] = useState<string | null>(null);
@@ -237,9 +240,9 @@ export function Deckbuilder() {
       [e.deckCardNumber]:
         ((a[e.deckCardNumber] ?? 0) + step + e.prints.length) % e.prints.length,
     }));
-  const hoverCard = (card: Card | null) => {
+  const hoverCard = (card: Card | null, left = false) => {
     const entry = card ? entryOf.get(card.deckCardNumber) : undefined;
-    setHovered(card && entry ? { entry, print: card } : null);
+    setHovered(card && entry ? { entry, print: card, left } : null);
   };
 
   return (
@@ -434,7 +437,7 @@ export function Deckbuilder() {
             onOpen={(e) => setSelected(e.deckCardNumber)}
             onAdd={(e) => setDraft((d) => addCard(d, printOf(e)))}
             onRemove={(e) => setDraft((d) => removeCopy(d, e.deckCardNumber))}
-            onHover={(e) => hoverCard(e ? printOf(e) : null)}
+            onHover={(e, right) => hoverCard(e ? printOf(e) : null, right)}
           />
           {selectedEntry ? (
             <DetailPanel
@@ -466,8 +469,9 @@ export function Deckbuilder() {
           ) : (
             hovered && (
               <aside
-                className={styles.detail}
+                className={`${styles.detail} ${hovered.left ? styles.detailLeft : ""}`}
                 data-testid="db-detail"
+                data-side={hovered.left ? "left" : "right"}
                 aria-live="polite"
               >
                 <CardDetail card={hovered.print} base={hovered.entry.card} />
@@ -587,7 +591,8 @@ function CardGrid({
   onOpen: (e: PoolEntry) => void;
   onAdd: (e: PoolEntry) => void;
   onRemove: (e: PoolEntry) => void;
-  onHover: (e: PoolEntry | null) => void;
+  /** `right`: the card is in the grid's right half (#404: its preview opens on the left). */
+  onHover: (e: PoolEntry | null, right?: boolean) => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [view, setView] = useState({ top: 0, height: 800, width: 800 });
@@ -662,7 +667,10 @@ function CardGrid({
                 width: cellW,
                 height: cellH,
               }}
-              onMouseEnter={() => onHover(entry)}
+              // #404: a card in the right half has its preview on the left, off its + button.
+              onMouseEnter={() =>
+                onHover(entry, index % columns >= columns / 2)
+              }
               onMouseLeave={() => onHover(null)}
             >
               <div
