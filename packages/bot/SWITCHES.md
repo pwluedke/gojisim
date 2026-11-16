@@ -212,6 +212,12 @@ Default 1 · built · from #381
 
 The Wrangler plan's push line (Ian): an invasion that reaches a push strategy's zone (The Slithering Disaster, Godzilla Landing), after which the push and up to 3 battle card plays make the counter this turn, is taken over raging or passing; a push's follow-up counts a counter made by up to 3 plays. Needs `wranglerPlan` 2.
 
+### `wranglerResetLine`
+
+Default 1 · built · from #388
+
+The Wrangler plan's reset line (Ian): an invasion that triggers Godzilla Against Mechagodzilla EBP01-073's rage reset (the opponent's rage to 0, so a King's protection is gone), after which a rage gain (Godzilla (2023) EBP01-010's column destroy) and up to 3 battle card plays make the counter this turn, is taken over raging or passing, ahead of v2.1's rage to 3 for a King. Needs `wranglerPlan` 2.
+
 ### `wranglerV21`
 
 Default 1 · kept · from #332

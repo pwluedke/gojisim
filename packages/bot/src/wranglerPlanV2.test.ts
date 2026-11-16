@@ -425,6 +425,106 @@ describe("the Wrangler plan v2", () => {
     expect(against.has(yes)).toBe(true);
   });
 
+  it("#388 (Ian's record e63fd137 move 97): with GAM up and their King protected by their rage, the invasion whose reset (10.5.4's optional cost, yes) and then a rage destroy make the counter goes before raging", () => {
+    const setUp = (theirRage: number) => {
+      const pos = position(
+        [
+          LANDING,
+          LANDING,
+          SLITHERING,
+          "EBP03-004",
+          "EBP01-004",
+          "EBP01-003",
+          "ESC01-004",
+        ],
+        4,
+        8,
+        20,
+      );
+      const { state, p1, p2 } = pos;
+      // The bot's Godzilla (2023) EBP01-010 on top (its rage destroy), a King, GAM in zone 8.
+      p1.invadingMonsterZone = [
+        "EBP01-001",
+        "ESD01-002",
+        "EBP01-008",
+        "EBP01-008",
+        "EBP01-010",
+      ].map((n) => add(state, real(n), "P1"));
+      p1.zones[2] = [[add(state, real(KING), "P1")]];
+      p1.zones[8] = [[add(state, real(GAM), "P1")]];
+      // Monster cards for GAM to put under it.
+      p1.discard = Array.from({ length: 10 }, () =>
+        add(state, real("EBP01-002"), "P1"),
+      );
+      p2.invadingMonsterZone = [
+        "EBP01-001",
+        "ESD01-002",
+        "EBP01-008",
+        "EBP01-008",
+      ].map((n) => add(state, real(n), "P2"));
+      // Their King, protected while their rage is 3 or more.
+      p2.zones[1] = [[add(state, real(KING), "P2")]];
+      p2.zones[4] = [
+        [add(state, real(GAM), "P2"), add(state, real("EBP01-009"), "P2")],
+      ];
+      p2.rage = theirRage;
+      return pos;
+    };
+    const judge = (theirRage: number, resetLine = true) => {
+      const { state, p1 } = setUp(theirRage);
+      const legal = getLegalActions(state, "P1");
+      const v = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
+        resetLine,
+      });
+      const of = (t: Action["type"]) => legal.filter((a) => a.type === t);
+      return {
+        // Paid with a card the counter doesn't need.
+        invade: of("invade")
+          .filter((a) => ofCard(state, p1, a) !== "ESC01-004")
+          .map((a) => v.against.has(a)),
+        // Paid with the Godzilla (2023) ESC01-004 the counter needs.
+        payCounterCard: of("invade")
+          .filter((a) => ofCard(state, p1, a) === "ESC01-004")
+          .map((a) => v.against.has(a)),
+        rage: of("gainRage").map((a) => v.against.has(a)),
+        pass: of("pass").map((a) => v.against.has(a)),
+      };
+    };
+    const line = judge(7);
+    expect(line.invade.length).toBeGreaterThan(0);
+    for (const d of line.invade) expect(d).toBe(false);
+    for (const d of line.payCounterCard) expect(d).toBe(true);
+    // Raging first would spend the destroy on the protected King, so it waits.
+    expect(line.rage.length).toBeGreaterThan(0);
+    for (const d of line.rage) expect(d).toBe(true);
+    for (const d of line.pass) expect(d).toBe(true);
+    // Their rage already 0: nothing to reset, no line.
+    const none = judge(0);
+    for (const d of none.invade) expect(d).toBe(true);
+    // `wranglerResetLine: false` (the paired check's control): v2.1 rages to 3 first.
+    const off = judge(7, false);
+    for (const d of off.invade) expect(d).toBe(true);
+    for (const d of off.rage) expect(d).toBe(false);
+
+    // At the reset's prompt, v2.2 says yes: the counter follows it this turn.
+    const prompt = (resetLine: boolean) => {
+      const { state, p1 } = setUp(7);
+      const invade = getLegalActions(state, "P1").find(
+        (a) => a.type === "invade" && ofCard(state, p1, a) === LANDING,
+      )!;
+      const s = advanceToDecision(applyAction(state, invade));
+      expect(s.pendingChoice?.kind).toBe("confirm");
+      const legal = getLegalActions(s, "P1");
+      const yes = legal.find(
+        (a) => a.type === "choose" && a.optionId === "yes",
+      )!;
+      return wranglerV2Verdict(s, legal, "P1", WRANGLER, undefined, {
+        resetLine,
+      }).against.has(yes);
+    };
+    expect(prompt(true)).toBe(false);
+  });
+
   it("v2.3 (Ian): against Monster X, with fewer than 2 battle cards in hand, dig (Despair over passing)", () => {
     const { state, p1, p2 } = position([KING, DESPAIR], 3, 2);
     p2.invadingMonsterZone = [add(state, real("EBP04-032"), "P2")];

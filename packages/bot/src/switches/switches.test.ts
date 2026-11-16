@@ -87,8 +87,8 @@ describe("bot switches, one file each (#402)", () => {
     expect(readFileSync(MD, "utf8")).toBe(text);
   });
 
-  it("every setting keeps its name and default", () => {
-    expect(ISMCTS_DEFAULTS).toEqual(BEFORE);
+  it("every setting from before #402 keeps its name and default (new switches add to them)", () => {
+    expect(ISMCTS_DEFAULTS).toMatchObject(BEFORE);
   });
 
   it("the plans' options come from their switch files, under the plans' own option names", () => {
@@ -109,7 +109,7 @@ describe("bot switches, one file each (#402)", () => {
     });
     expect(
       groupOptions({ ...ISMCTS_DEFAULTS, wranglerBioHard: 0 }, "wrangler"),
-    ).toEqual({
+    ).toMatchObject({
       v21: true,
       v22: true,
       v23: true,
