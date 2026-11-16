@@ -102,7 +102,8 @@ export function FloatingWindow({
     drag.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
     setSpot({ x: rect.left, y: rect.top });
     e.currentTarget.setPointerCapture(e.pointerId);
-    e.preventDefault();
+    // No preventDefault: the mousedown that follows still reaches the page (a menu's click-outside
+    // close); the handles' CSS keeps a drag from selecting text.
   };
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const el = box.current;

@@ -2518,3 +2518,10 @@
   z-index: 33;
   background: var(--color-backdrop);
 }
+
+/* A floating window's drag handles (its title bar, or a bare window's own header): a drag
+   doesn't select their text. */
+.floatingWindow [data-drag-handle] {
+  cursor: move;
+  user-select: none;
+}
