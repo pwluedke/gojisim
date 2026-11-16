@@ -76,6 +76,18 @@ export interface IsmctsSettings {
   targetKey: number;
   /** Card rule 21 (#304): 1 (the default) keeps battle cards off your own monster's path; 0 is off. */
   ownPath: number;
+  /** Card rule 25 (#337): 1 (the default) keeps battle cards out of the zone behind; 0 is off. */
+  ownBehind: number;
+  /** #346: 1 (the default) lets Paul's rule 2 rage a same-name collector with a copy left; 0 off. */
+  collectorRage: number;
+  /** Card rule 26 (#328): 1 (the default) doesn't bury an active [invading] ability; 0 is off. */
+  activeInvading: number;
+  /** Card rule 27 (#353): 1 (the default) keeps a strategy over an out-of-reach battle card. */
+  keepStrategy: number;
+  /** Card rule 28 (#326): 1 (the default) keeps the only lower-rank monster card; 0 is off. */
+  keepLowRank: number;
+  /** Card rule 29 (#314): 1 (the default) keeps a Tangler deck back through its turn 3; 0 off. */
+  tanglerEarly: number;
   /** #339: 1 (the default) keeps a [revenge] card out of zone 8 unless it's stepped on; 0 is off. */
   revengeStep: number;
   /** Card rule 24 (#325, #329): 1 (the default) discards a recurring card first; 0 is off. */
@@ -156,6 +168,12 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   counterAlways: 1,
   targetKey: 1,
   ownPath: 1,
+  ownBehind: 1,
+  collectorRage: 1,
+  activeInvading: 1,
+  keepStrategy: 1,
+  keepLowRank: 1,
+  tanglerEarly: 1,
   revengeStep: 1,
   recurDiscard: 1,
   ownCover: 1,
@@ -489,8 +507,12 @@ export function search(input: BotInput, settings: IsmctsSettings) {
           actionKey(first, a),
         );
       if (settings.rules > 0) {
-        const verdict = applyRules(first, input.legalActions, me, (a) =>
-          actionKey(first, a),
+        const verdict = applyRules(
+          first,
+          input.legalActions,
+          me,
+          (a) => actionKey(first, a),
+          settings.collectorRage > 0,
         );
         const plans = planDead(first, input.legalActions, me, settings);
         bonus = verdict.bonus;
@@ -520,6 +542,11 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         counterFirst: settings.counterFirst > 0,
         counterAlways: settings.counterAlways > 0,
         ownPath: settings.ownPath > 0,
+        ownBehind: settings.ownBehind > 0,
+        activeInvading: settings.activeInvading > 0,
+        keepStrategy: settings.keepStrategy > 0,
+        keepLowRank: settings.keepLowRank > 0,
+        tanglerEarly: settings.tanglerEarly > 0,
         revengeStep: settings.revengeStep > 0,
         recurDiscard: settings.recurDiscard > 0,
         ownCover: settings.ownCover > 0,
@@ -754,6 +781,11 @@ function cardRulesSafe(
   targetCheck = 1,
   modeBest = 1,
   coverToken = 1,
+  ownBehind = 1,
+  activeInvading = 1,
+  keepStrategy = 1,
+  keepLowRank = 1,
+  tanglerEarly = 1,
   targetAll = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
@@ -766,6 +798,11 @@ function cardRulesSafe(
     targetCheck: targetCheck > 0,
     modeBest: modeBest > 0,
     coverToken: coverToken > 0,
+    ownBehind: ownBehind > 0,
+    activeInvading: activeInvading > 0,
+    keepStrategy: keepStrategy > 0,
+    keepLowRank: keepLowRank > 0,
+    tanglerEarly: tanglerEarly > 0,
     targetAll: targetAll > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
@@ -814,7 +851,7 @@ export function blunderAllowed(
     legalActions,
     keyOf,
     new Set(),
-    applyRules(state, legalActions, me, keyOf),
+    applyRules(state, legalActions, me, keyOf, settings.collectorRage > 0),
     planDead(state, legalActions, me, settings),
   );
   const kept = keep
@@ -836,6 +873,11 @@ export function blunderAllowed(
     settings.targetCheck,
     settings.modeBest,
     settings.coverToken,
+    settings.ownBehind,
+    settings.activeInvading,
+    settings.keepStrategy,
+    settings.keepLowRank,
+    settings.tanglerEarly,
     settings.targetAll,
   );
   const sure =
@@ -920,6 +962,11 @@ export function decide(input: BotInput): Decision {
               settings.targetCheck,
               settings.modeBest,
               settings.coverToken,
+              settings.ownBehind,
+              settings.activeInvading,
+              settings.keepStrategy,
+              settings.keepLowRank,
+              settings.tanglerEarly,
               settings.targetAll,
             )
           : [...legalActions];
