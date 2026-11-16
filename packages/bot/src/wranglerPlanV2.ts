@@ -47,6 +47,10 @@ import {
  * - Godzilla (1954) EBP01-004 isn't stacked with your Kings on the board (its zone 8 wipe takes
  *   them too).
  * - Godzilla (Fest Godzilla) EBP01-015 for the counter with a King out.
+ * - Push line (#381, Ian, `wranglerPushLine`): an invasion is also how the monster reaches a push
+ *   strategy's zone (8.3.1). An invasion (not paid with a push card) after which a push strategy
+ *   and then battle card plays make the counter this turn is taken over raging or passing; the
+ *   push's follow-up counts a counter made by up to 3 battle card plays, not only one.
  */
 
 export const KING = "EBP01-075";
@@ -95,6 +99,11 @@ const battleCards = (state: GameState, who: PlayerId) =>
     0,
   );
 
+/** #381: battle card plays a line may make for its counter (two GAMs on Ian's turn 7). */
+const LINE_PLAYS = 3;
+/** #381: the most plays-and-choices the counter search looks at, per line. */
+const LINE_NODES = 120;
+
 /** `action` played out, the bot's own choices answered first-option, or `null`. */
 function after(
   state: GameState,
@@ -135,6 +144,8 @@ export function wranglerV2Verdict(
   bio = true,
   /** `wranglerBioHard` (Paul, Nov 15): three of those rules as prunes; needs `bio`. */
   bioHard = true,
+  /** `wranglerPushLine` (#381): invade, push, counter this turn; `false` is without it. */
+  pushLine = true,
 ): { against: Set<Action>; rescued: Set<Action>; pruned?: Set<Action> } {
   if (!isWranglerDeck(own)) return { against: new Set(), rescued: new Set() };
   // Line 1 (v1's Despair line) goes first.
@@ -300,6 +311,62 @@ export function wranglerV2Verdict(
     }
   }
 
+  // #381: the counter is made, or up to LINE_PLAYS battle card plays make it this turn.
+  const reachesCounter = (s: GameState): boolean => {
+    if (counters(s, me)) return true;
+    if (s.turnPlayer !== me || s.pendingChoice) return false;
+    let nodes = LINE_NODES;
+    const search = (t: GameState, left: number): boolean => {
+      if (nodes-- <= 0) return false;
+      if (counters(t, me)) return true;
+      if (left === 0 || t.turnPlayer !== me || t.pendingChoice) return false;
+      const hand = t.players.find((p) => p.id === me)?.hand ?? [];
+      const seen = new Set<string>();
+      for (const a of getLegalActions(t, me)) {
+        if (a.type !== "playBattle") continue;
+        const c = hand.find((h) => h.instanceId === a.cardInstanceId);
+        const key = `${c ? t.cards[c.cardId]?.deckCardNumber : ""}@${a.zone}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const u = after(t, a, me);
+        if (u && search(u, left - 1)) return true;
+      }
+      return false;
+    };
+    return search(s, LINE_PLAYS);
+  };
+  // #381: an invasion that reaches a push strategy's zone, the push, then the counter this turn.
+  const pushLines = new Set<Action>();
+  if (
+    pushLine &&
+    !counters(state, me) &&
+    counterPlays(state, actions, me).size === 0
+  )
+    for (const a of actions) {
+      if (a.type !== "invade") continue;
+      const pay = number(a);
+      if (pay === LANDING || pay === SLITHERING) continue;
+      const s = after(state, a, me);
+      if (!s || s.turnPlayer !== me) continue;
+      const hand = s.players.find((p) => p.id === me)?.hand ?? [];
+      const pushes = getLegalActions(s, me).filter((p) => {
+        if (p.type !== "activateStrategy") return false;
+        const c = hand.find((h) => h.instanceId === p.cardInstanceId);
+        const n = c ? s.cards[c.cardId]?.deckCardNumber : undefined;
+        return n === LANDING || n === SLITHERING;
+      });
+      if (
+        pushes.some((p) => {
+          const t = after(s, p, me);
+          return !!t && reachesCounter(t);
+        })
+      ) {
+        pushLines.add(a);
+        against.delete(a);
+        rescued.add(a);
+      }
+    }
+
   // Push only when a follow-up comes this turn (#317): after it, the counter is made or can be
   // made, or a rank 7-8 battle card can be played.
   // v2.3 (Ian): only the counter is a follow-up, not a rank 7-8 battle card play.
@@ -308,6 +375,8 @@ export function wranglerV2Verdict(
     if (s.turnPlayer !== me) return false;
     const legal = getLegalActions(s, me);
     if (counterPlays(s, legal, me).size > 0) return true;
+    // #381: a counter two or three battle card plays make counts too.
+    if (pushLine && reachesCounter(s)) return true;
     if (v23) return false;
     const hand = s.players.find((p) => p.id === me)?.hand ?? [];
     return legal.some((a) => {
@@ -434,6 +503,14 @@ export function wranglerV2Verdict(
     )
       for (const a of actions) if (a.type === "pass") against.add(a);
   }
+
+  // #381: with a push line on, raging and passing wait (rage first would spend the turn).
+  if (pushLines.size > 0)
+    for (const a of actions)
+      if (a.type === "pass" || a.type === "gainRage") {
+        against.add(a);
+        rescued.delete(a);
+      }
 
   // wranglerBio (Ian, Nov 15): the Wrangler play guide's rules against Biollante.
   // wranglerBioHard (Paul, Nov 15): its strategy, Rose Form and zone 5 lines are prunes, not
