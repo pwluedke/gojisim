@@ -117,7 +117,7 @@ export interface BotMoveRef {
 }
 
 /** The bot action at `i` as Bad Bot! names it, or `null` when a human took it. */
-function botMoveAt(session: Session, i: number): BotMoveRef | null {
+export function botMoveAt(session: Session, i: number): BotMoveRef | null {
   const action = session.record.actions[i];
   const seat = action && session.seats[action.player as PlayerId];
   if (!action || seat?.kind !== "bot") return null;

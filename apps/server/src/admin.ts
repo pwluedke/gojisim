@@ -93,8 +93,8 @@ export function playersReport(
       `SELECT p.id, p.display_name AS name, p.created_at AS firstSeen, p.last_seen_at AS lastSeen,
          COUNT(CASE WHEN g.h2h = 0 THEN 1 END) AS botGames,
          COUNT(CASE WHEN g.h2h = 1 THEN 1 END) AS onlineGames,
-         COUNT(CASE WHEN g.result = 'win' THEN 1 END) AS wins,
-         COUNT(CASE WHEN g.result = 'loss' THEN 1 END) AS losses,
+         COUNT(CASE WHEN g.result = 'win' AND g.classroom = 0 THEN 1 END) AS wins,
+         COUNT(CASE WHEN g.result = 'loss' AND g.classroom = 0 THEN 1 END) AS losses,
          GROUP_CONCAT(DISTINCT CASE WHEN g.h2h = 0 THEN g.bot_level END) AS levels
        FROM players p LEFT JOIN games g ON g.player_id = p.id ${inSeason}
        WHERE ${REAL}

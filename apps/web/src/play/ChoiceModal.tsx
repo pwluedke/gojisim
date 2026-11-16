@@ -7,7 +7,7 @@ import { CardChips } from "./CardFace";
 import type { BoardModel } from "./model";
 import { targetLocation } from "./locations";
 import { confirmWords } from "../game/plainWords";
-import { abilityText } from "../game/labels";
+import { abilityText, choiceAbilityText } from "../game/labels";
 import { canConfirm, multiPick, toggle } from "../game/multiPick";
 import { Preview, visibleCards } from "./Preview";
 import { useViewBoard, ViewBoardBanner, ViewBoardButton } from "./ViewBoard";
@@ -209,6 +209,15 @@ export function ChoiceModal({
           From {source}
         </div>
       )}
+      {/* #376: the asking ability's text (a yes/no prompt and the ordering choices show their own). */}
+      {kind !== "confirm" &&
+        kind !== "standbyOrder" &&
+        kind !== "replacementOrder" &&
+        choiceAbilityText(state) && (
+          <div className={styles.abilityText} data-testid="choice-asking-text">
+            {choiceAbilityText(state)}
+          </div>
+        )}
       {multi && (
         <div className={styles.muted} data-testid="choice-multi-hint">
           {multi.min === multi.max

@@ -30,6 +30,8 @@ export function gameFacts(record: Json): {
   result: GameRow["result"];
   botLevel: string | null;
   deckNames: string | null;
+  /** #365: a Kaiju Classroom game, left out of win/loss statistics. */
+  classroom: boolean;
 } {
   const seats = obj(record["seats"]) ?? {};
   const human =
@@ -59,6 +61,7 @@ export function gameFacts(record: Json): {
     result,
     botLevel: typeof difficulty === "number" ? levelName(difficulty) : null,
     deckNames,
+    classroom: record["classroom"] === true,
   };
 }
 
@@ -68,17 +71,18 @@ export function indexGame(
   game: { gameId: string; playerId: string; file: string; record: Json },
   now: number,
 ): void {
-  const { result, botLevel, deckNames } = gameFacts(game.record);
+  const { result, botLevel, deckNames, classroom } = gameFacts(game.record);
   db.prepare(
-    `INSERT INTO games (game_id, player_id, file, started_at, updated_at, ended_at, result, bot_level, deck_names, season)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO games (game_id, player_id, file, started_at, updated_at, ended_at, result, bot_level, deck_names, season, classroom)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(game_id, player_id) DO UPDATE SET
        file = excluded.file,
        updated_at = excluded.updated_at,
        ended_at = COALESCE(games.ended_at, excluded.ended_at),
        result = COALESCE(excluded.result, games.result),
        bot_level = excluded.bot_level,
-       deck_names = excluded.deck_names
+       deck_names = excluded.deck_names,
+       classroom = excluded.classroom
      WHERE games.h2h = 0`,
   ).run(
     game.gameId,
@@ -92,6 +96,7 @@ export function indexGame(
     deckNames,
     // #153: a game stays in the season it started in (the update keeps it).
     currentSeason(db),
+    classroom ? 1 : 0,
   );
 }
 

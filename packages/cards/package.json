@@ -10,6 +10,7 @@
     "./all-cards": "./src/allCards.ts",
     "./decklog": "./src/decklog.ts",
     "./results": "./src/results.ts",
+    "./test-deck-set": "./src/testDeckSet.ts",
     "./data/decks/*": "./data/decks/*"
   },
   "scripts": {

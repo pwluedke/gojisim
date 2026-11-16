@@ -8,7 +8,12 @@ import {
   startGame,
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
-import { actionLabel, decisionHeading } from "./labels";
+import {
+  actionLabel,
+  choiceAbilityText,
+  choiceHeading,
+  decisionHeading,
+} from "./labels";
 
 const real = (number: string) =>
   getAllCards().find((c) => c.cardNumber === number && c.parentId === null)!;
@@ -266,5 +271,44 @@ describe("M12c-2 action labels", () => {
     ).toBe(
       "Play Godzilla Jr. [EBP03-051] on top of Baby Godzilla [EBP02-030] → zone 2",
     );
+  });
+});
+
+describe("#376: a target pick says what it does, with the ability's text", () => {
+  it("SpaceGodzilla Flying Form EBP02-057's [enter] (Paul's record 1dfdd328 move 78): choosing a card to move to an unoccupied zone, during the other player's turn", () => {
+    const decks = (["ESD01", "ESD02"] as const).map((set, i) => ({
+      id: `P${i + 1}`,
+      ...buildTestDeck(set, `labels-376-${i}`),
+    }));
+    const state = startGame({ seed: 376, decks: [decks[0]!, decks[1]!] });
+    const card = real("EBP02-057");
+    state.cards = { ...state.cards, [card.id]: card };
+    const chooser = state.players.find((p) => p.id !== state.turnPlayer)!;
+    // The [enter] ability resolving, at its target pick (only what the wording reads is set).
+    const asking = {
+      ...state,
+      resolution: {
+        standby: { abilityId: "EBP02-057#enter-move", sourceCardId: card.id },
+        stage: "effects",
+        path: [0],
+      },
+      pendingChoice: {
+        id: 1,
+        player: chooser.id,
+        kind: "target",
+        rule: "10.5.3",
+        options: [],
+      },
+    } as unknown as typeof state;
+    expect(
+      choiceHeading(asking, (id) => (id === chooser.id ? "You" : "Bot")),
+    ).toBe(
+      "You are choosing a card to move to an unoccupied zone for SpaceGodzilla Flying Form during Bot's turn",
+    );
+    expect(choiceAbilityText(asking)).toMatch(/\[enter\]/i);
+    // No ability resolving: no text.
+    expect(
+      choiceAbilityText({ ...asking, resolution: null } as never),
+    ).toBeNull();
   });
 });

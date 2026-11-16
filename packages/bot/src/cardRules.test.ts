@@ -6,6 +6,7 @@ import {
   advanceToDecision,
   counterPowerOf,
   getThreat,
+  type Action,
   applyAction,
   type CardInstance,
   type GameState,
@@ -1369,6 +1370,81 @@ describe(
         ownCover: false,
       });
       expect(off.has(play(1)!)).toBe(false);
+    });
+
+    it("rule 22 (#336): Godzilla vs. Megaguirus EBP01-064 isn't activated when it can destroy nothing (no legal target); with a rank 4 or lower battle card of theirs, it is", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      opp.monsterPosition = 6;
+      for (const z of [1, 2, 3, 4, 5, 6, 7, 8] as const) opp.zones[z] = [];
+      const gvm = add(state, real("EBP01-064"), "P1");
+      p1.hand = [gvm];
+      const judge = () => {
+        const legal = getLegalActions(state, "P1");
+        const dead = cardRulesDead(state, legal, "P1");
+        const activations = legal.filter(
+          (a) =>
+            a.type === "activateStrategy" &&
+            a.cardInstanceId === gvm.instanceId,
+        );
+        expect(activations.length).toBeGreaterThan(0);
+        return activations.map((a) => dead.has(a));
+      };
+      for (const d of judge()) expect(d).toBe(true);
+      // `targetCheck: false` (the paired check's control): rule 22 is off.
+      const legal = getLegalActions(state, "P1");
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        targetCheck: false,
+      });
+      for (const a of legal)
+        if (
+          a.type === "activateStrategy" &&
+          a.cardInstanceId === gvm.instanceId
+        )
+          expect(off.has(a)).toBe(false);
+      // A rank 4 battle card of theirs: the first mode destroys it.
+      opp.zones[3] = [[add(state, { ...real("ESD02-012"), rank: 4 }, "P2")]];
+      for (const d of judge()) expect(d).toBe(false);
+    });
+
+    it("rule 30 (#386, Paul's record b0724213 move 67): Godzilla vs. Megaguirus EBP01-064 with 4+ of your battle cards takes the zone wipe over one destroy, then the zone that destroys the most", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      opp.monsterPosition = 6;
+      for (const z of [1, 2, 3, 4, 5, 6, 7, 8] as const) opp.zones[z] = [];
+      // Their rank 4 battle cards in zones 1, 2, 3 and 7: zone 2's wipe takes three.
+      for (const z of [1, 2, 3, 7] as const)
+        opp.zones[z] = [[add(state, { ...real("ESD02-012"), rank: 4 }, "P2")]];
+      // Four of your own battle cards: the wipe mode is offered (E7).
+      for (const z of [1, 2, 3, 4] as const)
+        p1.zones[z] = [[add(state, { ...real("ESD02-012"), rank: 1 }, "P1")]];
+      const gvm = add(state, real("EBP01-064"), "P1");
+      p1.hand = [gvm];
+      const activate = getLegalActions(state, "P1").find(
+        (a) =>
+          a.type === "activateStrategy" && a.cardInstanceId === gvm.instanceId,
+      );
+      if (!activate) throw new Error("no activation");
+      let s = advanceToDecision(applyAction(state, activate));
+      const modes = getLegalActions(s, "P1").filter((a) => a.type === "choose");
+      expect(s.pendingChoice?.kind).toBe("option");
+      expect(modes.map((a) => a.type === "choose" && a.optionId)).toEqual([
+        "0",
+        "1",
+      ]);
+      const dead = cardRulesDead(s, modes, "P1");
+      expect(modes.map((a) => dead.has(a))).toEqual([true, false]);
+      // `modeBest: false` (the paired check's control): no rule 30.
+      const off = cardRulesDead(s, modes, "P1", undefined, { modeBest: false });
+      expect(modes.map((a) => off.has(a))).toEqual([false, false]);
+      // The wipe: zone 2 (zones 1-3) destroys the most; every other zone fewer.
+      s = advanceToDecision(applyAction(s, modes[1] as Action));
+      const zones = getLegalActions(s, "P1").filter((a) => a.type === "choose");
+      const zoneDead = cardRulesDead(s, zones, "P1");
+      const kept = zones.filter((a) => !zoneDead.has(a));
+      expect(kept.map((a) => a.type === "choose" && a.optionId)).toEqual([
+        "P2:2",
+      ]);
     });
 
     it("rule 2 (Paul, Nov 12): from zone 7, Godzilla vs. King Ghidorah EBP02-071 (awakening 6: destroy rank 6 or lower) clears the zone 8 blocker before the winning invasion", () => {

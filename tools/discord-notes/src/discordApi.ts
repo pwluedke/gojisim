@@ -10,6 +10,8 @@ export interface ApiUser {
   id: string;
   username: string;
   global_name?: string | null;
+  /** A bot account (Monarch's own messages, for #approvals). */
+  bot?: boolean;
 }
 
 export interface ApiMessage {
@@ -23,6 +25,8 @@ export interface ApiMessage {
   message_reference?: { message_id?: string };
   /** For a reply (type 19): the parent, when Discord still has it. */
   referenced_message?: ApiMessage | null;
+  /** Its reactions, by emoji (the users come from the reactions endpoint). */
+  reactions?: { emoji: { name: string | null }; count: number }[];
 }
 
 export interface ApiChannel {
@@ -30,6 +34,8 @@ export interface ApiChannel {
   type: number;
   name: string;
   parent_id?: string | null;
+  /** The sort order Discord shows, within its category (or among the categories). */
+  position?: number;
 }
 
 /** Channel types: text (0), category (4), announcement (5), threads (10, 11, 12), forum (15). */
@@ -38,6 +44,23 @@ export const MESSAGE_CHANNELS = new Set([0, 5]);
 export const THREAD_PARENTS = new Set([0, 5, 15]);
 
 export type DiscordGet = <T>(path: string) => Promise<T>;
+
+/** A GET Discord refused; the message has only the path (ids) and the status. */
+export class DiscordError extends Error {
+  constructor(
+    readonly path: string,
+    readonly status: number,
+  ) {
+    super(`Discord GET ${path} answered ${status}`);
+  }
+}
+
+/**
+ * Paul, Nov 15: the digest reads every category, so a channel the bot's role can't see answers
+ * 403 (or 404); it's skipped, and counted, instead of failing the run.
+ */
+export const notAllowed = (e: unknown) =>
+  e instanceof DiscordError && (e.status === 403 || e.status === 404);
 
 /** A GET-only client for the bot token. */
 export function discordClient(
@@ -60,8 +83,7 @@ export function discordClient(
         continue;
       }
       // The path holds only ids; never the token or any message text.
-      if (!res.ok)
-        throw new Error(`Discord GET ${path} answered ${res.status}`);
+      if (!res.ok) throw new DiscordError(path, res.status);
       return (await res.json()) as T;
     }
   };
@@ -78,17 +100,37 @@ export function snowflakeAt(ms: number): string {
   ).toString();
 }
 
-/** The channels in the COMMUNITY category (by name, any case) that hold messages or threads. */
-export function communityChannels(
+/** A channel the digest reads, with its category's name ("" for one outside any category). */
+export interface DigestChannel {
+  channel: ApiChannel;
+  category: string;
+}
+
+/**
+ * The channels the digest reads (Paul, Nov 15): every text, announcement and forum channel in
+ * every category, STAFF and INFO included, plus any outside a category, in Discord's order
+ * (the channels outside a category first, then each category's, by position).
+ */
+export function digestChannels(
   channels: readonly ApiChannel[],
-): ApiChannel[] {
-  const category = channels.find(
-    (c) => c.type === CATEGORY && c.name.trim().toUpperCase() === "COMMUNITY",
-  );
-  if (!category) return [];
-  return channels.filter(
-    (c) => c.parent_id === category.id && THREAD_PARENTS.has(c.type),
-  );
+): DigestChannel[] {
+  const byPosition = (a: ApiChannel, b: ApiChannel) =>
+    (a.position ?? 0) - (b.position ?? 0);
+  const readable = channels.filter((c) => THREAD_PARENTS.has(c.type));
+  const categories = channels
+    .filter((c) => c.type === CATEGORY)
+    .sort(byPosition);
+  const ids = new Set(categories.map((c) => c.id));
+  const out: DigestChannel[] = readable
+    .filter((c) => !c.parent_id || !ids.has(c.parent_id))
+    .sort(byPosition)
+    .map((channel) => ({ channel, category: "" }));
+  for (const category of categories)
+    for (const channel of readable
+      .filter((c) => c.parent_id === category.id)
+      .sort(byPosition))
+      out.push({ channel, category: category.name });
+  return out;
 }
 
 /** A channel's messages sent after `after` (a snowflake), oldest first, every page. */
@@ -133,11 +175,19 @@ export async function threadsOf(
   for (const t of active.threads)
     if (ids.has(t.parent_id ?? "")) threads.set(t.id, t);
   for (const parent of parents) {
-    const archived = await get<{
+    let archived: {
       threads: (ApiChannel & {
         thread_metadata?: { archive_timestamp?: string };
       })[];
-    }>(`/channels/${parent.id}/threads/archived/public?limit=50`);
+    };
+    try {
+      archived = await get(
+        `/channels/${parent.id}/threads/archived/public?limit=50`,
+      );
+    } catch (e) {
+      if (notAllowed(e)) continue;
+      throw e;
+    }
     for (const t of archived.threads) {
       const at = Date.parse(t.thread_metadata?.archive_timestamp ?? "");
       if (Number.isFinite(at) && at >= since) threads.set(t.id, t);

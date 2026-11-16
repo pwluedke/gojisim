@@ -2,7 +2,7 @@ import type { ApiChannel, ApiMessage, ApiUser } from "./discordApi";
 import { clean } from "./notes";
 
 /**
- * The daily digest's text (#140): one section per COMMUNITY channel (its threads under it), each
+ * The daily digest's text (#140): grouped by category, then one section per channel (its threads under it), each
  * message with its author, time and text; a reply under its parent's author and first 80
  * characters; attachments as links. Pure; `digestMain.ts` reads Discord and posts to Slack.
  */
@@ -46,10 +46,11 @@ export function shortTime(iso: string): string {
 }
 
 /** One message's lines: author, time and text; a reply with its parent; attachments as links. */
-export function messageLines(m: ApiMessage): string[] {
+export function messageLines(m: ApiMessage, link?: string): string[] {
   const text = textOf(m);
+  // Paul, Nov 15: the message's own link after its author and time, so Monarch can open it.
   const lines = [
-    `*${slackEscape(nameOf(m.author))}* (${shortTime(m.timestamp)}): ${slackEscape(text)}`,
+    `*${slackEscape(nameOf(m.author))}* (${shortTime(m.timestamp)})${link ? ` <${link}>` : ""}: ${slackEscape(text)}`,
   ];
   const parent = m.referenced_message;
   if (m.type === 19 || m.message_reference?.message_id) {
@@ -65,6 +66,8 @@ export function messageLines(m: ApiMessage): string[] {
 
 export interface ChannelMessages {
   channel: ApiChannel;
+  /** Its category's name (Paul, Nov 15: the digest is grouped by category, then channel). */
+  category?: string;
   /** The channel's own messages, oldest first. */
   messages: ApiMessage[];
   /** Its threads that have new messages, each oldest first. */
@@ -79,24 +82,49 @@ const kept = (messages: readonly ApiMessage[]) =>
   );
 
 /** Each channel's section as blocks (a heading, then one block per message), skipping empty ones. */
-export function sections(channels: readonly ChannelMessages[]): string[][] {
+/** Paul, Nov 15: a message's direct link, in its channel or thread. */
+export const messageLink = (
+  guildId: string,
+  channelId: string,
+  messageId: string,
+) => `https://discord.com/channels/${guildId}/${channelId}/${messageId}`;
+
+export function sections(
+  channels: readonly ChannelMessages[],
+  /** The server's id (`DISCORD_GUILD_ID`); with it, each message links to itself. */
+  guildId = "",
+): string[][] {
   const out: string[][] = [];
-  for (const { channel, messages, threads } of channels) {
+  const linkOf = (channelId: string, m: ApiMessage) =>
+    guildId ? messageLink(guildId, channelId, m.id) : undefined;
+  let shown: string | undefined;
+  for (const { channel, category, messages, threads } of channels) {
     const blocks: string[] = [];
-    for (const m of kept(messages)) blocks.push(messageLines(m).join("\n"));
+    for (const m of kept(messages))
+      blocks.push(messageLines(m, linkOf(channel.id, m)).join("\n"));
     for (const { thread, messages: inThread } of threads) {
       const ms = kept(inThread);
       if (ms.length === 0) continue;
-      blocks.push(`_Thread: ${slackEscape(thread.name)}_`);
+      blocks.push(`_Thread: ${slackEscape(thread.name)}_ (\`${thread.id}\`)`);
       for (const m of ms)
         blocks.push(
-          messageLines(m)
+          messageLines(m, linkOf(thread.id, m))
             .map((l) => `>${l}`)
             .join("\n"),
         );
     }
-    if (blocks.length > 0)
-      out.push([`*#${slackEscape(channel.name)}*`, ...blocks]);
+    if (blocks.length === 0) continue;
+    // Paul, Nov 15: the channel's id beside its name, so Monarch can reply there.
+    const heading = `*#${slackEscape(channel.name)}* (\`${channel.id}\`)`;
+    // The category's heading over its first channel with news.
+    if (category !== undefined && category !== shown) {
+      shown = category;
+      out.push([
+        `*${slackEscape(category === "" ? "No category" : category.toUpperCase())}*`,
+        heading,
+        ...blocks,
+      ]);
+    } else out.push([heading, ...blocks]);
   }
   return out;
 }
@@ -125,12 +153,15 @@ export function slackMessages(
   if (sectionList.length === 0) return [];
   const messages: string[] = [];
   let current = title;
-  const fit = (block: string) =>
-    block.length <= max - 20 ? block : `${block.slice(0, max - 21)}…`;
+  // A block alone too long is cut to leave room for its heading (with "(continued)").
+  const fit = (block: string, heading: string) => {
+    const room = max - heading.length - " (continued)".length - 1;
+    return block.length <= room ? block : `${block.slice(0, room - 1)}…`;
+  };
   for (const [heading = "", ...blocks] of sectionList) {
     let first = true;
     for (const raw of blocks) {
-      const block = fit(raw);
+      const block = fit(raw, heading);
       const add = `${first ? `\n\n${heading}` : ""}\n${block}`;
       if (current.length + add.length > max) {
         messages.push(current);
