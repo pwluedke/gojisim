@@ -2452,22 +2452,31 @@
 }
 
 /*
- * Kaiju Classroom's bot-turn banner (Paul, Nov 15): large, over the top mat's top right corner
- * for the whole bot turn. It takes no pointer events, so hover previews and clicks reach the
- * cards under it.
+ * Kaiju Classroom's bot-turn banner (Paul, Nov 15): in the open strip at the top of the player's
+ * mat (between its top border and the top of zones 7 and 6 and the deck), right of the counter
+ * power, and on past the mat's right edge into the log column. It takes no pointer events, so
+ * hover previews and clicks reach whatever is under it.
  */
-.xilienBanner {
+.xilienSlot {
   position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
+  top: 0;
+  height: calc(var(--mat-pad) + var(--mat-stagger));
   z-index: 30;
-  padding: var(--space-2) var(--space-4);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.xilienBanner {
+  box-sizing: border-box;
+  max-height: 100%;
+  padding: var(--space-1) var(--space-3);
   border: 2px solid var(--color-accent);
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--color-panel) 88%, transparent);
+  background: color-mix(in srgb, var(--color-panel) 92%, transparent);
   color: var(--color-text);
   box-shadow: var(--shadow);
-  text-align: right;
+  white-space: nowrap;
   pointer-events: none;
 }
 
