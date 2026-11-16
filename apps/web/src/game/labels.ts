@@ -191,6 +191,15 @@ export function replacementAskNames(
   return { source: source?.name ?? "a card", card: card?.name ?? "a card" };
 }
 
+/** #376: what a target pick does to the picked card, by the effect being resolved. */
+const TARGET_DOES: Record<string, string> = {
+  destroy: "destroy",
+  moveBattle: "move",
+  addToHand: "put into a hand",
+  sendToDiscard: "send to the discard pile",
+  boost: "boost",
+};
+
 /** What the chooser of the pending choice is doing, e.g. "searching their deck for Heat Ray". */
 function choiceWhat(state: GameState): string {
   const choice = state.pendingChoice;
@@ -252,6 +261,16 @@ function choiceWhat(state: GameState): string {
     return `choosing a monster card to play from their monster deck${by}`;
   if (choice.rule === "5.2.1" && effect?.effect === "putOnDeck")
     return `choosing a card to put on their deck${by}`;
+  // #376 (Paul): a target pick says what happens to the picked card.
+  if (choice.kind === "target") {
+    const does = TARGET_DOES[effect?.effect ?? ""];
+    if (does) {
+      const unoccupied =
+        effect?.effect === "moveBattle" &&
+        (effect as { to?: unknown }).to === "unoccupied";
+      return `choosing a card to ${does}${unoccupied ? " to an unoccupied zone" : ""}${by}`;
+    }
+  }
   return `choosing a target${by}`;
 }
 
@@ -286,6 +305,16 @@ export function choiceHeading(
       ? ""
       : ` during ${turn === "You" ? "your" : `${turn}'s`} turn`;
   return `${who} ${you ? "are" : "is"} ${you ? what.replace(/\btheir\b/g, "your") : what}${during}`;
+}
+
+/**
+ * #376 (Paul): the printed text of the ability asking for the pending choice, under the source
+ * line, so the player can read what it does; `null` with no ability resolving.
+ */
+export function choiceAbilityText(state: GameState): string | null {
+  const r = state.resolution;
+  if (!state.pendingChoice || !r) return null;
+  return abilityText(state, r.standby.abilityId) || null;
 }
 
 /** The card (or rule) that caused the pending choice, for the modal's source line (M5c). */

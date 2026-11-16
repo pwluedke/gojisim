@@ -995,6 +995,24 @@
   pointer-events: none;
 }
 
+/* Paul, Nov 15: Kaiju Classroom's compare modal folded to a bar at the screen's edge. */
+.classroomBar {
+  position: fixed;
+  bottom: var(--space-3);
+  left: 50%;
+  translate: -50% 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: calc(100vw - 2 * var(--space-4));
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  box-shadow: var(--panel-shadow);
+}
+
 /* Where the bot's last move landed, for the delay time. */
 .highlight {
   outline: 3px solid var(--color-highlight);
@@ -2241,12 +2259,54 @@
 }
 
 /* The Bad Bot! and Report bug popups' backdrop, above the Test Site panel (32). */
-.reportBackdrop {
+/*
+ * Paul, Nov 15: a window over the board with no backdrop (`FloatingWindow`), so the board keeps
+ * its hover previews and clicks. It opens centered; once dragged, `left` / `top` place it.
+ */
+.floatingWindow {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
   z-index: 34;
 }
 
-.reportModal {
+.floatingWindow[hidden] {
+  display: none;
+}
+
+/* The title bar is the drag handle; its Hide button sits at the right. */
+.floatingTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+/* A hidden window's tab, at the bottom left (the Classroom bar has the bottom center). */
+.floatingTab {
+  position: fixed;
+  bottom: var(--space-3);
+  left: var(--space-3);
+  z-index: 34;
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  color: var(--color-text);
+  box-shadow: var(--shadow);
+  font: inherit;
+  cursor: pointer;
+}
+
+.reportWindow {
   width: min(90vw, 520px);
+}
+
+.reportModal {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -2389,4 +2449,44 @@
   padding: var(--space-1) var(--space-2);
   border: 1.5px solid var(--btn-primary-fill, var(--color-panel-border));
   border-radius: 6px;
+}
+
+/*
+ * Kaiju Classroom's bot-turn banner (Paul, Nov 15): in the open strip at the top of the player's
+ * mat (between its top border and the top of zones 7 and 6 and the deck), right of the counter
+ * power, and on past the mat's right edge into the log column. It takes no pointer events, so
+ * hover previews and clicks reach whatever is under it.
+ */
+.xilienSlot {
+  position: absolute;
+  top: 0;
+  height: calc(var(--mat-pad) + var(--mat-stagger));
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.xilienBanner {
+  box-sizing: border-box;
+  max-height: 100%;
+  padding: var(--space-1) var(--space-3);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--color-panel) 92%, transparent);
+  color: var(--color-text);
+  box-shadow: var(--shadow);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.xilienTitle {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.1;
+}
+
+.xilienLine {
+  font-size: 1rem;
 }

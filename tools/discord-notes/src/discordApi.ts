@@ -10,6 +10,8 @@ export interface ApiUser {
   id: string;
   username: string;
   global_name?: string | null;
+  /** A bot account (Monarch's own messages, for #approvals). */
+  bot?: boolean;
 }
 
 export interface ApiMessage {
@@ -23,6 +25,8 @@ export interface ApiMessage {
   message_reference?: { message_id?: string };
   /** For a reply (type 19): the parent, when Discord still has it. */
   referenced_message?: ApiMessage | null;
+  /** Its reactions, by emoji (the users come from the reactions endpoint). */
+  reactions?: { emoji: { name: string | null }; count: number }[];
 }
 
 export interface ApiChannel {

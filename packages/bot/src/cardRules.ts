@@ -121,6 +121,11 @@ import type { Decklist } from "./types";
  * 23. #345 (Slick), #342: no battle card on top of your own battle card while that card has a
  *    legal play into an empty zone off your own monster's next two zones; a card with its own play
  *    on top (`onTop`, Godzilla Jr. EBP03-051) and a column card (rule 3) excepted. Any deck.
+ * 30. #386 (Paul, Nov 15): at a choice in the resolution of a strategy whose effects only destroy
+ *    the opponent's battle cards (Godzilla vs. Megaguirus EBP01-064: one rank 4 or lower card, or
+ *    with 4+ of your own battle cards a zone and its neighbours), each answer is played out with
+ *    your best answers to the choices after it; one that destroys fewer of their cards than the
+ *    best isn't picked: the mode, then the zone. Any deck.
  * 22. #336 (Tuscancow, Nov 14): a strategy whose effects only destroy the opponent's battle cards
  *    (Godzilla vs. Megaguirus EBP01-064) isn't activated when no way of answering its choices
  *    destroys one (no legal target). A plan's rescue still overrides it (the Wrangler's dig). Any
@@ -965,6 +970,58 @@ function destroysOnly(card: GameState["cards"][number] | undefined): boolean {
   );
 }
 
+/**
+ * Rule 30: at a choice of a destroy-only strategy's resolution (its mode, zone or target), the
+ * answers whose best follow-ups destroy fewer of the opponent's zone stacks than another's.
+ */
+function weakerModes(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const choice = state.pendingChoice;
+  if (choice?.player !== me) return [];
+  const opponent = state.players.find((p) => p.id !== me);
+  if (!opponent) return [];
+  const source = choice.options
+    .find((o) => o.abilityId)
+    ?.abilityId?.split("#")[0];
+  const card = Object.values(state.cards).find(
+    (c) => c.deckCardNumber === source,
+  );
+  if (!destroysOnly(card)) return [];
+  const theirCards = (s: GameState) => {
+    const o = s.players.find((p) => p.id === opponent.id);
+    return o
+      ? Object.values(o.zones).reduce((n, stacks) => n + stacks.length, 0)
+      : 0;
+  };
+  const before = theirCards(state);
+  const step = (s: GameState, a: Action) => {
+    try {
+      return advanceToDecision(applyAction(s, a));
+    } catch {
+      return null;
+    }
+  };
+  const modes = actions.filter((a) => a.type === "choose");
+  // The most of their cards each mode can destroy, the bot answering its own choices.
+  const most = modes.map((mode) => {
+    let budget = FIZZLE_BUDGET;
+    const best = (s: GameState | null): number => {
+      if (!s || budget-- <= 0) return 0;
+      const now = before - theirCards(s);
+      if (s.pendingChoice?.player !== me) return now;
+      return getLegalActions(s, me)
+        .filter((x) => x.type === "choose")
+        .reduce((m, x) => Math.max(m, best(step(s, x))), now);
+    };
+    return best(step(state, mode));
+  });
+  const top = Math.max(0, ...most);
+  return modes.filter((_, i) => (most[i] ?? 0) < top);
+}
+
 /** Rule 22: activations of destroy-only strategies that destroy nothing, however they're answered. */
 function fizzlingStrategies(
   state: GameState,
@@ -1415,6 +1472,8 @@ export interface CardRulesOptions {
   ownCover?: boolean;
   /** Rule 22 (#336): no destroy-only strategy with nothing to destroy (the default); false is off. */
   targetCheck?: boolean;
+  /** Rule 30 (#386): a destroy-only strategy's mode that destroys fewer isn't picked (default). */
+  modeBest?: boolean;
 }
 
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
@@ -1483,6 +1542,8 @@ export function cardRulesDead(
     for (const action of ownPathPlays(state, actions, me)) dead.add(action);
   if (options.ownCover !== false)
     for (const action of ownCoverPlays(state, actions, me)) dead.add(action);
+  if (options.modeBest !== false)
+    for (const action of weakerModes(state, actions, me)) dead.add(action);
   if (options.targetCheck !== false)
     for (const action of fizzlingStrategies(state, actions, me))
       dead.add(action);

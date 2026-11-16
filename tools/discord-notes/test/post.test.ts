@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { parseMentions, postPayload, postRequest, runPost } from "../src/post";
+import {
+  parseMentions,
+  parseReactions,
+  postPayload,
+  postRequest,
+  runPost,
+} from "../src/post";
 
 // A made-up webhook and made-up Discord ids.
 const WEBHOOK = "https://discord.com/api/webhooks/111/secret-token";
@@ -290,5 +296,68 @@ describe("Discord post through the bot to any channel or thread (Paul, Nov 15)",
       log: () => {},
     });
     expect(plain.calls.map((c) => c.url)).toEqual([`${WEBHOOK}?wait=true`]);
+  });
+});
+
+describe("Discord post: reactions for #approvals (Paul, Nov 15)", () => {
+  const BOT = "bot-secret-token";
+  const APPROVALS = "1450000000000000088";
+
+  it("reads names (white_check_mark, x) or emoji, each once, and refuses a typo", () => {
+    expect(parseReactions("white_check_mark, x, ✅")).toEqual(["✅", "❌"]);
+    expect(parseReactions(":x:")).toEqual(["❌"]);
+    expect(parseReactions("")).toEqual([]);
+    expect(() => parseReactions("white_check")).toThrow(/reactions/);
+  });
+
+  it("after the bot posts, it adds each reaction to its own message; a refused one warns, the post still counts", async () => {
+    const { impl, calls } = fakeFetch((url, init) =>
+      init?.method === "PUT"
+        ? new Response(null, {
+            status: url.includes(encodeURIComponent("❌")) ? 403 : 204,
+          })
+        : json({ id: "1570000000000000200" }),
+    );
+    const log: string[] = [];
+    const id = await runPost({
+      webhook: WEBHOOK,
+      channelId: APPROVALS,
+      botToken: BOT,
+      reactions: "white_check_mark,x",
+      message: "R-3 · Paul · keep EBP03-067",
+      fetchImpl: impl,
+      log: (l) => log.push(l),
+    });
+    expect(id).toBe("1570000000000000200");
+    expect(calls.map((c) => [c.init?.method, c.url])).toEqual([
+      ["POST", `https://discord.com/api/v10/channels/${APPROVALS}/messages`],
+      [
+        "PUT",
+        `https://discord.com/api/v10/channels/${APPROVALS}/messages/1570000000000000200/reactions/${encodeURIComponent("✅")}/@me`,
+      ],
+      [
+        "PUT",
+        `https://discord.com/api/v10/channels/${APPROVALS}/messages/1570000000000000200/reactions/${encodeURIComponent("❌")}/@me`,
+      ],
+    ]);
+    expect(log.some((l) => l.includes("Add Reactions"))).toBe(true);
+    expect(log.join("\n")).not.toMatch(/R-3|bot-secret-token/);
+  });
+
+  it("an edit adds no reactions", async () => {
+    const { impl, calls } = fakeFetch(() =>
+      json({ id: "1570000000000000200" }),
+    );
+    await runPost({
+      webhook: "",
+      channelId: APPROVALS,
+      botToken: BOT,
+      reactions: "white_check_mark",
+      editId: "1570000000000000200",
+      message: "edited",
+      fetchImpl: impl,
+      log: () => {},
+    });
+    expect(calls.map((c) => c.init?.method)).toEqual(["PATCH"]);
   });
 });
