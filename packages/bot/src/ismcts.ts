@@ -101,7 +101,10 @@ export interface IsmctsSettings {
   wranglerV23: number;
   /** The Wrangler play guide's rules against Biollante (Ian): 1 (the default) on; 0 off. */
   wranglerBio: number;
-  /** `wranglerBioHard` (Paul, Nov 15): 1 (the default) prunes three Biollante lines; 0 biases. */
+  /**
+   * `wranglerBioHard` (Paul, Nov 15): 1 prunes three Biollante lines; 0 (the default since its
+   * check came out worse) leaves them as `wranglerBio`'s arguments.
+   */
   wranglerBioHard: number;
   /**
    * Slick's Red Fest plan (`festPlan.ts`): 1 applies it, with `rules` on. Off by default: measured
@@ -149,7 +152,8 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   wranglerV22: 1,
   wranglerV23: 1,
   wranglerBio: 1,
-  wranglerBioHard: 1,
+  // Off by default (Paul, Nov 15): its check was worse (40 / 160 vs 63 / 160).
+  wranglerBioHard: 0,
   festPlan: 0,
   cfTarget: "auto",
   cfPlan: 1,
