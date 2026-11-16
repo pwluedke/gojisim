@@ -179,6 +179,8 @@ export function mxPlanV2Verdict(
   manda = true,
   /** `mxTargets` (#352): rule 16, the opponent's Monster X cards targeted first; `false` is off. */
   targets = true,
+  /** `mxFearReach` (#373): no Entangling Fear that keeps next turn's strategy out of reach. */
+  fearReach = true,
 ): Map<Action, number> {
   const dead = new Map<Action, number>();
   const kill = (a: Action, rule: number) => {
@@ -392,7 +394,22 @@ export function mxPlanV2Verdict(
   const feared = me.strategyZones
     .flat()
     .some((x) => cardData(state, x.card)?.deckCardNumber === ENTANGLING_FEAR);
-  if (fear.length > 0 && !invading && !feared) {
+  // #373 (Paul's R-5): Fear holds your own monster in place. A strategy in hand one rank past
+  // your monster's zone (8.3.1: a strategy's rank is at most its zone) needs next turn's advance;
+  // with this turn's counter made (the threat allows it), Fear is skipped to keep it in reach.
+  const myZone = me.monsterPosition ?? 0;
+  const needsAdvance =
+    fearReach &&
+    countered &&
+    me.hand.some((c) => {
+      const card = cardData(state, c);
+      return (
+        card?.type === "Strategy" &&
+        card.deckCardNumber !== ENTANGLING_FEAR &&
+        (card.rank ?? 0) === myZone + 1
+      );
+    });
+  if (fear.length > 0 && !invading && !feared && !needsAdvance) {
     for (const a of passes) kill(a, 4);
   } else {
     for (const a of fear) kill(a, 4);
