@@ -200,6 +200,12 @@ Default 0 · measured · from Paul, Nov 15
 
 Three of `wranglerBio`'s lines as prunes (the search and a blunder can't override them): no strategy when Biollante's rank III EBP02-027 can reach zone 6+, unless your counter beats 40,000; no counter on its Rose Form; no push out of zone 5. Needs `wranglerBio`. Off by default: its check was worse (40 / 160 vs 63 / 160, Paul, Nov 15).
 
+### `wranglerGamSetup`
+
+Default 1 · built · from #380
+
+The Wrangler plan's GAM setup (Ian): Godzilla Against Mechagodzilla EBP01-073 goes out of the opponent's reach (not in the same column as their monster's zone or its next one, where Godzilla (2023) EBP01-010's column destroy hits) when one of its zones is; and with GAM in hand but not playable and no counter this turn, a push (Godzilla Landing, The Slithering Disaster) after which GAM can go there is taken over raging or passing; GAM playable there goes down before passing. Needs `wranglerPlan` 2.
+
 ### `wranglerPlan`
 
 Default 2 · kept · from #276, #311

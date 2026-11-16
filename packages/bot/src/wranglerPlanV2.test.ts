@@ -425,6 +425,82 @@ describe("the Wrangler plan v2", () => {
     expect(against.has(yes)).toBe(true);
   });
 
+  it("#380 (Ian's record 40b04608 move 59): with GAM in hand but not playable and no counter this turn, a Landing that lets GAM go out of their reach goes before raging; GAM goes out of the column of their monster's zone and its next (4.4.5.4)", () => {
+    // Their monster in zone 6: GAM (rank 7) can't be played until a push takes it to zone 7.
+    const setUp = (oppAt: ZoneNumber) => {
+      const pos = position([LANDING, GAM, "EBP01-002"], 3, oppAt, 14);
+      pos.p1.discard = Array.from({ length: 10 }, () =>
+        add(pos.state, real("EBP01-002"), "P1"),
+      );
+      // Their rage: a threat no play counters this turn.
+      pos.p2.rage = 2;
+      return pos;
+    };
+    const judge = (gamSetup: boolean) => {
+      const { state, p1 } = setUp(6);
+      const legal = getLegalActions(state, "P1");
+      expect(
+        legal.some(
+          (a) => a.type === "playBattle" && ofCard(state, p1, a) === GAM,
+        ),
+      ).toBe(false);
+      const v = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
+        gamSetup,
+      });
+      return {
+        landing: legal
+          .filter(
+            (a) =>
+              a.type === "activateStrategy" && ofCard(state, p1, a) === LANDING,
+          )
+          .map((a) => v.against.has(a)),
+        rage: legal
+          .filter((a) => a.type === "gainRage")
+          .map((a) => v.against.has(a)),
+        pass: legal
+          .filter((a) => a.type === "pass")
+          .map((a) => v.against.has(a)),
+      };
+    };
+    const on = judge(true);
+    expect(on.landing.length).toBeGreaterThan(0);
+    for (const d of on.landing) expect(d).toBe(false);
+    for (const d of [...on.rage, ...on.pass]) expect(d).toBe(true);
+    // `wranglerGamSetup: false` (the paired check's control): no counter after it, so the
+    // Landing waits (#317).
+    const off = judge(false);
+    for (const d of off.landing) expect(d).toBe(true);
+
+    // Their monster in zone 7: their zones 7 and 8 share columns with your zones 2, 3 and 8, so GAM
+    // goes in zone 1, and down before passing.
+    const place = (gamSetup: boolean) => {
+      const { state, p1 } = setUp(7);
+      const legal = getLegalActions(state, "P1");
+      const v = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
+        gamSetup,
+      });
+      const gam = legal.filter(
+        (a): a is Extract<Action, { type: "playBattle" }> =>
+          a.type === "playBattle" && ofCard(state, p1, a) === GAM,
+      );
+      return {
+        zones: Object.fromEntries(gam.map((a) => [a.zone, !v.against.has(a)])),
+        pass: legal
+          .filter((a) => a.type === "pass")
+          .map((a) => v.against.has(a)),
+      };
+    };
+    const safe = place(true);
+    expect(safe.zones[1]).toBe(true);
+    expect(safe.zones[2]).toBe(false);
+    expect(safe.zones[8]).toBe(false);
+    for (const d of safe.pass) expect(d).toBe(true);
+    const plain = place(false);
+    expect(plain.zones[1]).toBe(true);
+    expect(plain.zones[2]).toBe(true);
+    expect(plain.zones[8]).toBe(true);
+  });
+
   it("v2.3 (Ian): against Monster X, with fewer than 2 battle cards in hand, dig (Despair over passing)", () => {
     const { state, p1, p2 } = position([KING, DESPAIR], 3, 2);
     p2.invadingMonsterZone = [add(state, real("EBP04-032"), "P2")];

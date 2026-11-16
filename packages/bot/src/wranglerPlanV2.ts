@@ -52,6 +52,11 @@ import {
  *   strategy's zone (8.3.1). An invasion (not paid with a push card) after which a push strategy
  *   and then battle card plays make the counter this turn is taken over raging or passing; the
  *   push's follow-up counts a counter made by up to 3 battle card plays, not only one.
+ * - GAM setup (#380, Ian, `wranglerGamSetup`): GAM goes out of the opponent's reach (not in the
+ *   column of their monster's zone or its next one) when one of its zones is; and with GAM in hand
+ *   but not playable and no counter this turn, a push (Landing, The Slithering Disaster) after
+ *   which GAM can go there is taken over raging or passing; GAM playable there goes down before
+ *   passing.
  */
 
 export const KING = "EBP01-075";
@@ -148,6 +153,7 @@ export function wranglerV2Verdict(
     bio = true,
     bioHard = true,
     pushLine = true,
+    gamSetup = true,
   } = options;
   if (!isWranglerDeck(own)) return { against: new Set(), rescued: new Set() };
   // Line 1 (v1's Despair line) goes first.
@@ -417,12 +423,30 @@ export function wranglerV2Verdict(
     );
   const zones = vs1994 ? KING_ZONES_VS_1994 : KING_ZONES;
   const offPath = (z: number) => !(z > at && z <= at + PATH);
+  // #380 (Ian): GAM out of the opponent's reach: not in the same column (4.4.5.4) as their
+  // monster's zone or its next one (Godzilla (2023) EBP01-010's column destroy).
+  const outOfReach = (s: GameState, z: ZoneNumber) => {
+    const o = s.players.find((p) => p.id !== me);
+    const t = o?.monsterPosition ?? 0;
+    return ![t, t + 1].some(
+      (y) =>
+        y >= 1 &&
+        y <= 8 &&
+        sameColumn(
+          { player: me, zone: z },
+          { player: o!.id, zone: y as ZoneNumber },
+        ),
+    );
+  };
   for (const n of [KING, GAM]) {
     const plays = actions.filter(
       (a): a is Extract<Action, { type: "playBattle" }> =>
         a.type === "playBattle" && number(a) === n,
     );
-    const good = plays.filter((a) => zones.has(a.zone) && offPath(a.zone));
+    let good = plays.filter((a) => zones.has(a.zone) && offPath(a.zone));
+    // #380: of those, the zones out of reach, when there are any.
+    const safe = good.filter((a) => outOfReach(state, a.zone));
+    if (gamSetup && n === GAM && safe.length > 0) good = safe;
     if (good.length > 0)
       for (const a of plays) if (!good.includes(a)) against.add(a);
   }
@@ -504,6 +528,70 @@ export function wranglerV2Verdict(
       )
     )
       for (const a of actions) if (a.type === "pass") against.add(a);
+  }
+
+  // #380 (Ian): a push that sets GAM up. With GAM in hand but not playable (their monster short of
+  // zone 7) and no counter this turn, a push after which GAM can go in one of its zones out of
+  // their reach is worth more than a rage discard: GAM stays, and resets their rage on the next
+  // invasion. The push is taken over raging or passing (rage can follow it).
+  const setups = new Set<Action>();
+  const hasGam = player.hand.some(
+    (c) => state.cards[c.cardId]?.deckCardNumber === GAM,
+  );
+  if (
+    gamSetup &&
+    hasGam &&
+    !actions.some((a) => a.type === "playBattle" && number(a) === GAM) &&
+    !counters(state, me) &&
+    counterPlays(state, actions, me).size === 0
+  )
+    for (const a of actions) {
+      const n = number(a);
+      if (a.type !== "activateStrategy" || (n !== LANDING && n !== SLITHERING))
+        continue;
+      const s = after(state, a, me);
+      if (!s || s.turnPlayer !== me) continue;
+      const hand = s.players.find((p) => p.id === me)?.hand ?? [];
+      const lands = getLegalActions(s, me).some((g) => {
+        if (g.type !== "playBattle") return false;
+        const c = hand.find((h) => h.instanceId === g.cardInstanceId);
+        return (
+          !!c &&
+          s.cards[c.cardId]?.deckCardNumber === GAM &&
+          zones.has(g.zone) &&
+          offPath(g.zone) &&
+          outOfReach(s, g.zone)
+        );
+      });
+      if (lands) setups.add(a);
+    }
+  // #380: GAM playable in one of its zones out of reach: it goes down before passing.
+  const safeGam = actions.filter(
+    (a) =>
+      a.type === "playBattle" &&
+      number(a) === GAM &&
+      zones.has(a.zone) &&
+      offPath(a.zone) &&
+      outOfReach(state, a.zone),
+  );
+  if (gamSetup && safeGam.length > 0) {
+    for (const a of safeGam) {
+      against.delete(a);
+      rescued.add(a);
+    }
+    for (const a of actions) if (a.type === "pass") against.add(a);
+  }
+  if (setups.size > 0) {
+    for (const a of actions)
+      if (a.type === "pass" || a.type === "gainRage") {
+        against.add(a);
+        rescued.delete(a);
+      }
+    // Ahead of v2.1's rage to 3 for a King, too (rage can follow the push).
+    for (const a of setups) {
+      against.delete(a);
+      rescued.add(a);
+    }
   }
 
   // #381: with a push line on, raging and passing wait (rage first would spend the turn).
