@@ -1,4 +1,5 @@
 import { getCardAbilities } from "@gojisim/cards";
+import type { GroupOptions } from "./switches/settings";
 import {
   type Action,
   advanceToDecision,
@@ -1743,38 +1744,11 @@ function idleModes(
 }
 
 /** Switches for checks of a card rule against its earlier form. */
-export interface CardRulesOptions {
-  /** #305: rule 7 takes the counter before the block (the default); false is the old rule 7. */
-  counterFirst?: boolean;
-  /** Rule 20 (#324, #327): the counter is taken without a block too (the default); false is off. */
-  counterAlways?: boolean;
-  /** Rule 21 (#304): no battle card into your own monster's path (the default); false is off. */
-  ownPath?: boolean;
-  /** #339: a [revenge] card in zone 8 only when your monster steps on it (default); false is off. */
-  revengeStep?: boolean;
-  /** Rule 24 (#325, #329): a card that comes back from the discard pile goes first (default). */
-  recurDiscard?: boolean;
-  /** Rule 23 (#345): no play on top of your own battle card while a safe zone is open (default). */
-  ownCover?: boolean;
-  /** Rule 22 (#336): no destroy-only strategy with nothing to destroy (the default); false is off. */
-  targetCheck?: boolean;
-  /** Rule 30 (#386): a destroy-only strategy's mode that destroys fewer isn't picked (default). */
-  modeBest?: boolean;
-  /** Rule 23b (#345): no play over your own battle card while one over your token is legal. */
-  coverToken?: boolean;
-  /** Rule 25 (#337): no battle card in the zone behind your monster in 6-8 (default). */
-  ownBehind?: boolean;
-  /** Rule 26 (#328): an active [invading] ability isn't buried under a monster (default). */
-  activeInvading?: boolean;
-  /** Rule 27 (#353): a strategy isn't discarded over a battle card out of reach (default). */
-  keepStrategy?: boolean;
-  /** Rule 28 (#326): the only copy of a lower-rank monster card is kept (default). */
-  keepLowRank?: boolean;
-  /** Rule 29 (#314): a Tangler deck doesn't invade before its turn 4 (default). */
-  tanglerEarly?: boolean;
-  /** Rule 22b (#378): no one-shot strategy that changes nothing (default); false is off. */
-  targetAll?: boolean;
-}
+/**
+ * The card rules' switches (#402): one key per `cardRules` switch file, each rule on unless its
+ * key is `false`. The switch's file says what its rule does.
+ */
+export type CardRulesOptions = GroupOptions<"cardRules">;
 
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
 export function cardRulesDead(

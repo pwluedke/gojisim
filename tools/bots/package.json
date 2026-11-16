@@ -13,7 +13,8 @@
     "search-rate": "GOJISIM_FREEZE=1 tsx src/searchRate.ts",
     "bots-plan": "GOJISIM_FREEZE=1 tsx src/plan.ts",
     "results": "GOJISIM_FREEZE=1 tsx src/resultsCmd.ts",
-    "test-decks": "tsx src/testDecksCmd.ts"
+    "test-decks": "tsx src/testDecksCmd.ts",
+    "switches": "tsx src/switchesCmd.ts"
   },
   "dependencies": {
     "@gojisim/bot": "workspace:*",

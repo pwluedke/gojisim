@@ -326,7 +326,7 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     expect(landing(at8).length).toBeGreaterThan(0);
     for (const a of landing(at8)) expect(against(at8).has(a)).toBe(true);
     // `mxLanding` off (`landing: false`): the old rule 9 casts it anyway.
-    const old = mxPlanV2Verdict(at8.state, at8.legal, "P1", false);
+    const old = mxPlanV2Verdict(at8.state, at8.legal, "P1", { landing: false });
     for (const a of landing(at8)) expect(old.has(a)).toBe(false);
     expect(ruleOf(at8, isPass)).not.toContain(9);
     // The counter made already (three Kaizer Ghidorah EBP04-068): Landing adds nothing.
@@ -418,7 +418,7 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     // `mxManda` off (the paired check's control): the old rule 3 leaves it.
     for (const a of costPlays(one))
       expect(
-        mxPlanV2Verdict(one.state, one.legal, "P1", true, false).get(a),
+        mxPlanV2Verdict(one.state, one.legal, "P1", { manda: false }).get(a),
       ).not.toBe(3);
   });
 
@@ -494,17 +494,9 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     ).not.toContain(17);
     // `mxProtectZones: false` (the paired check's control).
     const s = position({ turn: 5, position: 3, oppPosition: 7, ...withIsland });
-    const off = mxPlanV2Verdict(
-      s.state,
-      s.legal,
-      "P1",
-      true,
-      true,
-      true,
-      true,
-      true,
-      false,
-    );
+    const off = mxPlanV2Verdict(s.state, s.legal, "P1", {
+      protectZones: false,
+    });
     expect([...off.values()]).not.toContain(17);
   });
 
@@ -584,7 +576,7 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
         })),
       };
       const legal = getLegalActions(state, "P1");
-      const dead = mxPlanV2Verdict(state, legal, "P1", true, true, targets);
+      const dead = mxPlanV2Verdict(state, legal, "P1", { targets });
       return legal
         .filter((a) => a.type === "choose" && !dead.has(a))
         .map((a) => (a.type === "choose" ? a.optionId : ""));
@@ -654,15 +646,9 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     // `mxWhiteKeep: false` (the paired check's control): #338's (b) lets the new color go.
     for (const a of costPlays(turn1))
       expect(
-        mxPlanV2Verdict(
-          turn1.state,
-          turn1.legal,
-          "P1",
-          true,
-          true,
-          true,
-          false,
-        ).get(a),
+        mxPlanV2Verdict(turn1.state, turn1.legal, "P1", {
+          whiteKeep: false,
+        }).get(a),
       ).not.toBe(3);
     // Two colors in zones (a): the discount cheats it out, as #338 says.
     const two = position({
@@ -703,16 +689,9 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     // `mxFearReach: false` (the paired check's control; `mxWhiteKeep` on): rule 4 casts Fear whenever it can.
     for (const a of fearPlays(reach))
       expect(
-        mxPlanV2Verdict(
-          reach.state,
-          reach.legal,
-          "P1",
-          true,
-          true,
-          true,
-          true,
-          false,
-        ).has(a),
+        mxPlanV2Verdict(reach.state, reach.legal, "P1", {
+          fearReach: false,
+        }).has(a),
       ).toBe(false);
     // No rank 5 strategy waiting: Fear as before.
     const plain = position({

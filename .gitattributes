@@ -1,0 +1,2 @@
+# #402: the generated switch index, one sorted line per switch: a local merge keeps both sides' new lines.
+packages/bot/src/switches/index.ts merge=union

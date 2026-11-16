@@ -12,6 +12,7 @@ import {
   type ZoneNumber,
 } from "@gojisim/engine";
 import { makesCounter } from "./cfPlan";
+import type { GroupOptions } from "./switches/settings";
 import {
   battleTops,
   CAPTURED,
@@ -186,23 +187,24 @@ function printedPower(
 }
 
 /** The actions Paul's Monster X plan v2 argues against, each with the first rule that does. */
+/** The Monster X plan's switches (#402): one key per `mxPlan` switch file, each on by default. */
+export type MxPlanOptions = GroupOptions<"mxPlan">;
+
 export function mxPlanV2Verdict(
   state: GameState,
   actions: readonly Action[],
   player: PlayerId,
-  /** `mxLanding` (#335): no idle Landing; `false` is the old rule 9. */
-  landing = true,
-  /** `mxManda` (#338): Manda (2004)'s discount only as a setup play; `false` is the old rule 3. */
-  manda = true,
-  /** `mxTargets` (#352): rule 16, the opponent's Monster X cards targeted first; `false` is off. */
-  targets = true,
-  /** `mxWhiteKeep` (#370): the white Monster X kept unless its discard fires; `false` is off. */
-  whiteKeep = true,
-  /** `mxFearReach` (#373): no Entangling Fear that keeps next turn's strategy out of reach. */
-  fearReach = true,
-  /** `mxProtectZones` (#371): rule 17, protected cards in zones 1-5; `false` is off. */
-  protectZones = true,
+  /** The plan's switches (#402: `groupOptions(settings, "mxPlan")`); each defaults to on. */
+  options: MxPlanOptions = {},
 ): Map<Action, number> {
+  const {
+    landing = true,
+    manda = true,
+    targets = true,
+    whiteKeep = true,
+    fearReach = true,
+    protectZones = true,
+  } = options;
   const dead = new Map<Action, number>();
   const kill = (a: Action, rule: number) => {
     if (!dead.has(a)) dead.set(a, rule);

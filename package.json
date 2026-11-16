@@ -36,7 +36,8 @@
     "slack-watch": "pnpm --filter @gojisim/slack-watch slack-watch",
     "abilities:coverage": "pnpm --filter @gojisim/ability-survey coverage",
     "results": "pnpm --filter @gojisim/bots results",
-    "test-decks": "pnpm --filter @gojisim/bots test-decks"
+    "test-decks": "pnpm --filter @gojisim/bots test-decks",
+    "switches": "pnpm --filter @gojisim/bots switches"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
