@@ -98,6 +98,11 @@ export interface IsmctsSettings {
   targetCheck: number;
   /** Card rule 30 (#386): 1 (the default) picks a destroy-only strategy's strongest mode; 0 off. */
   modeBest: number;
+  /**
+   * Card rule 22b (#378): 1 leaves out one-shot strategies that do nothing; 0 (the default, Paul's
+   * option 1, Nov 16: its check leaned worse, 98 vs 105 of 172, p = 0.07) is off until a rerun.
+   */
+  targetAll: number;
   /** The Monster X plan's #335 (no idle Landing): 1 (the default) on; 0 is the old rule 9. */
   mxLanding: number;
   /** The Monster X plan's #338 (Manda's discount as a setup play): 1 (default) on; 0 old rule 3. */
@@ -110,6 +115,8 @@ export interface IsmctsSettings {
   mxFearReach: number;
   /** Card rule 23b (#345): 1 (the default) covers your own token before a battle card; 0 off. */
   coverToken: number;
+  /** Monster X plan rule 17 (#371): 1 (the default) keeps protected cards in zones 1-5; 0 off. */
+  mxProtectZones: number;
   /**
    * The Wrangler plan: 2 (the default) is v2 (`wranglerPlanV2.ts`, Paul, Nov 13) with the card
    * rules (Medium and Hard); 1 is v1 (`wranglerPlan.ts`, #276) with `rules` (Hard); 0 is off.
@@ -128,6 +135,8 @@ export interface IsmctsSettings {
    * check came out worse) leaves them as `wranglerBio`'s arguments.
    */
   wranglerBioHard: number;
+  /** #381: 1 (the default) takes an invade, push and counter line over raging; 0 off. */
+  wranglerPushLine: number;
   /**
    * Slick's Red Fest plan (`festPlan.ts`): 1 applies it, with `rules` on. Off by default: measured
    * Nov 13 it wasn't a gain (paired seeds, the August list and the bots' Red Fest); on for tuning.
@@ -174,12 +183,14 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   ownCover: 1,
   targetCheck: 1,
   modeBest: 1,
+  targetAll: 0,
   mxLanding: 1,
   mxManda: 1,
   mxTargets: 1,
   mxWhiteKeep: 1,
   mxFearReach: 1,
   coverToken: 1,
+  mxProtectZones: 1,
   wranglerPlan: 2,
   wranglerV21: 1,
   wranglerV22: 1,
@@ -187,6 +198,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   wranglerBio: 1,
   // Off by default (Paul, Nov 15): its check was worse (40 / 160 vs 63 / 160).
   wranglerBioHard: 0,
+  wranglerPushLine: 1,
   festPlan: 0,
   cfTarget: "auto",
   cfPlan: 1,
@@ -262,6 +274,8 @@ export function mxPlanFavored(
   whiteKeep = 1,
   /** `mxFearReach` (#373). */
   fearReach = 1,
+  /** `mxProtectZones` (#371). */
+  protectZones = 1,
 ): Map<string, number> {
   const against =
     version >= 2
@@ -274,6 +288,7 @@ export function mxPlanFavored(
           targets > 0,
           whiteKeep > 0,
           fearReach > 0,
+          protectZones > 0,
         )
       : mxPlanVerdict(state, actions, player);
   const keep = actions.filter((a) => a.type !== "concede" && !against.has(a));
@@ -547,6 +562,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         targetCheck: settings.targetCheck > 0,
         modeBest: settings.modeBest > 0,
         coverToken: settings.coverToken > 0,
+        targetAll: settings.targetAll > 0,
       };
       const unsafe = cardRulesDead(
         first,
@@ -600,6 +616,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         settings.mxTargets,
         settings.mxWhiteKeep,
         settings.mxFearReach,
+        settings.mxProtectZones,
       );
     // #276: the Wrangler plan, a preference like the Monster X plan, that frees what its line
     // needs from Paul's rules' holds.
@@ -626,6 +643,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
             settings.wranglerV23 > 0,
             settings.wranglerBio > 0,
             settings.wranglerBioHard > 0,
+            settings.wranglerPushLine > 0,
           )
         : wranglerVerdict(
             first,
@@ -779,6 +797,7 @@ function cardRulesSafe(
   keepStrategy = 1,
   keepLowRank = 1,
   tanglerEarly = 1,
+  targetAll = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
     counterFirst: counterFirst > 0,
@@ -795,6 +814,7 @@ function cardRulesSafe(
     keepStrategy: keepStrategy > 0,
     keepLowRank: keepLowRank > 0,
     tanglerEarly: tanglerEarly > 0,
+    targetAll: targetAll > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
   return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
@@ -869,6 +889,7 @@ export function blunderAllowed(
     settings.keepStrategy,
     settings.keepLowRank,
     settings.tanglerEarly,
+    settings.targetAll,
   );
   const sure =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
@@ -910,6 +931,7 @@ export function blunderAllowed(
     settings.mxTargets,
     settings.mxWhiteKeep,
     settings.mxFearReach,
+    settings.mxProtectZones,
   );
   const planned = allowed.filter((a) => favored.has(keyOf(a)));
   return planned.length > 0 ? planned : allowed;
@@ -957,6 +979,7 @@ export function decide(input: BotInput): Decision {
               settings.keepStrategy,
               settings.keepLowRank,
               settings.tanglerEarly,
+              settings.targetAll,
             )
           : [...legalActions];
     return {

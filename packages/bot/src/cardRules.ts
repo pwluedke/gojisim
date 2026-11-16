@@ -151,6 +151,10 @@ import type { Decklist } from "./types";
  * 29. #314 (Tuscancow; Paul's Tangler signature): a Tangler deck (Godzilla (2002) EBP03-014 and
  *    EBP03-015 in its monster deck, Entangling Fear EBP04-081 in its main deck) doesn't invade
  *    before its own turn 4 unless the invasion wins the game this turn.
+ *    22b. #378 (Paul): the same for every strategy without a continuous ability: one isn't
+ *    activated when no way of answering its choices changes anything on the board, the rage, the
+ *    discard pile or the decks and hands (beyond the card itself). Paul's exception: with 2+
+ *    copies of it in hand, a spare may still go as the turn's hand-cycling play. Any deck.
  */
 
 type Json = Record<string, unknown>;
@@ -1257,6 +1261,86 @@ function fizzlingStrategies(
  * Rule 23: plays on top of your own battle card while an empty zone off your path is legal. With
  * `token` (rule 23b), when no such zone is, plays on top of it while a play over your own token is.
  */
+/** Rule 22b: a strategy whose abilities are all one-shot (no continuous one keeps it working). */
+function oneShotStrategy(
+  card: GameState["cards"][number] | undefined,
+): boolean {
+  if (card?.type !== "Strategy") return false;
+  const abilities = getCardAbilities(card.deckCardNumber).abilities;
+  return (
+    abilities.length > 0 &&
+    abilities.every((a) => (a as unknown as Json)["kind"] !== "continuous")
+  );
+}
+
+/**
+ * Rule 22b: the public position an activation can change, as text: each player's monster (zone,
+ * stack), zones, rage, discard pile, and deck, hand and monster deck counts. `skip` is the
+ * activated card's id, left out of the discard pile so its own trip there doesn't count.
+ */
+function publicPosition(s: GameState, skip: number): string {
+  return JSON.stringify(
+    s.players.map((p) => {
+      const ids = (cards: readonly { cardId: number }[]) =>
+        cards.map((c) => c.cardId);
+      const discard = ids(p.discard);
+      const at = discard.indexOf(skip);
+      if (at >= 0) discard.splice(at, 1);
+      return [
+        p.monsterPosition,
+        ids(p.invadingMonsterZone),
+        ([1, 2, 3, 4, 5, 6, 7, 8] as const).map((z) =>
+          p.zones[z].map((st) => ids(st)),
+        ),
+        p.rage,
+        discard.sort((a, b) => a - b),
+        p.deck.length,
+        p.monsterDeck.length,
+      ];
+    }),
+  );
+}
+
+/** Rule 22b: activations of one-shot strategies that change nothing, however they're answered. */
+function idleStrategies(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  if (state.pendingChoice || state.turnPlayer !== me) return [];
+  const player = state.players.find((p) => p.id === me);
+  if (!player) return [];
+  const step = (s: GameState, a: Action) => {
+    try {
+      return advanceToDecision(applyAction(s, a));
+    } catch {
+      return null;
+    }
+  };
+  return actions.filter((a) => {
+    if (a.type !== "activateStrategy") return false;
+    const c = player.hand.find((h) => h.instanceId === a.cardInstanceId);
+    const card = c ? state.cards[c.cardId] : undefined;
+    if (!c || !oneShotStrategy(card)) return false;
+    // Paul's exception: a spare copy may go as the turn's hand-cycling play.
+    if (player.hand.filter((h) => h.cardId === c.cardId).length >= 2)
+      return false;
+    // Hand counts change by the card itself; the rest of the position is what the effect moves.
+    const before = publicPosition(state, c.cardId);
+    let budget = FIZZLE_BUDGET;
+    const changes = (s: GameState | null): boolean => {
+      if (!s || budget-- <= 0) return budget <= 0;
+      if (publicPosition(s, c.cardId) !== before) return true;
+      if (s.pendingChoice?.player !== me) return false;
+      return getLegalActions(s, me)
+        .filter((x) => x.type === "choose")
+        .some((x) => changes(step(s, x)));
+    };
+    return !changes(step(state, a));
+  });
+}
+
+/** Rule 23: plays on top of your own battle card while an empty zone off your path is legal. */
 function ownCoverPlays(
   state: GameState,
   actions: readonly Action[],
@@ -1688,6 +1772,8 @@ export interface CardRulesOptions {
   keepLowRank?: boolean;
   /** Rule 29 (#314): a Tangler deck doesn't invade before its turn 4 (default). */
   tanglerEarly?: boolean;
+  /** Rule 22b (#378): no one-shot strategy that changes nothing (default); false is off. */
+  targetAll?: boolean;
 }
 
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
@@ -1771,6 +1857,8 @@ export function cardRulesDead(
     for (const action of ownCoverPlays(state, actions, me)) dead.add(action);
   if (options.modeBest !== false)
     for (const action of weakerModes(state, actions, me)) dead.add(action);
+  if (options.targetAll !== false)
+    for (const action of idleStrategies(state, actions, me)) dead.add(action);
   if (options.targetCheck !== false)
     for (const action of fizzlingStrategies(state, actions, me))
       dead.add(action);
