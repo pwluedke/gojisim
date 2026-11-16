@@ -178,6 +178,62 @@ describe("the Wrangler plan v2", () => {
         expect(v2.against.has(a)).toBe(false);
   });
 
+  it("#381 (Ian's record e09f7ade move 14): an invasion that reaches The Slithering Disaster's zone, then the push and two battle cards make the counter this turn, is taken over raging; paid with the card the counter needs, or with no counter after, it isn't", () => {
+    const setUp = (gams: number) => {
+      const pos = position(
+        [SLITHERING, GODZILLA_1954_WIPE, ...Array(gams).fill(GAM)],
+        4,
+        4,
+        7,
+      );
+      // Their rage: a threat one GAM (10,000) can't counter and two can.
+      pos.p2.rage = 2;
+      // GAM can be played with 8+ monster cards in the discard pile.
+      pos.p1.discard = Array.from({ length: 8 }, () =>
+        add(pos.state, real("EBP01-002"), "P1"),
+      );
+      return pos;
+    };
+    const judge = (gams: number, pushLine = true) => {
+      const { state, p1 } = setUp(gams);
+      const legal = getLegalActions(state, "P1");
+      const { against } = wranglerV2Verdict(
+        state,
+        legal,
+        "P1",
+        WRANGLER,
+        undefined,
+        true,
+        true,
+        true,
+        true,
+        false,
+        pushLine,
+      );
+      const invade = (n: string) =>
+        legal.filter((a) => a.type === "invade" && ofCard(state, p1, a) === n);
+      return {
+        payWipe: invade(GODZILLA_1954_WIPE).map((a) => against.has(a)),
+        payGam: invade(GAM).map((a) => against.has(a)),
+        rage: legal
+          .filter((a) => a.type === "gainRage")
+          .map((a) => against.has(a)),
+      };
+    };
+    const line = judge(2);
+    expect(line.payWipe.length).toBeGreaterThan(0);
+    for (const d of line.payWipe) expect(d).toBe(false);
+    for (const d of line.rage) expect(d).toBe(true);
+    // Paying with a GAM leaves one: not enough for the counter, so that invasion still waits.
+    for (const d of line.payGam) expect(d).toBe(true);
+    // One GAM in hand: no counter after the push, no line; don't race again.
+    const short = judge(1);
+    for (const d of short.payWipe) expect(d).toBe(true);
+    // `wranglerPushLine: false` (the paired check's control).
+    const off = judge(2, false);
+    for (const d of off.payWipe) expect(d).toBe(true);
+  });
+
   it("Kings go in zones 1, 2 or 8, off the bot's own monster's path", () => {
     const { state, p1 } = position([KING], 3, 8);
     const legal = getLegalActions(state, "P1");

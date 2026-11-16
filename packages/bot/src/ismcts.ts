@@ -133,6 +133,8 @@ export interface IsmctsSettings {
    * check came out worse) leaves them as `wranglerBio`'s arguments.
    */
   wranglerBioHard: number;
+  /** #381: 1 (the default) takes an invade, push and counter line over raging; 0 off. */
+  wranglerPushLine: number;
   /**
    * Slick's Red Fest plan (`festPlan.ts`): 1 applies it, with `rules` on. Off by default: measured
    * Nov 13 it wasn't a gain (paired seeds, the August list and the bots' Red Fest); on for tuning.
@@ -193,6 +195,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   wranglerBio: 1,
   // Off by default (Paul, Nov 15): its check was worse (40 / 160 vs 63 / 160).
   wranglerBioHard: 0,
+  wranglerPushLine: 1,
   festPlan: 0,
   cfTarget: "auto",
   cfPlan: 1,
@@ -633,6 +636,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
             settings.wranglerV23 > 0,
             settings.wranglerBio > 0,
             settings.wranglerBioHard > 0,
+            settings.wranglerPushLine > 0,
           )
         : wranglerVerdict(
             first,
