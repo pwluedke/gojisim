@@ -88,6 +88,8 @@ export interface IsmctsSettings {
   mxManda: number;
   /** The Monster X plan's rule 16 (#352): 1 (the default) targets their Monster X first; 0 off. */
   mxTargets: number;
+  /** The Monster X plan's #370: 1 (the default) keeps the white Monster X unless it fires; 0 off. */
+  mxWhiteKeep: number;
   /**
    * The Wrangler plan: 2 (the default) is v2 (`wranglerPlanV2.ts`, Paul, Nov 13) with the card
    * rules (Medium and Hard); 1 is v1 (`wranglerPlan.ts`, #276) with `rules` (Hard); 0 is off.
@@ -136,6 +138,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   mxLanding: 1,
   mxManda: 1,
   mxTargets: 1,
+  mxWhiteKeep: 1,
   wranglerPlan: 2,
   wranglerV21: 1,
   festPlan: 0,
@@ -209,6 +212,8 @@ export function mxPlanFavored(
   manda = 1,
   /** `mxTargets` (#352). */
   targets = 1,
+  /** `mxWhiteKeep` (#370). */
+  whiteKeep = 1,
 ): Map<string, number> {
   const against =
     version >= 2
@@ -219,6 +224,7 @@ export function mxPlanFavored(
           landing > 0,
           manda > 0,
           targets > 0,
+          whiteKeep > 0,
         )
       : mxPlanVerdict(state, actions, player);
   const keep = actions.filter((a) => a.type !== "concede" && !against.has(a));
@@ -506,6 +512,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         settings.mxLanding,
         settings.mxManda,
         settings.mxTargets,
+        settings.mxWhiteKeep,
       );
     // #276: the Wrangler plan, a preference like the Monster X plan, that frees what its line
     // needs from Paul's rules' holds.
@@ -727,6 +734,7 @@ export function blunderAllowed(
     settings.mxLanding,
     settings.mxManda,
     settings.mxTargets,
+    settings.mxWhiteKeep,
   );
   const planned = allowed.filter((a) => favored.has(keyOf(a)));
   return planned.length > 0 ? planned : allowed;
