@@ -175,10 +175,38 @@ describe("Discord digest (#140)", () => {
       },
     ]);
     expect(out.map((s) => s.slice(0, 2))).toEqual([
-      ["*COMMUNITY*", "*#general*"],
-      ["*#bug-forum*", expect.any(String)],
-      ["*STAFF*", "*#reports*"],
+      ["*COMMUNITY*", "*#general* (`general`)"],
+      ["*#bug-forum* (`bugs`)", expect.any(String)],
+      ["*STAFF*", "*#reports* (`reports`)"],
     ]);
+  });
+
+  it("Paul, Nov 15: with the server's id, each message links to itself (a thread reply inside its thread), and a thread's header shows its id", () => {
+    const out = sections(
+      [
+        {
+          channel: CHANNELS[5]!,
+          category: "Community",
+          messages: [HELLO],
+          threads: [{ thread: THREAD, messages: [IN_THREAD] }],
+        },
+      ],
+      "g1",
+    );
+    const text = out.flat().join("\n");
+    expect(text).toContain(
+      `(Oct 31, 08:00 UTC) <https://discord.com/channels/g1/general/${HELLO.id}>: `,
+    );
+    expect(text).toContain(
+      `<https://discord.com/channels/g1/${THREAD.id}/${IN_THREAD.id}>`,
+    );
+    expect(text).toContain(`_Thread: Bot froze on turn 3_ (\`${THREAD.id}\`)`);
+    // Without the server's id, no links (as before).
+    expect(
+      sections([{ channel: CHANNELS[5]!, messages: [HELLO], threads: [] }])
+        .flat()
+        .join("\n"),
+    ).not.toContain("discord.com/channels");
   });
 
   it("a message shows author, time and cleaned text with links; a reply its parent's author and first 80 characters; attachments as links; nothing can mention", () => {
@@ -372,8 +400,12 @@ describe("Discord digest (#140)", () => {
     );
     expect(texts.length).toBeGreaterThan(3);
     for (const t of texts) expect(t.length).toBeLessThanOrEqual(1500);
-    expect(texts[0]?.startsWith("*Digest*\n\n*#general*\n")).toBe(true);
-    expect(texts[1]?.startsWith("*#general* (continued)\n")).toBe(true);
+    expect(texts[0]?.startsWith("*Digest*\n\n*#general* (`general`)\n")).toBe(
+      true,
+    );
+    expect(texts[1]?.startsWith("*#general* (`general`) (continued)\n")).toBe(
+      true,
+    );
     expect(texts.join("\n").match(/Tester\d+\*/g)).toHaveLength(60);
     // One block too long for any message is cut.
     const huge = msg({

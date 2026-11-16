@@ -95,7 +95,7 @@ export async function runDigest({
   const day = new Date(now).toISOString().slice(0, 10);
   const texts = slackMessages(
     `*GojiSim Discord digest, ${day}* (last ${hours} h, ${count} messages)`,
-    sections(unseen),
+    sections(unseen, guildId),
   );
   let sent = 0;
   for (const text of texts) {
