@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import type { Card } from "@gojisim/cards";
+import { type Card, getTokenCard } from "@gojisim/cards";
 import { parseDeckList } from "@gojisim/cards/deck-lists";
 import { getAllCards } from "@gojisim/cards/test-decks";
 import {
@@ -1297,6 +1297,104 @@ describe(
       expect(kept.map((a) => a.type === "choose" && a.optionId)).toEqual([
         "P2:2",
       ]);
+    });
+
+    it("rule 23 (#345, BFW182's record 68a648ca, move 14): Biollante Rose Form EBP01-048 isn't played over its own Rose Form in zone 6 while zone 7 is open off the path", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      // The record's board: your monster in zone 3 (its path is 4 and 5), zones 4, 5 and 7 empty.
+      p1.monsterPosition = 3;
+      opp.monsterPosition = 3;
+      for (const z of [1, 2, 3, 4, 5, 6, 7, 8] as const) p1.zones[z] = [];
+      const rank1 = (n: string) => add(state, { ...real(n), rank: 1 }, "P1");
+      p1.zones[1] = [[rank1("EBP01-047")]];
+      p1.zones[2] = [[rank1("ESD02-008")]];
+      p1.zones[6] = [[rank1("EBP01-048")]];
+      p1.zones[8] = [[rank1("EBP01-047")]];
+      const rose = rank1("EBP01-048");
+      p1.hand = [rose];
+      const legal = getLegalActions(state, "P1");
+      const play = (zone: number) =>
+        legal.find(
+          (a) =>
+            a.type === "playBattle" &&
+            a.cardInstanceId === rose.instanceId &&
+            a.zone === zone &&
+            !a.onTop,
+        );
+      expect(play(6)).toBeDefined();
+      expect(play(7)).toBeDefined();
+      const dead = cardRulesDead(state, legal, "P1");
+      expect(dead.has(play(6)!)).toBe(true);
+      expect(dead.has(play(7)!)).toBe(false);
+    });
+
+    it("rule 23b (#345, BFW182's record 68a648ca, move 48): with no empty zone, Destoroyah Aggregate Form EBP01-049 goes over a Tentacles token, not over its own Aggregate in zone 8", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      // The record's board: your monster in zone 4, every other zone full, Tentacles in 5 and 7.
+      p1.monsterPosition = 4;
+      opp.monsterPosition = 4;
+      const rank1 = (n: string) => add(state, { ...real(n), rank: 1 }, "P1");
+      const tentacles = () => add(state, getTokenCard("Tentacles"), "P1");
+      p1.zones[1] = [[rank1("EBP01-049")]];
+      p1.zones[2] = [[rank1("EBP01-055")]];
+      p1.zones[3] = [[rank1("EBP01-058")]];
+      p1.zones[4] = [];
+      p1.zones[5] = [[tentacles()]];
+      p1.zones[6] = [[rank1("EBP02-035")]];
+      p1.zones[7] = [[tentacles()]];
+      p1.zones[8] = [[rank1("EBP01-049")]];
+      const aggregate = rank1("EBP01-049");
+      p1.hand = [aggregate];
+      const legal = getLegalActions(state, "P1");
+      const play = (zone: number) =>
+        legal.find(
+          (a) =>
+            a.type === "playBattle" &&
+            a.cardInstanceId === aggregate.instanceId &&
+            a.zone === zone &&
+            !a.onTop,
+        );
+      expect(play(7)).toBeDefined();
+      expect(play(8)).toBeDefined();
+      const dead = cardRulesDead(state, legal, "P1");
+      expect(dead.has(play(7)!)).toBe(false);
+      expect(dead.has(play(8)!)).toBe(true);
+      // `coverToken: false`: rule 23 alone is silent with no empty zone.
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        coverToken: false,
+      });
+      expect(off.has(play(8)!)).toBe(false);
+    });
+
+    it("rule 23b (#345, BFW182): with no empty zone off your path, a battle card goes over your own token (Tentacles, 9.1.2.2), not over your own battle card", () => {
+      const { state, p1 } = withGodzilla1995();
+      // Your monster in zone 6 (its path is 7 and 8); zones 1-5 full, your Tentacles token in 1.
+      p1.zones[1] = [[add(state, getTokenCard("Tentacles"), "P1")]];
+      for (const z of [2, 3, 4, 5] as const)
+        p1.zones[z] = [[add(state, { ...real("EBP01-075"), rank: 1 }, "P1")]];
+      for (const z of [7, 8] as const) p1.zones[z] = [];
+      const king = add(state, { ...real("EBP01-075"), rank: 1 }, "P1");
+      p1.hand = [king];
+      const legal = getLegalActions(state, "P1");
+      const play = (zone: number) =>
+        legal.find(
+          (a) =>
+            a.type === "playBattle" &&
+            a.cardInstanceId === king.instanceId &&
+            a.zone === zone,
+        );
+      expect(play(1)).toBeDefined();
+      expect(play(2)).toBeDefined();
+      const dead = cardRulesDead(state, legal, "P1");
+      expect(dead.has(play(1)!)).toBe(false);
+      for (const z of [2, 3, 4, 5]) expect(dead.has(play(z)!)).toBe(true);
+      // `coverToken: false` (the paired check's control): rule 23 alone says nothing here.
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        coverToken: false,
+      });
+      for (const z of [2, 3, 4, 5]) expect(off.has(play(z)!)).toBe(false);
     });
 
     it("rule 2 (Paul, Nov 12): from zone 7, Godzilla vs. King Ghidorah EBP02-071 (awakening 6: destroy rank 6 or lower) clears the zone 8 blocker before the winning invasion", () => {
