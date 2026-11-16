@@ -29,6 +29,7 @@ import {
   recursFromDiscard,
   rescuedPlays,
   slowCounterDeck,
+  tanglerDeck,
 } from "./cardRules";
 import type { Decklist } from "./types";
 import { difficultySettings, PRESETS } from "./difficulty";
@@ -367,11 +368,12 @@ describe(
       const dead = cardRulesDead(state, legal, "P1");
       const plays = legal.filter((a) => a.type === "playBattle");
       expect(plays.length).toBeGreaterThan(1);
-      // Zone 1 holds your own card; zones 7 and 8 are your monster's path (zone 6: rule 21).
+      // Zone 1 holds your own card; zones 7 and 8 are your monster's path (zone 6: rule 21); zone
+      // 5 is behind it (rule 25).
       for (const a of plays)
         if (a.type === "playBattle")
           expect(dead.has(a)).toBe(
-            a.zone === 1 || a.zone === 7 || a.zone === 8,
+            a.zone === 1 || a.zone === 5 || a.zone === 7 || a.zone === 8,
           );
     });
 
@@ -512,6 +514,46 @@ describe(
         expect(
           cardRulesDead(state, winning.legal, "P1", deckWith(4)).has(a),
         ).toBe(false);
+    });
+
+    it("rule 29 (#314, Tuscancow's record 14874e56, move 2): a Tangler deck (Godzilla (2002) EBP03-014 and EBP03-015, Entangling Fear EBP04-081) doesn't invade before its own turn 4; from turn 4 it may", () => {
+      const tangler: Decklist = {
+        monsterDeck: ["EBP03-014", "EBP03-015", "EPR-020", "EBP03-013"].map(
+          real,
+        ),
+        mainDeck: [
+          real("EBP04-081"),
+          ...Array.from({ length: 49 }, () => real("ESD01-004")),
+        ],
+      };
+      expect(tanglerDeck(tangler)).toBe(true);
+      // Monster X's Entangling Fear alone isn't a Tangler: no Godzilla (2002) monster deck.
+      expect(tanglerDeck({ ...tangler, monsterDeck: [] })).toBe(false);
+      const { state, p1 } = withGodzilla1995();
+      p1.hand = [add(state, real("ESD01-016"), "P1")];
+      p1.monsterPosition = 2;
+      const invadesAt = (turn: number) => {
+        state.turn = turn;
+        const legal = getLegalActions(state, "P1");
+        const invade = legal.filter((a) => a.type === "invade");
+        expect(invade.length).toBeGreaterThan(0);
+        return {
+          on: invade.map((a) =>
+            cardRulesDead(state, legal, "P1", tangler).has(a),
+          ),
+          off: invade.map((a) =>
+            cardRulesDead(state, legal, "P1", tangler, {
+              tanglerEarly: false,
+            }).has(a),
+          ),
+        };
+      };
+      // Its own turn 2 (game turn 3 or 4): left out; `tanglerEarly: false` (the control) keeps it.
+      const early = invadesAt(3);
+      for (const d of early.on) expect(d).toBe(true);
+      for (const d of early.off) expect(d).toBe(false);
+      // Its own turn 4 (game turn 7): it may invade.
+      for (const d of invadesAt(7).on) expect(d).toBe(false);
     });
 
     /**
@@ -1068,6 +1110,166 @@ describe(
         ownPath: false,
       });
       for (const a of plays) expect(off.has(a)).toBe(false);
+    });
+
+    it("rule 25 (#337, Tuscancow's record 4b49a66b, move 57): with your monster in zone 6, a battle card isn't played into zone 5, where a counter moves it back and crushes it (5.15.1.1), while zone 1 is open", () => {
+      const { state, p1 } = withGodzilla1995();
+      // Your monster in zone 6 (behind it is zone 5; its path is 7 and 8). Rank 1 Monster X.
+      p1.monsterPosition = 6;
+      for (const z of [1, 2, 3, 4, 5, 6, 7, 8] as const) p1.zones[z] = [];
+      const card = add(state, { ...real("EBP04-047"), rank: 1 }, "P1");
+      p1.hand = [card];
+      const legal = getLegalActions(state, "P1");
+      const play = (zone: number) =>
+        legal.find(
+          (a) =>
+            a.type === "playBattle" &&
+            a.cardInstanceId === card.instanceId &&
+            a.zone === zone,
+        );
+      expect(play(5)).toBeDefined();
+      expect(play(1)).toBeDefined();
+      const dead = cardRulesDead(state, legal, "P1");
+      expect(dead.has(play(5)!)).toBe(true);
+      expect(dead.has(play(1)!)).toBe(false);
+      // `ownBehind: false` (the paired check's control): zone 5 is the search's call again.
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        ownBehind: false,
+      });
+      expect(off.has(play(5)!)).toBe(false);
+      // With your monster in zone 4 there's no zone behind it: the rule is silent.
+      p1.monsterPosition = 4;
+      const legal4 = getLegalActions(state, "P1");
+      const at4 = cardRulesDead(state, legal4, "P1", undefined, {
+        ownPath: false,
+      });
+      for (const a of legal4)
+        if (a.type === "playBattle") expect(at4.has(a)).toBe(false);
+    });
+
+    it("rule 26 (#328, Keldroc's record 815bc729, move 83): with Thousand-Year Dragon King Ghidorah EBP03-029's [invading] modes active (7 cards under it) and an invasion legal, Mecha-King Ghidorah EBP02-051 isn't stacked on it; a second EBP03-029 may be", () => {
+      const { state, p1 } = withGodzilla1995();
+      // Your monster: EBP03-029 on top of 7 King Ghidorah cards (its 7-card condition met).
+      p1.monsterPosition = 3;
+      p1.invadingMonsterZone = [
+        ...Array.from({ length: 7 }, () => add(state, real("EBP02-045"), "P1")),
+        add(state, real("EBP03-029"), "P1"),
+      ];
+      const mecha = add(state, real("EBP02-051"), "P1");
+      const copy = add(state, real("EBP03-029"), "P1");
+      // An icon-1 battle card to invade with.
+      p1.hand = [mecha, copy, add(state, real("EBP01-002"), "P1")];
+      const legal = getLegalActions(state, "P1");
+      const stack = (id: string) =>
+        legal.find((a) => a.type === "playMonster" && a.cardInstanceId === id);
+      expect(stack(mecha.instanceId)).toBeDefined();
+      expect(stack(copy.instanceId)).toBeDefined();
+      expect(legal.some((a) => a.type === "invade")).toBe(true);
+      const dead = cardRulesDead(state, legal, "P1");
+      expect(dead.has(stack(mecha.instanceId)!)).toBe(true);
+      expect(dead.has(stack(copy.instanceId)!)).toBe(false);
+      // `activeInvading: false` (the paired check's control): the stack is the search's call.
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        activeInvading: false,
+      });
+      expect(off.has(stack(mecha.instanceId)!)).toBe(false);
+      // With 6 cards under it the modes aren't active: the rule is silent.
+      p1.invadingMonsterZone = p1.invadingMonsterZone.slice(1);
+      const legal6 = getLegalActions(state, "P1");
+      const dead6 = cardRulesDead(state, legal6, "P1");
+      const stack6 = legal6.find(
+        (a) =>
+          a.type === "playMonster" && a.cardInstanceId === mecha.instanceId,
+      );
+      expect(stack6 && dead6.has(stack6)).toBe(false);
+    });
+
+    it("rule 27 (#353, BFW182's record 457786fa, move 84): drawing then discarding (5.7.1), Godzilla vs. Megaguirus EBP01-064 isn't discarded while a rank 8 battle card (out of reach: their monster in zone 3, 8.2.1) can go", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      const strategy = add(state, real("EBP01-064"), "P1");
+      const perfect = add(state, real("ESD02-013"), "P1");
+      p1.hand = [strategy, perfect];
+      const discard = (oppAt: ZoneNumber) => {
+        opp.monsterPosition = oppAt;
+        state.pendingChoice = {
+          id: 950,
+          player: "P1",
+          kind: "target",
+          rule: "5.7.1",
+          options: [strategy, perfect].map((c) => ({
+            id: c.instanceId,
+            cardId: c.cardId,
+            abilityId: "EBP01-047#enter-draw",
+          })),
+        };
+        const legal = getLegalActions(state, "P1");
+        const pick = (id: string) =>
+          legal.find((a) => a.type === "choose" && a.optionId === id);
+        return {
+          legal,
+          strategy: pick(strategy.instanceId)!,
+          perfect: pick(perfect.instanceId)!,
+        };
+      };
+      const near = discard(3);
+      const dead = cardRulesDead(state, near.legal, "P1");
+      expect(dead.has(near.strategy)).toBe(true);
+      expect(dead.has(near.perfect)).toBe(false);
+      // `keepStrategy: false` (the paired check's control): either may go.
+      const off = cardRulesDead(state, near.legal, "P1", undefined, {
+        keepStrategy: false,
+      });
+      expect(off.has(near.strategy)).toBe(false);
+      // Their monster in zone 6: rank 8 is in reach by your next turn, so the rule is silent.
+      const far = discard(6);
+      expect(cardRulesDead(state, far.legal, "P1").has(far.strategy)).toBe(
+        false,
+      );
+    });
+
+    it("rule 28 (#326, Keldroc's record a3d7cf37, move 6): forced to discard one (5.7.1), the only Rank II King Ghidorah (1964) EBP02-045 stays and the Rank IV Mecha-King Ghidorah EBP02-051 goes", () => {
+      const { state, p1 } = withGodzilla1995();
+      const r2 = add(state, real("EBP02-045"), "P1");
+      const r4 = add(state, real("EBP02-051"), "P1");
+      p1.hand = [r2, r4];
+      state.pendingChoice = {
+        id: 951,
+        player: "P1",
+        kind: "target",
+        rule: "5.7.1",
+        options: [r2, r4].map((c) => ({
+          id: c.instanceId,
+          cardId: c.cardId,
+          abilityId: "ESD01-005#discard",
+        })),
+      };
+      const legal = getLegalActions(state, "P1");
+      const pick = (id: string) =>
+        legal.find((a) => a.type === "choose" && a.optionId === id)!;
+      const dead = cardRulesDead(state, legal, "P1");
+      expect(dead.has(pick(r2.instanceId))).toBe(true);
+      expect(dead.has(pick(r4.instanceId))).toBe(false);
+      // `keepLowRank: false` (the paired check's control): either may go.
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        keepLowRank: false,
+      });
+      expect(off.has(pick(r2.instanceId))).toBe(false);
+      // Two Rank II copies (Keldroc's 0f5bcddb move 4): a spare copy may go.
+      const spare = add(state, real("EBP02-045"), "P1");
+      p1.hand = [r2, spare];
+      state.pendingChoice = {
+        ...state.pendingChoice,
+        options: [r2, spare].map((c) => ({
+          id: c.instanceId,
+          cardId: c.cardId,
+          abilityId: "ESD01-005#discard",
+        })),
+      };
+      const legal2 = getLegalActions(state, "P1");
+      const dead2 = cardRulesDead(state, legal2, "P1");
+      for (const a of legal2)
+        if (a.type === "choose") expect(dead2.has(a)).toBe(false);
     });
 
     it("rule 21: a [revenge] card (Dorat EBP02-058) is left to rule 17, which wants it on the path", () => {

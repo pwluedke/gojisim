@@ -188,9 +188,16 @@ export function counters(state: GameState, player: PlayerId): boolean {
 /**
  * Rule 2: the monster cards in hand to hold: each has its own ability, shares a trait with the
  * invading monster and has a rank at or above it, so it can still be played on top (8.5.1). At
- * most one per rank (Monarch): extra copies go to rage.
+ * most one per rank (Monarch): extra copies go to rage. #346 (`collectorRage`): a card whose
+ * [enter] puts its same-name cards from your discard pile under it (King Ghidorah (1965)
+ * EBP02-046) isn't held while another copy is in your monster deck, hand or monster stack: raging
+ * it powers that copy.
  */
-export function heldCards(state: GameState, me: PlayerState): Set<string> {
+export function heldCards(
+  state: GameState,
+  me: PlayerState,
+  collector = true,
+): Set<string> {
   const active = cardOf(state, topOf(me.invadingMonsterZone));
   const held = new Set<string>();
   if (!active || active.rank === null) return held;
@@ -206,13 +213,42 @@ export function heldCards(state: GameState, me: PlayerState): Set<string> {
       data.rank < active.rank ||
       abilitiesOf(data).length === 0 ||
       !getCardTraits(data).some((t) => traits.has(t)) ||
-      ranks.has(data.rank)
+      ranks.has(data.rank) ||
+      (collector && collectsOwnName(data) && otherCopy(state, me, c))
     )
       continue;
     ranks.add(data.rank);
     held.add(c.instanceId);
   }
   return held;
+}
+
+/** #346: an [enter] that puts this card's same-name cards from your discard pile under it. */
+function collectsOwnName(card: Card): boolean {
+  return abilitiesOf(card).some(
+    (ability) =>
+      ability["kind"] === "triggered" &&
+      ((ability["effects"] as Json[] | undefined) ?? []).some((effect) => {
+        const target = effect["target"] as Json | undefined;
+        return (
+          effect["effect"] === "placeUnder" &&
+          target?.["area"] === "discard" &&
+          target["name"] === card.name
+        );
+      }),
+  );
+}
+
+/** #346: another copy of `card`'s name in your monster deck, hand or monster stack. */
+function otherCopy(
+  state: GameState,
+  me: PlayerState,
+  card: CardInstance,
+): boolean {
+  const name = cardOf(state, card)?.name;
+  return [...me.monsterDeck, ...me.hand, ...me.invadingMonsterZone].some(
+    (c) => c.instanceId !== card.instanceId && cardOf(state, c)?.name === name,
+  );
 }
 
 /** Rule 1: whether a card in play, in hand or in the monster deck wants a bigger stack. */
@@ -282,6 +318,8 @@ export function applyRules(
   actions: readonly Action[],
   player: PlayerId,
   keyOf: (action: Action) => string,
+  /** `collectorRage` (#346): rule 2's exception for a same-name collector; `false` is off. */
+  collector = true,
 ): RuleVerdict {
   const killed = new Set<Action>();
   const kill = (a: Action) => killed.add(a);
@@ -330,14 +368,14 @@ export function applyRules(
     }
     if (choice.rule !== "5.7.1") return verdict();
     const [me] = players(state, player);
-    const held = heldCards(state, me);
+    const held = heldCards(state, me, collector);
     for (const a of actions)
       if (a.type === "choose" && held.has(a.optionId)) kill(a);
     return verdict();
   }
   if (state.turnPlayer !== player) return verdict();
   const [me, opponent] = players(state, player);
-  const held = heldCards(state, me);
+  const held = heldCards(state, me, collector);
   const monster = (a: Action) => cardOf(state, handCard(me, actionCard(a)));
   const add = (a: Action) => bonus.set(keyOf(a), RULE_BONUS);
 
