@@ -23,6 +23,8 @@ import {
   isFestDeck,
   RIDE,
   SPACE_BEAM,
+  HEAT_RAY,
+  GODZILLA_2023_IV,
 } from "./festPlan";
 import type { Decklist } from "./types";
 
@@ -241,5 +243,57 @@ describe("the Red Fest plan", () => {
     const plain = festVerdict(state, legal, "P1", FEST);
     for (const a of legal)
       if (a.type === "pass") expect(plain.against.has(a)).toBe(false);
+  });
+
+  it("line 5, wall up (#400, Slick): against Monster X and behind in the counter race, no invasion below rank IV but a winning one, and Heat Ray and the rank IV Godzilla (2023) are held", () => {
+    const monsterX = getAllCards().find(
+      (c) =>
+        c.name === "Monster X" && c.type === "Monster" && c.parentId === null,
+    ) as Card;
+    const theirs: Decklist = { monsterDeck: [monsterX], mainDeck: [] };
+    const verdict = (behind: boolean, wall = true) => {
+      const { state, p1 } = position(
+        "EBP01-012",
+        [HEAT_RAY, GODZILLA_2023_IV, "ESD01-005"],
+        4,
+      );
+      // Countered twice, countered them once (the log's counter entries name the countered).
+      const entry = (player: "P1" | "P2") =>
+        ({ seq: 0, type: "counter", player, payload: {} }) as never;
+      state.log = behind
+        ? [...state.log, entry("P1"), entry("P1"), entry("P2")]
+        : [...state.log, entry("P2")];
+      const legal = getLegalActions(state, "P1");
+      const { against } = festVerdict(
+        state,
+        legal,
+        "P1",
+        FEST,
+        theirs,
+        true,
+        wall,
+      );
+      const of = (pick: (a: Action) => boolean) =>
+        legal.filter(pick).map((a) => against.has(a));
+      return {
+        rage2023: of(
+          (a) =>
+            a.type === "gainRage" && ofCard(state, p1, a) === GODZILLA_2023_IV,
+        ),
+        heatRay: of(
+          (a) =>
+            a.type === "activateStrategy" && ofCard(state, p1, a) === HEAT_RAY,
+        ),
+      };
+    };
+    const walled = verdict(true);
+    expect(walled.rage2023.length).toBeGreaterThan(0);
+    for (const d of walled.rage2023) expect(d).toBe(true);
+    expect(walled.heatRay.length).toBeGreaterThan(0);
+    for (const d of walled.heatRay) expect(d).toBe(true);
+    // Ahead in the counter race: no wall.
+    for (const d of verdict(false).rage2023) expect(d).toBe(false);
+    // `festWall: false` (the paired check's control).
+    for (const d of verdict(true, false).rage2023) expect(d).toBe(false);
   });
 });

@@ -1,5 +1,10 @@
-import type { Action, GameState, PlayerId } from "@gojisim/engine";
-import { canClearZone8, counterPlays } from "./cardRules";
+import {
+  type Action,
+  type GameState,
+  getLegalActions,
+  type PlayerId,
+} from "@gojisim/engine";
+import { canClearZone8, counterPlays, winsNow } from "./cardRules";
 import { counterWithin, playOut } from "./counterReach";
 import type { Decklist } from "./types";
 
@@ -23,6 +28,11 @@ import type { Decklist } from "./types";
  * its same-column push (advancing into the column of their monster pushes it forward) with a
  * counter to follow this turn (up to 3 battle card plays); then it isn't argued against, and no
  * other invasion at rank I is allowed (the early exception included).
+ * Line 5, wall up (#400, Slick, `festWall`): against Monster X, once behind in the counter race
+ * (countered more often than it has countered), stop racing: below rank IV no invasion but one
+ * that wins this turn; Heat Ray ESD01-016 is held for the invasion win (only when an invasion after it wins);
+ * the rank IV Godzilla (2023) EBP01-010 isn't raged away or paid with. Hoard and rage toward the
+ * rank IV Fest (line 5's rage over passing).
  * Line 5 (needs the Fest rank IV EBP01-014), against Monster X: the rank IV Fest with 2 or more
  * battle cards in your zones (Monster X's rank 5 or lower battle cards can't engage it), rage
  * heavily, and from rank IV go for the invasion.
@@ -36,6 +46,9 @@ export const SPACE_BEAM = "EBP01-031";
 export const ANGUIRUS_2004 = "EBP02-016";
 export const RIDE = "EPR-015";
 export const GODZILLA_1954_BATTLE = "ESC01-001";
+/** Line 5, wall up: the removal held for the invasion win, and the rank IV it rides on. */
+export const HEAT_RAY = "ESD01-016";
+export const GODZILLA_2023_IV = "EBP01-010";
 /** Line 2: invade from this rank of the invading monster. */
 const INVADE_FROM_RANK = 4;
 /** Line 2's exception: monster cards in hand to rage. */
@@ -75,6 +88,8 @@ export function festVerdict(
   theirs?: Decklist,
   /** `festRankOne` (#400): rank I invades only for the push and a counter; `false` is line 2. */
   rankOne = true,
+  /** `festWall` (#400): against Monster X, behind on counters, wall up; `false` is off. */
+  wall = true,
 ): { against: Set<Action>; rescued: Set<Action> } {
   const against = new Set<Action>();
   const rescued = new Set<Action>();
@@ -203,6 +218,39 @@ export function festVerdict(
     // From rank IV, the invasion over passing.
     if (rank >= INVADE_FROM_RANK && invades.length > 0)
       for (const a of actions) if (a.type === "pass") against.add(a);
+  }
+
+  // Line 5, wall up (#400, Slick): against Monster X and behind in the counter race.
+  // The log's counter entries name the player countered (5.15.1).
+  const countered = (who: PlayerId) =>
+    state.log.filter((e) => e.type === "counter" && e.player === who).length;
+  if (wall && vsMonsterX && countered(me) > countered(opponent.id)) {
+    // Below rank IV: no invasion but one that wins now (from rank IV, line 5 goes for it).
+    if (rank < INVADE_FROM_RANK)
+      for (const a of invades) if (!winsNow(state, a, me)) against.add(a);
+    for (const a of actions) {
+      const n =
+        "cardInstanceId" in a
+          ? card(a.cardInstanceId)?.deckCardNumber
+          : undefined;
+      // The rank IV Godzilla (2023) is held: not raged away, not paid with.
+      if (
+        (a.type === "gainRage" || a.type === "invade") &&
+        n === GODZILLA_2023_IV
+      )
+        against.add(a);
+      // Heat Ray waits for the invasion win: only when an invasion after it wins.
+      if (a.type === "activateStrategy" && n === HEAT_RAY) {
+        const s = playOut(state, a, me);
+        const wins =
+          !!s &&
+          s.turnPlayer === me &&
+          getLegalActions(s, me).some(
+            (b) => b.type === "invade" && winsNow(s, b, me),
+          );
+        if (!wins) against.add(a);
+      }
+    }
   }
 
   // Never argue against everything.

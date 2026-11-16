@@ -119,6 +119,8 @@ export interface IsmctsSettings {
   festPlan: number;
   /** The Red Fest plan's rank I line (#400, Slick): 1 (the default) on with `festPlan`; 0 off. */
   festRankOne: number;
+  /** The Red Fest plan's wall-up (#400, Slick): 1 (the default) on with `festPlan`; 0 off. */
+  festWall: number;
   /** Paul's Constructed Future plan (`cfPlan.ts`), with `rules` on: 1 (the default) on, 0 off. */
   cfPlan: number;
   /**
@@ -167,6 +169,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   wranglerBioHard: 0,
   festPlan: 0,
   festRankOne: 1,
+  festWall: 1,
   cfTarget: "auto",
   cfPlan: 1,
   mxPlan: 2,
@@ -633,6 +636,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         input.knowledge.decks[me],
         input.knowledge.decks[first.players.find((p) => p.id !== me)?.id ?? ""],
         settings.festRankOne > 0,
+        settings.festWall > 0,
       );
       if (against.size > 0)
         for (const a of input.legalActions)
