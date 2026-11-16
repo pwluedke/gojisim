@@ -72,6 +72,8 @@ export interface IsmctsSettings {
   counterFirst: number;
   /** Card rule 20 (#324, #327): 1 (the default) takes the counter without a block too; 0 is off. */
   counterAlways: number;
+  /** #358: 1 (the default) keys a field card's choice option by its zone too; 0 by card id only. */
+  targetKey: number;
   /** Card rule 21 (#304): 1 (the default) keeps battle cards off your own monster's path; 0 is off. */
   ownPath: number;
   /** #339: 1 (the default) keeps a [revenge] card out of zone 8 unless it's stepped on; 0 is off. */
@@ -82,7 +84,12 @@ export interface IsmctsSettings {
   ownCover: number;
   /** Card rule 22 (#336): 1 (the default) leaves out destroy-only strategies with no target; 0 off. */
   targetCheck: number;
-  /** Card rule 22b (#378): 1 (the default) leaves out one-shot strategies that do nothing; 0 off. */
+  /** Card rule 30 (#386): 1 (the default) picks a destroy-only strategy's strongest mode; 0 off. */
+  modeBest: number;
+  /**
+   * Card rule 22b (#378): 1 leaves out one-shot strategies that do nothing; 0 (the default, Paul's
+   * option 1, Nov 16: its check leaned worse, 98 vs 105 of 172, p = 0.07) is off until a rerun.
+   */
   targetAll: number;
   /** The Monster X plan's #335 (no idle Landing): 1 (the default) on; 0 is the old rule 9. */
   mxLanding: number;
@@ -90,6 +97,10 @@ export interface IsmctsSettings {
   mxManda: number;
   /** The Monster X plan's rule 16 (#352): 1 (the default) targets their Monster X first; 0 off. */
   mxTargets: number;
+  /** The Monster X plan's #370: 1 (the default) keeps the white Monster X unless it fires; 0 off. */
+  mxWhiteKeep: number;
+  /** The Monster X plan's #373: 1 (the default) skips a Fear that blocks next turn's strategy. */
+  mxFearReach: number;
   /**
    * The Wrangler plan: 2 (the default) is v2 (`wranglerPlanV2.ts`, Paul, Nov 13) with the card
    * rules (Medium and Hard); 1 is v1 (`wranglerPlan.ts`, #276) with `rules` (Hard); 0 is off.
@@ -97,6 +108,17 @@ export interface IsmctsSettings {
   wranglerPlan: number;
   /** v2.1 of the Wrangler plan (#316, #317, #319, #321): 1 (the default) on; 0 is v2. */
   wranglerV21: number;
+  /** v2.2 of the Wrangler plan (#318): 1 (the default) on; 0 is v2.1. */
+  wranglerV22: number;
+  /** v2.3 of the Wrangler plan (Ian's guide review): 1 (the default) on; 0 is v2.2. */
+  wranglerV23: number;
+  /** The Wrangler play guide's rules against Biollante (Ian): 1 (the default) on; 0 off. */
+  wranglerBio: number;
+  /**
+   * `wranglerBioHard` (Paul, Nov 15): 1 prunes three Biollante lines; 0 (the default since its
+   * check came out worse) leaves them as `wranglerBio`'s arguments.
+   */
+  wranglerBioHard: number;
   /**
    * Slick's Red Fest plan (`festPlan.ts`): 1 applies it, with `rules` on. Off by default: measured
    * Nov 13 it wasn't a gain (paired seeds, the August list and the bots' Red Fest); on for tuning.
@@ -130,17 +152,26 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   cardRules: 0,
   counterFirst: 1,
   counterAlways: 1,
+  targetKey: 1,
   ownPath: 1,
   revengeStep: 1,
   recurDiscard: 1,
   ownCover: 1,
   targetCheck: 1,
-  targetAll: 1,
+  modeBest: 1,
+  targetAll: 0,
   mxLanding: 1,
   mxManda: 1,
   mxTargets: 1,
+  mxWhiteKeep: 1,
+  mxFearReach: 1,
   wranglerPlan: 2,
   wranglerV21: 1,
+  wranglerV22: 1,
+  wranglerV23: 1,
+  wranglerBio: 1,
+  // Off by default (Paul, Nov 15): its check was worse (40 / 160 vs 63 / 160).
+  wranglerBioHard: 0,
   festPlan: 0,
   cfTarget: "auto",
   cfPlan: 1,
@@ -212,6 +243,10 @@ export function mxPlanFavored(
   manda = 1,
   /** `mxTargets` (#352). */
   targets = 1,
+  /** `mxWhiteKeep` (#370). */
+  whiteKeep = 1,
+  /** `mxFearReach` (#373). */
+  fearReach = 1,
 ): Map<string, number> {
   const against =
     version >= 2
@@ -222,6 +257,8 @@ export function mxPlanFavored(
           landing > 0,
           manda > 0,
           targets > 0,
+          whiteKeep > 0,
+          fearReach > 0,
         )
       : mxPlanVerdict(state, actions, player);
   const keep = actions.filter((a) => a.type !== "concede" && !against.has(a));
@@ -272,9 +309,15 @@ function cardIdOf(state: GameState, instanceId: string): number | null {
 /**
  * A key for an action that does not depend on hidden instance ids: type + card id + zone or
  * strategy zone, and for choices the kind and the option's card id (or its id when it names no
- * card: a zone, yes/no, done). Determinizations then share tree nodes.
+ * card: a zone, yes/no, done). Determinizations then share tree nodes. #358 (`byZone`, the
+ * `targetKey` switch): an option naming a card on the field adds where it is (`@P2:8`), public
+ * information, so copies of one card in different zones are different moves.
  */
-export function actionKey(state: GameState, action: Action): string {
+export function actionKey(
+  state: GameState,
+  action: Action,
+  byZone = true,
+): string {
   switch (action.type) {
     case "playBattle":
       // A play on top of the card there (M2, EBP03-051) is a different move, and so is each
@@ -293,13 +336,30 @@ export function actionKey(state: GameState, action: Action): string {
       const option = choice?.options.find((o) => o.id === action.optionId);
       const named =
         option?.cardId !== null && option?.cardId !== undefined
-          ? `card${option.cardId}`
+          ? `card${option.cardId}${byZone ? fieldAt(state, action.optionId) : ""}`
           : action.optionId;
       return `choose:${choice?.kind}:${option?.abilityId ?? ""}:${named}`;
     }
     default:
       return action.type;
   }
+}
+
+/** The exported key, for the search's own `actionKey` (which follows `targetKey`). */
+const keyAction = (state: GameState, action: Action, byZone: boolean) =>
+  actionKey(state, action, byZone);
+
+/** #358: where a field card is, as `@<player>:<zone>`, or "" off the field (hand, deck, pile). */
+function fieldAt(state: GameState, instanceId: string): string {
+  for (const p of state.players)
+    for (const zone of [1, 2, 3, 4, 5, 6, 7, 8] as const)
+      if (
+        p.zones[zone].some((stack) =>
+          stack.some((c) => c.instanceId === instanceId),
+        )
+      )
+        return `@${p.id}:${zone}`;
+  return "";
 }
 
 interface Node {
@@ -391,6 +451,9 @@ function ucb(child: Node, exploration: number): number {
 
 /** Runs the search; returns root children by key, and the root keys of the real legal actions. */
 export function search(input: BotInput, settings: IsmctsSettings) {
+  // #358: every key in this search follows `targetKey`.
+  const actionKey = (state: GameState, action: Action) =>
+    keyAction(state, action, settings.targetKey > 0);
   const { view, knowledge, rng } = input;
   const me = view.viewer as PlayerId;
   const root = newNode(null);
@@ -458,6 +521,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         recurDiscard: settings.recurDiscard > 0,
         ownCover: settings.ownCover > 0,
         targetCheck: settings.targetCheck > 0,
+        modeBest: settings.modeBest > 0,
         targetAll: settings.targetAll > 0,
       };
       const unsafe = cardRulesDead(
@@ -510,6 +574,8 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         settings.mxLanding,
         settings.mxManda,
         settings.mxTargets,
+        settings.mxWhiteKeep,
+        settings.mxFearReach,
       );
     // #276: the Wrangler plan, a preference like the Monster X plan, that frees what its line
     // needs from Paul's rules' holds.
@@ -524,7 +590,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
       const first = state;
       const theirs =
         input.knowledge.decks[first.players.find((p) => p.id !== me)?.id ?? ""];
-      const { against, rescued } = wranglerV2
+      const verdict = wranglerV2
         ? wranglerV2Verdict(
             first,
             input.legalActions,
@@ -532,6 +598,10 @@ export function search(input: BotInput, settings: IsmctsSettings) {
             input.knowledge.decks[me],
             theirs,
             settings.wranglerV21 > 0,
+            settings.wranglerV22 > 0,
+            settings.wranglerV23 > 0,
+            settings.wranglerBio > 0,
+            settings.wranglerBioHard > 0,
           )
         : wranglerVerdict(
             first,
@@ -540,7 +610,19 @@ export function search(input: BotInput, settings: IsmctsSettings) {
             input.knowledge.decks[me],
             theirs,
           );
+      const { against, rescued } = verdict;
       for (const a of rescued) dead.delete(actionKey(first, a));
+      // wranglerBioHard: its prunes join the root's dead keys (pass comes back if they'd leave none).
+      const pruned = "pruned" in verdict ? verdict.pruned : undefined;
+      if (pruned && pruned.size > 0) {
+        const revived = withPrunes(input.legalActions, pruned, dead, (a) =>
+          actionKey(first, a),
+        );
+        if (revived)
+          avoid = new Set(
+            [...avoid].filter((i) => input.legalActions[i] !== revived),
+          );
+      }
       avoid = new Set(
         [...avoid].filter((i) => !rescued.has(input.legalActions[i] as Action)),
       );
@@ -666,6 +748,7 @@ function cardRulesSafe(
   recurDiscard = 1,
   ownCover = 1,
   targetCheck = 1,
+  modeBest = 1,
   targetAll = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
@@ -676,10 +759,35 @@ function cardRulesSafe(
     recurDiscard: recurDiscard > 0,
     ownCover: ownCover > 0,
     targetCheck: targetCheck > 0,
+    modeBest: modeBest > 0,
     targetAll: targetAll > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
   return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
+}
+
+/**
+ * `wranglerBioHard`: adds the plan's prunes to the root's dead keys. Paul's prunes outrank the
+ * softer rules, so when they'd leave no move, pass (never one of them) comes back first; with no
+ * pass either, nothing is pruned. Returns the revived pass, if any.
+ */
+export function withPrunes(
+  legal: readonly Action[],
+  pruned: ReadonlySet<Action>,
+  dead: Set<string>,
+  keyOf: (a: Action) => string,
+): Action | undefined {
+  const left = () =>
+    legal.some(
+      (a) => a.type !== "concede" && !pruned.has(a) && !dead.has(keyOf(a)),
+    );
+  let revived: Action | undefined;
+  if (!left()) {
+    revived = legal.find((a) => a.type === "pass" && !pruned.has(a));
+    if (revived) dead.delete(keyOf(revived));
+  }
+  if (left()) for (const a of pruned) dead.add(keyOf(a));
+  return revived;
 }
 
 /**
@@ -695,7 +803,7 @@ export function blunderAllowed(
   /** The bot's own decklist, for the card-play rules (rule 6). */
   own?: Decklist,
 ): Action[] {
-  const keyOf = (a: Action) => actionKey(state, a);
+  const keyOf = (a: Action) => actionKey(state, a, settings.targetKey > 0);
   const keep = combineDead(
     legalActions,
     keyOf,
@@ -720,10 +828,37 @@ export function blunderAllowed(
     settings.recurDiscard,
     settings.ownCover,
     settings.targetCheck,
+    settings.modeBest,
     settings.targetAll,
   );
-  const allowed =
+  const sure =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
+  // wranglerBioHard's prunes hold for a blunder too (the opponent's list isn't known here: the
+  // plan reads Biollante from its monster).
+  const pruned =
+    settings.wranglerPlan >= 2 &&
+    settings.cardRules > 0 &&
+    settings.wranglerBio > 0 &&
+    settings.wranglerBioHard > 0
+      ? wranglerV2Verdict(
+          state,
+          sure,
+          me,
+          own,
+          undefined,
+          settings.wranglerV21 > 0,
+          settings.wranglerV22 > 0,
+          settings.wranglerV23 > 0,
+        ).pruned
+      : undefined;
+  const unpruned = pruned ? sure.filter((a) => !pruned.has(a)) : sure;
+  // Paul's prunes outrank the softer rules: with nothing else left, the bot passes.
+  const pass = legalActions.find((a) => a.type === "pass" && !pruned?.has(a));
+  const allowed = unpruned.some((a) => a.type !== "concede")
+    ? unpruned
+    : pass
+      ? [pass]
+      : sure;
   if (settings.mxPlan === 0) return allowed;
   const favored = mxPlanFavored(
     state,
@@ -734,6 +869,8 @@ export function blunderAllowed(
     settings.mxLanding,
     settings.mxManda,
     settings.mxTargets,
+    settings.mxWhiteKeep,
+    settings.mxFearReach,
   );
   const planned = allowed.filter((a) => favored.has(keyOf(a)));
   return planned.length > 0 ? planned : allowed;
@@ -774,6 +911,7 @@ export function decide(input: BotInput): Decision {
               settings.recurDiscard,
               settings.ownCover,
               settings.targetCheck,
+              settings.modeBest,
               settings.targetAll,
             )
           : [...legalActions];

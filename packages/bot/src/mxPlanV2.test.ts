@@ -583,4 +583,98 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
         .map((a) => (a.type === "choose" ? a.optionId : "")),
     ).toEqual(["P2:1", "P2:2"]);
   });
+
+  it("rule 3 (#370, Paul's R-3 on his game 1dfdd328, turn 1): the white Monster X EBP03-067 isn't Manda (2004)'s discount discard just because the discard pile lacks white; only with 2+ colors in zones", () => {
+    const costPlays = (s: ReturnType<typeof position>) =>
+      s.legal.filter(
+        (a) =>
+          a.type === "playBattle" &&
+          numberOf(s.state, s.p1, a) === "EBP04-045" &&
+          a.costCardInstanceId !== undefined,
+      );
+    // Turn 1: an empty discard pile (white would be a new color) and one color in zones.
+    const turn1 = position({
+      turn: 1,
+      hand: ["EBP04-045", "EBP03-067"],
+      zones: { 1: "EBP04-038" },
+      oppPosition: 4,
+      oppZones: { 8: "EBP04-038" },
+    });
+    expect(costPlays(turn1).length).toBeGreaterThan(0);
+    for (const a of costPlays(turn1))
+      expect(ruleOf(turn1, (b) => b === a)).toContain(3);
+    // `mxWhiteKeep: false` (the paired check's control): #338's (b) lets the new color go.
+    for (const a of costPlays(turn1))
+      expect(
+        mxPlanV2Verdict(
+          turn1.state,
+          turn1.legal,
+          "P1",
+          true,
+          true,
+          true,
+          false,
+        ).get(a),
+      ).not.toBe(3);
+    // Two colors in zones (a): the discount cheats it out, as #338 says.
+    const two = position({
+      turn: 1,
+      hand: ["EBP04-045", "EBP03-067"],
+      zones: { 1: "EBP04-038", 2: "EBP04-066" },
+      oppPosition: 4,
+      oppZones: { 8: "EBP04-038" },
+    });
+    for (const a of costPlays(two))
+      expect(ruleOf(two, (b) => b === a)).not.toContain(3);
+  });
+
+  it("rules 4, 5 (#373, Paul's R-5 on his game 1dfdd328, turn 9): no Entangling Fear that holds your monster in zone 4 while Godzilla vs. Megaguirus (rank 5) needs next turn's advance (8.3.1) and the counter is made", () => {
+    const fearPlays = (s: ReturnType<typeof position>) =>
+      s.legal.filter(
+        (a) =>
+          a.type === "activateStrategy" &&
+          numberOf(s.state, s.p1, a) === "EBP04-081",
+      );
+    // Your monster in zone 4, the counter made (three Kaizer Ghidorah EBP04-068), GvM in hand.
+    // Turn 4: rule 14 (b) doesn't invade toward GvM's zone yet, so it's rule 4's call alone.
+    const reach = position({
+      turn: 4,
+      position: 4,
+      hand: ["EBP04-081", "EBP01-064"],
+      oppPosition: 4,
+      zones: { 1: "EBP04-068", 2: "EBP04-068", 3: "EBP04-068" },
+      oppZones: { 8: "EBP04-038" },
+    });
+    const me = reach.state.players[0] as PlayerState;
+    expect(counterPowerOf(reach.state, me)).toBeGreaterThanOrEqual(
+      getThreat(reach.state, "P2"),
+    );
+    expect(fearPlays(reach).length).toBeGreaterThan(0);
+    for (const a of fearPlays(reach))
+      expect(ruleOf(reach, (b) => b === a)).toContain(4);
+    // `mxFearReach: false` (the paired check's control; `mxWhiteKeep` on): rule 4 casts Fear whenever it can.
+    for (const a of fearPlays(reach))
+      expect(
+        mxPlanV2Verdict(
+          reach.state,
+          reach.legal,
+          "P1",
+          true,
+          true,
+          true,
+          true,
+          false,
+        ).has(a),
+      ).toBe(false);
+    // No rank 5 strategy waiting: Fear as before.
+    const plain = position({
+      turn: 4,
+      position: 4,
+      hand: ["EBP04-081"],
+      oppPosition: 4,
+      zones: { 1: "EBP04-068", 2: "EBP04-068", 3: "EBP04-068" },
+      oppZones: { 8: "EBP04-038" },
+    });
+    for (const a of fearPlays(plain)) expect(against(plain).has(a)).toBe(false);
+  });
 });

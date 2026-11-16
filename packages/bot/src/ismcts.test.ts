@@ -151,6 +151,40 @@ describe("ismcts (M6c)", { timeout: 60_000 }, () => {
     ).not.toBe(actionKey(state, monster));
   });
 
+  it("#358 (Ian): a target pick among copies of one card in different zones keys each copy by its zone (public), so the card rules' choice of the zone 8 copy isn't merged with the others", () => {
+    const state = start();
+    const [, p2] = state.players;
+    const card = p2.hand[0]!;
+    // Three copies of one card on their field, in zones 2, 3 and 8 (as Ian's Godzilla (2023)s).
+    const copies = ([2, 3, 8] as const).map((zone, i) => {
+      const c = { ...card, instanceId: `t${i}` };
+      p2.zones[zone] = [[c]];
+      return c;
+    });
+    state.pendingChoice = {
+      id: 900,
+      player: "P1",
+      kind: "target",
+      rule: "10.5.2",
+      options: copies.map((c) => ({
+        id: c.instanceId,
+        cardId: c.cardId,
+        abilityId: "despair",
+      })),
+    };
+    const picks = copies.map((c) => ({
+      type: "choose" as const,
+      player: "P1",
+      choiceId: 900,
+      optionId: c.instanceId,
+    }));
+    const keys = picks.map((a) => actionKey(state, a));
+    expect(new Set(keys).size).toBe(3);
+    expect(keys[2]).toContain("@P2:8");
+    // `targetKey=0` (the paired check's control): the old key, one node for all three.
+    expect(new Set(picks.map((a) => actionKey(state, a, false))).size).toBe(1);
+  });
+
   it("win now: in zone 8 with the opponent's zone 8 open and an invasion available, it invades", () => {
     const state = start();
     const [p1, p2] = state.players;

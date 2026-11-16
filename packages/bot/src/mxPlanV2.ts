@@ -89,10 +89,17 @@ export function mandaSetup(
   cost: ReturnType<typeof cardData>,
   zoneColors: ReadonlySet<string>,
   discardColors: ReadonlySet<string>,
+  /**
+   * `mxWhiteKeep` (#370, Paul's R-3): the white Monster X is never a (b) discard; it goes only
+   * for (a). (The plan also lets it go for this turn's counter.) `false` is #338 alone.
+   */
+  whiteKeep = true,
 ): boolean {
   if (!isBattle(cost)) return false;
-  if (cost?.deckCardNumber === WHITE_MONSTER_X && zoneColors.size >= 2)
-    return true;
+  if (cost?.deckCardNumber === WHITE_MONSTER_X) {
+    if (zoneColors.size >= 2) return true;
+    if (whiteKeep) return false;
+  }
   return (cost?.colors ?? []).some((c) => !discardColors.has(c));
 }
 
@@ -179,6 +186,10 @@ export function mxPlanV2Verdict(
   manda = true,
   /** `mxTargets` (#352): rule 16, the opponent's Monster X cards targeted first; `false` is off. */
   targets = true,
+  /** `mxWhiteKeep` (#370): the white Monster X kept unless its discard fires; `false` is off. */
+  whiteKeep = true,
+  /** `mxFearReach` (#373): no Entangling Fear that keeps next turn's strategy out of reach. */
+  fearReach = true,
 ): Map<Action, number> {
   const dead = new Map<Action, number>();
   const kill = (a: Action, rule: number) => {
@@ -340,10 +351,16 @@ export function mxPlanV2Verdict(
   // Rule 3 (#338, Paul's ruling): Manda (2004) EBP04-045's discount is a setup play. Its discard
   // goes only (a) for the white Monster X with 2+ colors among your zones' battle cards, or (b)
   // for a battle card of a color your discard pile's battle cards lack; else full rank, or none.
+  // #370 (Paul's R-3): the white Monster X goes only for (a), or for this turn's counter.
   for (const a of manda ? actions : []) {
     if (a.type !== "playBattle" || !a.costCardInstanceId) continue;
     const cost = cardData(state, handCard(a.costCardInstanceId));
-    if (!mandaSetup(cost, colorsNow, discardColors)) kill(a, 3);
+    const forCounter =
+      whiteKeep &&
+      cost?.deckCardNumber === WHITE_MONSTER_X &&
+      makesCounter(state, a, me);
+    if (!forCounter && !mandaSetup(cost, colorsNow, discardColors, whiteKeep))
+      kill(a, 3);
   }
 
   // Rule 2: no play onto your own battle card, unless it's weaker and a color is missing.
@@ -392,7 +409,22 @@ export function mxPlanV2Verdict(
   const feared = me.strategyZones
     .flat()
     .some((x) => cardData(state, x.card)?.deckCardNumber === ENTANGLING_FEAR);
-  if (fear.length > 0 && !invading && !feared) {
+  // #373 (Paul's R-5): Fear holds your own monster in place. A strategy in hand one rank past
+  // your monster's zone (8.3.1: a strategy's rank is at most its zone) needs next turn's advance;
+  // with this turn's counter made (the threat allows it), Fear is skipped to keep it in reach.
+  const myZone = me.monsterPosition ?? 0;
+  const needsAdvance =
+    fearReach &&
+    countered &&
+    me.hand.some((c) => {
+      const card = cardData(state, c);
+      return (
+        card?.type === "Strategy" &&
+        card.deckCardNumber !== ENTANGLING_FEAR &&
+        (card.rank ?? 0) === myZone + 1
+      );
+    });
+  if (fear.length > 0 && !invading && !feared && !needsAdvance) {
     for (const a of passes) kill(a, 4);
   } else {
     for (const a of fear) kill(a, 4);
