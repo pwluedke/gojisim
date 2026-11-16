@@ -65,6 +65,7 @@ import {
   installErrorCapture,
   onError,
 } from "../game/errors";
+import { FloatingWindow } from "./FloatingWindow";
 import { ReportModal } from "./ReportModal";
 import { ClassroomCompare, ClassroomSame } from "./ClassroomCompare";
 import {
@@ -1913,27 +1914,25 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
           </div>
         )}
         {overlay === "shortcuts" && (
-          <div
-            className={styles.modalBackdrop}
-            data-testid="shortcut-list"
-            onClick={() => setOverlay(null)}
+          // Paul, Nov 16: a floating window (? or Esc closes it; no backdrop to click).
+          <FloatingWindow
+            title="Keyboard shortcuts"
+            tabLabel="Keyboard shortcuts"
+            testId="shortcut-list"
           >
-            <div className={styles.modal}>
-              <div className={styles.modalHeading}>Keyboard shortcuts</div>
-              <table className={styles.shortcuts}>
-                <tbody>
-                  {SHORTCUTS.map(([key, what]) => (
-                    <tr key={key}>
-                      <td>
-                        <kbd>{key}</kbd>
-                      </td>
-                      <td>{what}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+            <table className={styles.shortcuts}>
+              <tbody>
+                {SHORTCUTS.map(([key, what]) => (
+                  <tr key={key}>
+                    <td>
+                      <kbd>{key}</kbd>
+                    </td>
+                    <td>{what}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </FloatingWindow>
         )}
         {pending && (
           <FirstPick
@@ -2000,40 +1999,41 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
           !animating &&
           !announcing &&
           !callout && (
-            <div className={styles.modalBackdrop} data-testid="game-over-modal">
-              <div className={styles.modal}>
-                <div
-                  className={styles.modalHeading}
-                  data-testid="game-over-heading"
-                >
+            // Paul, Nov 16: a floating window like the others (dragged, Hide, the board in view).
+            <FloatingWindow
+              title={
+                <span data-testid="game-over-heading">
                   {outcomeHeading(gameOver.key)}
-                </div>
-                <p data-testid="game-over-line" data-outcome={gameOver.key}>
-                  {gameOver.line}
-                </p>
-                <div className={styles.modalButtons}>
-                  {lastSetup.current && (
-                    <button
-                      type="button"
-                      className={`${styles.button} ${styles.passButton}`}
-                      data-testid="rematch"
-                      data-primary
-                      onClick={rematch}
-                    >
-                      Rematch
-                    </button>
-                  )}
+                </span>
+              }
+              tabLabel={outcomeHeading(gameOver.key)}
+              testId="game-over-modal"
+            >
+              <p data-testid="game-over-line" data-outcome={gameOver.key}>
+                {gameOver.line}
+              </p>
+              <div className={styles.modalButtons}>
+                {lastSetup.current && (
                   <button
                     type="button"
-                    className={styles.button}
-                    data-testid="game-over-close"
-                    onClick={closeGameOver}
+                    className={`${styles.button} ${styles.passButton}`}
+                    data-testid="rematch"
+                    data-primary
+                    onClick={rematch}
                   >
-                    Close [Space]
+                    Rematch
                   </button>
-                </div>
+                )}
+                <button
+                  type="button"
+                  className={styles.button}
+                  data-testid="game-over-close"
+                  onClick={closeGameOver}
+                >
+                  Close [Space]
+                </button>
               </div>
-            </div>
+            </FloatingWindow>
           )}
         {(reporting === "badBot" || reporting === "goodBot") && badBotMove && (
           <ReportModal

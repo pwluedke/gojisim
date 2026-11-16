@@ -39,7 +39,7 @@ export function LeaveGameModal({
       title={<span id="leave-title">Leave this game?</span>}
       tabLabel="Leave this game?"
       testId="leave-modal"
-      role="alertdialog"
+      alert
       labelledBy="leave-title"
       describedBy="leave-line"
     >

@@ -2509,3 +2509,12 @@
 .confirmBackdrop {
   z-index: 36;
 }
+
+/* A floating window's backdrop off the board (the Deckbuilder, the new-game screen): it dims
+   and blocks the page behind, just under the window. */
+.floatingBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 33;
+  background: var(--color-backdrop);
+}

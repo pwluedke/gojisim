@@ -77,3 +77,48 @@ test("the Leave this game? window: dragged by its title, the board's cards previ
   await page.getByTestId("leave-stay").click();
   await expect(page.getByTestId("leave-modal")).toHaveCount(0);
 });
+
+test("the game-over window: dragged by its title, the board's cards preview", async ({
+  page,
+}) => {
+  await loadFixture(page, "hand-five");
+  await page.getByTestId("concede").click();
+  await page.getByTestId("confirm-yes").click();
+  await expect(page.getByTestId("game-over-modal")).toBeVisible();
+  await dragWindowAndHover(page, "game-over-modal");
+});
+
+test("the keyboard shortcuts window (?): dragged by its title, the board's cards preview; Esc closes it", async ({
+  page,
+}) => {
+  await loadFixture(page, "hand-five");
+  await page.keyboard.press("?");
+  await expect(page.getByTestId("shortcut-list")).toBeVisible();
+  await dragWindowAndHover(page, "shortcut-list");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("shortcut-list")).toHaveCount(0);
+});
+
+/** Off the board (Paul: every modal is movable): dragged, kept in the viewport; no board to hover. */
+test("the Deckbuilder's Import deck, My decks and Sample hand windows drag by their title or header", async ({
+  page,
+}) => {
+  await page.goto("/decks");
+  await page.getByTestId("db-import").click();
+  await expect(page.getByTestId("import-deck")).toBeVisible();
+  await dragWindowAndHover(page, "import-deck", null);
+  await page.getByTestId("import-cancel").click();
+
+  await page.getByTestId("db-my-decks").click();
+  await expect(page.getByTestId("db-decks-window")).toBeVisible();
+  await dragWindowAndHover(page, "db-decks-window", null);
+  await page.getByTestId("db-starter").first().getByTestId("db-load").click();
+  await expect(page.getByTestId("db-decks-window")).toHaveCount(0);
+
+  await page.getByTestId("db-sample-hand").click();
+  await expect(page.getByTestId("db-hand")).toBeVisible();
+  await dragWindowAndHover(page, "db-hand", null);
+  // A click outside it (its backdrop) still closes it.
+  await page.mouse.click(5, 5);
+  await expect(page.getByTestId("db-hand")).toHaveCount(0);
+});

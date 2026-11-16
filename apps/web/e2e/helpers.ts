@@ -190,7 +190,8 @@ export async function dragWindowAndHover(
 ): Promise<void> {
   const win = page.getByTestId(testId);
   const before = await win.boundingBox();
-  const title = await win.getByTestId("window-title").boundingBox();
+  // The title bar, or a bare window's own header (its `data-drag-handle`).
+  const title = await win.locator("[data-drag-handle]").first().boundingBox();
   if (!before || !title) throw new Error(`no ${testId} window`);
   const x = title.x + 12;
   const y = title.y + title.height / 2;
