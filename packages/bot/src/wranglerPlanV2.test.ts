@@ -425,6 +425,51 @@ describe("the Wrangler plan v2", () => {
     expect(against.has(yes)).toBe(true);
   });
 
+  it("#384 (Ian's record e09f7ade move 74): with their GAM up and nothing under it, a tag-out to Godzilla (2001) EBP03-004 (its rage can't be reduced from zone 4) goes before raging", () => {
+    const judge = (opts: {
+      under?: boolean;
+      at?: ZoneNumber;
+      tagOut?: boolean;
+    }) => {
+      const { state, p1, p2 } = position(
+        ["EBP03-004", "EBP01-002"],
+        opts.at ?? 3,
+        4,
+        15,
+      );
+      // Their GAM in zone 2; with a monster under it, its reset is spent.
+      p2.zones[2] = [
+        opts.under
+          ? [add(state, real("EBP01-002"), "P2"), add(state, real(GAM), "P2")]
+          : [add(state, real(GAM), "P2")],
+      ];
+      const legal = getLegalActions(state, "P1");
+      const v = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
+        tagOut: opts.tagOut ?? true,
+      });
+      const tag = legal.filter(
+        (a) => a.type === "playMonster" && ofCard(state, p1, a) === "EBP03-004",
+      );
+      expect(tag.length).toBeGreaterThan(0);
+      return {
+        tag: tag.map((a) => v.against.has(a)),
+        rage: legal
+          .filter((a) => a.type === "gainRage")
+          .map((a) => v.against.has(a)),
+      };
+    };
+    const on = judge({});
+    for (const d of on.tag) expect(d).toBe(false);
+    expect(on.rage.length).toBeGreaterThan(0);
+    for (const d of on.rage) expect(d).toBe(true);
+    // Their reset already spent (a monster under GAM): no tag-out rule.
+    for (const d of judge({ under: true }).rage) expect(d).toBe(false);
+    // In zone 2 the end-phase advance takes it only to zone 3, short of its awakening-4.
+    for (const d of judge({ at: 2 }).rage) expect(d).toBe(false);
+    // `wranglerTagOut: false` (the paired check's control).
+    for (const d of judge({ tagOut: false }).rage) expect(d).toBe(false);
+  });
+
   it("v2.3 (Ian): against Monster X, with fewer than 2 battle cards in hand, dig (Despair over passing)", () => {
     const { state, p1, p2 } = position([KING, DESPAIR], 3, 2);
     p2.invadingMonsterZone = [add(state, real("EBP04-032"), "P2")];

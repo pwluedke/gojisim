@@ -52,6 +52,9 @@ import {
  *   strategy's zone (8.3.1). An invasion (not paid with a push card) after which a push strategy
  *   and then battle card plays make the counter this turn is taken over raging or passing; the
  *   push's follow-up counts a counter made by up to 3 battle card plays, not only one.
+ * - Tag out against a reset (#384, Ian, `wranglerTagOut`): with the opponent's GAM up and unused,
+ *   a tag-out to Godzilla (2001) EBP03-004 (rage the opponent can't reduce from zone 4) goes
+ *   before raging or passing.
  */
 
 export const KING = "EBP01-075";
@@ -68,6 +71,10 @@ const KING_ZONES_VS_1994 = new Set([1, 5]);
 const PATH = 2;
 /** wranglerBio: the rank IV whose rage clears the opponent's column (Godzilla (2023) EBP01-010). */
 const COLUMN_CLEAR = "EBP01-010";
+/** #384: Godzilla (2001), whose rage the opponent's effects can't reduce from zone 4 (awakening-4). */
+const RAGE_LOCK = "EBP03-004";
+/** #384: the zone its awakening needs. */
+const RAGE_LOCK_ZONE = 4;
 /** `wranglerBioHard` (Paul, Nov 15): a counter over this beats Biollante's rank III anyway. */
 const BIO_III_COUNTER = 40000;
 /** v2.2 (Ian, point 2): the monster card whose invasion fetches more (Godzilla (2023) ESD01-002). */
@@ -148,6 +155,7 @@ export function wranglerV2Verdict(
     bio = true,
     bioHard = true,
     pushLine = true,
+    tagOut = true,
   } = options;
   if (!isWranglerDeck(own)) return { against: new Set(), rescued: new Set() };
   // Line 1 (v1's Despair line) goes first.
@@ -504,6 +512,37 @@ export function wranglerV2Verdict(
       )
     )
       for (const a of actions) if (a.type === "pass") against.add(a);
+  }
+
+  // #384 (Ian): against a rage reset on their board (their GAM up with nothing under it: their next
+  // invasion sets your rage to 0), rage is only worth something on a monster it can't touch. A
+  // tag-out to Godzilla (2001) EBP03-004 (its rage can't be reduced by their effects from zone 4,
+  // where the end-phase advance takes it, 7.5.2) goes before raging or passing.
+  const theirReset = Object.values(opponent.zones).some((stacks) =>
+    stacks.some(
+      (stack) =>
+        stack.length === 1 &&
+        state.cards[stack[0]!.cardId]?.deckCardNumber === GAM,
+    ),
+  );
+  const tagOuts = actions.filter(
+    (a) => a.type === "playMonster" && number(a) === RAGE_LOCK,
+  );
+  if (
+    tagOut &&
+    theirReset &&
+    tagOuts.length > 0 &&
+    (player.monsterPosition ?? 0) + 1 >= RAGE_LOCK_ZONE
+  ) {
+    for (const a of actions)
+      if (a.type === "pass" || a.type === "gainRage") {
+        against.add(a);
+        rescued.delete(a);
+      }
+    for (const a of tagOuts) {
+      against.delete(a);
+      rescued.add(a);
+    }
   }
 
   // #381: with a push line on, raging and passing wait (rage first would spend the turn).

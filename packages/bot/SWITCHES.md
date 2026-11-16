@@ -212,6 +212,12 @@ Default 1 · built · from #381
 
 The Wrangler plan's push line (Ian): an invasion that reaches a push strategy's zone (The Slithering Disaster, Godzilla Landing), after which the push and up to 3 battle card plays make the counter this turn, is taken over raging or passing; a push's follow-up counts a counter made by up to 3 plays. Needs `wranglerPlan` 2.
 
+### `wranglerTagOut`
+
+Default 1 · built · from #384
+
+The Wrangler plan's tag-out against a rage reset (Ian): with the opponent's Godzilla Against Mechagodzilla EBP01-073 up and nothing under it (their next invasion sets your rage to 0), a tag-out to Godzilla (2001) EBP03-004 (from zone 4 its rage can't be reduced by their effects; the end-phase advance takes it there) goes before raging or passing. Needs `wranglerPlan` 2.
+
 ### `wranglerV21`
 
 Default 1 · kept · from #332
