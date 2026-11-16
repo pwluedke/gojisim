@@ -1,5 +1,6 @@
 import type { Action, GameState, PlayerId } from "@gojisim/engine";
 import { canClearZone8, counterPlays } from "./cardRules";
+import { counterWithin, playOut } from "./counterReach";
 import type { Decklist } from "./types";
 
 /**
@@ -18,6 +19,10 @@ import type { Decklist } from "./types";
  * Line 4 (needs Godzilla the Ride EPR-015): get a Ride into the discard pile (it turns on the
  * others' +5000): Godzilla (1954) ESC01-001 pays with a Ride when one can pay, and a Ride goes on
  * a Ride (11.5 sends the first to the discard pile) when one can.
+ * Line 2, rank I (#400, Slick, `festRankOne`): the rank I Fest EBP01-011 invades only to line up
+ * its same-column push (advancing into the column of their monster pushes it forward) with a
+ * counter to follow this turn (up to 3 battle card plays); then it isn't argued against, and no
+ * other invasion at rank I is allowed (the early exception included).
  * Line 5 (needs the Fest rank IV EBP01-014), against Monster X: the rank IV Fest with 2 or more
  * battle cards in your zones (Monster X's rank 5 or lower battle cards can't engage it), rage
  * heavily, and from rank IV go for the invasion.
@@ -68,6 +73,8 @@ export function festVerdict(
   own: Decklist | undefined,
   /** The opponent's decklist (public), when known. */
   theirs?: Decklist,
+  /** `festRankOne` (#400): rank I invades only for the push and a counter; `false` is line 2. */
+  rankOne = true,
 ): { against: Set<Action>; rescued: Set<Action> } {
   const against = new Set<Action>();
   const rescued = new Set<Action>();
@@ -105,6 +112,23 @@ export function festVerdict(
       ) &&
       canClearZone8(state, actions, me);
     if (!early) for (const a of invades) against.add(a);
+  }
+
+  // Line 2, rank I (#400, Slick): invade only for the same-column push with a counter to follow.
+  const topNumber = top ? state.cards[top.cardId]?.deckCardNumber : undefined;
+  if (rankOne && topNumber === FEST_RANK_ONE && invades.length > 0) {
+    const theirAt = opponent.monsterPosition;
+    for (const a of invades) {
+      const s = playOut(state, a, me);
+      const pushed =
+        !!s &&
+        s.players.find((p) => p.id === opponent.id)?.monsterPosition !==
+          theirAt;
+      if (pushed && s && counterWithin(s, me)) {
+        against.delete(a);
+        rescued.add(a);
+      } else against.add(a);
+    }
   }
 
   // Line 3: Anguirus (2004) in zone 1 or 2, unless the counter needs it in zone 3 or 8 now.

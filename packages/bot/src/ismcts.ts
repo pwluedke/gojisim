@@ -117,6 +117,8 @@ export interface IsmctsSettings {
    * Nov 13 it wasn't a gain (paired seeds, the August list and the bots' Red Fest); on for tuning.
    */
   festPlan: number;
+  /** The Red Fest plan's rank I line (#400, Slick): 1 (the default) on with `festPlan`; 0 off. */
+  festRankOne: number;
   /** Paul's Constructed Future plan (`cfPlan.ts`), with `rules` on: 1 (the default) on, 0 off. */
   cfPlan: number;
   /**
@@ -164,6 +166,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   // Off by default (Paul, Nov 15): its check was worse (40 / 160 vs 63 / 160).
   wranglerBioHard: 0,
   festPlan: 0,
+  festRankOne: 1,
   cfTarget: "auto",
   cfPlan: 1,
   mxPlan: 2,
@@ -629,6 +632,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         me,
         input.knowledge.decks[me],
         input.knowledge.decks[first.players.find((p) => p.id !== me)?.id ?? ""],
+        settings.festRankOne > 0,
       );
       if (against.size > 0)
         for (const a of input.legalActions)

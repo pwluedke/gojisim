@@ -124,7 +124,15 @@ describe("the Red Fest plan", () => {
       const legal = getLegalActions(state, "P1");
       const invades = legal.filter((a) => a.type === "invade");
       expect(invades.length).toBeGreaterThan(0);
-      const { against } = festVerdict(state, legal, "P1", FEST);
+      // Line 2 as it was (`festRankOne: false`); the rank I line has its own test below.
+      const { against } = festVerdict(
+        state,
+        legal,
+        "P1",
+        FEST,
+        undefined,
+        false,
+      );
       return invades.every((a) => against.has(a));
     };
     expect(invadesAgainst("EBP01-011", ["ESD01-005", "ESD01-006"])).toBe(true);
@@ -138,6 +146,43 @@ describe("the Red Fest plan", () => {
         SPACE_BEAM,
       ]),
     ).toBe(false);
+  });
+
+  it("line 2, rank I (#400, Slick): the rank I Fest invades only to line up its same-column push with a counter to follow; not without the counter, not paid with the card the counter needs", () => {
+    // Your monster in zone 1, theirs in zone 7: the rank I's advance into their column pushes
+    // them to zone 8 (EBP01-011's [column-advance]), where the battle cards in hand counter.
+    const verdict = (hand: string[], rankOne = true) => {
+      const { state, p1 } = position("EBP01-011", hand, 7);
+      p1.monsterPosition = 1;
+      const legal = getLegalActions(state, "P1");
+      const invades = legal.filter((a) => a.type === "invade");
+      expect(invades.length).toBeGreaterThan(0);
+      const { against } = festVerdict(
+        state,
+        legal,
+        "P1",
+        FEST,
+        undefined,
+        rankOne,
+      );
+      return new Map(
+        invades.map((a) => [ofCard(state, p1, a), against.has(a)]),
+      );
+    };
+    const line = verdict(["ESD01-011", "ESD01-012", "ESD01-013"]);
+    expect(line.get("ESD01-011")).toBe(false);
+    expect(line.get("ESD01-013")).toBe(false);
+    // Paid with ESD01-012, the counter is gone: still argued against.
+    expect(line.get("ESD01-012")).toBe(true);
+    // The push but nothing to counter with: argued against.
+    for (const d of verdict(["ESD01-005", "ESD01-006"]).values())
+      expect(d).toBe(true);
+    // `festRankOne: false` (the paired check's control): line 2 as it was.
+    for (const d of verdict(
+      ["ESD01-011", "ESD01-012", "ESD01-013"],
+      false,
+    ).values())
+      expect(d).toBe(true);
   });
 
   it("line 3: Anguirus (2004) EBP02-016 goes in zone 1 or 2", () => {
