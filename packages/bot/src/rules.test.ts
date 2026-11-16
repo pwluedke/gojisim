@@ -114,6 +114,20 @@ describe("card conditions (#175), read from ability data", () => {
 });
 
 describe("Paul's play rules for Hard (#175)", () => {
+  it("rule 2, #346 (Keldroc): King Ghidorah (1965) EBP02-046, whose [enter] puts its same-name cards from the discard pile under it, isn't held while another copy is in the monster deck; raging it powers that copy", () => {
+    const { state, p1 } = base();
+    monster(state, p1, "EBP02-045");
+    const kg65 = add(state, real("EBP02-046"), "P1");
+    p1.hand.push(kg65);
+    // No other copy: held as rule 2 says (one per rank).
+    expect(heldCards(state, p1).has(kg65.instanceId)).toBe(true);
+    // A second copy in the monster deck: not held.
+    p1.monsterDeck.push(add(state, real("EBP02-046"), "P1"));
+    expect(heldCards(state, p1).has(kg65.instanceId)).toBe(false);
+    // `collectorRage=0` (the paired check's control): held again.
+    expect(heldCards(state, p1, false).has(kg65.instanceId)).toBe(true);
+  });
+
   it("rule 2 (8.5.1): one SpaceGodzilla per rank is held, never discarded for rage; a King Ghidorah card isn't", () => {
     const { state, p1 } = base();
     monster(state, p1, "EBP02-052");
