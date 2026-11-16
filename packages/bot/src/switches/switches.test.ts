@@ -7,15 +7,15 @@ import { renderIndex, renderTable } from "./render";
 import { groupOptions } from "./settings";
 
 /**
- * #402: one file per bot switch. The index and \`SWITCHES.md\` are generated from the files
- * (\`pnpm switches\`), and every setting keeps its name and default from before the change.
+ * #402: one file per bot switch. The index and `SWITCHES.md` are generated from the files
+ * (`pnpm switches`), and every setting keeps its name and default from before the change.
  */
 
 const DIR = new URL(".", import.meta.url).pathname;
 const MD = new URL("../../SWITCHES.md", import.meta.url).pathname;
 const NOT_SWITCHES = new Set(["define", "render", "index", "settings"]);
 
-/** \`ISMCTS_DEFAULTS\` on main just before #402 (the search settings and every switch). */
+/** `ISMCTS_DEFAULTS` on main just before #402 (the search settings and every switch). */
 const BEFORE: Record<string, number | string> = {
   activeInvading: 1,
   blunder: 0,
@@ -68,7 +68,7 @@ const BEFORE: Record<string, number | string> = {
 };
 
 describe("bot switches, one file each (#402)", () => {
-  it("the index lists every switch file (run \`pnpm switches\` after adding one)", () => {
+  it("the index lists every switch file (run `pnpm switches` after adding one)", () => {
     const names = readdirSync(DIR)
       .filter((f) => f.endsWith(".ts") && !f.includes(".test."))
       .map((f) => f.replace(/\.ts$/, ""))
@@ -79,7 +79,7 @@ describe("bot switches, one file each (#402)", () => {
     expect(new Set(SWITCHES.map((s) => s.name)).size).toBe(SWITCHES.length);
   });
 
-  it("SWITCHES.md is the table built from the files (run \`pnpm switches\`)", async () => {
+  it("SWITCHES.md is the table built from the files (run `pnpm switches`)", async () => {
     const text = await format(renderTable(SWITCHES), {
       ...(await resolveConfig(MD)),
       parser: "markdown",

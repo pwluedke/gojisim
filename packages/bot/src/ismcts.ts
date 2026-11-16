@@ -16,7 +16,7 @@ import {
 } from "./baseline";
 import { constructedFutureDead } from "./cfPlay";
 import { cfPlanDead } from "./cfPlan";
-import { type CfTarget, cfTargetDead } from "./cfTarget";
+import { cfTargetDead } from "./cfTarget";
 import {
   groupOptions,
   SWITCH_DEFAULTS,
