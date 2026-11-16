@@ -52,6 +52,8 @@ import {
  *   strategy's zone (8.3.1). An invasion (not paid with a push card) after which a push strategy
  *   and then battle card plays make the counter this turn is taken over raging or passing; the
  *   push's follow-up counts a counter made by up to 3 battle card plays, not only one.
+ * - No dead push (#419, Ian, `wranglerDeadPush`): a push strategy that leaves the opponent's
+ *   monster where it is (already in zone 8) isn't played, a spare copy in hand or not.
  */
 
 export const KING = "EBP01-075";
@@ -148,6 +150,7 @@ export function wranglerV2Verdict(
     bio = true,
     bioHard = true,
     pushLine = true,
+    deadPush = true,
   } = options;
   if (!isWranglerDeck(own)) return { against: new Set(), rescued: new Set() };
   // Line 1 (v1's Despair line) goes first.
@@ -396,6 +399,16 @@ export function wranglerV2Verdict(
     if (!push) continue;
     const s = after(state, a, me);
     if (!s) continue;
+    // #419 (Ian): a push strategy that leaves their monster where it is (already in zone 8)
+    // changes nothing: never, even with a spare copy in hand. (Godzilla (2004) changes your
+    // monster too, so it isn't one.)
+    const moved =
+      s.players.find((p) => p.id === opponent.id)?.monsterPosition !==
+      opponent.monsterPosition;
+    if (deadPush && !moved && a.type === "activateStrategy") {
+      against.add(a);
+      continue;
+    }
     // v2 (the paired check's control): the counter made after it, or they trampled a card.
     const ok = v21
       ? followUp(s)

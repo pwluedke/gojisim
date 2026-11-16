@@ -212,6 +212,12 @@ Default 0 · measured · from Paul, Nov 15
 
 Three of `wranglerBio`'s lines as prunes (the search and a blunder can't override them): no strategy when Biollante's rank III EBP02-027 can reach zone 6+, unless your counter beats 40,000; no counter on its Rose Form; no push out of zone 5. Needs `wranglerBio`. Off by default: its check was worse (40 / 160 vs 63 / 160, Paul, Nov 15).
 
+### `wranglerDeadPush`
+
+Default 1 · built · from #419
+
+The Wrangler plan's dead push (Ian): a push strategy (Godzilla Landing, The Slithering Disaster) that leaves the opponent's monster where it is (already in zone 8) is argued against, a spare copy in hand or not (card rule 22b, off by default, would let a spare go as hand cycling). Needs `wranglerPlan` 2.
+
 ### `wranglerPlan`
 
 Default 2 · kept · from #276, #311

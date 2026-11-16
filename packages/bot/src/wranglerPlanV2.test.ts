@@ -16,6 +16,7 @@ import {
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
 import { blunderAllowed, ISMCTS_DEFAULTS, withPrunes } from "./ismcts";
+import { counters } from "./rules";
 import type { Decklist } from "./types";
 import { DESPAIR, GAM } from "./wranglerPlan";
 import {
@@ -423,6 +424,31 @@ describe("the Wrangler plan v2", () => {
     const yes = legal.find((a) => a.type === "choose" && a.optionId === "yes")!;
     const { against } = wranglerV2Verdict(s, legal, "P1", WRANGLER);
     expect(against.has(yes)).toBe(true);
+  });
+
+  it("#419 (Ian's record 5ac1295d move 37): no Godzilla Landing at a monster already in zone 8 (it moves nowhere), even with the counter made and two copies in hand", () => {
+    const judge = (oppAt: ZoneNumber, deadPush = true) => {
+      const { state, p1 } = position([LANDING, LANDING], 4, oppAt, 10);
+      // The counter already made: #317's follow-up rule lets any push through.
+      for (const z of [1, 2, 8] as const)
+        p1.zones[z] = [[add(state, real(KING), "P1")]];
+      expect(counters(state, "P1")).toBe(true);
+      const legal = getLegalActions(state, "P1");
+      const v = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
+        deadPush,
+      });
+      const landings = legal.filter(
+        (a) =>
+          a.type === "activateStrategy" && ofCard(state, p1, a) === LANDING,
+      );
+      expect(landings.length).toBeGreaterThan(0);
+      return landings.map((a) => v.against.has(a));
+    };
+    for (const d of judge(8)) expect(d).toBe(true);
+    // `wranglerDeadPush: false` (the paired check's control): it goes through, as in Ian's game.
+    for (const d of judge(8, false)) expect(d).toBe(false);
+    // Their monster in zone 7: the push moves it, and the rule stays out.
+    for (const d of judge(7)) expect(d).toBe(false);
   });
 
   it("v2.3 (Ian): against Monster X, with fewer than 2 battle cards in hand, dig (Despair over passing)", () => {
