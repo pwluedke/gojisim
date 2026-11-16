@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
 import type { Action } from "@gojisim/engine";
-import { loadFixture } from "./helpers";
+import { dragWindowAndHover, loadFixture } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -376,4 +376,15 @@ test.describe("moving cards stay on top (M5g fix)", () => {
     expect(bottom.slice(0, 3).every((s) => s.onTop)).toBe(true);
     expect(bottom.at(-1)?.coverOnTop).toBe(true);
   });
+});
+
+test("Paul, Nov 16: the combo window is dragged by its title, and the board's cards preview with it open", async ({
+  page,
+}) => {
+  await loadFixture(page, "combo-you");
+  await take(page, nextOf("combo-you"));
+  await expect(page.getByTestId("combo-modal")).toBeVisible();
+  await dragWindowAndHover(page, "combo-modal");
+  await page.getByTestId("combo-close").click();
+  await expect(page.getByTestId("combo-modal")).toHaveCount(0);
 });

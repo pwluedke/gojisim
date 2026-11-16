@@ -93,10 +93,17 @@ export function mandaSetup(
   cost: ReturnType<typeof cardData>,
   zoneColors: ReadonlySet<string>,
   discardColors: ReadonlySet<string>,
+  /**
+   * `mxWhiteKeep` (#370, Paul's R-3): the white Monster X is never a (b) discard; it goes only
+   * for (a). (The plan also lets it go for this turn's counter.) `false` is #338 alone.
+   */
+  whiteKeep = true,
 ): boolean {
   if (!isBattle(cost)) return false;
-  if (cost?.deckCardNumber === WHITE_MONSTER_X && zoneColors.size >= 2)
-    return true;
+  if (cost?.deckCardNumber === WHITE_MONSTER_X) {
+    if (zoneColors.size >= 2) return true;
+    if (whiteKeep) return false;
+  }
   return (cost?.colors ?? []).some((c) => !discardColors.has(c));
 }
 
@@ -189,6 +196,8 @@ export function mxPlanV2Verdict(
   manda = true,
   /** `mxTargets` (#352): rule 16, the opponent's Monster X cards targeted first; `false` is off. */
   targets = true,
+  /** `mxWhiteKeep` (#370): the white Monster X kept unless its discard fires; `false` is off. */
+  whiteKeep = true,
   /** `mxProtectZones` (#371): rule 17, protected cards in zones 1-5; `false` is off. */
   protectZones = true,
 ): Map<Action, number> {
@@ -352,10 +361,16 @@ export function mxPlanV2Verdict(
   // Rule 3 (#338, Paul's ruling): Manda (2004) EBP04-045's discount is a setup play. Its discard
   // goes only (a) for the white Monster X with 2+ colors among your zones' battle cards, or (b)
   // for a battle card of a color your discard pile's battle cards lack; else full rank, or none.
+  // #370 (Paul's R-3): the white Monster X goes only for (a), or for this turn's counter.
   for (const a of manda ? actions : []) {
     if (a.type !== "playBattle" || !a.costCardInstanceId) continue;
     const cost = cardData(state, handCard(a.costCardInstanceId));
-    if (!mandaSetup(cost, colorsNow, discardColors)) kill(a, 3);
+    const forCounter =
+      whiteKeep &&
+      cost?.deckCardNumber === WHITE_MONSTER_X &&
+      makesCounter(state, a, me);
+    if (!forCounter && !mandaSetup(cost, colorsNow, discardColors, whiteKeep))
+      kill(a, 3);
   }
 
   // Rule 2: no play onto your own battle card, unless it's weaker and a color is missing.

@@ -3,11 +3,12 @@ import type { Action, CardInstance, GameState } from "@gojisim/engine";
 import { useEffect, useState } from "react";
 import { type ManualCard, ManualPanel } from "../debug/ManualPanel";
 import styles from "./Board.module.css";
+import { FloatingWindow } from "./FloatingWindow";
 import { CardChips } from "./CardFace";
 import type { BoardModel } from "./model";
 import { targetLocation } from "./locations";
 import { confirmWords } from "../game/plainWords";
-import { abilityText } from "../game/labels";
+import { abilityText, choiceAbilityText } from "../game/labels";
 import { canConfirm, multiPick, toggle } from "../game/multiPick";
 import { Preview, visibleCards } from "./Preview";
 import { useViewBoard, ViewBoardBanner, ViewBoardButton } from "./ViewBoard";
@@ -201,14 +202,20 @@ export function ChoiceModal({
   const top = (
     <>
       {kind !== "zone" && <ViewBoardButton onClick={view.toggle} />}
-      <div className={styles.modalHeading} data-testid="choice-heading">
-        {heading}
-      </div>
       {source && (
         <div className={styles.muted} data-testid="choice-source">
           From {source}
         </div>
       )}
+      {/* #376: the asking ability's text (a yes/no prompt and the ordering choices show their own). */}
+      {kind !== "confirm" &&
+        kind !== "standbyOrder" &&
+        kind !== "replacementOrder" &&
+        choiceAbilityText(state) && (
+          <div className={styles.abilityText} data-testid="choice-asking-text">
+            {choiceAbilityText(state)}
+          </div>
+        )}
       {multi && (
         <div className={styles.muted} data-testid="choice-multi-hint">
           {multi.min === multi.max
@@ -549,13 +556,9 @@ export function ChoiceModal({
         : { card: hoverCard.card }
       : null;
   return (
-    <div
-      className={away ? styles.modalBackdropHidden : styles.modalBackdrop}
-      data-testid="choice-modal"
-      data-kind={kind}
-      data-hidden={away ? "true" : undefined}
-      data-viewing-board={view.viewing ? "true" : undefined}
-    >
+    // Paul, Nov 16: a window over the board (dragged, hidden to a tab); the game still waits on
+    // the choice. Its heading is the title bar.
+    <>
       {view.viewing && <ViewBoardBanner onReturn={view.toggle} />}
       {hoverShown && model && (
         <div className={styles.previewOverModal} data-testid="modal-preview">
@@ -575,13 +578,20 @@ export function ChoiceModal({
           }}
         />
       )}
-      <div
-        className={styles.modal}
-        style={away ? { visibility: "hidden" } : undefined}
+      <FloatingWindow
+        title={<span data-testid="choice-heading">{heading}</span>}
+        tabLabel="Choice"
+        testId="choice-modal"
+        className={away ? styles.floatingAway : undefined}
+        attrs={{
+          "data-kind": kind,
+          "data-hidden": away ? "true" : undefined,
+          "data-viewing-board": view.viewing ? "true" : undefined,
+        }}
       >
         {top}
         {body}
-      </div>
+      </FloatingWindow>
       <button
         type="button"
         className={styles.eye}
@@ -594,6 +604,6 @@ export function ChoiceModal({
       >
         👁
       </button>
-    </div>
+    </>
   );
 }

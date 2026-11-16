@@ -774,7 +774,10 @@ function Mat({
   model: BoardModel;
   player: PlayerAreasView;
   side: "opp" | "you";
-  /** Kaiju Classroom's bot-turn banner (Paul, Nov 15), over this mat's top right corner. */
+  /**
+   * Kaiju Classroom's bot-turn banner (Paul, Nov 15): in the open strip at the top of this mat,
+   * right of the counter power (from the deck's column) and on past the mat's right edge.
+   */
   banner?: ReactNode;
   /** Why this player's deck is illegal, one plain reason per line (M13b); empty or absent when legal. */
   warning?: readonly string[] | undefined;
@@ -797,7 +800,14 @@ function Mat({
           : undefined
       }
     >
-      {banner}
+      {banner && (
+        <div
+          className={styles.xilienSlot}
+          style={{ left: `calc(var(--mat-pad) + ${COL(6)})` }}
+        >
+          {banner}
+        </div>
+      )}
       {mat && (
         <div
           className={styles.matImage}
@@ -935,8 +945,9 @@ export function BoardView({
    */
   beside?: ReactNode;
   /**
-   * A banner over the top mat's top right corner (Kaiju Classroom's bot turn, Paul, Nov 15); it
-   * takes no clicks or hovers, so the cards under it work as usual.
+   * A banner on the bottom mat, the one the player plays on (Kaiju Classroom's bot turn, Paul,
+   * Nov 15): in the strip above zones 7 and 6 and the deck, right of the counter power, running
+   * past the mat's right edge. It takes no clicks or hovers, so the cards under it work as usual.
    */
   matBanner?: ReactNode;
   /** The bottom player's legal actions (M5b); empty while they can't act. */
@@ -1235,7 +1246,6 @@ export function BoardView({
                 glow={glowFor(opp)}
                 mat={mat}
                 warning={deckWarnings[opp.id]}
-                banner={matBanner}
               />
             </div>
             <div className={styles.centerLine} />
@@ -1252,6 +1262,7 @@ export function BoardView({
                 glow={glowFor(you)}
                 mat={mat}
                 warning={deckWarnings[you.id]}
+                banner={matBanner}
               />
             </div>
             <Hand

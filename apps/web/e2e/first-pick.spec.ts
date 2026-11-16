@@ -43,7 +43,7 @@ test("Start opens the board with both mats and the decks in place, the pick over
   await expect(page.getByTestId("start-game")).toHaveCount(0);
   await expect(page.getByTestId("mat-you")).toBeVisible();
   await expect(page.getByTestId("mat-opp")).toBeVisible();
-  await expect(page.getByTestId("first-pick-backdrop")).toBeVisible();
+  await expect(page.getByTestId("first-pick")).toBeVisible();
   // ESD01 and ESD02 official: 50 main deck cards and 4 monster cards each, all in their decks.
   for (const id of ["P1", "P2"]) {
     await expect(page.getByTestId(`deck-count-${id}`)).toHaveText("50");

@@ -8,6 +8,7 @@ import {
   STAT_TYPES,
   type StatType,
 } from "./deckDraft";
+import { FloatingWindow } from "../play/FloatingWindow";
 import styles from "./DeckStats.module.css";
 
 /**
@@ -201,68 +202,67 @@ function SampleHand({
     return () => window.removeEventListener("keydown", key, true);
   }, [onClose]);
   return (
-    <div
-      className={styles.backdrop}
-      data-testid="db-hand-backdrop"
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    // Paul, Nov 16: every window is movable: dragged by its header, kept in the viewport; a
+    // click outside still closes it.
+    <FloatingWindow
+      bare
+      backdrop
+      onBackdrop={onClose}
+      zIndex={50}
+      testId="db-hand"
+      className={styles.window}
+      attrs={{ "aria-label": "Sample opening hand" }}
     >
-      <div
-        className={styles.window}
-        role="dialog"
-        aria-label="Sample opening hand"
-        data-testid="db-hand"
-      >
-        <div className={styles.windowHead}>
-          <h3>Sample opening hand</h3>
-          <span className={styles.seed} data-testid="db-hand-seed">
-            seed {seed}
-          </span>
-          <span className={styles.spacer} />
-          <button
-            type="button"
-            className={styles.close}
-            aria-label="Close"
-            data-testid="db-hand-close"
-            onClick={onClose}
-          >
-            ✕
-          </button>
-        </div>
-        <div className={styles.cards}>
-          {hand.map((card, i) => (
-            <button
-              key={`${card.id}-${i}`}
-              type="button"
-              className={styles.card}
-              data-testid="db-hand-card"
-              data-card-number={card.deckCardNumber}
-              title={card.name}
-              onClick={() => onOpen(card)}
-              onMouseEnter={() => onHover(card)}
-              onMouseLeave={() => onHover(null)}
-            >
-              <span className={styles.fallback}>{card.name}</span>
-              <img
-                src={`/cards/${card.id}-thumb.webp`}
-                alt={card.name}
-                onError={(e) => {
-                  e.currentTarget.style.visibility = "hidden";
-                }}
-              />
-            </button>
-          ))}
-        </div>
-        <div className={styles.windowFoot}>
-          <button
-            type="button"
-            data-primary
-            data-testid="db-hand-again"
-            onClick={onAgain}
-          >
-            Draw again
-          </button>
-        </div>
+      <div className={styles.windowHead} data-drag-handle>
+        <h3>Sample opening hand</h3>
+        <span className={styles.seed} data-testid="db-hand-seed">
+          seed {seed}
+        </span>
+        <span className={styles.spacer} />
+        <button
+          type="button"
+          className={styles.close}
+          aria-label="Close"
+          data-testid="db-hand-close"
+          onClick={onClose}
+        >
+          ✕
+        </button>
       </div>
-    </div>
+      <div className={styles.cards}>
+        {hand.map((card, i) => (
+          <button
+            key={`${card.id}-${i}`}
+            type="button"
+            className={styles.card}
+            data-testid="db-hand-card"
+            data-card-number={card.deckCardNumber}
+            title={card.name}
+            onClick={() => onOpen(card)}
+            onMouseEnter={() => onHover(card)}
+            onMouseLeave={() => onHover(null)}
+          >
+            <span className={styles.fallback}>{card.name}</span>
+            <img
+              src={`/cards/${card.id}-thumb.webp`}
+              alt={card.name}
+              onError={(e) => {
+                e.currentTarget.style.visibility = "hidden";
+              }}
+            />
+          </button>
+        ))}
+      </div>
+      <div className={styles.windowFoot}>
+        <button
+          type="button"
+          data-primary
+          data-testid="db-hand-again"
+          onClick={onAgain}
+        >
+          Draw again
+        </button>
+      </div>
+    </FloatingWindow>
   );
 }

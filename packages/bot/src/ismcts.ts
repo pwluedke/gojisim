@@ -72,6 +72,8 @@ export interface IsmctsSettings {
   counterFirst: number;
   /** Card rule 20 (#324, #327): 1 (the default) takes the counter without a block too; 0 is off. */
   counterAlways: number;
+  /** #358: 1 (the default) keys a field card's choice option by its zone too; 0 by card id only. */
+  targetKey: number;
   /** Card rule 21 (#304): 1 (the default) keeps battle cards off your own monster's path; 0 is off. */
   ownPath: number;
   /** #339: 1 (the default) keeps a [revenge] card out of zone 8 unless it's stepped on; 0 is off. */
@@ -82,12 +84,16 @@ export interface IsmctsSettings {
   ownCover: number;
   /** Card rule 22 (#336): 1 (the default) leaves out destroy-only strategies with no target; 0 off. */
   targetCheck: number;
+  /** Card rule 30 (#386): 1 (the default) picks a destroy-only strategy's strongest mode; 0 off. */
+  modeBest: number;
   /** The Monster X plan's #335 (no idle Landing): 1 (the default) on; 0 is the old rule 9. */
   mxLanding: number;
   /** The Monster X plan's #338 (Manda's discount as a setup play): 1 (default) on; 0 old rule 3. */
   mxManda: number;
   /** The Monster X plan's rule 16 (#352): 1 (the default) targets their Monster X first; 0 off. */
   mxTargets: number;
+  /** The Monster X plan's #370: 1 (the default) keeps the white Monster X unless it fires; 0 off. */
+  mxWhiteKeep: number;
   /** Monster X plan rule 17 (#371): 1 (the default) keeps protected cards in zones 1-5; 0 off. */
   mxProtectZones: number;
   /**
@@ -141,14 +147,17 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   cardRules: 0,
   counterFirst: 1,
   counterAlways: 1,
+  targetKey: 1,
   ownPath: 1,
   revengeStep: 1,
   recurDiscard: 1,
   ownCover: 1,
   targetCheck: 1,
+  modeBest: 1,
   mxLanding: 1,
   mxManda: 1,
   mxTargets: 1,
+  mxWhiteKeep: 1,
   mxProtectZones: 1,
   wranglerPlan: 2,
   wranglerV21: 1,
@@ -228,6 +237,8 @@ export function mxPlanFavored(
   manda = 1,
   /** `mxTargets` (#352). */
   targets = 1,
+  /** `mxWhiteKeep` (#370). */
+  whiteKeep = 1,
   /** `mxProtectZones` (#371). */
   protectZones = 1,
 ): Map<string, number> {
@@ -240,6 +251,7 @@ export function mxPlanFavored(
           landing > 0,
           manda > 0,
           targets > 0,
+          whiteKeep > 0,
           protectZones > 0,
         )
       : mxPlanVerdict(state, actions, player);
@@ -291,9 +303,15 @@ function cardIdOf(state: GameState, instanceId: string): number | null {
 /**
  * A key for an action that does not depend on hidden instance ids: type + card id + zone or
  * strategy zone, and for choices the kind and the option's card id (or its id when it names no
- * card: a zone, yes/no, done). Determinizations then share tree nodes.
+ * card: a zone, yes/no, done). Determinizations then share tree nodes. #358 (`byZone`, the
+ * `targetKey` switch): an option naming a card on the field adds where it is (`@P2:8`), public
+ * information, so copies of one card in different zones are different moves.
  */
-export function actionKey(state: GameState, action: Action): string {
+export function actionKey(
+  state: GameState,
+  action: Action,
+  byZone = true,
+): string {
   switch (action.type) {
     case "playBattle":
       // A play on top of the card there (M2, EBP03-051) is a different move, and so is each
@@ -312,13 +330,30 @@ export function actionKey(state: GameState, action: Action): string {
       const option = choice?.options.find((o) => o.id === action.optionId);
       const named =
         option?.cardId !== null && option?.cardId !== undefined
-          ? `card${option.cardId}`
+          ? `card${option.cardId}${byZone ? fieldAt(state, action.optionId) : ""}`
           : action.optionId;
       return `choose:${choice?.kind}:${option?.abilityId ?? ""}:${named}`;
     }
     default:
       return action.type;
   }
+}
+
+/** The exported key, for the search's own `actionKey` (which follows `targetKey`). */
+const keyAction = (state: GameState, action: Action, byZone: boolean) =>
+  actionKey(state, action, byZone);
+
+/** #358: where a field card is, as `@<player>:<zone>`, or "" off the field (hand, deck, pile). */
+function fieldAt(state: GameState, instanceId: string): string {
+  for (const p of state.players)
+    for (const zone of [1, 2, 3, 4, 5, 6, 7, 8] as const)
+      if (
+        p.zones[zone].some((stack) =>
+          stack.some((c) => c.instanceId === instanceId),
+        )
+      )
+        return `@${p.id}:${zone}`;
+  return "";
 }
 
 interface Node {
@@ -410,6 +445,9 @@ function ucb(child: Node, exploration: number): number {
 
 /** Runs the search; returns root children by key, and the root keys of the real legal actions. */
 export function search(input: BotInput, settings: IsmctsSettings) {
+  // #358: every key in this search follows `targetKey`.
+  const actionKey = (state: GameState, action: Action) =>
+    keyAction(state, action, settings.targetKey > 0);
   const { view, knowledge, rng } = input;
   const me = view.viewer as PlayerId;
   const root = newNode(null);
@@ -477,6 +515,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         recurDiscard: settings.recurDiscard > 0,
         ownCover: settings.ownCover > 0,
         targetCheck: settings.targetCheck > 0,
+        modeBest: settings.modeBest > 0,
       };
       const unsafe = cardRulesDead(
         first,
@@ -528,6 +567,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         settings.mxLanding,
         settings.mxManda,
         settings.mxTargets,
+        settings.mxWhiteKeep,
         settings.mxProtectZones,
       );
     // #276: the Wrangler plan, a preference like the Monster X plan, that frees what its line
@@ -701,6 +741,7 @@ function cardRulesSafe(
   recurDiscard = 1,
   ownCover = 1,
   targetCheck = 1,
+  modeBest = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
     counterFirst: counterFirst > 0,
@@ -710,6 +751,7 @@ function cardRulesSafe(
     recurDiscard: recurDiscard > 0,
     ownCover: ownCover > 0,
     targetCheck: targetCheck > 0,
+    modeBest: modeBest > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
   return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
@@ -752,7 +794,7 @@ export function blunderAllowed(
   /** The bot's own decklist, for the card-play rules (rule 6). */
   own?: Decklist,
 ): Action[] {
-  const keyOf = (a: Action) => actionKey(state, a);
+  const keyOf = (a: Action) => actionKey(state, a, settings.targetKey > 0);
   const keep = combineDead(
     legalActions,
     keyOf,
@@ -777,6 +819,7 @@ export function blunderAllowed(
     settings.recurDiscard,
     settings.ownCover,
     settings.targetCheck,
+    settings.modeBest,
   );
   const sure =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
@@ -816,6 +859,7 @@ export function blunderAllowed(
     settings.mxLanding,
     settings.mxManda,
     settings.mxTargets,
+    settings.mxWhiteKeep,
     settings.mxProtectZones,
   );
   const planned = allowed.filter((a) => favored.has(keyOf(a)));
@@ -857,6 +901,7 @@ export function decide(input: BotInput): Decision {
               settings.recurDiscard,
               settings.ownCover,
               settings.targetCheck,
+              settings.modeBest,
             )
           : [...legalActions];
     return {
