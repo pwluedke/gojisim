@@ -11,6 +11,7 @@ import {
   type ZoneNumber,
 } from "@gojisim/engine";
 import { counterPlays, winsNow } from "./cardRules";
+import type { GroupOptions } from "./switches/settings";
 import { counters } from "./rules";
 import type { Decklist } from "./types";
 import {
@@ -127,6 +128,9 @@ function after(
  * The moves the v2 plan argues against, the ones it frees from the holds, and (`wranglerBioHard`)
  * the ones it prunes outright.
  */
+/** The Wrangler plan v2's switches (#402): one key per `wrangler` switch file, each on by default. */
+export type WranglerOptions = GroupOptions<"wrangler">;
+
 export function wranglerV2Verdict(
   state: GameState,
   actions: readonly Action[],
@@ -134,19 +138,17 @@ export function wranglerV2Verdict(
   own: Decklist | undefined,
   /** The opponent's decklist (public), when known. */
   theirs?: Decklist,
-  /** v2.1's changes (#316, #317, #319, #321); `false` is v2, for the paired check. */
-  v21 = true,
-  /** v2.2's changes (#318); `false` is v2.1, for the paired check. */
-  v22 = true,
-  /** v2.3's changes (Ian's guide review, Nov 15); `false` is v2.2. */
-  v23 = true,
-  /** `wranglerBio` (Ian, Nov 15): the Wrangler play guide's rules against Biollante. */
-  bio = true,
-  /** `wranglerBioHard` (Paul, Nov 15): three of those rules as prunes; needs `bio`. */
-  bioHard = true,
-  /** `wranglerPushLine` (#381): invade, push, counter this turn; `false` is without it. */
-  pushLine = true,
+  /** The plan's switches (#402: `groupOptions(settings, "wrangler")`); each defaults to on. */
+  options: WranglerOptions = {},
 ): { against: Set<Action>; rescued: Set<Action>; pruned?: Set<Action> } {
+  const {
+    v21 = true,
+    v22 = true,
+    v23 = true,
+    bio = true,
+    bioHard = true,
+    pushLine = true,
+  } = options;
   if (!isWranglerDeck(own)) return { against: new Set(), rescued: new Set() };
   // Line 1 (v1's Despair line) goes first.
   const line1 = wranglerVerdict(state, actions, me, own, theirs, true, v21);
