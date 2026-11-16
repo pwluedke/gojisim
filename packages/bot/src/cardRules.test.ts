@@ -1140,6 +1140,58 @@ describe(
       expect(off.has(pay(mechaKing.instanceId)!)).toBe(false);
     });
 
+    it("rule 22b (#378, Paul's record 1dfdd328 move 88): The Slithering Disaster EBP04-078 isn't activated while it can move nothing (their monster outside zones 3-5); in zone 4 it is; a spare copy may go as hand cycling", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      const sd = () => add(state, { ...real("EBP04-078"), rank: 1 }, "P1");
+      const idle = (oppAt: ZoneNumber, copies: number) => {
+        opp.monsterPosition = oppAt;
+        p1.hand = Array.from({ length: copies }, sd);
+        p1.rage = 10;
+        const legal = getLegalActions(state, "P1");
+        const plays = legal.filter(
+          (a) =>
+            a.type === "activateStrategy" &&
+            a.cardInstanceId === p1.hand[0]!.instanceId,
+        );
+        expect(plays.length).toBeGreaterThan(0);
+        return {
+          on: plays.map((a) => cardRulesDead(state, legal, "P1").has(a)),
+          off: plays.map((a) =>
+            cardRulesDead(state, legal, "P1", undefined, {
+              targetAll: false,
+            }).has(a),
+          ),
+        };
+      };
+      const far = idle(7, 1);
+      for (const d of far.on) expect(d).toBe(true);
+      // `targetAll: false` (the paired check's control): no 22b.
+      for (const d of far.off) expect(d).toBe(false);
+      // Their monster in zone 4: it moves it, so 22b says nothing (other rules may still judge it).
+      const near = idle(4, 1);
+      expect(near.on).toEqual(near.off);
+      // Two copies in hand: Paul's exception, a spare may go as the turn's hand cycling.
+      for (const d of idle(7, 2).on) expect(d).toBe(false);
+    });
+
+    it("rule 22b: a strategy with a continuous ability (Entangling Fear EBP04-081, whose effect is staying in play) isn't judged", () => {
+      const { state, p1 } = withGodzilla1995();
+      const fear = add(state, { ...real("EBP04-081"), rank: 1 }, "P1");
+      p1.hand = [fear];
+      const legal = getLegalActions(state, "P1");
+      const plays = legal.filter(
+        (a) =>
+          a.type === "activateStrategy" && a.cardInstanceId === fear.instanceId,
+      );
+      expect(plays.length).toBeGreaterThan(0);
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        targetAll: false,
+      });
+      const on = cardRulesDead(state, legal, "P1");
+      for (const a of plays) expect(on.has(a)).toBe(off.has(a));
+    });
+
     it("rule 23 (#345, Slick): a King isn't played over your own Kings in zones 1 and 2 while zones 3 and 4 are open", () => {
       const { state, p1 } = withGodzilla1995();
       // Your monster in zone 6 (its path is 7 and 8). Rank 1 Kings, playable anywhere (8.2.1).
@@ -1190,8 +1242,10 @@ describe(
       for (const d of judge()) expect(d).toBe(true);
       // `targetCheck: false` (the paired check's control): rule 22 is off.
       const legal = getLegalActions(state, "P1");
+      // Rule 22b (`targetAll`, #378) catches it too, so both are off for the old behavior.
       const off = cardRulesDead(state, legal, "P1", undefined, {
         targetCheck: false,
+        targetAll: false,
       });
       for (const a of legal)
         if (
