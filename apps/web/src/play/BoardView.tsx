@@ -7,6 +7,7 @@ import {
   PointerSensor,
   pointerWithin,
   rectIntersection,
+  useDroppable,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -38,6 +39,7 @@ import {
   playableCards,
 } from "./destinations";
 import { Hand } from "./Hand";
+import { TRAY_ID } from "./ZoneTray";
 import { OpponentHand } from "./OpponentHand";
 import {
   type Interaction,
@@ -249,6 +251,7 @@ function Slot({
   const {
     zoneChoice,
     picked,
+    placing,
     highlight,
     act,
     lit: litDests,
@@ -259,6 +262,12 @@ function Slot({
     ? `${playerId}:${dest.slice(5)}`
     : null;
   const choice = zoneKey ? zoneChoice.get(zoneKey) : undefined;
+  // #357: a lit zone of a zone choice takes the tray card's drop, and shows it ghosted on hover.
+  const { setNodeRef: dropRef, isOver } = useDroppable({
+    id: `choice:${zoneKey ?? testId}`,
+    disabled: !choice,
+  });
+  const [hover, setHover] = useState(false);
   // #250: a token already placed here by this choice shows until every token is placed.
   const token = zoneKey ? picked?.get(zoneKey) : undefined;
   const content = token ? (
@@ -280,13 +289,28 @@ function Slot({
   if (choice)
     return (
       <div
-        className={`${classes} ${styles.lit}`}
+        ref={dropRef}
+        className={`${classes} ${styles.lit} ${styles.choiceZone} ${isOver ? styles.over : ""}`}
         data-testid={testId}
         data-zone-choice={zoneKey}
         data-highlight={lit ? "true" : undefined}
         onClick={() => act(choice)}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
       >
         {content}
+        {placing && (hover || isOver) && (
+          <img
+            className={styles.zoneGhost}
+            data-testid="zone-ghost"
+            src={`/cards/${placing.id}-thumb.webp`}
+            alt=""
+            draggable={false}
+          />
+        )}
+        <span className={styles.zoneKeyHint} data-testid="zone-key-hint">
+          {dest.slice(5)}
+        </span>
       </div>
     );
   return own ? (
@@ -745,10 +769,16 @@ function Mat({
   glow,
   mat,
   warning,
+  banner = null,
 }: {
   model: BoardModel;
   player: PlayerAreasView;
   side: "opp" | "you";
+  /**
+   * Kaiju Classroom's bot-turn banner (Paul, Nov 15): in the open strip at the top of this mat,
+   * right of the counter power (from the deck's column) and on past the mat's right edge.
+   */
+  banner?: ReactNode;
   /** Why this player's deck is illegal, one plain reason per line (M13b); empty or absent when legal. */
   warning?: readonly string[] | undefined;
   /** The turn glow's current color name (M5f), or `null` when this mat doesn't glow. */
@@ -770,6 +800,14 @@ function Mat({
           : undefined
       }
     >
+      {banner && (
+        <div
+          className={styles.xilienSlot}
+          style={{ left: `calc(var(--mat-pad) + ${COL(6)})` }}
+        >
+          {banner}
+        </div>
+      )}
       {mat && (
         <div
           className={styles.matImage}
@@ -872,12 +910,14 @@ export function BoardView({
   model,
   prompt,
   beside = null,
+  matBanner = null,
   actions = [],
   locked = true,
   onAction = () => {},
   labelOf = (action) => action.type,
   zoneChoice = new Map(),
   picked = new Map(),
+  placing,
   highlight = new Set(),
   name = (id) => id,
   log = null,
@@ -904,6 +944,12 @@ export function BoardView({
    * over the gap and, where the window is narrow, the sidebar's edge, never wholly inside it.
    */
   beside?: ReactNode;
+  /**
+   * A banner on the bottom mat, the one the player plays on (Kaiju Classroom's bot turn, Paul,
+   * Nov 15): in the strip above zones 7 and 6 and the deck, right of the counter power, running
+   * past the mat's right edge. It takes no clicks or hovers, so the cards under it work as usual.
+   */
+  matBanner?: ReactNode;
   /** The bottom player's legal actions (M5b); empty while they can't act. */
   actions?: readonly Action[];
   /** True while the bottom player can't act (a bot decides, or the game is over). */
@@ -913,6 +959,8 @@ export function BoardView({
   labelOf?: (action: Action) => string;
   /** Zones a zone choice offers (M5c), by `<player>:<zone>`, with the action each one takes. */
   zoneChoice?: ReadonlyMap<string, Action>;
+  /** #357: the card a zone choice is placing, held in the tray beside your mat. */
+  placing?: Card | undefined;
   /** #250: zones already picked for tokens played at once, with the token. */
   picked?: ReadonlyMap<string, Card>;
   /** Where the bot's last move landed (M5c), as `<player>|<destination>`. */
@@ -1068,6 +1116,16 @@ export function BoardView({
   const [over, setOver] = useState<string | null>(null);
   const onDragEnd = (event: DragEndEvent) => {
     setOver(null);
+    // #357: the tray card dropped on a lit zone of a zone choice answers it.
+    if (event.active.id === TRAY_ID) {
+      setDragging(null);
+      const overId = String(event.over?.id ?? "");
+      const choice = overId.startsWith("choice:")
+        ? zoneChoice.get(overId.slice("choice:".length))
+        : undefined;
+      if (choice) onAction(choice);
+      return;
+    }
     const key = event.over?.id as DestinationKey | undefined;
     // The card settles into its slot from where it was let go (M5f).
     const at = event.active.rect.current.translated;
@@ -1098,6 +1156,7 @@ export function BoardView({
     previewCard: setPreviewedCard,
     zoneChoice,
     picked,
+    placing,
     highlight,
     act: onAction,
     monsterGlow: { [you.id]: youMonsterGlow, [opp.id]: oppMonsterGlow },
@@ -1203,6 +1262,7 @@ export function BoardView({
                 glow={glowFor(you)}
                 mat={mat}
                 warning={deckWarnings[you.id]}
+                banner={matBanner}
               />
             </div>
             <Hand
@@ -1359,7 +1419,15 @@ export function BoardView({
           )}
         </div>
         <DragOverlay dropAnimation={null}>
-          {draggedCard ? (
+          {dragging === TRAY_ID && placing ? (
+            <div className={`${styles.zoneTrayCard} ${styles.dragOverlay}`}>
+              <img
+                src={`/cards/${placing.id}-thumb.webp`}
+                alt=""
+                draggable={false}
+              />
+            </div>
+          ) : draggedCard ? (
             <div className={`${styles.handCard} ${styles.dragOverlay}`}>
               <CardFace
                 card={draggedCard}

@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { parseMentions, postPayload, postRequest, runPost } from "../src/post";
+import {
+  parseMentions,
+  parseReactions,
+  postPayload,
+  postRequest,
+  runPost,
+} from "../src/post";
 
 // A made-up webhook and made-up Discord ids.
 const WEBHOOK = "https://discord.com/api/webhooks/111/secret-token";
@@ -145,5 +151,213 @@ describe("Discord post: editing a webhook message (Paul, Nov 12)", () => {
       }),
     ).rejects.toThrow(/edit_id/);
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe("Discord post through the bot to any channel or thread (Paul, Nov 15)", () => {
+  const BOT = "bot-secret-token";
+  const THREAD = "1450000000000000077";
+  const PARENT = "1570000000000000055";
+
+  it("with channel_id, posts through the bot to that channel or thread as a real reply, only the listed users pinged; the log has the channel id and message id only", async () => {
+    const { impl, calls } = fakeFetch(() =>
+      json({ id: "1570000000000000101" }),
+    );
+    const log: string[] = [];
+    const summary: string[] = [];
+    const id = await runPost({
+      webhook: WEBHOOK,
+      channelId: THREAD,
+      botToken: BOT,
+      message: `Thanks <@${IAN}>, fixed in #350.`,
+      mentions: IAN,
+      replyTo: PARENT,
+      fetchImpl: impl,
+      log: (l) => log.push(l),
+      summary: (l) => summary.push(l),
+    });
+    expect(id).toBe("1570000000000000101");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toBe(
+      `https://discord.com/api/v10/channels/${THREAD}/messages`,
+    );
+    expect(calls[0]?.init?.method).toBe("POST");
+    expect(
+      (calls[0]?.init?.headers as Record<string, string>)["Authorization"],
+    ).toBe(`Bot ${BOT}`);
+    const body = JSON.parse(String(calls[0]?.init?.body)) as {
+      content: string;
+      allowed_mentions: { parse: string[]; users: string[] };
+      message_reference?: { message_id: string };
+    };
+    expect(body.allowed_mentions).toEqual({ parse: [], users: [IAN] });
+    expect(body.message_reference?.message_id).toBe(PARENT);
+    // A real reply: no link line in the text.
+    expect(body.content).toBe(`Thanks <@${IAN}>, fixed in #350.`);
+    expect(log).toEqual([
+      "Discord answered HTTP 200",
+      `Channel id ${THREAD}, message id 1570000000000000101`,
+    ]);
+    expect(log.join("\n")).not.toMatch(/Thanks|bot-secret-token|secret-token/);
+    expect(summary.join("\n")).toContain(THREAD);
+  });
+
+  it("with channel_id and edit_id, PATCHes the bot's message in that channel", async () => {
+    const { impl, calls } = fakeFetch(() =>
+      json({ id: "1570000000000000101" }),
+    );
+    await runPost({
+      webhook: "",
+      channelId: THREAD,
+      botToken: BOT,
+      message: "Fixed in #350 (released).",
+      editId: "1570000000000000101",
+      fetchImpl: impl,
+      log: () => {},
+    });
+    expect(calls[0]?.url).toBe(
+      `https://discord.com/api/v10/channels/${THREAD}/messages/1570000000000000101`,
+    );
+    expect(calls[0]?.init?.method).toBe("PATCH");
+  });
+
+  it("refuses a channel_id that isn't an id, or a missing bot token, before any call", async () => {
+    const { impl, calls } = fakeFetch(() => json({}));
+    await expect(
+      runPost({
+        webhook: WEBHOOK,
+        channelId: "#general",
+        botToken: BOT,
+        message: "x",
+        fetchImpl: impl,
+        log: () => {},
+      }),
+    ).rejects.toThrow(/channel_id/);
+    await expect(
+      runPost({
+        webhook: WEBHOOK,
+        channelId: THREAD,
+        botToken: "",
+        message: "x",
+        fetchImpl: impl,
+        log: () => {},
+      }),
+    ).rejects.toThrow(/DISCORD_BOT_TOKEN/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("without channel_id, a #bugs post goes through the bot to the webhook's own channel, so it shows as Monarch", async () => {
+    const BUGS = "1300000000000000011";
+    const { impl, calls } = fakeFetch((url) =>
+      url === WEBHOOK
+        ? json({ guild_id: "1200000000000000001", channel_id: BUGS })
+        : json({ id: "1570000000000000102" }),
+    );
+    const id = await runPost({
+      webhook: WEBHOOK,
+      botToken: BOT,
+      message: "Hi",
+      fetchImpl: impl,
+      log: () => {},
+    });
+    expect(id).toBe("1570000000000000102");
+    expect(calls.map((c) => c.url)).toEqual([
+      WEBHOOK,
+      `https://discord.com/api/v10/channels/${BUGS}/messages`,
+    ]);
+  });
+
+  it("when the bot post fails, the #bugs webhook is the fallback; with no bot token, the webhook posts as before", async () => {
+    const BUGS = "1300000000000000011";
+    const log: string[] = [];
+    const { impl, calls } = fakeFetch((url) =>
+      url === WEBHOOK
+        ? json({ guild_id: "1200000000000000001", channel_id: BUGS })
+        : url.startsWith("https://discord.com/api/v10/channels/")
+          ? json({ message: "Missing Permissions" }, 403)
+          : json({ id: "1570000000000000099" }),
+    );
+    await runPost({
+      webhook: WEBHOOK,
+      botToken: BOT,
+      message: "Hi",
+      fetchImpl: impl,
+      log: (l) => log.push(l),
+    });
+    expect(calls.at(-1)?.url).toBe(`${WEBHOOK}?wait=true`);
+    expect(log).toContain(
+      "The bot post failed (HTTP 403); posting through the #bugs webhook.",
+    );
+    const plain = fakeFetch(() => json({ id: "1570000000000000099" }));
+    await runPost({
+      webhook: WEBHOOK,
+      message: "Hi",
+      fetchImpl: plain.impl,
+      log: () => {},
+    });
+    expect(plain.calls.map((c) => c.url)).toEqual([`${WEBHOOK}?wait=true`]);
+  });
+});
+
+describe("Discord post: reactions for #approvals (Paul, Nov 15)", () => {
+  const BOT = "bot-secret-token";
+  const APPROVALS = "1450000000000000088";
+
+  it("reads names (white_check_mark, x) or emoji, each once, and refuses a typo", () => {
+    expect(parseReactions("white_check_mark, x, ✅")).toEqual(["✅", "❌"]);
+    expect(parseReactions(":x:")).toEqual(["❌"]);
+    expect(parseReactions("")).toEqual([]);
+    expect(() => parseReactions("white_check")).toThrow(/reactions/);
+  });
+
+  it("after the bot posts, it adds each reaction to its own message; a refused one warns, the post still counts", async () => {
+    const { impl, calls } = fakeFetch((url, init) =>
+      init?.method === "PUT"
+        ? new Response(null, {
+            status: url.includes(encodeURIComponent("❌")) ? 403 : 204,
+          })
+        : json({ id: "1570000000000000200" }),
+    );
+    const log: string[] = [];
+    const id = await runPost({
+      webhook: WEBHOOK,
+      channelId: APPROVALS,
+      botToken: BOT,
+      reactions: "white_check_mark,x",
+      message: "R-3 · Paul · keep EBP03-067",
+      fetchImpl: impl,
+      log: (l) => log.push(l),
+    });
+    expect(id).toBe("1570000000000000200");
+    expect(calls.map((c) => [c.init?.method, c.url])).toEqual([
+      ["POST", `https://discord.com/api/v10/channels/${APPROVALS}/messages`],
+      [
+        "PUT",
+        `https://discord.com/api/v10/channels/${APPROVALS}/messages/1570000000000000200/reactions/${encodeURIComponent("✅")}/@me`,
+      ],
+      [
+        "PUT",
+        `https://discord.com/api/v10/channels/${APPROVALS}/messages/1570000000000000200/reactions/${encodeURIComponent("❌")}/@me`,
+      ],
+    ]);
+    expect(log.some((l) => l.includes("Add Reactions"))).toBe(true);
+    expect(log.join("\n")).not.toMatch(/R-3|bot-secret-token/);
+  });
+
+  it("an edit adds no reactions", async () => {
+    const { impl, calls } = fakeFetch(() =>
+      json({ id: "1570000000000000200" }),
+    );
+    await runPost({
+      webhook: "",
+      channelId: APPROVALS,
+      botToken: BOT,
+      reactions: "white_check_mark",
+      editId: "1570000000000000200",
+      message: "edited",
+      fetchImpl: impl,
+      log: () => {},
+    });
+    expect(calls.map((c) => c.init?.method)).toEqual(["PATCH"]);
   });
 });

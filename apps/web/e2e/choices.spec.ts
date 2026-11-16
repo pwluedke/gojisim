@@ -9,7 +9,12 @@ test.use({ viewport: { width: 1440, height: 900 } });
  * Medium bot, and the record stops at P1's pending choice.
  */
 const KINDS = [
-  { fixture: "target", kind: "target", heading: /^You are choosing a target/ },
+  // #376: a target pick says what happens to the card (here Godzilla (2023)'s destroy).
+  {
+    fixture: "target",
+    kind: "target",
+    heading: /^You are choosing a card to destroy for Godzilla \(2023\)/,
+  },
   {
     fixture: "search",
     kind: "target",
@@ -51,6 +56,9 @@ for (const { fixture, kind, heading } of KINDS)
     await expect(modal).toHaveAttribute("data-kind", kind);
     await expect(page.getByTestId("choice-heading")).toHaveText(heading);
     await expect(page.getByTestId("choice-source")).toContainText("From ");
+    // #376: the asking ability's printed text, under the source line (a yes/no shows its own).
+    if (fixture === "target")
+      await expect(page.getByTestId("choice-asking-text")).not.toBeEmpty();
     if (kind === "confirm") {
       await expect(page.getByTestId("choice-yes")).toBeVisible();
       await expect(page.getByTestId("choice-no")).toBeVisible();
@@ -70,37 +78,34 @@ for (const { fixture, kind, heading } of KINDS)
       await expect(page.getByTestId("choice-option")).toHaveCount(2);
   });
 
-test("choice: zone options light the zones on the mat, with a banner beside your mat (#242) instead of a modal", async ({
+test("#357: a zone choice lights the zones on the mat, with the card being placed in a tray beside your mat (#242) and no button panel", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await loadFixture(page, "zone");
   await expect(page.getByTestId("choice-modal")).toHaveCount(0);
-  const banner = page.getByTestId("beside-prompt").getByTestId("choice-banner");
+  const tray = page.getByTestId("beside-prompt").getByTestId("zone-tray");
   // #242: not in the Prompt panel, which only points to it.
-  await expect(
-    page.getByTestId("prompt").getByTestId("choice-banner"),
-  ).toHaveCount(0);
+  await expect(page.getByTestId("prompt").getByTestId("zone-tray")).toHaveCount(
+    0,
+  );
   await expect(page.getByTestId("prompt-choice")).toContainText(
     "beside your mat",
   );
-  await expect(banner).toHaveAttribute("data-kind", "zone");
-  await expect(banner.getByTestId("choice-heading")).toHaveText(
+  await expect(tray.getByTestId("choice-heading")).toHaveText(
     /^You are choosing a zone for /,
   );
-  await expect(banner.getByTestId("choice-source")).toHaveText(
+  await expect(tray.getByTestId("choice-source")).toHaveText(
     /^From .+ \[[A-Z0-9]+-\d+\]$/,
   );
-  await expect(banner).toContainText(
-    "Click a lit zone, or press its zone number",
+  // The card being placed, and what to do with it; no zone buttons.
+  await expect(tray.getByTestId("zone-tray-card")).toBeVisible();
+  await expect(tray.getByTestId("zone-keys-hint")).toContainText(
+    "drag it onto a lit zone, click one, or press its zone number",
   );
-  // Buttons name the zone's side as target locations do: "Your zone 1", "Bot's zone 3".
-  for (const text of await banner
-    .getByTestId("choice-option")
-    .allTextContents())
-    expect(text).toMatch(/^\d (Your|Bot's) zone \d$/);
-  // The battle log stays fully visible: the banner doesn't overlap it.
-  const box = await banner.boundingBox();
+  await expect(page.getByTestId("choice-option")).toHaveCount(0);
+  // The battle log stays fully visible: the tray doesn't overlap it.
+  const box = await tray.boundingBox();
   const log = await page.getByTestId("battle-log").boundingBox();
   expect(box && log).toBeTruthy();
   if (box && log)
@@ -111,6 +116,7 @@ test("choice: zone options light the zones on the mat, with a banner beside your
         log.y + log.height <= box.y,
     ).toBe(true);
   const zones = page.locator("[data-zone-choice]");
+  expect(await zones.count()).toBeGreaterThan(0);
   // #242: it covers no zone the choice offers (each lit zone's middle is clickable).
   for (let i = 0; i < (await zones.count()); i++) {
     const zone = await zones.nth(i).boundingBox();
@@ -121,14 +127,40 @@ test("choice: zone options light the zones on the mat, with a banner beside your
           zone.y + zone.height / 2 < box.y,
       ).toBe(true);
   }
-  const options = page
-    .getByTestId("choice-banner")
-    .getByTestId("choice-option");
-  expect(await zones.count()).toBeGreaterThan(0);
-  expect(await zones.count()).toBe(await options.count());
+  // Each lit zone shows its number (the key hint); hovering one ghosts the card in it.
+  for (let i = 0; i < (await zones.count()); i++) {
+    const id = (await zones.nth(i).getAttribute("data-zone-choice")) ?? "";
+    await expect(zones.nth(i).getByTestId("zone-key-hint")).toHaveText(
+      id.split(":")[1] ?? "",
+    );
+  }
+  await zones.first().hover();
+  await expect(zones.first().getByTestId("zone-ghost")).toBeVisible();
   // Clicking a lit zone answers the choice: that zone is no longer offered.
   const key = await zones.first().getAttribute("data-zone-choice");
   await zones.first().click();
+  await expect(page.locator(`[data-zone-choice="${key}"]`)).toHaveCount(0);
+});
+
+test("#357: dragging the tray card onto a lit zone answers the zone choice", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await loadFixture(page, "zone");
+  const card = page.getByTestId("zone-tray-card");
+  const zones = page.locator("[data-zone-choice]");
+  const key = (await zones.last().getAttribute("data-zone-choice")) ?? "";
+  const a = await card.boundingBox();
+  const b = await zones.last().boundingBox();
+  expect(a && b).toBeTruthy();
+  if (!a || !b) return;
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(a.x + a.width / 2 + 20, a.y + a.height / 2, {
+    steps: 4,
+  });
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 10 });
+  await page.mouse.up();
   await expect(page.locator(`[data-zone-choice="${key}"]`)).toHaveCount(0);
 });
 
@@ -137,23 +169,16 @@ test("Ian (Nov 14): at a zone prompt a key is the zone number, not a place in th
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await loadFixture(page, "zone");
-  const banner = page.getByTestId("beside-prompt").getByTestId("choice-banner");
-  await expect(banner.getByTestId("zone-keys-hint")).toHaveText(
-    "Click a lit zone, or press its zone number (7 is zone 7). Other keys do nothing.",
-  );
-  const options = banner.getByTestId("choice-option");
-  const ids = (await options.evaluateAll((els) =>
-    els.map((el) => el.getAttribute("data-option") ?? ""),
+  const zones = page.locator("[data-zone-choice]");
+  const ids = (await zones.evaluateAll((els) =>
+    els.map((el) => el.getAttribute("data-zone-choice") ?? ""),
   )) as string[];
   const lit = ids.map((id) => Number(id.split(":")[1]));
-  // Each button's key badge is its zone number.
-  for (let i = 0; i < ids.length; i++)
-    await expect(options.nth(i)).toHaveText(new RegExp(`^${lit[i]} `));
   // A key for a zone that isn't lit answers nothing.
   const unlit = [1, 2, 3, 4, 5, 6, 7, 8].find((z) => !lit.includes(z));
   expect(unlit).toBeDefined();
   await page.keyboard.press(String(unlit));
-  await expect(options).toHaveCount(ids.length);
+  await expect(zones).toHaveCount(ids.length);
   // The last lit zone's own number picks that zone (the list's place would be another key).
   const last = ids[ids.length - 1] as string;
   await page.keyboard.press(String(lit[lit.length - 1]));
@@ -193,11 +218,11 @@ for (const [w, h] of [
         ),
       ).toBe(true);
     // A zone's number key still answers it: that zone is no longer offered.
-    const first = await prompt
-      .getByTestId("choice-option")
+    const first = await page
+      .locator("[data-zone-choice]")
       .first()
-      .textContent();
-    const zone = /zone (\d)$/.exec(first ?? "")?.[1];
+      .getAttribute("data-zone-choice");
+    const zone = first?.split(":")[1];
     expect(zone).toBeTruthy();
     await page.keyboard.press(zone ?? "");
     await expect(page.locator(`[data-zone-choice$=":${zone}"]`)).toHaveCount(0);
@@ -436,13 +461,56 @@ test("#242: a token's zone choice (Crystals, 9.1.2) shows beside your mat too", 
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await loadFixture(page, "token-crystals");
-  const banner = page.getByTestId("beside-prompt").getByTestId("choice-banner");
-  await expect(banner).toHaveAttribute("data-kind", "zone");
+  const tray = page.getByTestId("beside-prompt").getByTestId("zone-tray");
   // The heading names the card making the token (SpaceGodzilla).
-  await expect(banner.getByTestId("choice-heading")).toContainText(
+  await expect(tray.getByTestId("choice-heading")).toContainText(
     "SpaceGodzilla",
   );
-  await expect(
-    page.getByTestId("prompt").getByTestId("choice-banner"),
-  ).toHaveCount(0);
+  // #357: the tray holds the token being placed (Crystals).
+  await expect(tray.getByTestId("zone-tray-card")).toHaveAttribute(
+    "title",
+    /^Crystals: /,
+  );
+  await expect(page.getByTestId("prompt").getByTestId("zone-tray")).toHaveCount(
+    0,
+  );
+});
+
+test("#357: after a zone pick, Undo returns to the zone prompt with the tray", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await loadFixture(page, "zone");
+  const zones = page.locator("[data-zone-choice]");
+  const count = await zones.count();
+  const key = (await zones.first().getAttribute("data-zone-choice")) ?? "";
+  await zones.first().click();
+  await expect(page.locator(`[data-zone-choice="${key}"]`)).toHaveCount(0);
+  await page.keyboard.press("u");
+  await expect(page.getByTestId("zone-tray")).toBeVisible();
+  await expect(zones).toHaveCount(count);
+  await expect(page.locator(`[data-zone-choice="${key}"]`)).toHaveCount(1);
+});
+
+test("#357: at phone width the zone prompt's tray stays on screen and adds no sideways scroll", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await loadFixture(page, "zone");
+  const tray = page.getByTestId("zone-tray");
+  await expect(tray).toBeVisible();
+  await expect(page.getByTestId("zone-tray-card")).toBeVisible();
+  const box = await tray.boundingBox();
+  expect(box).toBeTruthy();
+  if (box) {
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(390);
+  }
+  // The /play board itself is wider than a phone (no phone layout yet); the tray adds nothing.
+  const width = () => page.evaluate(() => document.documentElement.scrollWidth);
+  const withTray = await width();
+  await page
+    .getByTestId("beside-prompt")
+    .evaluate((el) => ((el as HTMLElement).style.display = "none"));
+  expect(withTray).toBeLessThanOrEqual(await width());
 });

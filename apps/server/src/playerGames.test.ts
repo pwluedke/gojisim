@@ -100,7 +100,17 @@ describe("games linked to the player (#151)", () => {
       result: "win",
       botLevel: "Medium",
       deckNames: "ESD01 official vs Kaiju Rush",
+      classroom: false,
     });
+    // #365: a Kaiju Classroom game keeps its result, flagged for the statistics to leave out.
+    expect(
+      gameFacts(
+        record(G1, {
+          classroom: true,
+          outcome: { winner: "P1", reason: "invasion" },
+        }),
+      ),
+    ).toMatchObject({ result: "win", classroom: true });
     expect(
       gameFacts(record(G1, { outcome: { winner: "P2", reason: "concede" } }))
         .result,

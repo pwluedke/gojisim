@@ -126,6 +126,15 @@ export const MIGRATIONS: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 7,
+    name: "kaiju classroom games",
+    // #365: a Kaiju Classroom game (the player plays each bot turn first) keeps its result in the
+    // player's history but is left out of win/loss statistics.
+    sql: `
+      ALTER TABLE games ADD COLUMN classroom INTEGER NOT NULL DEFAULT 0;
+    `,
+  },
 ];
 
 /** The schema version this code expects: the last migration's. */

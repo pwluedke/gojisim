@@ -185,7 +185,8 @@ export interface LevelRecord {
 
 /**
  * The human's results by bot level, over finished human-vs-bot games, leaving out games with
- * Show opponent's hand or a peeked First / Second pick (decisions 396, 483).
+ * Show opponent's hand or a peeked First / Second pick (decisions 396, 483), and Kaiju Classroom
+ * games (#365).
  */
 export function winRates(
   games: readonly RecordFile[],
@@ -193,7 +194,8 @@ export function winRates(
 ): LevelRecord[] {
   const levels = new Map<string, LevelRecord>();
   for (const { record } of games) {
-    if (record.showOpponentHand || record.firstPickPeeked) continue;
+    if (record.showOpponentHand || record.firstPickPeeked || record.classroom)
+      continue;
     const seats = (["P1", "P2"] as const).map((id) => ({
       id,
       seat: seatFromRecord(record.seats?.[id]),

@@ -45,6 +45,8 @@ The repo's `.railway/railway.ts` (Railway's Infrastructure as Code) holds the se
 | `RECORDS_DIR`                  | `/data/records`                              | Where uploaded game records go (the volume, step 3). This is the default; set it to be sure. Capped at 1 GB: past it, uploads answer 507 and the log says "the records folder is full" (download and clear old days to make room).                 |
 | `RESULTS_DIR`                  | `/data/results`                              | Optional (#340): where the results page's data is kept (the volume, step 3). This is the default.                                                                                                                                                  |
 | `RESULTS_UPLOAD_TOKEN`         | 64 random characters (like `SESSION_SECRET`) | Optional (#340): lets `pnpm results ... --upload` on Paul's Mac add a check or run to the results page. Set the same value in the Mac's environment (direnv). Unset turns uploads off; the page then shows what's already stored.                  |
+| `TEST_DECKS_DIR`               | `/data/test-decks`                           | Optional (#359): where the test decks are kept (the volume, step 3). This is the default.                                                                                                                                                          |
+| `TEST_DECKS_UPLOAD_TOKEN`      | 64 random characters (like `SESSION_SECRET`) | Optional (#359): lets `pnpm test-decks upload` on Paul's Mac replace the test decks. Set the same value in the Mac's environment (direnv). Unset turns uploads off; the pickers then show what's already stored.                                   |
 | `GOJISIM_TEST_SITE`            | `on` or `off`                                | The Test Site panel (Bad Bot!, Report bug, Test settings) and game uploads. Default `on`.                                                                                                                                                          |
 | `DISCORD_REPORTS_WEBHOOK`      | the staff #reports webhook URL               | Optional (#136): each new Report bug, Bad Bot!, Good Bot!, Mailbox note and crash is posted to the Discord staff #reports channel. Unset, nothing is posted and the log says so once. See [Tester reports in Discord](#tester-reports-in-discord). |
 | `SLACK_REPORTS_WEBHOOK`        | the #gojisim-reports webhook URL             | Optional (#146): the same posts to Slack #gojisim-reports, where Monarch reads them. Either webhook works without the other. See [Tester reports in Slack](#tester-reports-in-slack).                                                              |
@@ -307,6 +309,17 @@ Two signed-in testers play each other online; the server runs the game. It needs
 Without the variable there is no post and no error. The URL is never logged or posted: a failed post logs only "the daily players post failed" and Slack's status, and isn't retried that day. To stop the posts, delete the variable.
 
 **What runs on the first deploy:** database update 6 ("daily posts"), after the usual backup. It adds one empty table, `daily_posts` (the day and the time of each post), and changes nothing else.
+
+## Test decks (#359)
+
+The decks the bot is tested with show in `/play`'s deck pickers (both seats) and the Deckbuilder's My decks window, in a **Test decks** group after the starter decks. Their lists are kept on the volume (`TEST_DECKS_DIR`) and never in the repo; the site reads them from `GET /api/test-decks`, behind the sign-in. Loading one in the Deckbuilder opens a copy: saving it makes a deck of the player's own, and the server's list changes only through the upload.
+
+**Paul's steps:**
+
+1. **Railway → `gojisim` → Variables → New Variable.** Name: `TEST_DECKS_UPLOAD_TOKEN`. Value: `openssl rand -hex 32`. Click **Apply changes**. (`TEST_DECKS_DIR` is optional: the default `/data/test-decks` is on the existing `/data` volume.)
+2. **On the Mac,** set the same value as `TEST_DECKS_UPLOAD_TOKEN` in the environment (direnv).
+3. **The file.** Keep the decks in a local file outside the repo (never committed): GojiSim text with one `[deck] <name>` line per deck (the name is what the pickers show), or JSON of name → deck list. `pnpm test-decks check --file <path>` checks it and lists each deck's name and card counts.
+4. **Upload:** `pnpm test-decks upload --file <path>`. It replaces the whole set on the site: a changed list is updated, and a deck left out of the file leaves the pickers. `TEST_DECKS_URL` sends it elsewhere (default the site). The token is never printed.
 
 ## Public launch: reset players' history (#153)
 

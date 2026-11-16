@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  agreementRows,
+  agreementShare,
+  type ClassroomPoint,
   isGuideDeck,
   mistakeRate,
   disagrees,
@@ -146,5 +149,63 @@ describe("#340 results data", () => {
     expect(disagrees("heavily favoured", 17, 60)).toBe(true);
     expect(disagrees("heavily favoured", 45, 60)).toBe(false);
     expect(disagrees("disputed", 0, 60)).toBe(false);
+  });
+});
+
+describe("#365 Kaiju Classroom agreement", () => {
+  const point = (
+    date: string,
+    deck: string,
+    same: boolean,
+    rating: ClassroomPoint["rating"],
+    botVersion = "v1",
+  ): ClassroomPoint => ({ date, deck, botVersion, same, rating });
+
+  it("rows by day, deck and bot version, counting same turns as agreement", () => {
+    const rows = agreementRows([
+      point("2026-11-15", "Wrangler", true, "same"),
+      point("2026-11-15", "Wrangler", false, "worse"),
+      point("2026-11-15", "Wrangler", false, "aboutSame"),
+      point("2026-11-15", "Wrangler", false, "better", "v2"),
+      point("2026-11-14", "Ghidorat", true, "same"),
+    ]);
+    expect(rows).toEqual([
+      {
+        date: "2026-11-14",
+        deck: "Ghidorat",
+        botVersion: "v1",
+        turns: 1,
+        same: 1,
+        aboutSame: 0,
+        worse: 0,
+        better: 0,
+      },
+      {
+        date: "2026-11-15",
+        deck: "Wrangler",
+        botVersion: "v1",
+        turns: 3,
+        same: 1,
+        aboutSame: 1,
+        worse: 1,
+        better: 0,
+      },
+      {
+        date: "2026-11-15",
+        deck: "Wrangler",
+        botVersion: "v2",
+        turns: 1,
+        same: 0,
+        aboutSame: 0,
+        worse: 0,
+        better: 1,
+      },
+    ]);
+    expect(agreementShare(rows.slice(1))).toEqual({
+      turns: 4,
+      same: 1,
+      share: 0.25,
+    });
+    expect(agreementShare([])).toEqual({ turns: 0, same: 0, share: 0 });
   });
 });

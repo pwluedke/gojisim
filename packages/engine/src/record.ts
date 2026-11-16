@@ -120,6 +120,48 @@ export interface GameRecord {
    * that game has the whole game. Information only.
    */
   h2hGameId?: string;
+  /**
+   * #365 Kaiju Classroom: the player plays each bot turn first, in a sandbox, and the game compares
+   * it with the bot's own turn. Such games are left out of win/loss statistics and achievements
+   * (`excludedFromAchievements` is set with it). Information only: replay never reads it.
+   */
+  classroom?: true;
+  /** #365: each compared bot turn, oldest first. Information only; replay never reads it. */
+  classroomTurns?: ClassroomTurn[];
+}
+
+/** #365: how the player rated the bot's turn (`same`: the automatic same end position). */
+export type ClassroomRating = "same" | "aboutSame" | "worse" | "better";
+
+/**
+ * One Kaiju Classroom turn (#365): the position (the record's state after `actionIndex` actions,
+ * the start of the bot's main phase), the player's turn from it (played in a sandbox, never in
+ * `actions`), the bot's own turn (`actions[actionIndex]` up to `botEndIndex`), the automatic
+ * match and the player's rating.
+ */
+export interface ClassroomTurn {
+  /** The game turn (7.1) and the bot's seat. */
+  turn: number;
+  player: PlayerId;
+  /** The position both turns start from: the state after this many actions. */
+  actionIndex: number;
+  /** The player's turn: every action from the position to the end of its main phase. */
+  playerActions: Action[];
+  /** The same actions as the battle log words them. */
+  playerLabels: string[];
+  /** The bot's action that ended its main phase (its turn is `actionIndex` to this, inclusive). */
+  botEndIndex?: number;
+  /** Whether both turns ended in the same position (`samePosition`). */
+  same?: boolean;
+  /** Where the end positions differ (`positionDifferences`), when not the same. */
+  differences?: string[];
+  rating?: ClassroomRating;
+  /** The player's "why" for a worse or better rating (also filed as Bad Bot! / Good Bot!). */
+  reason?: string;
+  /** `BOT_VERSION` of the bot that played the turn. */
+  botVersion?: string;
+  /** ISO time the player submitted their turn. */
+  at: string;
 }
 
 /** A crash (#95): the error as `errors.ts` captured it, where the game was, and the last answer. */
@@ -162,6 +204,11 @@ export interface FeedbackEntry {
   at: string;
   /** #214: the community #bot-feedback post the reporter allowed. */
   community?: CommunityPost;
+  /**
+   * #365: filed from a Kaiju Classroom rating: the index of its turn in `classroomTurns` (the
+   * marked action is the bot's first main-phase move, so the position is the classroom's).
+   */
+  classroomTurn?: number;
 }
 
 /** One Report bug note (M13b): where the game was and what went wrong. */

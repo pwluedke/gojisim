@@ -337,6 +337,16 @@
   box-shadow: var(--panel-shadow);
 }
 
+/* #357: on a phone there's no room left of the mat; the prompt sits above it, on screen. */
+@media (max-width: 700px) {
+  .beside {
+    position: static;
+    width: auto;
+    max-width: calc(100vw - 2 * var(--space-4));
+    margin-bottom: var(--space-2);
+  }
+}
+
 .centerLine {
   border-top: 3px solid var(--color-center-line);
 }
@@ -905,11 +915,102 @@
   display: block;
 }
 
+/* #355: two short checkbox settings on one row (Invade arrow, Confirm moves). */
+.settingsPair {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-3);
+}
+
 /* Checkbox rows 2 px apart instead of the box's default 6 px (19 px rows), so the left column
    still fits at 1440 × 900 with Card preview on hover added (#174). */
 .settings input[type="checkbox"] {
   margin-block: 1px;
   vertical-align: -2px;
+}
+
+/* #357: a zone choice's tray: the card being placed, beside your mat. */
+.zoneTray {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.zoneTrayText {
+  font-weight: 600;
+}
+
+.zoneTrayCard {
+  width: calc(var(--card-w, 72px) * 0.9);
+  aspect-ratio: 5 / 7;
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.zoneTrayCard img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.zoneTrayDragging {
+  opacity: 0.4;
+}
+
+.zoneTrayButtons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* #357: a lit zone of a zone choice: the tray card ghosted on hover, and its zone number. */
+.choiceZone {
+  position: relative;
+}
+
+.zoneGhost {
+  position: absolute;
+  inset: 8%;
+  width: 84%;
+  height: 84%;
+  object-fit: contain;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.zoneKeyHint {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  min-width: 18px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--color-chip);
+  color: var(--color-chip-text);
+  font-size: var(--font-size-sm);
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Paul, Nov 15: Kaiju Classroom's compare modal folded to a bar at the screen's edge. */
+.classroomBar {
+  position: fixed;
+  bottom: var(--space-3);
+  left: 50%;
+  translate: -50% 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: calc(100vw - 2 * var(--space-4));
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  box-shadow: var(--panel-shadow);
 }
 
 /* Where the bot's last move landed, for the delay time. */
@@ -2158,12 +2259,54 @@
 }
 
 /* The Bad Bot! and Report bug popups' backdrop, above the Test Site panel (32). */
-.reportBackdrop {
+/*
+ * Paul, Nov 15: a window over the board with no backdrop (`FloatingWindow`), so the board keeps
+ * its hover previews and clicks. It opens centered; once dragged, `left` / `top` place it.
+ */
+.floatingWindow {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
   z-index: 34;
 }
 
-.reportModal {
+.floatingWindow[hidden] {
+  display: none;
+}
+
+/* The title bar is the drag handle; its Hide button sits at the right. */
+.floatingTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+/* A hidden window's tab, at the bottom left (the Classroom bar has the bottom center). */
+.floatingTab {
+  position: fixed;
+  bottom: var(--space-3);
+  left: var(--space-3);
+  z-index: 34;
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  color: var(--color-text);
+  box-shadow: var(--shadow);
+  font: inherit;
+  cursor: pointer;
+}
+
+.reportWindow {
   width: min(90vw, 520px);
+}
+
+.reportModal {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -2279,4 +2422,71 @@
 .choiceCardDimmed {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+/* #365 Kaiju Classroom: the two turns side by side, and the banner while the player plays the
+   bot's turn. */
+.classroomModal {
+  width: min(90vw, 720px);
+}
+
+.classroomColumns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.classroomColumn ol {
+  margin: var(--space-1) 0 0;
+  padding-left: 1.4em;
+}
+
+.classroomTitle {
+  font-weight: 700;
+}
+
+.classroomBanner {
+  padding: var(--space-1) var(--space-2);
+  border: 1.5px solid var(--btn-primary-fill, var(--color-panel-border));
+  border-radius: 6px;
+}
+
+/*
+ * Kaiju Classroom's bot-turn banner (Paul, Nov 15): in the open strip at the top of the player's
+ * mat (between its top border and the top of zones 7 and 6 and the deck), right of the counter
+ * power, and on past the mat's right edge into the log column. It takes no pointer events, so
+ * hover previews and clicks reach whatever is under it.
+ */
+.xilienSlot {
+  position: absolute;
+  top: 0;
+  height: calc(var(--mat-pad) + var(--mat-stagger));
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.xilienBanner {
+  box-sizing: border-box;
+  max-height: 100%;
+  padding: var(--space-1) var(--space-3);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--color-panel) 92%, transparent);
+  color: var(--color-text);
+  box-shadow: var(--shadow);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.xilienTitle {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.1;
+}
+
+.xilienLine {
+  font-size: 1rem;
 }
