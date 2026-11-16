@@ -1,5 +1,5 @@
 import type { ClassroomRating } from "@gojisim/engine";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MAX_REPORT_LENGTH } from "../game/collection";
 import styles from "./Board.module.css";
 
@@ -147,6 +147,71 @@ export function ClassroomCompare({
             </div>
           </form>
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Kaiju Classroom (Paul, Nov 15): the bot's turn ended in the same position as the player's. The
+ * same window as a difference, with Continue (or Space) to go on, which rates the turn "same";
+ * Hide folds it to a bar like the comparison's, and the game waits until the player continues.
+ */
+export function ClassroomSame({ onContinue }: { onContinue: () => void }) {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    if (hidden) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== " ") return;
+      e.preventDefault();
+      onContinue();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+  if (hidden)
+    return (
+      <div className={styles.classroomBar} data-testid="classroom-bar">
+        Kaiju Classroom: the bot made the same play you did ·{" "}
+        <button
+          type="button"
+          className={styles.button}
+          data-testid="classroom-show"
+          onClick={() => setHidden(false)}
+        >
+          Show
+        </button>
+      </div>
+    );
+  return (
+    <div className={styles.modalBackdrop} data-testid="classroom-same">
+      <div className={`${styles.modal} ${styles.classroomModal}`}>
+        <div className={styles.modalHeading}>
+          Kaiju Classroom: the same play
+          <button
+            type="button"
+            className={styles.choiceButton}
+            data-testid="classroom-hide"
+            title="Hide this to look at the board; the game waits until you continue"
+            onClick={() => setHidden(true)}
+          >
+            Hide
+          </button>
+        </div>
+        <p data-testid="classroom-same-text">
+          The bot made the same play you did.
+        </p>
+        <p className={styles.muted}>Press Space to continue.</p>
+        <div className={styles.modalButtons}>
+          <button
+            type="button"
+            className={styles.button}
+            data-testid="classroom-continue"
+            onClick={onContinue}
+          >
+            Continue
+          </button>
+        </div>
       </div>
     </div>
   );
