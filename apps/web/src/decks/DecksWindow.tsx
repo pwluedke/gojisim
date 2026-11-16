@@ -619,15 +619,21 @@ function DeckMenu({
   const box = useRef<HTMLSpanElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
+  // The latest `onOpen` (a new function on every render of the window), so the effect below runs
+  // only when the menu opens: re-run on a re-render, it moved focus back to the first item.
+  const onOpenRef = useRef(onOpen);
+  useEffect(() => {
+    onOpenRef.current = onOpen;
+  });
   useEffect(() => {
     if (!open) return;
     list.current?.querySelector<HTMLButtonElement>("button")?.focus();
     const outside = (e: MouseEvent) => {
-      if (!box.current?.contains(e.target as Node)) onOpen(false);
+      if (!box.current?.contains(e.target as Node)) onOpenRef.current(false);
     };
     document.addEventListener("mousedown", outside);
     return () => document.removeEventListener("mousedown", outside);
-  }, [open, onOpen]);
+  }, [open]);
   const move = (step: number) => {
     const buttons = [
       ...(list.current?.querySelectorAll<HTMLButtonElement>("button") ?? []),
