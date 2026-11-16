@@ -15,12 +15,14 @@ import {
   type ZoneNumber,
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
+import { blunderAllowed, ISMCTS_DEFAULTS, withPrunes } from "./ismcts";
 import type { Decklist } from "./types";
-import { GAM } from "./wranglerPlan";
+import { DESPAIR, GAM } from "./wranglerPlan";
 import {
   GODZILLA_1954_WIPE,
   KING,
   LANDING,
+  SLITHERING,
   wranglerV2Verdict,
 } from "./wranglerPlanV2";
 
@@ -123,14 +125,24 @@ describe("the Wrangler plan v2", () => {
   });
 
   it("#317 (v2.1): a push (Godzilla Landing) is argued against unless a follow-up comes this turn: the counter, or a rank 7-8 battle card; trampling alone isn't one", () => {
-    const landings = (state: GameState, p1: PlayerState) => {
+    // v2.2's rule (`v23: false`); v2.3 takes the counter alone as a follow-up (test below).
+    const landings = (state: GameState, p1: PlayerState, v23 = false) => {
       const legal = getLegalActions(state, "P1");
       const found = legal.filter(
         (a) =>
           a.type === "activateStrategy" && ofCard(state, p1, a) === LANDING,
       );
       expect(found.length).toBeGreaterThan(0);
-      const { against } = wranglerV2Verdict(state, legal, "P1", WRANGLER);
+      const { against } = wranglerV2Verdict(
+        state,
+        legal,
+        "P1",
+        WRANGLER,
+        undefined,
+        true,
+        true,
+        v23,
+      );
       return found.map((a) => against.has(a));
     };
     // Nothing after it: argued against.
@@ -144,6 +156,8 @@ describe("the Wrangler plan v2", () => {
     // (8.2.1). Without the King in hand, the same push is argued against.
     const king = position([LANDING, KING], 4, 7);
     for (const a of landings(king.state, king.p1)) expect(a).toBe(false);
+    // v2.3 (Ian): a rank 7-8 play after the push isn't a follow-up any more, only the counter.
+    for (const a of landings(king.state, king.p1, true)) expect(a).toBe(true);
     const noKing = position([LANDING], 4, 7);
     for (const a of landings(noKing.state, noKing.p1)) expect(a).toBe(true);
     // `v21: false` (the paired check's control) is v2: the trample alone allows it.
@@ -177,7 +191,7 @@ describe("the Wrangler plan v2", () => {
       expect(against.has(a)).toBe(![1, 2, 8].includes(a.zone));
   });
 
-  it("churn from turn 1: rage discards over passing, but the held Godzilla (1954) EBP01-004 stays until a King is out", () => {
+  it("churn from turn 1: rage discards over passing, but the held Godzilla (1954) EBP01-004 stays until a King is out (v2.2; v2.3 pitches it too)", () => {
     const { state, p1 } = position(["EBP01-002", GODZILLA_1954_WIPE], 1, 1, 1);
     const legal = getLegalActions(state, "P1");
     const { against, rescued } = wranglerV2Verdict(
@@ -185,7 +199,15 @@ describe("the Wrangler plan v2", () => {
       legal,
       "P1",
       WRANGLER,
+      undefined,
+      true,
+      true,
+      false,
     );
+    // v2.3 (Ian): every monster card but Godzilla (2004) is pitched, Godzilla (1954) EBP01-004 too.
+    const v23 = wranglerV2Verdict(state, legal, "P1", WRANGLER);
+    for (const a of legal)
+      if (a.type === "gainRage") expect(v23.rescued.has(a)).toBe(true);
     for (const a of legal) {
       if (a.type === "pass") expect(against.has(a)).toBe(true);
       if (a.type === "gainRage") {
@@ -255,6 +277,335 @@ describe("the Wrangler plan v2", () => {
     const keys = picks.filter((a) => of(a) !== "EBP01-002");
     const none = wranglerV2Verdict(state, keys, "P1", WRANGLER);
     for (const a of keys) expect(none.against.has(a)).toBe(false);
+  });
+
+  it("#318 (v2.2): with no battle card in hand, dig: Despair even for no value over passing (the end phase draws up to the hand size, 7.5.4); the held cards stay", () => {
+    // Despair (no Mecha-King to hit) and the held Godzilla (2004) EBP01-008: v2.1 lets the bot pass.
+    const { state, p1 } = position([DESPAIR, "EBP01-008"], 3, 2);
+    const legal = getLegalActions(state, "P1");
+    const despair = legal.filter(
+      (a) => a.type === "activateStrategy" && ofCard(state, p1, a) === DESPAIR,
+    );
+    expect(despair.length).toBeGreaterThan(0);
+    const dig = wranglerV2Verdict(state, legal, "P1", WRANGLER);
+    for (const a of legal)
+      if (a.type === "pass") expect(dig.against.has(a)).toBe(true);
+    for (const a of despair) expect(dig.rescued.has(a)).toBe(true);
+    // The held card isn't raged away for it.
+    for (const a of legal)
+      if (a.type === "gainRage") expect(dig.rescued.has(a)).toBe(false);
+    // v2.1 (`v22: false`): passing stays.
+    const v21 = wranglerV2Verdict(
+      state,
+      legal,
+      "P1",
+      WRANGLER,
+      undefined,
+      true,
+      false,
+    );
+    for (const a of legal)
+      if (a.type === "pass") expect(v21.against.has(a)).toBe(false);
+    // With a battle card in hand (an answer), no dig.
+    p1.hand.push(add(state, real(KING), "P1"));
+    const held = getLegalActions(state, "P1");
+    const answer = wranglerV2Verdict(state, held, "P1", WRANGLER);
+    for (const a of held)
+      if (a.type === "pass") expect(answer.against.has(a)).toBe(false);
+  });
+
+  it("v2.2 (Ian's notes, point 7): at Despair's target pick, a battle card in your monster's column goes before others in reach", () => {
+    const { state, p1, p2 } = position([DESPAIR], 3, 2);
+    p1.rage = 2;
+    // Your monster in zone 3: their zone 3 is in its column, their zone 1 isn't (no Mecha-King).
+    const aligned = add(state, real("ESD02-012"), "P2");
+    const other = add(state, real("ESD02-012"), "P2");
+    p2.zones[3] = [[aligned]];
+    p2.zones[1] = [[other]];
+    const despair = getLegalActions(state, "P1").find(
+      (a) => a.type === "activateStrategy" && ofCard(state, p1, a) === DESPAIR,
+    )!;
+    const pick = advanceToDecision(applyAction(state, despair));
+    expect(pick.pendingChoice?.kind).toBe("target");
+    const legal = getLegalActions(pick, "P1");
+    const option = (id: string) =>
+      legal.find((a) => a.type === "choose" && a.optionId === id)!;
+    expect(option(aligned.instanceId)).toBeDefined();
+    expect(option(other.instanceId)).toBeDefined();
+    const { against } = wranglerV2Verdict(pick, legal, "P1", WRANGLER);
+    expect(against.has(option(aligned.instanceId))).toBe(false);
+    expect(against.has(option(other.instanceId))).toBe(true);
+    // v2.1 (`v22: false`): no preference.
+    const v21 = wranglerV2Verdict(
+      pick,
+      legal,
+      "P1",
+      WRANGLER,
+      undefined,
+      true,
+      false,
+    );
+    expect(v21.against.has(option(other.instanceId))).toBe(false);
+  });
+
+  it("v2.2 (Ian, point 2): with Godzilla (2023) ESD01-002 on top and a King short of 3 rage, an invasion for its fetch, paying with a strategy it doesn't need, isn't argued against; paying with a key card still is", () => {
+    const { state, p1 } = position([SLITHERING, LANDING], 3, 2);
+    p1.invadingMonsterZone = [add(state, real("ESD01-002"), "P1")];
+    p1.zones[1] = [[add(state, real(KING), "P1")]];
+    p1.rage = 0;
+    const legal = getLegalActions(state, "P1");
+    const invade = (n: string) =>
+      legal.filter((a) => a.type === "invade" && ofCard(state, p1, a) === n);
+    expect(invade(SLITHERING).length).toBeGreaterThan(0);
+    expect(invade(LANDING).length).toBeGreaterThan(0);
+    const { against } = wranglerV2Verdict(state, legal, "P1", WRANGLER);
+    for (const a of invade(SLITHERING)) expect(against.has(a)).toBe(false);
+    for (const a of invade(LANDING)) expect(against.has(a)).toBe(true);
+    // v2.1 (`v22: false`): don't race, so both are argued against.
+    const v21 = wranglerV2Verdict(
+      state,
+      legal,
+      "P1",
+      WRANGLER,
+      undefined,
+      true,
+      false,
+    );
+    for (const a of invade(SLITHERING)) expect(v21.against.has(a)).toBe(true);
+  });
+
+  it("v2.2 (Ian, point 10): Godzilla Against Mechagodzilla's rage reset is saved when it doesn't make the counter", () => {
+    const { state, p1 } = position([LANDING], 3, 2);
+    p1.zones[1] = [[add(state, real(GAM), "P1")]];
+    for (let i = 0; i < 8; i++)
+      p1.discard.push(add(state, real("EBP01-002"), "P1"));
+    const invade = getLegalActions(state, "P1").find(
+      (a) => a.type === "invade",
+    )!;
+    let s = advanceToDecision(applyAction(state, invade));
+    // Answer any of the bot's own picks before GAM's (first option).
+    for (let i = 0; i < 5 && s.pendingChoice?.kind !== "confirm"; i++) {
+      const next = getLegalActions(s, "P1").find((a) => a.type === "choose");
+      if (!next) break;
+      s = advanceToDecision(applyAction(s, next));
+    }
+    expect(s.pendingChoice?.kind).toBe("confirm");
+    const legal = getLegalActions(s, "P1");
+    const yes = legal.find((a) => a.type === "choose" && a.optionId === "yes")!;
+    const { against } = wranglerV2Verdict(s, legal, "P1", WRANGLER);
+    expect(against.has(yes)).toBe(true);
+  });
+
+  it("v2.3 (Ian): against Monster X, with fewer than 2 battle cards in hand, dig (Despair over passing)", () => {
+    const { state, p1, p2 } = position([KING, DESPAIR], 3, 2);
+    p2.invadingMonsterZone = [add(state, real("EBP04-032"), "P2")];
+    const legal = getLegalActions(state, "P1");
+    const despair = legal.filter(
+      (a) => a.type === "activateStrategy" && ofCard(state, p1, a) === DESPAIR,
+    );
+    expect(despair.length).toBeGreaterThan(0);
+    const dig = wranglerV2Verdict(state, legal, "P1", WRANGLER);
+    for (const a of legal)
+      if (a.type === "pass") expect(dig.against.has(a)).toBe(true);
+    for (const a of despair) expect(dig.rescued.has(a)).toBe(true);
+    // v2.2 (`v23: false`): one battle card is an answer; passing stays.
+    const v22 = wranglerV2Verdict(
+      state,
+      legal,
+      "P1",
+      WRANGLER,
+      undefined,
+      true,
+      true,
+      false,
+    );
+    for (const a of legal)
+      if (a.type === "pass") expect(v22.against.has(a)).toBe(false);
+  });
+
+  /** A Biollante list for `theirs` (the opponent's public list): its monster deck is all it needs. */
+  const BIOLLANTE = {
+    monsterDeck: ["EBP02-024", "EBP02-025", "EBP02-027", "EBP02-029"].map(real),
+    mainDeck: [],
+  } as unknown as Decklist;
+  const verdict = (state: GameState, legal: Action[], bio: boolean) =>
+    wranglerV2Verdict(
+      state,
+      legal,
+      "P1",
+      WRANGLER,
+      BIOLLANTE,
+      true,
+      true,
+      true,
+      bio,
+    );
+
+  it("wranglerBio (Ian): Biollante stays at rank I: no King play that makes the counter on its Rose Form", () => {
+    const { state, p1, p2 } = position([], 3, 5);
+    // Rank 1, so it can be played with their monster in zone 5 (8.2.1).
+    p1.hand = [add(state, { ...real(KING), rank: 1 }, "P1")];
+    p2.invadingMonsterZone = [add(state, real("EBP02-024"), "P2")];
+    p1.rage = 10;
+    const legal = getLegalActions(state, "P1");
+    const kingAt1 = legal.filter(
+      (a) =>
+        a.type === "playBattle" &&
+        ofCard(state, p1, a) === KING &&
+        a.zone === 1,
+    );
+    expect(kingAt1.length).toBeGreaterThan(0);
+    for (const a of kingAt1)
+      expect(verdict(state, legal, true).against.has(a)).toBe(true);
+    for (const a of kingAt1)
+      expect(verdict(state, legal, false).against.has(a)).toBe(false);
+  });
+
+  it("wranglerBio (Ian): Kings spread, never next to each other, where one Godzilla vs. Megaguirus takes both", () => {
+    const { state, p1, p2 } = position([], 3, 5);
+    // The King in zone 1 first: cards are stored by id, so the rank 1 copy in hand goes last.
+    p1.zones[1] = [[add(state, real(KING), "P1")]];
+    p1.hand = [add(state, { ...real(KING), rank: 1 }, "P1")];
+    p2.invadingMonsterZone = [add(state, real("EBP02-026"), "P2")];
+    const legal = getLegalActions(state, "P1");
+    const king = (zone: number) =>
+      legal.filter(
+        (a) =>
+          a.type === "playBattle" &&
+          ofCard(state, p1, a) === KING &&
+          a.zone === zone,
+      );
+    expect(king(2).length).toBeGreaterThan(0);
+    expect(king(8).length).toBeGreaterThan(0);
+    for (const a of king(2))
+      expect(verdict(state, legal, true).against.has(a)).toBe(true);
+    for (const a of king(8))
+      expect(verdict(state, legal, true).against.has(a)).toBe(false);
+    for (const a of king(2))
+      expect(verdict(state, legal, false).against.has(a)).toBe(false);
+  });
+
+  it("wranglerBio (Ian): no strategy played against its rank III EBP02-027 in zone 5 or beyond (awakening 6: counter-proof while you have one)", () => {
+    const { state, p1, p2 } = position([DESPAIR], 3, 5);
+    p2.invadingMonsterZone = [add(state, real("EBP02-027"), "P2")];
+    p1.rage = 2;
+    const legal = getLegalActions(state, "P1");
+    const despair = legal.filter(
+      (a) => a.type === "activateStrategy" && ofCard(state, p1, a) === DESPAIR,
+    );
+    expect(despair.length).toBeGreaterThan(0);
+    for (const a of despair)
+      expect(verdict(state, legal, true).against.has(a)).toBe(true);
+    for (const a of despair)
+      expect(verdict(state, legal, false).against.has(a)).toBe(false);
+  });
+
+  it("wranglerBioHard (Paul): the Rose Form counter and the strategy vs rank III EBP02-027 are prunes, the search's and a blunder's; the Kings spread stays an argument", () => {
+    const hardVerdict = (state: GameState, legal: Action[], bioHard: boolean) =>
+      wranglerV2Verdict(
+        state,
+        legal,
+        "P1",
+        WRANGLER,
+        BIOLLANTE,
+        true,
+        true,
+        true,
+        true,
+        bioHard,
+      ).pruned ?? new Set<Action>();
+    // Rose Form: the King play that makes the counter is pruned.
+    const rose = position([], 3, 5);
+    rose.p1.hand = [add(rose.state, { ...real(KING), rank: 1 }, "P1")];
+    rose.p2.invadingMonsterZone = [add(rose.state, real("EBP02-024"), "P2")];
+    rose.p1.rage = 10;
+    const roseLegal = getLegalActions(rose.state, "P1");
+    const kingAt1 = roseLegal.filter(
+      (a) =>
+        a.type === "playBattle" &&
+        ofCard(rose.state, rose.p1, a) === KING &&
+        a.zone === 1,
+    );
+    expect(kingAt1.length).toBeGreaterThan(0);
+    for (const a of kingAt1)
+      expect(hardVerdict(rose.state, roseLegal, true).has(a)).toBe(true);
+    // `wranglerBioHard: false` (the paired check's control): an argument only.
+    for (const a of kingAt1)
+      expect(hardVerdict(rose.state, roseLegal, false).has(a)).toBe(false);
+    // Rank III EBP02-027 in zone 5 (an advance reaches 6): no strategy, nor in a blunder.
+    const iii = position([DESPAIR], 3, 5);
+    iii.p2.invadingMonsterZone = [add(iii.state, real("EBP02-027"), "P2")];
+    iii.p1.rage = 2;
+    const iiiLegal = getLegalActions(iii.state, "P1");
+    const despair = iiiLegal.filter(
+      (a) =>
+        a.type === "activateStrategy" &&
+        ofCard(iii.state, iii.p1, a) === DESPAIR,
+    );
+    expect(despair.length).toBeGreaterThan(0);
+    for (const a of despair)
+      expect(hardVerdict(iii.state, iiiLegal, true).has(a)).toBe(true);
+    const blunder = (bioHard: number) =>
+      blunderAllowed(
+        iii.state,
+        iiiLegal,
+        "P1",
+        // Card rule 22 (`targetCheck`) would also leave out a Despair with nothing to destroy;
+        // off here, so only `wranglerBioHard` decides.
+        {
+          ...ISMCTS_DEFAULTS,
+          cardRules: 1,
+          targetCheck: 0,
+          wranglerBioHard: bioHard,
+        },
+        WRANGLER,
+      );
+    for (const a of despair) expect(blunder(1).includes(a)).toBe(false);
+    expect(despair.some((a) => blunder(0).includes(a))).toBe(true);
+    // The Kings spread (another wranglerBio rule) isn't pruned.
+    const spread = position([], 3, 5);
+    spread.p1.zones[1] = [[add(spread.state, real(KING), "P1")]];
+    spread.p1.hand = [add(spread.state, { ...real(KING), rank: 1 }, "P1")];
+    spread.p2.invadingMonsterZone = [
+      add(spread.state, real("EBP02-026"), "P2"),
+    ];
+    const spreadLegal = getLegalActions(spread.state, "P1");
+    const pruned = hardVerdict(spread.state, spreadLegal, true);
+    for (const a of spreadLegal)
+      if (a.type === "playBattle") expect(pruned.has(a)).toBe(false);
+  });
+
+  it("wranglerBioHard: its prunes outrank the softer rules; with only a pruned move and a ruled-out pass left, the pass comes back (the check's record: Slithering Disaster vs Rose Form in zone 5)", () => {
+    const push = {
+      type: "activateStrategy",
+      player: "P1",
+      cardInstanceId: "c1",
+      strategyZone: 1,
+    } as Action;
+    const pass = { type: "pass", player: "P1" } as Action;
+    const play = {
+      type: "playBattle",
+      player: "P1",
+      cardInstanceId: "c2",
+      zone: 1,
+    } as Action;
+    const keyOf = (a: Action) => JSON.stringify(a);
+    // Pass ruled out by another rule, the push pruned: pass comes back, the push is dead.
+    const dead = new Set([keyOf(pass)]);
+    expect(withPrunes([push, pass], new Set([push]), dead, keyOf)).toBe(pass);
+    expect(dead.has(keyOf(push))).toBe(true);
+    expect(dead.has(keyOf(pass))).toBe(false);
+    // Another live move: nothing comes back, and the push is pruned.
+    const dead2 = new Set([keyOf(pass)]);
+    expect(withPrunes([push, pass, play], new Set([push]), dead2, keyOf)).toBe(
+      undefined,
+    );
+    expect(dead2.has(keyOf(push))).toBe(true);
+    expect(dead2.has(keyOf(pass))).toBe(true);
+    // No pass at all (a choice): nothing is pruned.
+    const dead3 = new Set<string>();
+    withPrunes([push], new Set([push]), dead3, keyOf);
+    expect(dead3.size).toBe(0);
   });
 
   it("Godzilla (1954) EBP01-004 isn't stacked with a King on the board", () => {
