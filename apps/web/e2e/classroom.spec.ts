@@ -88,6 +88,20 @@ test("one Classroom bot turn: played in the sandbox, submitted, compared and rat
     "Bot's",
   );
 
+  // Paul, Nov 15: Hide folds the comparison to a bar; the board can be looked at (a hovered card
+  // shows its preview) while the game still waits; Show brings it back as it was.
+  await page.getByTestId("classroom-hide").click();
+  await expect(compare).toHaveCount(0);
+  await expect(page.getByTestId("classroom-bar")).toContainText(
+    "Kaiju Classroom: rate the bot's turn",
+  );
+  await expect(root).toHaveAttribute("data-classroom-stage", "compare");
+  await page.locator('[data-testid="hand-card"]').first().hover();
+  await expect(page.getByTestId("card-preview")).toBeVisible();
+  await page.getByTestId("classroom-show").click();
+  await expect(compare).toBeVisible();
+  await expect(page.getByTestId("classroom-bar")).toHaveCount(0);
+
   // Worse asks why and files a Bad Bot! report with the record, like the in-game button.
   await page.getByTestId("classroom-rate-worse").click();
   const modal = page.getByTestId("badBot-modal");

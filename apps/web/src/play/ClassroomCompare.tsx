@@ -27,6 +27,10 @@ export function ClassroomCompare({
 }) {
   const [asking, setAsking] = useState<"worse" | "better" | null>(null);
   const [why, setWhy] = useState("");
+  // Paul, Nov 15: Hide folds the modal to a bar so the board can be looked at (hover previews);
+  // the component stays mounted, so the rating step and the typed "why" are kept. The game
+  // still waits for the rating (the board stays locked while the comparison is open).
+  const [hidden, setHidden] = useState(false);
   const pick = (rating: "worse" | "better") =>
     canReport ? onReport(rating) : setAsking(rating);
   const column = (title: string, moves: readonly string[], testId: string) => (
@@ -39,11 +43,34 @@ export function ClassroomCompare({
       </ol>
     </div>
   );
+  if (hidden)
+    return (
+      <div className={styles.classroomBar} data-testid="classroom-bar">
+        Kaiju Classroom: rate the bot&apos;s turn ·{" "}
+        <button
+          type="button"
+          className={styles.button}
+          data-testid="classroom-show"
+          onClick={() => setHidden(false)}
+        >
+          Show
+        </button>
+      </div>
+    );
   return (
     <div className={styles.modalBackdrop} data-testid="classroom-compare">
       <div className={`${styles.modal} ${styles.classroomModal}`}>
         <div className={styles.modalHeading}>
           Kaiju Classroom: the bot played its turn differently
+          <button
+            type="button"
+            className={styles.choiceButton}
+            data-testid="classroom-hide"
+            title="Hide this to look at the board; the game waits for your rating"
+            onClick={() => setHidden(true)}
+          >
+            Hide
+          </button>
         </div>
         <div className={styles.classroomColumns}>
           {column("Your turn", playerMoves, "classroom-player-moves")}
