@@ -58,7 +58,7 @@ for (const { fixture, kind, heading } of KINDS)
     await expect(page.getByTestId("choice-source")).toContainText("From ");
     // #376: the asking ability's printed text, under the source line (a yes/no shows its own).
     if (fixture === "target")
-      await expect(page.getByTestId("choice-ability-text")).not.toBeEmpty();
+      await expect(page.getByTestId("choice-asking-text")).not.toBeEmpty();
     if (kind === "confirm") {
       await expect(page.getByTestId("choice-yes")).toBeVisible();
       await expect(page.getByTestId("choice-no")).toBeVisible();

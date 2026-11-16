@@ -97,7 +97,7 @@ export function ZoneTray({
       )}
       {/* #376: the asking ability's text. */}
       {choiceAbilityText(state) && (
-        <div className={styles.abilityText} data-testid="choice-ability-text">
+        <div className={styles.abilityText} data-testid="choice-asking-text">
           {choiceAbilityText(state)}
         </div>
       )}
