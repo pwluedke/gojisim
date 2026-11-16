@@ -121,6 +121,8 @@ import type { Decklist } from "./types";
  * 23. #345 (Slick), #342: no battle card on top of your own battle card while that card has a
  *    legal play into an empty zone off your own monster's next two zones; a card with its own play
  *    on top (`onTop`, Godzilla Jr. EBP03-051) and a column card (rule 3) excepted. Any deck.
+ *    23b. #345 (BFW182): with no such empty zone, but a legal play over your own token, a play
+ *    over your own battle card is left out (the token goes, not the card). Same exceptions.
  * 30. #386 (Paul, Nov 15): at a choice in the resolution of a strategy whose effects only destroy
  *    the opponent's battle cards (Godzilla vs. Megaguirus EBP01-064: one rank 4 or lower card, or
  *    with 4+ of your own battle cards a zone and its neighbours), each answer is played out with
@@ -1064,11 +1066,15 @@ function fizzlingStrategies(
   });
 }
 
-/** Rule 23: plays on top of your own battle card while an empty zone off your path is legal. */
+/**
+ * Rule 23: plays on top of your own battle card while an empty zone off your path is legal. With
+ * `token` (rule 23b), when no such zone is, plays on top of it while a play over your own token is.
+ */
 function ownCoverPlays(
   state: GameState,
   actions: readonly Action[],
   me: PlayerId,
+  token = false,
 ): Action[] {
   const player = state.players.find((p) => p.id === me);
   if (!player || state.pendingChoice) return [];
@@ -1094,7 +1100,16 @@ function ownCoverPlays(
     const safe = plays.some(
       (a) => !a.onTop && player.zones[a.zone].length === 0 && !onPath(a.zone),
     );
-    if (safe)
+    // Rule 23b: your own token on top of a zone (9.1.2.2) is the cheaper card to cover.
+    const overToken = plays.some(
+      (a) =>
+        !a.onTop &&
+        player.zones[a.zone].some((stack) => {
+          const top = stack[stack.length - 1];
+          return top !== undefined && state.cards[top.cardId]?.type === "Token";
+        }),
+    );
+    if (token ? !safe && overToken : safe)
       for (const a of plays) if (!a.onTop && coversOwn(a.zone)) dead.push(a);
   }
   return dead;
@@ -1474,6 +1489,8 @@ export interface CardRulesOptions {
   targetCheck?: boolean;
   /** Rule 30 (#386): a destroy-only strategy's mode that destroys fewer isn't picked (default). */
   modeBest?: boolean;
+  /** Rule 23b (#345): no play over your own battle card while one over your token is legal. */
+  coverToken?: boolean;
 }
 
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
@@ -1546,6 +1563,9 @@ export function cardRulesDead(
     for (const action of weakerModes(state, actions, me)) dead.add(action);
   if (options.targetCheck !== false)
     for (const action of fizzlingStrategies(state, actions, me))
+      dead.add(action);
+  if (options.coverToken !== false)
+    for (const action of ownCoverPlays(state, actions, me, true))
       dead.add(action);
   // Rule 7: a way to make the counter (#305), else to block zone 8, is taken: every other move
   // waits (but an invasion that wins now), and it outranks the others' holds. (Rule 9 alone only
