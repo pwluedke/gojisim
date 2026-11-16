@@ -66,9 +66,10 @@ import {
   onError,
 } from "../game/errors";
 import { ReportModal } from "./ReportModal";
-import { ClassroomCompare } from "./ClassroomCompare";
+import { ClassroomCompare, ClassroomSame } from "./ClassroomCompare";
 import {
   botTurnLabels,
+  classroomBotSeat,
   classroomSandbox,
   classroomStage,
   differenceName,
@@ -620,9 +621,9 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
     setConfirming(null);
     setOverlay(null);
   }, [sandboxSession]);
-  // The bot's main phase has ended: the same end position is rated "same" at once; otherwise the
-  // comparison opens (`ClassroomCompare`) and the game waits for the player's rating.
-  const [classroomToast, setClassroomToast] = useState(false);
+  // The bot's main phase has ended: the comparison opens (`ClassroomCompare`) and the game waits
+  // for the player's rating. Paul, Nov 15: the same end position opens a window too
+  // (`ClassroomSame`), rated "same" when the player continues.
   const [classroomReport, setClassroomReport] = useState<
     "worse" | "better" | null
   >(null);
@@ -642,14 +643,16 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
       void uploadRecord(next);
     return next;
   };
-  useEffect(() => {
-    if (stage?.kind !== "compare" || !stage.same) return;
-    rateClassroom("same");
-    setClassroomToast(true);
-    window.setTimeout(() => setClassroomToast(false), 5000);
-  }, [stage]);
-  const classroomOpen =
-    (stage?.kind === "compare" && !stage.same) || classroomReport !== null;
+  const classroomOpen = stage?.kind === "compare" || classroomReport !== null;
+  // Paul, Nov 15: "XILIEN CONTROL" over the mat for the whole bot turn of a Classroom game (the
+  // sandbox, the bot's own turn and its comparison), gone on the player's own turn. The bot's
+  // last main phase move can end its turn, so an open comparison keeps it up too.
+  const classroomSeat = realSession ? classroomBotSeat(realSession) : null;
+  const xilien =
+    classroomSeat !== null &&
+    result === null &&
+    pending === null &&
+    (stage !== null || real.state?.turnPlayer === classroomSeat);
 
   // A deck search by a human seat, found or not, opens the search modal (M5e). An undo shortens
   // the log, so its searches are never shown again.
@@ -1778,6 +1781,20 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
           }
           model={model}
           prompt={prompt}
+          matBanner={
+            xilien ? (
+              <div
+                className={styles.xilienBanner}
+                data-testid="xilien-banner"
+                aria-live="polite"
+              >
+                <div className={styles.xilienTitle}>XILIEN CONTROL</div>
+                <div className={styles.xilienLine}>
+                  You are playing as the bot
+                </div>
+              </div>
+            ) : null
+          }
           beside={
             zoneInPrompt && viewing === null ? (
               // #357: the card being placed sits in a tray; it plays onto the mat like a hand card.
@@ -2092,15 +2109,11 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
             onCancel={() => setClassroomReport(null)}
           />
         )}
-        {classroomToast && (
-          <div
-            className={styles.toast}
-            data-testid="classroom-same"
-            role="status"
-          >
-            Kaiju Classroom: the bot&apos;s turn ended in the same position as
-            yours.
-          </div>
+        {stage?.kind === "compare" && stage.same && (
+          <ClassroomSame
+            key={stage.index}
+            onContinue={() => rateClassroom("same")}
+          />
         )}
         {leaving && (
           <LeaveGameModal

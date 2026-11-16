@@ -2408,3 +2408,34 @@
   border: 1.5px solid var(--btn-primary-fill, var(--color-panel-border));
   border-radius: 6px;
 }
+
+/*
+ * Kaiju Classroom's bot-turn banner (Paul, Nov 15): large, over the top mat's top right corner
+ * for the whole bot turn. It takes no pointer events, so hover previews and clicks reach the
+ * cards under it.
+ */
+.xilienBanner {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 30;
+  padding: var(--space-2) var(--space-4);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--color-panel) 88%, transparent);
+  color: var(--color-text);
+  box-shadow: var(--shadow);
+  text-align: right;
+  pointer-events: none;
+}
+
+.xilienTitle {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.1;
+}
+
+.xilienLine {
+  font-size: 1rem;
+}
