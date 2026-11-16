@@ -158,6 +158,11 @@ export interface NewGameOptions {
   showOpponentHand?: boolean;
   /** The human peeked at the First / Second cards (Casual); the record flags the game. */
   firstPickPeeked?: boolean;
+  /**
+   * #365 Kaiju Classroom: the human plays each bot turn first; the record flags the game, which
+   * is left out of win/loss statistics and achievements.
+   */
+  classroom?: boolean;
 }
 
 /** A new game. */
@@ -171,6 +176,7 @@ export function newSession(
     mode,
     showOpponentHand = false,
     firstPickPeeked = false,
+    classroom = false,
   }: NewGameOptions = {},
 ): Session {
   const humans = PLAYER_IDS.filter((id) => seats[id].kind === "human");
@@ -202,6 +208,9 @@ export function newSession(
         }
       : {}),
     ...(firstPickPeeked ? { firstPickPeeked } : {}),
+    ...(classroom && humans.length === 1
+      ? { classroom: true, excludedFromAchievements: true }
+      : {}),
     deckNames: { P1: picked[0].label, P2: picked[1].label },
   };
   return {
@@ -271,6 +280,10 @@ export function sessionFromRecord(text: string): Session {
       ...(record.undos ? { undos: record.undos } : {}),
       ...(record.undoCount ? { undoCount: record.undoCount } : {}),
       ...(record.deckNames ? { deckNames: record.deckNames } : {}),
+      ...(record.classroom ? { classroom: true } : {}),
+      ...(record.classroomTurns
+        ? { classroomTurns: record.classroomTurns }
+        : {}),
     },
     states,
     position,

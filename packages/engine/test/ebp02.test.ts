@@ -1086,6 +1086,15 @@ describe("EBP02-055 column lock on every play (Q270)", () => {
     expect(after.pendingChoice?.options.map((o) => o.id)).toEqual(
       [1, 3, 4, 6, 7, 8].map((z) => `${opp.id}:${z}`),
     );
+    // #357: the card being played there (the battle card picked from the hand), for the tray.
+    const placing = after.pendingChoice?.placing;
+    expect(placing).toBeDefined();
+    expect(after.cards[placing ?? -1]?.type).toBe("Battle");
+    expect(
+      after.players
+        .find((p) => p.id === opp.id)
+        ?.hand.some((c) => c.cardId === placing),
+    ).toBe(true);
   });
 
   it("Q270, 5.11.4: no token is made in the locked zone", () => {
@@ -1334,6 +1343,8 @@ describe("#250: a token zone choice lists the zones already picked", () => {
     );
     expect(first.pendingChoice).toMatchObject({ kind: "zone", rule: "9.1.2" });
     expect(first.pendingChoice?.picked).toBeUndefined();
+    // #357: the token being placed, for the board's tray.
+    expect(first.pendingChoice?.placing).toBe(getTokenCard("Crystals").id);
     const zone = first.pendingChoice?.options[0]?.id ?? "";
     const second = choose(first, (id) => id === zone);
     expect(second.pendingChoice?.picked).toEqual([

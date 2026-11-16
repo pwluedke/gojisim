@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   type ApiChannel,
   type ApiMessage,
-  communityChannels,
+  digestChannels,
   discordClient,
   snowflakeAt,
 } from "../src/discordApi";
@@ -102,14 +102,83 @@ function fakeDiscord(answers: Record<string, unknown>) {
 }
 
 describe("Discord digest (#140)", () => {
-  it("reads only the COMMUNITY category's text, announcement and forum channels, never STAFF or INFO", () => {
-    expect(communityChannels(CHANNELS).map((c) => c.id)).toEqual([
-      "general",
-      "bugs",
-    ]);
+  it("Paul, Nov 15: reads every category's text, announcement and forum channels, STAFF and INFO included, in Discord's order; never a voice channel", () => {
     expect(
-      communityChannels(CHANNELS.filter((c) => c.id !== "cat-community")),
-    ).toEqual([]);
+      digestChannels(CHANNELS).map((c) => [c.category, c.channel.id]),
+    ).toEqual([
+      ["INFO", "rules"],
+      ["Staff", "reports"],
+      ["Community", "general"],
+      ["Community", "bugs"],
+    ]);
+    // By position: categories, then the channels within each; one outside a category first.
+    const ordered: ApiChannel[] = [
+      { id: "c2", type: 4, name: "Deck Guides", position: 2 },
+      { id: "c1", type: 4, name: "Community", position: 1 },
+      { id: "b", type: 0, name: "b", parent_id: "c1", position: 2 },
+      { id: "a", type: 0, name: "a", parent_id: "c1", position: 1 },
+      { id: "wrangler", type: 0, name: "wrangler", parent_id: "c2" },
+      { id: "lobby", type: 0, name: "lobby" },
+    ];
+    expect(digestChannels(ordered).map((c) => c.channel.id)).toEqual([
+      "lobby",
+      "a",
+      "b",
+      "wrangler",
+    ]);
+  });
+
+  it("Paul, Nov 15: a channel the bot's role can't see (403) is skipped and counted, not a failed run", async () => {
+    const after = snowflakeAt(NOW - 24 * HOUR);
+    const { get } = fakeDiscord({
+      "/guilds/g1/channels": CHANNELS,
+      "/guilds/g1/threads/active": { threads: [] },
+      "/channels/general/threads/archived": { threads: [] },
+      "/channels/bugs/threads/archived": { threads: [] },
+      [`/channels/general/messages?after=${after}`]: [HELLO],
+    });
+    const logs: string[] = [];
+    const sent = await runDigest({
+      get,
+      guildId: "g1",
+      hours: 24,
+      now: NOW,
+      post: async () => 200,
+      log: (l) => logs.push(l),
+    });
+    expect(sent).toBe(1);
+    // rules and reports answer 404 in the fake (their archived threads too): skipped, counted.
+    expect(logs[0]).toBe(
+      "4 channels in 3 categories, 0 threads, 1 new messages in the last 24 h (0 already posted); 2 not readable by the bot, skipped.",
+    );
+  });
+
+  it("Paul, Nov 15: the digest is grouped by category, its heading over the first channel with news", () => {
+    const out = sections([
+      {
+        channel: CHANNELS[5]!,
+        category: "Community",
+        messages: [HELLO],
+        threads: [],
+      },
+      {
+        channel: CHANNELS[6]!,
+        category: "Community",
+        messages: [REPLY],
+        threads: [],
+      },
+      {
+        channel: CHANNELS[4]!,
+        category: "Staff",
+        messages: [HELLO],
+        threads: [],
+      },
+    ]);
+    expect(out.map((s) => s.slice(0, 2))).toEqual([
+      ["*COMMUNITY*", "*#general*"],
+      ["*#bug-forum*", expect.any(String)],
+      ["*STAFF*", "*#reports*"],
+    ]);
   });
 
   it("a message shows author, time and cleaned text with links; a reply its parent's author and first 80 characters; attachments as links; nothing can mention", () => {
@@ -161,8 +230,13 @@ describe("Discord digest (#140)", () => {
       },
       "/channels/general/threads/archived": { threads: [] },
       "/channels/bugs/threads/archived": { threads: [] },
+      "/channels/rules/threads/archived": { threads: [] },
+      "/channels/reports/threads/archived": { threads: [] },
+      "/channels/rules/": [],
+      "/channels/reports/": [],
       [`/channels/general/messages?after=${after}`]: [REPLY, HELLO],
       [`/channels/t1/messages?after=${after}`]: [IN_THREAD],
+      "/channels/t-staff/": [],
     });
     const posts: string[] = [];
     const logs: string[] = [];
@@ -176,14 +250,9 @@ describe("Discord digest (#140)", () => {
     });
     expect(sent).toBe(1);
     expect(calls.every((c) => c.method === "GET")).toBe(true);
-    expect(
-      calls.some(
-        (c) =>
-          c.path.includes("reports") ||
-          c.path.includes("t-staff") ||
-          c.path.includes("rules"),
-      ),
-    ).toBe(false);
+    // Paul, Nov 15: STAFF and INFO are read too.
+    expect(calls.some((c) => c.path.includes("/channels/reports/"))).toBe(true);
+    expect(calls.some((c) => c.path.includes("/channels/rules/"))).toBe(true);
     const text = posts.join("\n");
     expect(text).toContain("*#general*");
     expect(text.indexOf("Mothra Fan")).toBeLessThan(text.indexOf("same here"));
@@ -192,7 +261,7 @@ describe("Discord digest (#140)", () => {
     expect(text).not.toContain(OLD.content ?? "x");
     // The log: counts only.
     expect(logs).toEqual([
-      "2 COMMUNITY channels, 1 threads, 3 new messages in the last 24 h (0 already posted).",
+      "4 channels in 3 categories, 2 threads, 3 new messages in the last 24 h (0 already posted).",
       "Posted 1 of 1 Slack messages.",
     ]);
     for (const secretish of [
@@ -218,6 +287,10 @@ describe("Discord digest (#140)", () => {
       "/guilds/g1/threads/active": { threads: [] },
       "/channels/general/threads/archived": { threads: [] },
       "/channels/bugs/threads/archived": { threads: [] },
+      "/channels/rules/threads/archived": { threads: [] },
+      "/channels/reports/threads/archived": { threads: [] },
+      "/channels/rules/": [],
+      "/channels/reports/": [],
       [`/channels/general/messages?after=${after}`]: [HELLO, inOverlap],
     };
     const old = id(NOW - 50 * HOUR);
@@ -239,7 +312,7 @@ describe("Discord digest (#140)", () => {
     expect(posts.join("\n")).toContain("Mothra Fan");
     expect(posts.join("\n")).not.toContain("posted last run");
     expect(logs[0]).toBe(
-      "2 COMMUNITY channels, 0 threads, 1 new messages in the last 3 h (1 already posted).",
+      "4 channels in 3 categories, 0 threads, 1 new messages in the last 3 h (1 already posted).",
     );
     // HELLO is now seen; the 50-hour-old id is dropped.
     expect([...seen].sort()).toEqual([HELLO.id, inOverlap.id].sort());
@@ -260,6 +333,10 @@ describe("Discord digest (#140)", () => {
       "/guilds/g1/threads/active": { threads: [] },
       "/channels/general/threads/archived": { threads: [] },
       "/channels/bugs/threads/archived": { threads: [] },
+      "/channels/rules/threads/archived": { threads: [] },
+      "/channels/reports/threads/archived": { threads: [] },
+      "/channels/rules/": [],
+      "/channels/reports/": [],
       "/channels/general/messages": [],
     });
     const post = vi.fn(async () => 200);

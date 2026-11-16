@@ -470,3 +470,73 @@ export const GUIDE_DECKS = [
 /** Whether a deck name belongs to a guide deck (its name starts with one). */
 export const isGuideDeck = (deck: string) =>
   GUIDE_DECKS.some((g) => deck === g || deck.startsWith(`${g} `));
+
+/**
+ * #365 Kaiju Classroom: one rated bot turn as the server keeps it (no positions, moves, names or
+ * text): the day, the bot's deck name, the bot's version and how the turn compared.
+ */
+export interface ClassroomPoint {
+  /** ISO date, e.g. "2026-11-15". */
+  date: string;
+  deck: string;
+  botVersion: string;
+  /** The automatic same end position. */
+  same: boolean;
+  rating: "same" | "aboutSame" | "worse" | "better";
+}
+
+/** One row of the agreement chart: a deck's rated bot turns on a day, for one bot version. */
+export interface AgreementRow {
+  date: string;
+  deck: string;
+  botVersion: string;
+  turns: number;
+  /** Bot turns that ended in the same position as the player's (the agreement). */
+  same: number;
+  aboutSame: number;
+  worse: number;
+  better: number;
+}
+
+/** The agreement rows from the points, by date, deck and bot version (sorted). */
+export function agreementRows(
+  points: readonly ClassroomPoint[],
+): AgreementRow[] {
+  const rows = new Map<string, AgreementRow>();
+  for (const p of points) {
+    const key = `${p.date}\u0000${p.deck}\u0000${p.botVersion}`;
+    const row = rows.get(key) ?? {
+      date: p.date,
+      deck: p.deck,
+      botVersion: p.botVersion,
+      turns: 0,
+      same: 0,
+      aboutSame: 0,
+      worse: 0,
+      better: 0,
+    };
+    row.turns++;
+    if (p.same) row.same++;
+    else if (p.rating === "aboutSame") row.aboutSame++;
+    else if (p.rating === "worse") row.worse++;
+    else if (p.rating === "better") row.better++;
+    rows.set(key, row);
+  }
+  return [...rows.values()].sort(
+    (a, b) =>
+      a.date.localeCompare(b.date) ||
+      a.deck.localeCompare(b.deck) ||
+      a.botVersion.localeCompare(b.botVersion),
+  );
+}
+
+/** A deck's agreement over a set of rows: the share of its bot turns that matched the player's. */
+export function agreementShare(rows: readonly AgreementRow[]): {
+  turns: number;
+  same: number;
+  share: number;
+} {
+  const turns = rows.reduce((n, r) => n + r.turns, 0);
+  const same = rows.reduce((n, r) => n + r.same, 0);
+  return { turns, same, share: turns === 0 ? 0 : same / turns };
+}

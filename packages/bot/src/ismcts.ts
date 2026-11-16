@@ -78,6 +78,8 @@ export interface IsmctsSettings {
   revengeStep: number;
   /** Card rule 24 (#325, #329): 1 (the default) discards a recurring card first; 0 is off. */
   recurDiscard: number;
+  /** Card rule 23 (#345): 1 (the default) keeps plays off your own battle cards; 0 is off. */
+  ownCover: number;
   /** Card rule 22 (#336): 1 (the default) leaves out destroy-only strategies with no target; 0 off. */
   targetCheck: number;
   /** The Monster X plan's #335 (no idle Landing): 1 (the default) on; 0 is the old rule 9. */
@@ -129,6 +131,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   ownPath: 1,
   revengeStep: 1,
   recurDiscard: 1,
+  ownCover: 1,
   targetCheck: 1,
   mxLanding: 1,
   mxManda: 1,
@@ -450,6 +453,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         ownPath: settings.ownPath > 0,
         revengeStep: settings.revengeStep > 0,
         recurDiscard: settings.recurDiscard > 0,
+        ownCover: settings.ownCover > 0,
         targetCheck: settings.targetCheck > 0,
       };
       const unsafe = cardRulesDead(
@@ -656,6 +660,7 @@ function cardRulesSafe(
   ownPath = 1,
   revengeStep = 1,
   recurDiscard = 1,
+  ownCover = 1,
   targetCheck = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
@@ -664,6 +669,7 @@ function cardRulesSafe(
     ownPath: ownPath > 0,
     revengeStep: revengeStep > 0,
     recurDiscard: recurDiscard > 0,
+    ownCover: ownCover > 0,
     targetCheck: targetCheck > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
@@ -706,6 +712,7 @@ export function blunderAllowed(
     settings.ownPath,
     settings.revengeStep,
     settings.recurDiscard,
+    settings.ownCover,
     settings.targetCheck,
   );
   const allowed =
@@ -758,6 +765,7 @@ export function decide(input: BotInput): Decision {
               settings.ownPath,
               settings.revengeStep,
               settings.recurDiscard,
+              settings.ownCover,
               settings.targetCheck,
             )
           : [...legalActions];
