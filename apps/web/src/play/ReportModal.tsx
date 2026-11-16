@@ -6,6 +6,7 @@ import {
   MAX_REPORT_LENGTH,
 } from "../game/collection";
 import styles from "./Board.module.css";
+import { FloatingWindow } from "./FloatingWindow";
 
 export interface ReportModalProps {
   kind: "badBot" | "goodBot" | "bug" | "idea";
@@ -39,21 +40,25 @@ export interface ReportModalProps {
 
 const COPY = {
   badBot: {
+    tab: "Bad Bot!",
     title: "What did the bot do wrong?",
     label: "Why was this a bad move? What would you have done?",
     submit: "Send",
   },
   goodBot: {
+    tab: "Good Bot!",
     title: "What did the bot do right?",
     label: "Why was this a good play?",
     submit: "Send",
   },
   bug: {
+    tab: "Report bug",
     title: "What went wrong?",
     label: "What happened, and what did you expect?",
     submit: "Send",
   },
   idea: {
+    tab: MAILBOX_NAME,
     title: MAILBOX_NAME,
     label: "What would make GojiSim better? Ideas and improvements, not bugs.",
     submit: "Send",
@@ -64,7 +69,8 @@ const COPY = {
  * The Bad Bot!, Good Bot!, Report bug and Monster Island Mailbox popups (M13b, #107): a required
  * name (remembered) and a required text of up to 1,000 characters; Esc cancels. While one is open
  * the bot waits. All of them send the record to the server; Report bug downloads it when sharing
- * is off.
+ * is off. Paul, Nov 15: each is a `FloatingWindow`, so the board stays in view and usable while
+ * writing (dragged by its title, hidden to a tab with the text kept).
  */
 export function ReportModal({
   kind,
@@ -105,12 +111,14 @@ export function ReportModal({
     return () => window.removeEventListener("keydown", onKey, true);
   }, [onCancel]);
   return (
-    <div
-      className={`${styles.modalBackdrop} ${styles.reportBackdrop}`}
-      data-testid={`${kind}-modal`}
+    <FloatingWindow
+      title={<span id="report-title">{copy.title}</span>}
+      tabLabel={copy.tab}
+      testId={`${kind}-modal`}
+      className={styles.reportWindow}
     >
       <form
-        className={`${styles.modal} ${styles.reportModal}`}
+        className={styles.reportModal}
         role="dialog"
         aria-labelledby="report-title"
         onSubmit={(e) => {
@@ -119,9 +127,6 @@ export function ReportModal({
             onSubmit(name.trim(), text.trim(), move, community);
         }}
       >
-        <div className={styles.modalHeading} id="report-title">
-          {copy.title}
-        </div>
         {moves && moves.length > 0 && (
           <fieldset className={styles.reportMoves} data-testid="bad-bot-move">
             <legend>
@@ -263,6 +268,6 @@ export function ReportModal({
           </button>
         </div>
       </form>
-    </div>
+    </FloatingWindow>
   );
 }

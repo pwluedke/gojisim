@@ -2259,12 +2259,54 @@
 }
 
 /* The Bad Bot! and Report bug popups' backdrop, above the Test Site panel (32). */
-.reportBackdrop {
+/*
+ * Paul, Nov 15: a window over the board with no backdrop (`FloatingWindow`), so the board keeps
+ * its hover previews and clicks. It opens centered; once dragged, `left` / `top` place it.
+ */
+.floatingWindow {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
   z-index: 34;
 }
 
-.reportModal {
+.floatingWindow[hidden] {
+  display: none;
+}
+
+/* The title bar is the drag handle; its Hide button sits at the right. */
+.floatingTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+/* A hidden window's tab, at the bottom left (the Classroom bar has the bottom center). */
+.floatingTab {
+  position: fixed;
+  bottom: var(--space-3);
+  left: var(--space-3);
+  z-index: 34;
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius);
+  background: var(--color-panel);
+  color: var(--color-text);
+  box-shadow: var(--shadow);
+  font: inherit;
+  cursor: pointer;
+}
+
+.reportWindow {
   width: min(90vw, 520px);
+}
+
+.reportModal {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
