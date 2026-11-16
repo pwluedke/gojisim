@@ -9,6 +9,7 @@ import {
   type PlayerId,
   sameColumn,
   type ZoneNumber,
+  behind,
   hasFlag,
 } from "@gojisim/engine";
 import {
@@ -132,6 +133,24 @@ import type { Decklist } from "./types";
  *    (Godzilla vs. Megaguirus EBP01-064) isn't activated when no way of answering its choices
  *    destroys one (no legal target). A plan's rescue still overrides it (the Wrangler's dig). Any
  *    deck.
+ * 25. #337 (Tuscancow): with your monster in zone 6, 7 or 8, no battle card into the zone behind
+ *    it (5, 4 or 3), where a counter moves it back and crushes the card (5.15.1.1, 11.3), while
+ *    that card has a legal play into an empty zone off your monster's path and not behind it;
+ *    [revenge] cards excepted, as in rule 21. Any deck.
+ * 26. #328 (Keldroc, Ian): with your top monster's [invading] ability active (its count of cards
+ *    under it met, Thousand-Year Dragon King Ghidorah EBP03-029) and an invasion legal, no monster
+ *    card without an [invading] ability on top of it; but a play that wins now or makes the
+ *    counter. Any deck.
+ * 27. #353 (BFW182): discarding from your hand (5.7.1, 5.7.2), a strategy card isn't the one to go
+ *    while a battle card you can't play this turn or next is offered (its rank above the zone of
+ *    the opponent's monster plus 2, 8.2.1). Any deck.
+ * 28. #326 (Keldroc): discarding from your hand (5.7.1, 5.7.2), your only copy of a lower-rank
+ *    monster card (the next one up after a counter) isn't the one to go while a higher-rank
+ *    monster card or a spare copy of a monster card can go; rule 24's recurring card first. Any
+ *    deck.
+ * 29. #314 (Tuscancow; Paul's Tangler signature): a Tangler deck (Godzilla (2002) EBP03-014 and
+ *    EBP03-015 in its monster deck, Entangling Fear EBP04-081 in its main deck) doesn't invade
+ *    before its own turn 4 unless the invasion wins the game this turn.
  */
 
 type Json = Record<string, unknown>;
@@ -599,14 +618,37 @@ export function slowCounterDeck(deck: Decklist | undefined): boolean {
   );
 }
 
-/** Rule 6: a slow counter deck's invasions that don't win now. */
+/** Rule 29 (Paul): a Tangler deck's signature, its monster deck's Godzilla (2002) and Entangling Fear. */
+export function tanglerDeck(deck: Decklist | undefined): boolean {
+  if (!deck) return false;
+  const monsters = new Set(deck.monsterDeck.map((c) => c.deckCardNumber));
+  return (
+    monsters.has("EBP03-014") &&
+    monsters.has("EBP03-015") &&
+    deck.mainDeck.some((c) => c.deckCardNumber === "EBP04-081")
+  );
+}
+
+/** Rule 29: a Tangler deck stays back through its own turn 3. */
+const TANGLER_FIRST_INVASION_TURN = 4;
+
+/**
+ * Rule 6: a slow counter deck's invasions that don't win now; rule 29 (`tangler`), a Tangler
+ * deck's before its own turn 4.
+ */
 function slowInvasions(
   state: GameState,
   actions: readonly Action[],
   me: PlayerId,
   own: Decklist | undefined,
+  tangler = false,
 ): Action[] {
-  if (state.pendingChoice || !slowCounterDeck(own)) return [];
+  // The player's own turn count: 1 on their first turn (the turns alternate).
+  const ownTurn = Math.floor((state.turn + 1) / 2);
+  const holds = tangler
+    ? tanglerDeck(own) && ownTurn < TANGLER_FIRST_INVASION_TURN
+    : slowCounterDeck(own);
+  if (state.pendingChoice || !holds) return [];
   return actions.filter((a) => {
     if (a.type !== "invade" && a.type !== "invadeFromDeck") return false;
     try {
@@ -885,18 +927,26 @@ function ownPathPlays(
   state: GameState,
   actions: readonly Action[],
   me: PlayerId,
+  /** Rule 25: the zone behind your monster in zone 6-8 (a counter moves it there) instead. */
+  back = false,
 ): Action[] {
   const player = state.players.find((p) => p.id === me);
   const top = player?.invadingMonsterZone.at(-1);
   if (!player || !top || state.pendingChoice || player.monsterPosition === null)
     return [];
+  // A monster that can neither advance nor invade has no path; a counter still moves it back.
   if (
+    !back &&
     hasFlag(state, top, "cannotAdvance") &&
     hasFlag(state, top, "cannotInvade")
   )
     return [];
   const at = player.monsterPosition;
+  const behindAt = behind(at);
+  if (back && behindAt === null) return [];
   const onPath = (zone: number) => zone > at && zone <= at + OWN_PATH;
+  // Rule 25: the zone a counter moves your monster back to; rule 21: its next two zones.
+  const unsafe = (zone: number) => (back ? zone === behindAt : onPath(zone));
   const byCard = new Map<string, Extract<Action, { type: "playBattle" }>[]>();
   for (const a of actions)
     if (a.type === "playBattle")
@@ -910,11 +960,148 @@ function ownPathPlays(
     const number = c ? state.cards[c.cardId]?.deckCardNumber : undefined;
     if (!number || hasRevenge(number)) continue;
     const safe = plays.some(
-      (a) => !onPath(a.zone) && player.zones[a.zone].length === 0,
+      (a) =>
+        !onPath(a.zone) &&
+        a.zone !== behindAt &&
+        player.zones[a.zone].length === 0,
     );
-    if (safe) for (const a of plays) if (onPath(a.zone)) dead.push(a);
+    if (safe) for (const a of plays) if (unsafe(a.zone)) dead.push(a);
   }
   return dead;
+}
+
+/** Rule 26: an [invading] ability's under-count condition (`>= N` cards under it), if it has one. */
+function invadingNeeds(deckCardNumber: string | undefined): number | null {
+  if (!deckCardNumber) return null;
+  for (const ability of getCardAbilities(deckCardNumber).abilities) {
+    const a = ability as unknown as Json;
+    const trigger = a["trigger"] as Json | undefined;
+    if (a["kind"] !== "triggered" || trigger?.["on"] !== "invading") continue;
+    const condition = a["condition"] as Json | undefined;
+    const count = condition?.["count"] as Json | undefined;
+    if (
+      count?.["area"] === "under" &&
+      count["stackOf"] === "this" &&
+      condition?.["op"] === ">=" &&
+      typeof condition["value"] === "number"
+    )
+      return condition["value"];
+  }
+  // No [invading] ability with an under-count condition: nothing to keep active (rule 26 is for
+  // modes a stack unlocks).
+  return null;
+}
+
+/** Rule 26: whether a card has an [invading] ability (a stack of it keeps one). */
+function hasInvading(deckCardNumber: string): boolean {
+  return getCardAbilities(deckCardNumber).abilities.some((ability) => {
+    const a = ability as unknown as Json;
+    return (
+      a["kind"] === "triggered" &&
+      (a["trigger"] as Json | undefined)?.["on"] === "invading"
+    );
+  });
+}
+
+/** Rule 26: monster plays that bury an active [invading] ability while an invasion is legal. */
+function buriedInvadingPlays(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const player = state.players.find((p) => p.id === me);
+  const top = player?.invadingMonsterZone.at(-1);
+  if (!player || !top || state.pendingChoice) return [];
+  const needs = invadingNeeds(state.cards[top.cardId]?.deckCardNumber);
+  if (needs === null || player.invadingMonsterZone.length - 1 < needs)
+    return [];
+  if (!actions.some((a) => a.type === "invade" || a.type === "invadeFromDeck"))
+    return [];
+  const making = counterPlays(state, actions, me, true);
+  return actions.filter((a) => {
+    if (a.type !== "playMonster") return false;
+    const c = [...player.hand, ...player.monsterDeck].find(
+      (h) => h.instanceId === a.cardInstanceId,
+    );
+    const number = c ? state.cards[c.cardId]?.deckCardNumber : undefined;
+    if (number && hasInvading(number)) return false;
+    return !making.has(a) && !winsNow(state, a, me);
+  });
+}
+
+/** Rule 27: a hand discard's strategy picks while a battle card out of reach can go instead. */
+function strategyDiscards(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const choice = state.pendingChoice;
+  const player = state.players.find((p) => p.id === me);
+  const opponent = state.players.find((p) => p.id !== me);
+  if (
+    !choice ||
+    !player ||
+    !opponent ||
+    choice.player !== me ||
+    (choice.rule !== "5.7.1" && choice.rule !== "5.7.2")
+  )
+    return [];
+  const picks = actions.filter(
+    (a): a is Extract<Action, { type: "choose" }> =>
+      a.type === "choose" &&
+      player.hand.some((h) => h.instanceId === a.optionId),
+  );
+  const cardOf = (a: Extract<Action, { type: "choose" }>) => {
+    const c = player.hand.find((h) => h.instanceId === a.optionId);
+    return c ? state.cards[c.cardId] : undefined;
+  };
+  // 8.2.1: rank at most the zone of the opponent's monster; by your next turn it is 2 zones on.
+  const reach = (opponent.monsterPosition ?? 0) + 2;
+  const outOfReach = picks.some((a) => {
+    const card = cardOf(a);
+    return card?.type === "Battle" && (card.rank ?? 0) > reach;
+  });
+  if (!outOfReach) return [];
+  return picks.filter((a) => cardOf(a)?.type === "Strategy");
+}
+
+/** Rule 28: a hand discard's picks of your only copy of a lower-rank monster card. */
+function lowRankDiscards(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const choice = state.pendingChoice;
+  const player = state.players.find((p) => p.id === me);
+  if (
+    !choice ||
+    !player ||
+    choice.player !== me ||
+    (choice.rule !== "5.7.1" && choice.rule !== "5.7.2")
+  )
+    return [];
+  const monsterPick = (a: Action) => {
+    if (a.type !== "choose") return undefined;
+    const c = player.hand.find((h) => h.instanceId === a.optionId);
+    const card = c ? state.cards[c.cardId] : undefined;
+    return card?.type === "Monster" && card.rank !== null ? card : undefined;
+  };
+  const copies = (name: string) =>
+    player.hand.filter((h) => state.cards[h.cardId]?.name === name).length;
+  const picks = actions.filter((a) => monsterPick(a) !== undefined);
+  return picks.filter((a) => {
+    const card = monsterPick(a);
+    if (!card || copies(card.name) > 1) return false;
+    // Another monster card can go instead: a higher rank, or a spare copy.
+    return picks.some((b) => {
+      const other = monsterPick(b);
+      return (
+        b !== a &&
+        other !== undefined &&
+        ((other.rank ?? 0) > (card.rank ?? 0) || copies(other.name) > 1)
+      );
+    });
+  });
 }
 
 /** Rule 24: discards of other cards while one that comes back from the discard pile can go. */
@@ -1491,6 +1678,16 @@ export interface CardRulesOptions {
   modeBest?: boolean;
   /** Rule 23b (#345): no play over your own battle card while one over your token is legal. */
   coverToken?: boolean;
+  /** Rule 25 (#337): no battle card in the zone behind your monster in 6-8 (default). */
+  ownBehind?: boolean;
+  /** Rule 26 (#328): an active [invading] ability isn't buried under a monster (default). */
+  activeInvading?: boolean;
+  /** Rule 27 (#353): a strategy isn't discarded over a battle card out of reach (default). */
+  keepStrategy?: boolean;
+  /** Rule 28 (#326): the only copy of a lower-rank monster card is kept (default). */
+  keepLowRank?: boolean;
+  /** Rule 29 (#314): a Tangler deck doesn't invade before its turn 4 (default). */
+  tanglerEarly?: boolean;
 }
 
 /** The legal actions the card rules leave out, judged on `state` (the first determinization). */
@@ -1532,6 +1729,9 @@ export function cardRulesDead(
   for (const action of recurringPlays(state, actions, me)) dead.add(action);
   for (const action of spentCounters(state, actions, me)) dead.add(action);
   for (const action of slowInvasions(state, actions, me, own)) dead.add(action);
+  if (options.tanglerEarly !== false)
+    for (const action of slowInvasions(state, actions, me, own, true))
+      dead.add(action);
   for (const action of zoneLimitedPlays(state, actions, me)) dead.add(action);
   for (const action of unsafeAdvances(state, actions, me)) dead.add(action);
   for (const action of weakEvolutions(state, actions, me)) dead.add(action);
@@ -1557,6 +1757,16 @@ export function cardRulesDead(
       if (!winsNow(state, action, me)) dead.add(action);
   if (options.ownPath !== false)
     for (const action of ownPathPlays(state, actions, me)) dead.add(action);
+  if (options.keepLowRank !== false)
+    for (const action of lowRankDiscards(state, actions, me)) dead.add(action);
+  if (options.keepStrategy !== false)
+    for (const action of strategyDiscards(state, actions, me)) dead.add(action);
+  if (options.activeInvading !== false)
+    for (const action of buriedInvadingPlays(state, actions, me))
+      dead.add(action);
+  if (options.ownBehind !== false)
+    for (const action of ownPathPlays(state, actions, me, true))
+      dead.add(action);
   if (options.ownCover !== false)
     for (const action of ownCoverPlays(state, actions, me)) dead.add(action);
   if (options.modeBest !== false)
