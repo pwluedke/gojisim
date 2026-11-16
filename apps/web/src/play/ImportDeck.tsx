@@ -11,6 +11,7 @@ import {
   type MyDeck,
 } from "../game/importDeck";
 import styles from "./Board.module.css";
+import { FloatingWindow } from "./FloatingWindow";
 import newGame from "./NewGame.module.css";
 
 const FORMAT_NAMES = {
@@ -144,269 +145,273 @@ export function ImportDeck({
   });
 
   return (
-    <div className={styles.modalBackdrop} data-testid="import-deck">
-      <div className={`${styles.modal} ${newGame.importModal}`} role="dialog">
-        <div className={styles.modalHeading}>Import deck</div>
-        <ul className={newGame.importHelp} data-testid="import-help">
-          {HOW_TO_COPY.map(([source, how]) => (
-            <li key={source}>
-              <strong>{source}:</strong> {how}
+    // Paul, Nov 16: every window is movable (its title bar), the new-game screen dimmed behind.
+    <FloatingWindow
+      title="Import deck"
+      tabLabel="Import deck"
+      testId="import-deck"
+      className={newGame.importModal}
+      backdrop
+    >
+      <ul className={newGame.importHelp} data-testid="import-help">
+        {HOW_TO_COPY.map(([source, how]) => (
+          <li key={source}>
+            <strong>{source}:</strong> {how}
+          </li>
+        ))}
+      </ul>
+      <div className={newGame.decklogRow}>
+        <label>
+          Decklog URL or deck code{" "}
+          <input
+            data-testid="decklog-input"
+            value={decklogInput}
+            placeholder="https://decklog-en.bushiroad.com/view/1STAP"
+            onChange={(e) => setDecklogInput(e.target.value)}
+            onKeyDown={(e) => {
+              // Inside the new-game form: Enter fetches instead of starting a game.
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              if (!decklog.busy) void fetchDecklog();
+            }}
+          />
+        </label>{" "}
+        <button
+          type="button"
+          className={styles.choiceButton}
+          data-testid="decklog-fetch"
+          disabled={decklog.busy || decklogInput.trim() === ""}
+          onClick={() => void fetchDecklog()}
+        >
+          Fetch
+        </button>
+      </div>
+      {decklog.note && (
+        <div className={styles.muted} data-testid="decklog-note">
+          {decklog.note}
+        </div>
+      )}
+      {decklog.error && (
+        <div className={newGame.importErrors} data-testid="decklog-error">
+          {decklog.error}
+        </div>
+      )}
+      <textarea
+        className={newGame.importText}
+        data-testid="import-text"
+        value={text}
+        rows={8}
+        placeholder={
+          "[deck] My Deck\n[monster deck]\n1 ESD01-001\n[main deck]\n4 ESD01-005"
+        }
+        onChange={(e) => {
+          setText(e.target.value);
+          setChoice(0);
+          setAllReport(null);
+        }}
+      />
+      {parsed.format && (
+        <div className={styles.muted} data-testid="import-format">
+          Read as: {FORMAT_NAMES[parsed.format]}
+        </div>
+      )}
+      {parsed.errors.length > 0 && (
+        <ul className={newGame.importErrors} data-testid="import-errors">
+          {parsed.errors.map((e) => (
+            <li key={`${e.line}-${e.reason}`}>
+              Line {e.line}: {e.reason}
             </li>
           ))}
         </ul>
-        <div className={newGame.decklogRow}>
+      )}
+      {parsed.decks.length > 1 && (
+        <label>
+          Deck{" "}
+          <select
+            data-testid="import-choice"
+            value={choice}
+            onChange={(e) => {
+              setChoice(Number(e.target.value));
+              setName(null);
+            }}
+          >
+            {parsed.decks.map((d, i) => (
+              <option key={i} value={i}>
+                {d.name}
+              </option>
+            ))}
+          </select>{" "}
+          <span className={styles.muted}>
+            ({parsed.decks.length} decks in the text)
+          </span>{" "}
+          <button
+            type="button"
+            className={styles.choiceButton}
+            data-testid="import-all"
+            // Once it has saved, a second click would save the same decks again as " (2)";
+            // a change to the text clears the report and the button.
+            disabled={!!allReport}
+            onClick={() => {
+              const report = importAll(text, mine);
+              if (report.saved.length > 0) onSaveAll(report.saved);
+              setAllReport(report);
+              setAnswered({});
+            }}
+          >
+            Import all
+          </button>
+        </label>
+      )}
+      {allReport && (
+        <div data-testid="import-all-result">
+          <div>
+            Saved {allReport.saved.length} of {parsed.decks.length} decks
+            {allReport.saved.length > 0 &&
+              `: ${allReport.saved.map((d) => d.name).join(", ")}`}
+            .
+          </div>
+          {allReport.same.length > 0 && (
+            <div data-testid="import-all-same">
+              Already in My decks: {allReport.same.join(", ")}.
+            </div>
+          )}
+          {allReport.clashes.length > 0 && (
+            <ul data-testid="import-clashes">
+              {allReport.clashes.map((clash) => {
+                const answer = answered[clash.name];
+                return (
+                  <li
+                    key={clash.name}
+                    data-testid="import-clash"
+                    data-deck-name={clash.name}
+                  >
+                    My decks already has a different &quot;{clash.name}&quot;.{" "}
+                    {answer === undefined ? (
+                      <>
+                        <button
+                          type="button"
+                          data-testid="import-clash-replace"
+                          onClick={() => {
+                            onReplace(clash.existing.id, clash.deck);
+                            setAnswered((a) => ({ ...a, [clash.name]: "" }));
+                          }}
+                        >
+                          Replace
+                        </button>{" "}
+                        <button
+                          type="button"
+                          data-testid="import-clash-keep"
+                          onClick={() => {
+                            const taken = new Set([
+                              ...mine.map((d) => d.name),
+                              ...allReport.saved.map((d) => d.name),
+                              ...Object.values(answered),
+                            ]);
+                            const name = freeName(clash.name, taken);
+                            onSaveAll([{ deck: clash.deck, name }]);
+                            setAnswered((a) => ({
+                              ...a,
+                              [clash.name]: name,
+                            }));
+                          }}
+                        >
+                          Keep both
+                        </button>
+                      </>
+                    ) : answer === "" ? (
+                      "Replaced."
+                    ) : (
+                      `Kept both: saved as "${answer}".`
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {(allReport.failed.length > 0 || allReport.stray.length > 0) && (
+            <ul className={newGame.importErrors}>
+              {allReport.failed.map((f, i) => (
+                <li key={i}>
+                  Not saved, {f.name}: {f.reasons.join("; ")}
+                </li>
+              ))}
+              {allReport.stray.map((e) => (
+                <li key={`stray-${e.line}`}>
+                  Line {e.line}, outside any deck: {e.reason}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+      {deck && (
+        <>
+          <div data-testid="import-counts">
+            Monster deck {deck.monsterDeck.length} · Main deck{" "}
+            {deck.mainDeck.length}
+          </div>
+          {warnings.length > 0 && (
+            <ul
+              className={newGame.importWarnings}
+              data-testid="import-warnings"
+            >
+              {warnings.map((w) => (
+                <li key={`${w.rule}-${w.message}`}>
+                  Warning ({w.rule}): {w.message}
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className={newGame.importLists} data-testid="import-cards">
+            <div>
+              <strong>Monster deck</strong>
+              {cardLines(deck.monsterDeck).map((line, i) => (
+                <div key={i}>{line}</div>
+              ))}
+            </div>
+            <div>
+              <strong>Main deck</strong>
+              {cardLines(deck.mainDeck).map((line, i) => (
+                <div key={i}>{line}</div>
+              ))}
+            </div>
+          </div>
           <label>
-            Decklog URL or deck code{" "}
+            Name{" "}
             <input
-              data-testid="decklog-input"
-              value={decklogInput}
-              placeholder="https://decklog-en.bushiroad.com/view/1STAP"
-              onChange={(e) => setDecklogInput(e.target.value)}
+              data-testid="import-name"
+              value={shownName}
+              onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {
-                // Inside the new-game form: Enter fetches instead of starting a game.
+                // The modal sits inside the new-game form: Enter saves the deck instead of
+                // starting a game.
                 if (e.key !== "Enter") return;
                 e.preventDefault();
-                if (!decklog.busy) void fetchDecklog();
+                if (canSave && deck) onSave(deck, shownName.trim());
               }}
             />
-          </label>{" "}
-          <button
-            type="button"
-            className={styles.choiceButton}
-            data-testid="decklog-fetch"
-            disabled={decklog.busy || decklogInput.trim() === ""}
-            onClick={() => void fetchDecklog()}
-          >
-            Fetch
-          </button>
-        </div>
-        {decklog.note && (
-          <div className={styles.muted} data-testid="decklog-note">
-            {decklog.note}
-          </div>
-        )}
-        {decklog.error && (
-          <div className={newGame.importErrors} data-testid="decklog-error">
-            {decklog.error}
-          </div>
-        )}
-        <textarea
-          className={newGame.importText}
-          data-testid="import-text"
-          value={text}
-          rows={8}
-          placeholder={
-            "[deck] My Deck\n[monster deck]\n1 ESD01-001\n[main deck]\n4 ESD01-005"
-          }
-          onChange={(e) => {
-            setText(e.target.value);
-            setChoice(0);
-            setAllReport(null);
-          }}
-        />
-        {parsed.format && (
-          <div className={styles.muted} data-testid="import-format">
-            Read as: {FORMAT_NAMES[parsed.format]}
-          </div>
-        )}
-        {parsed.errors.length > 0 && (
-          <ul className={newGame.importErrors} data-testid="import-errors">
-            {parsed.errors.map((e) => (
-              <li key={`${e.line}-${e.reason}`}>
-                Line {e.line}: {e.reason}
-              </li>
-            ))}
-          </ul>
-        )}
-        {parsed.decks.length > 1 && (
-          <label>
-            Deck{" "}
-            <select
-              data-testid="import-choice"
-              value={choice}
-              onChange={(e) => {
-                setChoice(Number(e.target.value));
-                setName(null);
-              }}
-            >
-              {parsed.decks.map((d, i) => (
-                <option key={i} value={i}>
-                  {d.name}
-                </option>
-              ))}
-            </select>{" "}
-            <span className={styles.muted}>
-              ({parsed.decks.length} decks in the text)
-            </span>{" "}
-            <button
-              type="button"
-              className={styles.choiceButton}
-              data-testid="import-all"
-              // Once it has saved, a second click would save the same decks again as " (2)";
-              // a change to the text clears the report and the button.
-              disabled={!!allReport}
-              onClick={() => {
-                const report = importAll(text, mine);
-                if (report.saved.length > 0) onSaveAll(report.saved);
-                setAllReport(report);
-                setAnswered({});
-              }}
-            >
-              Import all
-            </button>
           </label>
-        )}
-        {allReport && (
-          <div data-testid="import-all-result">
-            <div>
-              Saved {allReport.saved.length} of {parsed.decks.length} decks
-              {allReport.saved.length > 0 &&
-                `: ${allReport.saved.map((d) => d.name).join(", ")}`}
-              .
-            </div>
-            {allReport.same.length > 0 && (
-              <div data-testid="import-all-same">
-                Already in My decks: {allReport.same.join(", ")}.
-              </div>
-            )}
-            {allReport.clashes.length > 0 && (
-              <ul data-testid="import-clashes">
-                {allReport.clashes.map((clash) => {
-                  const answer = answered[clash.name];
-                  return (
-                    <li
-                      key={clash.name}
-                      data-testid="import-clash"
-                      data-deck-name={clash.name}
-                    >
-                      My decks already has a different &quot;{clash.name}&quot;.{" "}
-                      {answer === undefined ? (
-                        <>
-                          <button
-                            type="button"
-                            data-testid="import-clash-replace"
-                            onClick={() => {
-                              onReplace(clash.existing.id, clash.deck);
-                              setAnswered((a) => ({ ...a, [clash.name]: "" }));
-                            }}
-                          >
-                            Replace
-                          </button>{" "}
-                          <button
-                            type="button"
-                            data-testid="import-clash-keep"
-                            onClick={() => {
-                              const taken = new Set([
-                                ...mine.map((d) => d.name),
-                                ...allReport.saved.map((d) => d.name),
-                                ...Object.values(answered),
-                              ]);
-                              const name = freeName(clash.name, taken);
-                              onSaveAll([{ deck: clash.deck, name }]);
-                              setAnswered((a) => ({
-                                ...a,
-                                [clash.name]: name,
-                              }));
-                            }}
-                          >
-                            Keep both
-                          </button>
-                        </>
-                      ) : answer === "" ? (
-                        "Replaced."
-                      ) : (
-                        `Kept both: saved as "${answer}".`
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            {(allReport.failed.length > 0 || allReport.stray.length > 0) && (
-              <ul className={newGame.importErrors}>
-                {allReport.failed.map((f, i) => (
-                  <li key={i}>
-                    Not saved, {f.name}: {f.reasons.join("; ")}
-                  </li>
-                ))}
-                {allReport.stray.map((e) => (
-                  <li key={`stray-${e.line}`}>
-                    Line {e.line}, outside any deck: {e.reason}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-        {deck && (
-          <>
-            <div data-testid="import-counts">
-              Monster deck {deck.monsterDeck.length} · Main deck{" "}
-              {deck.mainDeck.length}
-            </div>
-            {warnings.length > 0 && (
-              <ul
-                className={newGame.importWarnings}
-                data-testid="import-warnings"
-              >
-                {warnings.map((w) => (
-                  <li key={`${w.rule}-${w.message}`}>
-                    Warning ({w.rule}): {w.message}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className={newGame.importLists} data-testid="import-cards">
-              <div>
-                <strong>Monster deck</strong>
-                {cardLines(deck.monsterDeck).map((line, i) => (
-                  <div key={i}>{line}</div>
-                ))}
-              </div>
-              <div>
-                <strong>Main deck</strong>
-                {cardLines(deck.mainDeck).map((line, i) => (
-                  <div key={i}>{line}</div>
-                ))}
-              </div>
-            </div>
-            <label>
-              Name{" "}
-              <input
-                data-testid="import-name"
-                value={shownName}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => {
-                  // The modal sits inside the new-game form: Enter saves the deck instead of
-                  // starting a game.
-                  if (e.key !== "Enter") return;
-                  e.preventDefault();
-                  if (canSave && deck) onSave(deck, shownName.trim());
-                }}
-              />
-            </label>
-          </>
-        )}
-        <div className={styles.modalButtons}>
-          <button
-            type="button"
-            className={styles.button}
-            data-testid="import-save"
-            disabled={!canSave}
-            onClick={() => deck && onSave(deck, shownName.trim())}
-          >
-            Save deck
-          </button>
-          <button
-            type="button"
-            className={styles.choiceButton}
-            data-testid="import-cancel"
-            onClick={onClose}
-          >
-            {allReport?.saved.length ? "Close" : "Cancel"} [Esc]
-          </button>
-        </div>
+        </>
+      )}
+      <div className={styles.modalButtons}>
+        <button
+          type="button"
+          className={styles.button}
+          data-testid="import-save"
+          disabled={!canSave}
+          onClick={() => deck && onSave(deck, shownName.trim())}
+        >
+          Save deck
+        </button>
+        <button
+          type="button"
+          className={styles.choiceButton}
+          data-testid="import-cancel"
+          onClick={onClose}
+        >
+          {allReport?.saved.length ? "Close" : "Cancel"} [Esc]
+        </button>
       </div>
-    </div>
+    </FloatingWindow>
   );
 }

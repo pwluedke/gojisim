@@ -1,6 +1,7 @@
 import type { CardInstance, PlayerView } from "@gojisim/engine";
 import { useEffect } from "react";
 import styles from "./Board.module.css";
+import { FloatingWindow } from "./FloatingWindow";
 
 /** A public stack on the board (M5h #9): a discard pile, the invading monster, or a zone. */
 export type StackKey =
@@ -51,65 +52,62 @@ export function StackViewer({
       window.removeEventListener("keydown", onKey, { capture: true });
   });
   return (
-    <div
-      className={styles.modalBackdrop}
-      data-testid="stack-viewer"
-      data-area={stack.area}
-      onClick={onClose}
+    // Paul, Nov 16: a window over the board (no backdrop, so no click-outside close: Esc and
+    // Close close it).
+    <FloatingWindow
+      title={<span data-testid="stack-heading">{heading}</span>}
+      tabLabel={heading}
+      testId="stack-viewer"
+      attrs={{ "data-area": stack.area }}
     >
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.modalHeading} data-testid="stack-heading">
-          {heading}
-        </div>
-        {groups.every((g) => g.length === 0) && (
-          <div className={styles.muted}>No cards.</div>
-        )}
-        {groups.map((cards, g) => (
-          <div key={g} className={styles.choiceCards}>
-            {cards.map((card, i) => {
-              const data = view.cards[card.cardId];
-              return (
-                <div key={card.instanceId} className={styles.choiceOption}>
-                  {stack.area !== "discard" && (
-                    <div
-                      className={styles.choiceLocation}
-                      data-testid="stack-position"
-                    >
-                      {i === 0 ? "Top" : "Under"}
-                    </div>
-                  )}
+      {groups.every((g) => g.length === 0) && (
+        <div className={styles.muted}>No cards.</div>
+      )}
+      {groups.map((cards, g) => (
+        <div key={g} className={styles.choiceCards}>
+          {cards.map((card, i) => {
+            const data = view.cards[card.cardId];
+            return (
+              <div key={card.instanceId} className={styles.choiceOption}>
+                {stack.area !== "discard" && (
                   <div
-                    className={styles.choiceCard}
-                    data-testid="stack-card"
-                    data-card-id={card.cardId}
+                    className={styles.choiceLocation}
+                    data-testid="stack-position"
                   >
-                    <div className={styles.cardFallback}>{data?.name}</div>
-                    <img
-                      className={styles.cardImage}
-                      src={`/cards/${card.cardId}-thumb.webp`}
-                      alt={data?.name ?? ""}
-                      draggable={false}
-                      onError={(e) => {
-                        e.currentTarget.style.visibility = "hidden";
-                      }}
-                    />
+                    {i === 0 ? "Top" : "Under"}
                   </div>
+                )}
+                <div
+                  className={styles.choiceCard}
+                  data-testid="stack-card"
+                  data-card-id={card.cardId}
+                >
+                  <div className={styles.cardFallback}>{data?.name}</div>
+                  <img
+                    className={styles.cardImage}
+                    src={`/cards/${card.cardId}-thumb.webp`}
+                    alt={data?.name ?? ""}
+                    draggable={false}
+                    onError={(e) => {
+                      e.currentTarget.style.visibility = "hidden";
+                    }}
+                  />
                 </div>
-              );
-            })}
-          </div>
-        ))}
-        <div className={styles.modalButtons}>
-          <button
-            type="button"
-            className={styles.button}
-            data-testid="stack-close"
-            onClick={onClose}
-          >
-            Close [Esc]
-          </button>
+              </div>
+            );
+          })}
         </div>
+      ))}
+      <div className={styles.modalButtons}>
+        <button
+          type="button"
+          className={styles.button}
+          data-testid="stack-close"
+          onClick={onClose}
+        >
+          Close [Esc]
+        </button>
       </div>
-    </div>
+    </FloatingWindow>
   );
 }
