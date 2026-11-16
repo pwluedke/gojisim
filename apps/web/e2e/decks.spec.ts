@@ -111,3 +111,50 @@ test("#157: the header opens Import and My decks (starters, your decks, Export a
   await win.getByTestId("db-decks-close").click();
   await expect(win).toHaveCount(0);
 });
+
+test("#404: the hover preview opens on the side away from the card, so its + button stays in view and adds a copy", async ({
+  page,
+}) => {
+  await page.goto("/decks");
+  const cards = page.getByTestId("db-card");
+  await expect(cards.first()).toBeVisible();
+  // The first row: its leftmost and rightmost cards (the same top).
+  const boxes = await cards.evaluateAll((els) =>
+    els.map((el) => {
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y };
+    }),
+  );
+  const top = Math.min(...boxes.map((b) => b.y));
+  const row = boxes
+    .map((b, i) => ({ ...b, i }))
+    .filter((b) => Math.abs(b.y - top) < 2)
+    .sort((a, b) => a.x - b.x);
+  expect(row.length).toBeGreaterThan(2);
+  const overlaps = (
+    a: { x: number; y: number; width: number; height: number },
+    b: { x: number; y: number; width: number; height: number },
+  ) =>
+    a.x < b.x + b.width &&
+    b.x < a.x + a.width &&
+    a.y < b.y + b.height &&
+    b.y < a.y + a.height;
+  for (const [at, side] of [
+    [row.at(-1)!.i, "left"],
+    [row[0]!.i, "right"],
+  ] as const) {
+    const card = cards.nth(at);
+    await card.hover();
+    const detail = page.getByTestId("db-detail");
+    await expect(detail).toHaveAttribute("data-side", side);
+    const plus = card.getByTestId("db-card-plus");
+    const [d, p] = [await detail.boundingBox(), await plus.boundingBox()];
+    if (!d || !p) throw new Error("no box");
+    expect(overlaps(d, p)).toBe(false);
+  }
+  // The rightmost card's + adds a copy.
+  const right = cards.nth(row.at(-1)!.i);
+  await right.hover();
+  await right.getByTestId("db-card-plus").click();
+  await expect(right.getByTestId("db-card-copies")).toHaveText(/^1 \/ /);
+});
