@@ -2452,7 +2452,7 @@
 }
 
 /*
- * Kaiju Classroom's bot-turn banner (Paul, Nov 15): large, over the top mat's top right corner
+ * Kaiju Classroom's bot-turn banner (Paul, Nov 15): large, over the bottom mat's top right corner
  * for the whole bot turn. It takes no pointer events, so hover previews and clicks reach the
  * cards under it.
  */

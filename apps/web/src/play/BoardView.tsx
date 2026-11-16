@@ -935,8 +935,9 @@ export function BoardView({
    */
   beside?: ReactNode;
   /**
-   * A banner over the top mat's top right corner (Kaiju Classroom's bot turn, Paul, Nov 15); it
-   * takes no clicks or hovers, so the cards under it work as usual.
+   * A banner over the bottom mat's top right corner, the mat the player plays on (Kaiju
+   * Classroom's bot turn, Paul, Nov 15); it takes no clicks or hovers, so the cards under it
+   * work as usual.
    */
   matBanner?: ReactNode;
   /** The bottom player's legal actions (M5b); empty while they can't act. */
@@ -1235,7 +1236,6 @@ export function BoardView({
                 glow={glowFor(opp)}
                 mat={mat}
                 warning={deckWarnings[opp.id]}
-                banner={matBanner}
               />
             </div>
             <div className={styles.centerLine} />
@@ -1252,6 +1252,7 @@ export function BoardView({
                 glow={glowFor(you)}
                 mat={mat}
                 warning={deckWarnings[you.id]}
+                banner={matBanner}
               />
             </div>
             <Hand

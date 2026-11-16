@@ -72,9 +72,20 @@ test("one Classroom bot turn: played in the sandbox, submitted, compared and rat
   await expect(xilien).toContainText("XILIEN CONTROL");
   await expect(xilien).toContainText("You are playing as the bot");
   await expect(xilien).toHaveCSS("pointer-events", "none");
+  // Paul, Nov 15: on the mat the player plays on (the bottom one), in its top right corner.
   await expect(
-    page.getByTestId("mat-opp").getByTestId("xilien-banner"),
+    page.getByTestId("mat-you").getByTestId("xilien-banner"),
   ).toHaveCount(1);
+  const mat = await page.getByTestId("mat-you").boundingBox();
+  const banner = await xilien.boundingBox();
+  if (!mat || !banner) throw new Error("no box");
+  expect(banner.x).toBeGreaterThanOrEqual(mat.x);
+  expect(banner.y).toBeGreaterThanOrEqual(mat.y);
+  expect(banner.x + banner.width).toBeLessThanOrEqual(mat.x + mat.width);
+  expect(banner.y + banner.height).toBeLessThanOrEqual(mat.y + mat.height);
+  // Its top right corner: in the mat's right half and top half.
+  expect(banner.x + banner.width).toBeGreaterThan(mat.x + mat.width * 0.75);
+  expect(banner.y).toBeLessThan(mat.y + mat.height / 2);
   // Submit: end the bot's main phase without a play (the bot's own turn makes some).
   await page.getByTestId("pass").click();
   await expect(page.getByTestId("confirm-dialog")).toContainText(
