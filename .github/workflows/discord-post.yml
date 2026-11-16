@@ -58,10 +58,11 @@ jobs:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           CHANNEL_ID: ${{ inputs.channel_id }}
           REACTIONS: ${{ inputs.reactions }}
-          MESSAGE: ${{ inputs.message }}
           REPLY_TO: ${{ inputs.reply_to }}
           MENTIONS: ${{ inputs.mentions }}
           EDIT_ID: ${{ inputs.edit_id }}
+        # The message isn't in `env` (Actions prints a step's env in its log header): the script reads
+        # it from the dispatch event's inputs ($GITHUB_EVENT_PATH), so the log never shows the text.
         run: |
           # The URL is never printed; masked in case a tool does.
           if [ -n "$DISCORD_BUGS_WEBHOOK" ]; then echo "::add-mask::$DISCORD_BUGS_WEBHOOK"; fi
