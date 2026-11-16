@@ -2,6 +2,7 @@ import { useDraggable } from "@dnd-kit/core";
 import type { Card } from "@gojisim/cards";
 import type { Action, GameState } from "@gojisim/engine";
 import { useEffect } from "react";
+import { choiceAbilityText } from "../game/labels";
 import styles from "./Board.module.css";
 
 /** The dragged tray card's id, apart from the hand's instance ids (#357). */
@@ -92,6 +93,12 @@ export function ZoneTray({
       {source && (
         <div className={styles.muted} data-testid="choice-source">
           From {source}
+        </div>
+      )}
+      {/* #376: the asking ability's text. */}
+      {choiceAbilityText(state) && (
+        <div className={styles.abilityText} data-testid="choice-ability-text">
+          {choiceAbilityText(state)}
         </div>
       )}
       {(done || onUndo) && (

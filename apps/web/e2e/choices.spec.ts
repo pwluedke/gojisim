@@ -9,7 +9,12 @@ test.use({ viewport: { width: 1440, height: 900 } });
  * Medium bot, and the record stops at P1's pending choice.
  */
 const KINDS = [
-  { fixture: "target", kind: "target", heading: /^You are choosing a target/ },
+  // #376: a target pick says what happens to the card (here Godzilla (2023)'s destroy).
+  {
+    fixture: "target",
+    kind: "target",
+    heading: /^You are choosing a card to destroy for Godzilla \(2023\)/,
+  },
   {
     fixture: "search",
     kind: "target",
@@ -51,6 +56,9 @@ for (const { fixture, kind, heading } of KINDS)
     await expect(modal).toHaveAttribute("data-kind", kind);
     await expect(page.getByTestId("choice-heading")).toHaveText(heading);
     await expect(page.getByTestId("choice-source")).toContainText("From ");
+    // #376: the asking ability's printed text, under the source line (a yes/no shows its own).
+    if (fixture === "target")
+      await expect(page.getByTestId("choice-ability-text")).not.toBeEmpty();
     if (kind === "confirm") {
       await expect(page.getByTestId("choice-yes")).toBeVisible();
       await expect(page.getByTestId("choice-no")).toBeVisible();
