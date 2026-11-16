@@ -1,6 +1,7 @@
 import type { Card } from "@gojisim/cards";
 import { useEffect, useState } from "react";
 import styles from "./Board.module.css";
+import { FloatingWindow } from "./FloatingWindow";
 import type { BoardModel } from "./model";
 import { Preview } from "./Preview";
 import type { SearchResult } from "./searches";
@@ -72,27 +73,26 @@ export function SearchModal({
   });
 
   return (
-    <div
-      className={
-        view.viewing ? styles.modalBackdropHidden : styles.modalBackdrop
-      }
-      data-testid="search-modal"
-      data-viewing-board={view.viewing ? "true" : undefined}
-    >
+    // Paul, Nov 16: a window over the board (dragged, hidden to a tab), the game waiting on it.
+    <>
       {view.viewing && <ViewBoardBanner onReturn={view.toggle} />}
       {hover && model && !view.viewing && (
         <div className={styles.previewOverModal} data-testid="modal-preview">
           <Preview model={model} card={hover} />
         </div>
       )}
-      <div
-        className={styles.modal}
-        style={view.viewing ? { visibility: "hidden" } : undefined}
+      <FloatingWindow
+        title={
+          <span data-testid="search-heading">
+            Deck search: {found.length} found
+          </span>
+        }
+        tabLabel="Deck search"
+        testId="search-modal"
+        className={view.viewing ? styles.floatingAway : undefined}
+        attrs={{ "data-viewing-board": view.viewing ? "true" : undefined }}
       >
         <ViewBoardButton onClick={view.toggle} />
-        <div className={styles.modalHeading} data-testid="search-heading">
-          Deck search: {found.length} found
-        </div>
         {source && (
           <div className={styles.searchSource}>
             <CardImage card={source} onHover={setHover} />
@@ -129,7 +129,7 @@ export function SearchModal({
             Confirm [Space]
           </button>
         </div>
-      </div>
-    </div>
+      </FloatingWindow>
+    </>
   );
 }

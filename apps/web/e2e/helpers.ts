@@ -175,3 +175,37 @@ export async function myDeckNames(page: Page): Promise<string[]> {
       rows.map((r) => r.getAttribute("data-deck-name") ?? ""),
     );
 }
+
+/**
+ * Paul, Nov 16: a window over the board (`FloatingWindow`), dragged by its title bar, leaves the
+ * board usable: drags `testId`'s window by (`dx`, `dy`), checks it moved, then hovers `card` (a
+ * card on the board, the first hand card by default; `null` for none) and checks its preview shows.
+ */
+export async function dragWindowAndHover(
+  page: Page,
+  testId: string,
+  card: Locator | null = page.getByTestId("hand-card").first(),
+  dx = -300,
+  dy = -40,
+): Promise<void> {
+  const win = page.getByTestId(testId);
+  const before = await win.boundingBox();
+  const title = await win.getByTestId("window-title").boundingBox();
+  if (!before || !title) throw new Error(`no ${testId} window`);
+  const x = title.x + 12;
+  const y = title.y + title.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + dx / 2, y + dy / 2);
+  await page.mouse.move(x + dx, y + dy);
+  await page.mouse.up();
+  await expect(win).toHaveAttribute("data-moved", "true");
+  const after = await win.boundingBox();
+  if (!after) throw new Error(`no ${testId} window`);
+  expect(
+    Math.abs(after.x - before.x) + Math.abs(after.y - before.y),
+  ).toBeGreaterThan(20);
+  if (!card) return;
+  await card.hover();
+  await expect(page.getByTestId("card-preview").first()).toBeVisible();
+}

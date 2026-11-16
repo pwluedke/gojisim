@@ -2391,7 +2391,12 @@
  * the modal's backdrop, so its own fixed position and z-index place it over the modal.
  */
 .previewOverModal {
-  display: contents;
+  /* Paul, Nov 16: over the floating windows (z-index 34), which have no backdrop layer to share;
+     it takes no pointer events, like the preview itself (decision 198). */
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  pointer-events: none;
 }
 
 /* A selected card in a multi-card pick, numbered in pick order (Tester fixes 1). */
@@ -2489,4 +2494,18 @@
 
 .xilienLine {
   font-size: 1rem;
+}
+
+/* A floating window while its board is being viewed (View board, B): out of sight, kept. */
+.floatingAway {
+  visibility: hidden;
+}
+
+/*
+ * Paul, Nov 16: a confirm question (yes / no) comes above the floating windows (z-index 34),
+ * which may be open when it's asked (the First / Second pick); the game-over screen stays below
+ * them, so a report window opened over it is in front.
+ */
+.confirmBackdrop {
+  z-index: 36;
 }

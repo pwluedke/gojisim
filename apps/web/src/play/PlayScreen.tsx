@@ -2163,7 +2163,10 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
           </div>
         )}
         {confirming && (
-          <div className={styles.modalBackdrop} data-testid="confirm-dialog">
+          <div
+            className={`${styles.modalBackdrop} ${styles.confirmBackdrop}`}
+            data-testid="confirm-dialog"
+          >
             <div className={styles.modal}>
               <div className={styles.modalHeading}>
                 {confirming === "move" && pendingMove

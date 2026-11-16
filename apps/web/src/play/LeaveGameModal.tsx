@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import styles from "./Board.module.css";
+import { FloatingWindow } from "./FloatingWindow";
 import LINES from "./leaveLines.json";
 
 /** The leave-game lines (#211), one picked at random each time; Paul edits `leaveLines.json`. */
@@ -34,40 +35,37 @@ export function LeaveGameModal({
     return () => window.removeEventListener("keydown", onKey, true);
   }, [onStay]);
   return (
-    <div className={styles.modalBackdrop} data-testid="leave-modal">
-      <div
-        className={styles.modal}
-        role="alertdialog"
-        aria-labelledby="leave-title"
-        aria-describedby="leave-line"
-      >
-        <div className={styles.modalHeading} id="leave-title">
-          Leave this game?
-        </div>
-        <p id="leave-line" data-testid="leave-line">
-          {line}
-        </p>
-        <div className={styles.modalButtons}>
-          <button
-            ref={stay}
-            type="button"
-            className={styles.button}
-            data-primary
-            data-testid="leave-stay"
-            onClick={onStay}
-          >
-            Stay and fight
-          </button>
-          <button
-            type="button"
-            className={styles.choiceButton}
-            data-testid="leave-run"
-            onClick={onLeave}
-          >
-            Run away
-          </button>
-        </div>
+    <FloatingWindow
+      title={<span id="leave-title">Leave this game?</span>}
+      tabLabel="Leave this game?"
+      testId="leave-modal"
+      role="alertdialog"
+      labelledBy="leave-title"
+      describedBy="leave-line"
+    >
+      <p id="leave-line" data-testid="leave-line">
+        {line}
+      </p>
+      <div className={styles.modalButtons}>
+        <button
+          ref={stay}
+          type="button"
+          className={styles.button}
+          data-primary
+          data-testid="leave-stay"
+          onClick={onStay}
+        >
+          Stay and fight
+        </button>
+        <button
+          type="button"
+          className={styles.choiceButton}
+          data-testid="leave-run"
+          onClick={onLeave}
+        >
+          Run away
+        </button>
       </div>
-    </div>
+    </FloatingWindow>
   );
 }

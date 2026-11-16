@@ -25,13 +25,19 @@ function clamp(spot: Spot, width: number, height: number): Spot {
  * A window over the board that leaves the board usable (Paul, Nov 15): no backdrop, so the board's
  * cards keep their hover previews and clicks; dragged by its title bar, always inside the viewport;
  * Hide folds it to a small tab and the tab brings it back. Its content stays mounted while hidden,
- * so typed text is kept. It opens centered.
+ * so typed text is kept. It opens centered. Paul, Nov 16: every window over the board uses it; one
+ * the game waits on (a forced choice) still blocks the game, it just doesn't cover the board.
  */
 export function FloatingWindow({
   title,
   tabLabel,
   testId,
   className,
+  role = "dialog",
+  labelledBy,
+  describedBy,
+  attrs,
+  onHiddenChange,
   children,
 }: {
   /** The title bar's text; the bar is the drag handle. */
@@ -42,6 +48,14 @@ export function FloatingWindow({
   testId: string;
   /** The window's own class (its width and layout). */
   className?: string | undefined;
+  /** Its ARIA role ("dialog", or "alertdialog" for a question that must be answered). */
+  role?: "dialog" | "alertdialog";
+  labelledBy?: string | undefined;
+  describedBy?: string | undefined;
+  /** More attributes on the window (`data-kind`, `data-area`), as before on the modal's backdrop. */
+  attrs?: Record<string, string | undefined>;
+  /** Told when Hide or the tab hides or shows it (a window's own keys wait while it's hidden). */
+  onHiddenChange?: (hidden: boolean) => void;
   children: ReactNode;
 }) {
   const box = useRef<HTMLDivElement | null>(null);
@@ -93,7 +107,10 @@ export function FloatingWindow({
           type="button"
           className={styles.floatingTab}
           data-testid="window-show"
-          onClick={() => setHidden(false)}
+          onClick={() => {
+            setHidden(false);
+            onHiddenChange?.(false);
+          }}
         >
           {tabLabel} · Show
         </button>
@@ -101,6 +118,10 @@ export function FloatingWindow({
       <div
         ref={box}
         className={`${styles.modal} ${styles.floatingWindow} ${className ?? ""}`}
+        {...attrs}
+        role={role}
+        aria-labelledby={labelledBy}
+        aria-describedby={describedBy}
         data-testid={testId}
         data-moved={spot ? "true" : undefined}
         hidden={hidden}
@@ -120,7 +141,10 @@ export function FloatingWindow({
             className={styles.choiceButton}
             data-testid="window-hide"
             title="Hide this to look at the board; what you typed is kept"
-            onClick={() => setHidden(true)}
+            onClick={() => {
+              setHidden(true);
+              onHiddenChange?.(true);
+            }}
           >
             Hide
           </button>
