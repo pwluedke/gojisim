@@ -96,6 +96,8 @@ export interface IsmctsSettings {
   mxWhiteKeep: number;
   /** The Monster X plan's #373: 1 (the default) skips a Fear that blocks next turn's strategy. */
   mxFearReach: number;
+  /** Card rule 23b (#345): 1 (the default) covers your own token before a battle card; 0 off. */
+  coverToken: number;
   /** Monster X plan rule 17 (#371): 1 (the default) keeps protected cards in zones 1-5; 0 off. */
   mxProtectZones: number;
   /**
@@ -161,6 +163,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   mxTargets: 1,
   mxWhiteKeep: 1,
   mxFearReach: 1,
+  coverToken: 1,
   mxProtectZones: 1,
   wranglerPlan: 2,
   wranglerV21: 1,
@@ -522,6 +525,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         ownCover: settings.ownCover > 0,
         targetCheck: settings.targetCheck > 0,
         modeBest: settings.modeBest > 0,
+        coverToken: settings.coverToken > 0,
       };
       const unsafe = cardRulesDead(
         first,
@@ -749,6 +753,7 @@ function cardRulesSafe(
   ownCover = 1,
   targetCheck = 1,
   modeBest = 1,
+  coverToken = 1,
 ): Action[] {
   const unsafe = cardRulesDead(state, actions, me, own, {
     counterFirst: counterFirst > 0,
@@ -759,6 +764,7 @@ function cardRulesSafe(
     ownCover: ownCover > 0,
     targetCheck: targetCheck > 0,
     modeBest: modeBest > 0,
+    coverToken: coverToken > 0,
   });
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
   return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
@@ -827,6 +833,7 @@ export function blunderAllowed(
     settings.ownCover,
     settings.targetCheck,
     settings.modeBest,
+    settings.coverToken,
   );
   const sure =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
@@ -910,6 +917,7 @@ export function decide(input: BotInput): Decision {
               settings.ownCover,
               settings.targetCheck,
               settings.modeBest,
+              settings.coverToken,
             )
           : [...legalActions];
     return {
