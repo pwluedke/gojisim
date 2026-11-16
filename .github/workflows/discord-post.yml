@@ -31,6 +31,10 @@ on:
         description: "Optional: a channel or thread id; posts there through the bot instead of the #bugs webhook"
         required: false
         default: ""
+      reactions:
+        description: "Optional: reactions the bot adds to its new message, comma-separated (white_check_mark,x)"
+        required: false
+        default: ""
 
 concurrency:
   group: discord-post
@@ -53,10 +57,12 @@ jobs:
           DISCORD_BUGS_WEBHOOK: ${{ secrets.DISCORD_BUGS_WEBHOOK }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           CHANNEL_ID: ${{ inputs.channel_id }}
-          MESSAGE: ${{ inputs.message }}
+          REACTIONS: ${{ inputs.reactions }}
           REPLY_TO: ${{ inputs.reply_to }}
           MENTIONS: ${{ inputs.mentions }}
           EDIT_ID: ${{ inputs.edit_id }}
+        # The message isn't in `env` (Actions prints a step's env in its log header): the script reads
+        # it from the dispatch event's inputs ($GITHUB_EVENT_PATH), so the log never shows the text.
         run: |
           # The URL is never printed; masked in case a tool does.
           if [ -n "$DISCORD_BUGS_WEBHOOK" ]; then echo "::add-mask::$DISCORD_BUGS_WEBHOOK"; fi
