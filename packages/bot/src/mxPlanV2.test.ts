@@ -326,7 +326,7 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     expect(landing(at8).length).toBeGreaterThan(0);
     for (const a of landing(at8)) expect(against(at8).has(a)).toBe(true);
     // `mxLanding` off (`landing: false`): the old rule 9 casts it anyway.
-    const old = mxPlanV2Verdict(at8.state, at8.legal, "P1", false);
+    const old = mxPlanV2Verdict(at8.state, at8.legal, "P1", { landing: false });
     for (const a of landing(at8)) expect(old.has(a)).toBe(false);
     expect(ruleOf(at8, isPass)).not.toContain(9);
     // The counter made already (three Kaizer Ghidorah EBP04-068): Landing adds nothing.
@@ -418,7 +418,7 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     // `mxManda` off (the paired check's control): the old rule 3 leaves it.
     for (const a of costPlays(one))
       expect(
-        mxPlanV2Verdict(one.state, one.legal, "P1", true, false).get(a),
+        mxPlanV2Verdict(one.state, one.legal, "P1", { manda: false }).get(a),
       ).not.toBe(3);
   });
 
@@ -458,6 +458,46 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
         .sort();
     expect(zones(true)).toEqual([1, 2, 3, 8]);
     expect(zones(false)).toEqual([4, 5, 6]);
+  });
+
+  it("rule 17 (#371, Paul's record 1dfdd328 move 29): with Monster Island EBP01-080 in your cards, a rank 5 or lower card goes to zones 1-5 off your monster's path, not 6-8; the blue Monster X may go to zone 8 with Kaizer Ghidorah EBP04-068 to evolve into there", () => {
+    const rules = (setup: Setup, number: string, zone: number) => {
+      const s = position({ turn: 5, position: 3, oppPosition: 7, ...setup });
+      const plays = s.legal.filter(
+        (a) =>
+          a.type === "playBattle" &&
+          a.zone === zone &&
+          numberOf(s.state, s.p1, a) === number,
+      );
+      expect(plays.length).toBeGreaterThan(0);
+      return ruleOf(s, (a) => plays.includes(a));
+    };
+    const withIsland = {
+      hand: ["EBP03-067", "EBP04-047", "EBP04-068"],
+      deck: ["EBP01-080"],
+    };
+    // The white Monster X: zones 1 and 2, not 6-8 (zones 4 and 5 are its monster's path).
+    for (const z of [6, 7, 8])
+      expect(rules(withIsland, "EBP03-067", z)).toContain(17);
+    for (const z of [1, 2])
+      expect(rules(withIsland, "EBP03-067", z)).not.toContain(17);
+    // The blue Monster X: zone 8 is fine with Kaizer Ghidorah to come; zone 7 isn't.
+    expect(rules(withIsland, "EBP04-047", 8)).not.toContain(17);
+    expect(rules(withIsland, "EBP04-047", 7)).toContain(17);
+    // No Kaizer Ghidorah: zone 8 is a speed bump too.
+    expect(
+      rules({ hand: ["EBP04-047"], deck: ["EBP01-080"] }, "EBP04-047", 8),
+    ).toContain(17);
+    // No Monster Island in your cards: no protection to keep them in.
+    expect(
+      rules({ hand: ["EBP03-067"], deck: [] }, "EBP03-067", 8),
+    ).not.toContain(17);
+    // `mxProtectZones: false` (the paired check's control).
+    const s = position({ turn: 5, position: 3, oppPosition: 7, ...withIsland });
+    const off = mxPlanV2Verdict(s.state, s.legal, "P1", {
+      protectZones: false,
+    });
+    expect([...off.values()]).not.toContain(17);
   });
 
   it("rule 12: Monster Island with zones 1-5 full, or once the opponent has shown a board wipe", () => {
@@ -536,7 +576,7 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
         })),
       };
       const legal = getLegalActions(state, "P1");
-      const dead = mxPlanV2Verdict(state, legal, "P1", true, true, targets);
+      const dead = mxPlanV2Verdict(state, legal, "P1", { targets });
       return legal
         .filter((a) => a.type === "choose" && !dead.has(a))
         .map((a) => (a.type === "choose" ? a.optionId : ""));
@@ -606,15 +646,9 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     // `mxWhiteKeep: false` (the paired check's control): #338's (b) lets the new color go.
     for (const a of costPlays(turn1))
       expect(
-        mxPlanV2Verdict(
-          turn1.state,
-          turn1.legal,
-          "P1",
-          true,
-          true,
-          true,
-          false,
-        ).get(a),
+        mxPlanV2Verdict(turn1.state, turn1.legal, "P1", {
+          whiteKeep: false,
+        }).get(a),
       ).not.toBe(3);
     // Two colors in zones (a): the discount cheats it out, as #338 says.
     const two = position({
@@ -655,16 +689,9 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     // `mxFearReach: false` (the paired check's control; `mxWhiteKeep` on): rule 4 casts Fear whenever it can.
     for (const a of fearPlays(reach))
       expect(
-        mxPlanV2Verdict(
-          reach.state,
-          reach.legal,
-          "P1",
-          true,
-          true,
-          true,
-          true,
-          false,
-        ).has(a),
+        mxPlanV2Verdict(reach.state, reach.legal, "P1", {
+          fearReach: false,
+        }).has(a),
       ).toBe(false);
     // No rank 5 strategy waiting: Fear as before.
     const plain = position({

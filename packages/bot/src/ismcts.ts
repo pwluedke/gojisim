@@ -16,16 +16,25 @@ import {
 } from "./baseline";
 import { constructedFutureDead } from "./cfPlay";
 import { cfPlanDead } from "./cfPlan";
-import { type CfTarget, cfTargetDead } from "./cfTarget";
+import { cfTargetDead } from "./cfTarget";
+import {
+  groupOptions,
+  SWITCH_DEFAULTS,
+  type SwitchSettings,
+} from "./switches/settings";
 import { determinize } from "./determinize";
 import { finalWarsDead, mxPlanVerdict } from "./mxPlan";
-import { mxPlanV2Verdict } from "./mxPlanV2";
+import { type MxPlanOptions, mxPlanV2Verdict } from "./mxPlanV2";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
 import { deadKeys } from "./prune";
-import { cardRulesDead, rescuedPlays } from "./cardRules";
-import { festVerdict } from "./festPlan";
+import {
+  type CardRulesOptions,
+  cardRulesDead,
+  rescuedPlays,
+} from "./cardRules";
+import { type FestOptions, festVerdict } from "./festPlan";
 import { wranglerVerdict } from "./wranglerPlan";
-import { wranglerV2Verdict } from "./wranglerPlanV2";
+import { type WranglerOptions, wranglerV2Verdict } from "./wranglerPlanV2";
 import { applyRules } from "./rules";
 import type { Bot, BotInput, BotSettings, Decklist } from "./types";
 
@@ -37,7 +46,8 @@ import type { Bot, BotInput, BotSettings, Decklist } from "./types";
  * short rollout, then `evaluate` from the bot's side.
  */
 
-export interface IsmctsSettings {
+/** The search's own settings; the switches' settings come from their files (#402). */
+export interface SearchSettings {
   /** Iteration budget. */
   iterations: number;
   /** Time budget in milliseconds; whichever budget runs out first ends the search. */
@@ -62,92 +72,9 @@ export interface IsmctsSettings {
    * bias), so a clear static preference isn't erased by play-out noise. 0 is off.
    */
   priorVisits: number;
-  /** #175: 1 applies Paul's play rules at the root (`rules.ts`): prunes and prior bonuses. */
-  rules: number;
-  /** #191: 1 draws the opponent's hidden cards toward a recognized archetype (`recognizer.ts`). */
-  recognizer: number;
-  /** Paul, Nov 12: 1 applies the card-play rules (`cardRules.ts`), also on with `rules`. */
-  cardRules: number;
-  /** #305: 1 (the default) has card rule 7 take the counter before the zone 8 block; 0 is the old rule 7. */
-  counterFirst: number;
-  /** Card rule 20 (#324, #327): 1 (the default) takes the counter without a block too; 0 is off. */
-  counterAlways: number;
-  /** #358: 1 (the default) keys a field card's choice option by its zone too; 0 by card id only. */
-  targetKey: number;
-  /** Card rule 21 (#304): 1 (the default) keeps battle cards off your own monster's path; 0 is off. */
-  ownPath: number;
-  /** Card rule 25 (#337): 1 (the default) keeps battle cards out of the zone behind; 0 is off. */
-  ownBehind: number;
-  /** #346: 1 (the default) lets Paul's rule 2 rage a same-name collector with a copy left; 0 off. */
-  collectorRage: number;
-  /** Card rule 26 (#328): 1 (the default) doesn't bury an active [invading] ability; 0 is off. */
-  activeInvading: number;
-  /** Card rule 27 (#353): 1 (the default) keeps a strategy over an out-of-reach battle card. */
-  keepStrategy: number;
-  /** Card rule 28 (#326): 1 (the default) keeps the only lower-rank monster card; 0 is off. */
-  keepLowRank: number;
-  /** Card rule 29 (#314): 1 (the default) keeps a Tangler deck back through its turn 3; 0 off. */
-  tanglerEarly: number;
-  /** #339: 1 (the default) keeps a [revenge] card out of zone 8 unless it's stepped on; 0 is off. */
-  revengeStep: number;
-  /** Card rule 24 (#325, #329): 1 (the default) discards a recurring card first; 0 is off. */
-  recurDiscard: number;
-  /** Card rule 23 (#345): 1 (the default) keeps plays off your own battle cards; 0 is off. */
-  ownCover: number;
-  /** Card rule 22 (#336): 1 (the default) leaves out destroy-only strategies with no target; 0 off. */
-  targetCheck: number;
-  /** Card rule 30 (#386): 1 (the default) picks a destroy-only strategy's strongest mode; 0 off. */
-  modeBest: number;
-  /** The Monster X plan's #335 (no idle Landing): 1 (the default) on; 0 is the old rule 9. */
-  mxLanding: number;
-  /** The Monster X plan's #338 (Manda's discount as a setup play): 1 (default) on; 0 old rule 3. */
-  mxManda: number;
-  /** The Monster X plan's rule 16 (#352): 1 (the default) targets their Monster X first; 0 off. */
-  mxTargets: number;
-  /** The Monster X plan's #370: 1 (the default) keeps the white Monster X unless it fires; 0 off. */
-  mxWhiteKeep: number;
-  /** The Monster X plan's #373: 1 (the default) skips a Fear that blocks next turn's strategy. */
-  mxFearReach: number;
-  /** Card rule 23b (#345): 1 (the default) covers your own token before a battle card; 0 off. */
-  coverToken: number;
-  /**
-   * The Wrangler plan: 2 (the default) is v2 (`wranglerPlanV2.ts`, Paul, Nov 13) with the card
-   * rules (Medium and Hard); 1 is v1 (`wranglerPlan.ts`, #276) with `rules` (Hard); 0 is off.
-   */
-  wranglerPlan: number;
-  /** v2.1 of the Wrangler plan (#316, #317, #319, #321): 1 (the default) on; 0 is v2. */
-  wranglerV21: number;
-  /** v2.2 of the Wrangler plan (#318): 1 (the default) on; 0 is v2.1. */
-  wranglerV22: number;
-  /** v2.3 of the Wrangler plan (Ian's guide review): 1 (the default) on; 0 is v2.2. */
-  wranglerV23: number;
-  /** The Wrangler play guide's rules against Biollante (Ian): 1 (the default) on; 0 off. */
-  wranglerBio: number;
-  /**
-   * `wranglerBioHard` (Paul, Nov 15): 1 prunes three Biollante lines; 0 (the default since its
-   * check came out worse) leaves them as `wranglerBio`'s arguments.
-   */
-  wranglerBioHard: number;
-  /**
-   * Slick's Red Fest plan (`festPlan.ts`): 1 applies it, with `rules` on. Off by default: measured
-   * Nov 13 it wasn't a gain (paired seeds, the August list and the bots' Red Fest); on for tuning.
-   */
-  festPlan: number;
-  /** The Red Fest plan's rank I line (#400, Slick): 1 (the default) on with `festPlan`; 0 off. */
-  festRankOne: number;
-  /** The Red Fest plan's wall-up (#400, Slick): 1 (the default) on with `festPlan`; 0 off. */
-  festWall: number;
-  /** Paul's Constructed Future plan (`cfPlan.ts`), with `rules` on: 1 (the default) on, 0 off. */
-  cfPlan: number;
-  /**
-   * Paul's Monster X plan, with `rules` on: 2 (the default) v2 (`mxPlanV2.ts`, Nov 9), 1 v1
-   * (`mxPlan.ts`, Nov 7), 0 off.
-   */
-  mxPlan: number;
-  /** Paul's Constructed Future test, with `rules` on: which card cost discards aim at (`cfTarget.ts`). */
-  cfTarget: CfTarget;
 }
 
+export type IsmctsSettings = SearchSettings & SwitchSettings;
 export const ISMCTS_DEFAULTS: IsmctsSettings = {
   iterations: 1000,
   maxMs: 1000,
@@ -160,43 +87,8 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   uniformBlunder: 0,
   prune: 0,
   priorVisits: 0,
-  rules: 0,
-  recognizer: 0,
-  cardRules: 0,
-  counterFirst: 1,
-  counterAlways: 1,
-  targetKey: 1,
-  ownPath: 1,
-  ownBehind: 1,
-  collectorRage: 1,
-  activeInvading: 1,
-  keepStrategy: 1,
-  keepLowRank: 1,
-  tanglerEarly: 1,
-  revengeStep: 1,
-  recurDiscard: 1,
-  ownCover: 1,
-  targetCheck: 1,
-  modeBest: 1,
-  mxLanding: 1,
-  mxManda: 1,
-  mxTargets: 1,
-  mxWhiteKeep: 1,
-  mxFearReach: 1,
-  coverToken: 1,
-  wranglerPlan: 2,
-  wranglerV21: 1,
-  wranglerV22: 1,
-  wranglerV23: 1,
-  wranglerBio: 1,
-  // Off by default (Paul, Nov 15): its check was worse (40 / 160 vs 63 / 160).
-  wranglerBioHard: 0,
-  festPlan: 0,
-  festRankOne: 1,
-  festWall: 1,
-  cfTarget: "auto",
-  cfPlan: 1,
-  mxPlan: 2,
+  // #402: every switch's default, from its file in `switches/`.
+  ...SWITCH_DEFAULTS,
 };
 
 /** Reads ISMCTS settings from a bot's settings, with defaults. */
@@ -258,29 +150,12 @@ export function mxPlanFavored(
   player: PlayerId,
   keyOf: (a: Action) => string,
   version = 2,
-  /** `mxLanding` (#335). */
-  landing = 1,
-  /** `mxManda` (#338). */
-  manda = 1,
-  /** `mxTargets` (#352). */
-  targets = 1,
-  /** `mxWhiteKeep` (#370). */
-  whiteKeep = 1,
-  /** `mxFearReach` (#373). */
-  fearReach = 1,
+  /** The plan's switches (#402: `groupOptions(settings, "mxPlan")`). */
+  options: MxPlanOptions = {},
 ): Map<string, number> {
   const against =
     version >= 2
-      ? mxPlanV2Verdict(
-          state,
-          actions,
-          player,
-          landing > 0,
-          manda > 0,
-          targets > 0,
-          whiteKeep > 0,
-          fearReach > 0,
-        )
+      ? mxPlanV2Verdict(state, actions, player, options)
       : mxPlanVerdict(state, actions, player);
   const keep = actions.filter((a) => a.type !== "concede" && !against.has(a));
   if (against.size === 0 || keep.length === 0) return new Map();
@@ -538,22 +413,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
     // `cardRules` (on from Medium up) alone switches them, so a check can turn them off at Hard.
     if (iterations === 1 && settings.cardRules > 0) {
       const first = state;
-      const options = {
-        counterFirst: settings.counterFirst > 0,
-        counterAlways: settings.counterAlways > 0,
-        ownPath: settings.ownPath > 0,
-        ownBehind: settings.ownBehind > 0,
-        activeInvading: settings.activeInvading > 0,
-        keepStrategy: settings.keepStrategy > 0,
-        keepLowRank: settings.keepLowRank > 0,
-        tanglerEarly: settings.tanglerEarly > 0,
-        revengeStep: settings.revengeStep > 0,
-        recurDiscard: settings.recurDiscard > 0,
-        ownCover: settings.ownCover > 0,
-        targetCheck: settings.targetCheck > 0,
-        modeBest: settings.modeBest > 0,
-        coverToken: settings.coverToken > 0,
-      };
+      const options = cardRuleOptions(settings);
       const unsafe = cardRulesDead(
         first,
         input.legalActions,
@@ -601,11 +461,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         me,
         (a) => actionKey(state, a),
         settings.mxPlan,
-        settings.mxLanding,
-        settings.mxManda,
-        settings.mxTargets,
-        settings.mxWhiteKeep,
-        settings.mxFearReach,
+        groupOptions(settings, "mxPlan") as MxPlanOptions,
       );
     // #276: the Wrangler plan, a preference like the Monster X plan, that frees what its line
     // needs from Paul's rules' holds.
@@ -627,11 +483,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
             me,
             input.knowledge.decks[me],
             theirs,
-            settings.wranglerV21 > 0,
-            settings.wranglerV22 > 0,
-            settings.wranglerV23 > 0,
-            settings.wranglerBio > 0,
-            settings.wranglerBioHard > 0,
+            groupOptions(settings, "wrangler") as WranglerOptions,
           )
         : wranglerVerdict(
             first,
@@ -673,8 +525,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         me,
         input.knowledge.decks[me],
         input.knowledge.decks[first.players.find((p) => p.id !== me)?.id ?? ""],
-        settings.festRankOne > 0,
-        settings.festWall > 0,
+        groupOptions(settings, "fest") as FestOptions,
       );
       if (against.size > 0)
         for (const a of input.legalActions)
@@ -767,43 +618,21 @@ export interface Decision {
   search: ReturnType<typeof search> | null;
 }
 
+/** #402: the card rules' switches from the settings (the switch files of group `cardRules`). */
+export function cardRuleOptions(settings: SwitchSettings): CardRulesOptions {
+  return groupOptions(settings, "cardRules") as CardRulesOptions;
+}
+
 /** The moves the card-play rules allow (`cardRules.ts`), or all of them when they'd leave none. */
 function cardRulesSafe(
   state: GameState,
   actions: readonly Action[],
   me: PlayerId,
-  own?: Decklist,
-  counterFirst = 1,
-  counterAlways = 1,
-  ownPath = 1,
-  revengeStep = 1,
-  recurDiscard = 1,
-  ownCover = 1,
-  targetCheck = 1,
-  modeBest = 1,
-  coverToken = 1,
-  ownBehind = 1,
-  activeInvading = 1,
-  keepStrategy = 1,
-  keepLowRank = 1,
-  tanglerEarly = 1,
+  own: Decklist | undefined,
+  /** The card rules' switches (#402: `cardRuleOptions(settings)`). */
+  options: CardRulesOptions,
 ): Action[] {
-  const unsafe = cardRulesDead(state, actions, me, own, {
-    counterFirst: counterFirst > 0,
-    counterAlways: counterAlways > 0,
-    ownPath: ownPath > 0,
-    revengeStep: revengeStep > 0,
-    recurDiscard: recurDiscard > 0,
-    ownCover: ownCover > 0,
-    targetCheck: targetCheck > 0,
-    modeBest: modeBest > 0,
-    coverToken: coverToken > 0,
-    ownBehind: ownBehind > 0,
-    activeInvading: activeInvading > 0,
-    keepStrategy: keepStrategy > 0,
-    keepLowRank: keepLowRank > 0,
-    tanglerEarly: tanglerEarly > 0,
-  });
+  const unsafe = cardRulesDead(state, actions, me, own, options);
   const safe = actions.filter((a) => !unsafe.has(a) && a.type !== "concede");
   return safe.length > 0 ? actions.filter((a) => !unsafe.has(a)) : [...actions];
 }
@@ -858,26 +687,7 @@ export function blunderAllowed(
         (a) => !keep.killed.has(a) && !keep.dead.has(keyOf(a)),
       )
     : [...legalActions];
-  const safe = cardRulesSafe(
-    state,
-    kept,
-    me,
-    own,
-    settings.counterFirst,
-    settings.counterAlways,
-    settings.ownPath,
-    settings.revengeStep,
-    settings.recurDiscard,
-    settings.ownCover,
-    settings.targetCheck,
-    settings.modeBest,
-    settings.coverToken,
-    settings.ownBehind,
-    settings.activeInvading,
-    settings.keepStrategy,
-    settings.keepLowRank,
-    settings.tanglerEarly,
-  );
+  const safe = cardRulesSafe(state, kept, me, own, cardRuleOptions(settings));
   const sure =
     safe.length > 0 ? safe : kept.length > 0 ? kept : [...legalActions];
   // wranglerBioHard's prunes hold for a blunder too (the opponent's list isn't known here: the
@@ -893,9 +703,7 @@ export function blunderAllowed(
           me,
           own,
           undefined,
-          settings.wranglerV21 > 0,
-          settings.wranglerV22 > 0,
-          settings.wranglerV23 > 0,
+          groupOptions(settings, "wrangler") as WranglerOptions,
         ).pruned
       : undefined;
   const unpruned = pruned ? sure.filter((a) => !pruned.has(a)) : sure;
@@ -913,11 +721,7 @@ export function blunderAllowed(
     me,
     keyOf,
     settings.mxPlan,
-    settings.mxLanding,
-    settings.mxManda,
-    settings.mxTargets,
-    settings.mxWhiteKeep,
-    settings.mxFearReach,
+    groupOptions(settings, "mxPlan") as MxPlanOptions,
   );
   const planned = allowed.filter((a) => favored.has(keyOf(a)));
   return planned.length > 0 ? planned : allowed;
@@ -951,20 +755,7 @@ export function decide(input: BotInput): Decision {
               legalActions,
               input.view.viewer as PlayerId,
               input.knowledge.decks[input.view.viewer as PlayerId],
-              settings.counterFirst,
-              settings.counterAlways,
-              settings.ownPath,
-              settings.revengeStep,
-              settings.recurDiscard,
-              settings.ownCover,
-              settings.targetCheck,
-              settings.modeBest,
-              settings.coverToken,
-              settings.ownBehind,
-              settings.activeInvading,
-              settings.keepStrategy,
-              settings.keepLowRank,
-              settings.tanglerEarly,
+              cardRuleOptions(settings),
             )
           : [...legalActions];
     return {

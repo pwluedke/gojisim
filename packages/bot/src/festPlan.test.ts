@@ -127,14 +127,9 @@ describe("the Red Fest plan", () => {
       const invades = legal.filter((a) => a.type === "invade");
       expect(invades.length).toBeGreaterThan(0);
       // Line 2 as it was (`festRankOne: false`); the rank I line has its own test below.
-      const { against } = festVerdict(
-        state,
-        legal,
-        "P1",
-        FEST,
-        undefined,
-        false,
-      );
+      const { against } = festVerdict(state, legal, "P1", FEST, undefined, {
+        rankOne: false,
+      });
       return invades.every((a) => against.has(a));
     };
     expect(invadesAgainst("EBP01-011", ["ESD01-005", "ESD01-006"])).toBe(true);
@@ -159,14 +154,9 @@ describe("the Red Fest plan", () => {
       const legal = getLegalActions(state, "P1");
       const invades = legal.filter((a) => a.type === "invade");
       expect(invades.length).toBeGreaterThan(0);
-      const { against } = festVerdict(
-        state,
-        legal,
-        "P1",
-        FEST,
-        undefined,
-        rankOne,
-      );
+      const { against } = festVerdict(state, legal, "P1", FEST, undefined, {
+        rankOne: rankOne,
+      });
       return new Map(
         invades.map((a) => [ofCard(state, p1, a), against.has(a)]),
       );
@@ -261,15 +251,9 @@ describe("the Red Fest plan", () => {
       p2.invadingMonsterZone = [add(state, real(theirTop), "P2")];
       if (myAt) p1.monsterPosition = myAt;
       const legal = getLegalActions(state, "P1");
-      const { against } = festVerdict(
-        state,
-        legal,
-        "P1",
-        FEST,
-        theirs,
-        true,
-        wall,
-      );
+      const { against } = festVerdict(state, legal, "P1", FEST, theirs, {
+        wall: wall,
+      });
       const of = (pick: (a: Action) => boolean) =>
         legal.filter(pick).map((a) => against.has(a));
       return {

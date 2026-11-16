@@ -139,9 +139,7 @@ describe("the Wrangler plan v2", () => {
         "P1",
         WRANGLER,
         undefined,
-        true,
-        true,
-        v23,
+        { v23: v23 },
       );
       return found.map((a) => against.has(a));
     };
@@ -168,7 +166,7 @@ describe("the Wrangler plan v2", () => {
       "P1",
       WRANGLER,
       undefined,
-      false,
+      { v21: false },
     );
     for (const a of legalT)
       if (
@@ -176,6 +174,57 @@ describe("the Wrangler plan v2", () => {
         ofCard(trample.state, trample.p1, a) === LANDING
       )
         expect(v2.against.has(a)).toBe(false);
+  });
+
+  it("#381 (Ian's record e09f7ade move 14): an invasion that reaches The Slithering Disaster's zone, then the push and two battle cards make the counter this turn, is taken over raging; paid with the card the counter needs, or with no counter after, it isn't", () => {
+    const setUp = (gams: number) => {
+      const pos = position(
+        [SLITHERING, GODZILLA_1954_WIPE, ...Array(gams).fill(GAM)],
+        4,
+        4,
+        7,
+      );
+      // Their rage: a threat one GAM (10,000) can't counter and two can.
+      pos.p2.rage = 2;
+      // GAM can be played with 8+ monster cards in the discard pile.
+      pos.p1.discard = Array.from({ length: 8 }, () =>
+        add(pos.state, real("EBP01-002"), "P1"),
+      );
+      return pos;
+    };
+    const judge = (gams: number, pushLine = true) => {
+      const { state, p1 } = setUp(gams);
+      const legal = getLegalActions(state, "P1");
+      const { against } = wranglerV2Verdict(
+        state,
+        legal,
+        "P1",
+        WRANGLER,
+        undefined,
+        { bioHard: false, pushLine: pushLine },
+      );
+      const invade = (n: string) =>
+        legal.filter((a) => a.type === "invade" && ofCard(state, p1, a) === n);
+      return {
+        payWipe: invade(GODZILLA_1954_WIPE).map((a) => against.has(a)),
+        payGam: invade(GAM).map((a) => against.has(a)),
+        rage: legal
+          .filter((a) => a.type === "gainRage")
+          .map((a) => against.has(a)),
+      };
+    };
+    const line = judge(2);
+    expect(line.payWipe.length).toBeGreaterThan(0);
+    for (const d of line.payWipe) expect(d).toBe(false);
+    for (const d of line.rage) expect(d).toBe(true);
+    // Paying with a GAM leaves one: not enough for the counter, so that invasion still waits.
+    for (const d of line.payGam) expect(d).toBe(true);
+    // One GAM in hand: no counter after the push, no line; don't race again.
+    const short = judge(1);
+    for (const d of short.payWipe) expect(d).toBe(true);
+    // `wranglerPushLine: false` (the paired check's control).
+    const off = judge(2, false);
+    for (const d of off.payWipe) expect(d).toBe(true);
   });
 
   it("Kings go in zones 1, 2 or 8, off the bot's own monster's path", () => {
@@ -200,9 +249,7 @@ describe("the Wrangler plan v2", () => {
       "P1",
       WRANGLER,
       undefined,
-      true,
-      true,
-      false,
+      { v23: false },
     );
     // v2.3 (Ian): every monster card but Godzilla (2004) is pitched, Godzilla (1954) EBP01-004 too.
     const v23 = wranglerV2Verdict(state, legal, "P1", WRANGLER);
@@ -295,15 +342,9 @@ describe("the Wrangler plan v2", () => {
     for (const a of legal)
       if (a.type === "gainRage") expect(dig.rescued.has(a)).toBe(false);
     // v2.1 (`v22: false`): passing stays.
-    const v21 = wranglerV2Verdict(
-      state,
-      legal,
-      "P1",
-      WRANGLER,
-      undefined,
-      true,
-      false,
-    );
+    const v21 = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
+      v22: false,
+    });
     for (const a of legal)
       if (a.type === "pass") expect(v21.against.has(a)).toBe(false);
     // With a battle card in hand (an answer), no dig.
@@ -336,15 +377,9 @@ describe("the Wrangler plan v2", () => {
     expect(against.has(option(aligned.instanceId))).toBe(false);
     expect(against.has(option(other.instanceId))).toBe(true);
     // v2.1 (`v22: false`): no preference.
-    const v21 = wranglerV2Verdict(
-      pick,
-      legal,
-      "P1",
-      WRANGLER,
-      undefined,
-      true,
-      false,
-    );
+    const v21 = wranglerV2Verdict(pick, legal, "P1", WRANGLER, undefined, {
+      v22: false,
+    });
     expect(v21.against.has(option(other.instanceId))).toBe(false);
   });
 
@@ -362,15 +397,9 @@ describe("the Wrangler plan v2", () => {
     for (const a of invade(SLITHERING)) expect(against.has(a)).toBe(false);
     for (const a of invade(LANDING)) expect(against.has(a)).toBe(true);
     // v2.1 (`v22: false`): don't race, so both are argued against.
-    const v21 = wranglerV2Verdict(
-      state,
-      legal,
-      "P1",
-      WRANGLER,
-      undefined,
-      true,
-      false,
-    );
+    const v21 = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
+      v22: false,
+    });
     for (const a of invade(SLITHERING)) expect(v21.against.has(a)).toBe(true);
   });
 
@@ -409,16 +438,9 @@ describe("the Wrangler plan v2", () => {
       if (a.type === "pass") expect(dig.against.has(a)).toBe(true);
     for (const a of despair) expect(dig.rescued.has(a)).toBe(true);
     // v2.2 (`v23: false`): one battle card is an answer; passing stays.
-    const v22 = wranglerV2Verdict(
-      state,
-      legal,
-      "P1",
-      WRANGLER,
-      undefined,
-      true,
-      true,
-      false,
-    );
+    const v22 = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
+      v23: false,
+    });
     for (const a of legal)
       if (a.type === "pass") expect(v22.against.has(a)).toBe(false);
   });
@@ -429,17 +451,7 @@ describe("the Wrangler plan v2", () => {
     mainDeck: [],
   } as unknown as Decklist;
   const verdict = (state: GameState, legal: Action[], bio: boolean) =>
-    wranglerV2Verdict(
-      state,
-      legal,
-      "P1",
-      WRANGLER,
-      BIOLLANTE,
-      true,
-      true,
-      true,
-      bio,
-    );
+    wranglerV2Verdict(state, legal, "P1", WRANGLER, BIOLLANTE, { bio: bio });
 
   it("wranglerBio (Ian): Biollante stays at rank I: no King play that makes the counter on its Rose Form", () => {
     const { state, p1, p2 } = position([], 3, 5);
@@ -502,18 +514,9 @@ describe("the Wrangler plan v2", () => {
 
   it("wranglerBioHard (Paul): the Rose Form counter and the strategy vs rank III EBP02-027 are prunes, the search's and a blunder's; the Kings spread stays an argument", () => {
     const hardVerdict = (state: GameState, legal: Action[], bioHard: boolean) =>
-      wranglerV2Verdict(
-        state,
-        legal,
-        "P1",
-        WRANGLER,
-        BIOLLANTE,
-        true,
-        true,
-        true,
-        true,
-        bioHard,
-      ).pruned ?? new Set<Action>();
+      wranglerV2Verdict(state, legal, "P1", WRANGLER, BIOLLANTE, {
+        bioHard: bioHard,
+      }).pruned ?? new Set<Action>();
     // Rose Form: the King play that makes the counter is pruned.
     const rose = position([], 3, 5);
     rose.p1.hand = [add(rose.state, { ...real(KING), rank: 1 }, "P1")];

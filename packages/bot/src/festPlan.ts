@@ -6,6 +6,7 @@ import {
 } from "@gojisim/engine";
 import { canClearZone8, counterPlays, winsNow } from "./cardRules";
 import { counterWithin, playOut } from "./counterReach";
+import type { GroupOptions } from "./switches/settings";
 import type { Decklist } from "./types";
 
 /**
@@ -83,6 +84,9 @@ const has = (deck: Decklist | undefined, n: string) =>
 const isMonsterX = (deck: Decklist | undefined) =>
   deck?.monsterDeck.some((c) => c.name === "Monster X") ?? false;
 
+/** The Red Fest plan's switches (#402): one key per `fest` switch file, each on by default. */
+export type FestOptions = GroupOptions<"fest">;
+
 /** The moves the plan argues against. */
 export function festVerdict(
   state: GameState,
@@ -91,11 +95,10 @@ export function festVerdict(
   own: Decklist | undefined,
   /** The opponent's decklist (public), when known. */
   theirs?: Decklist,
-  /** `festRankOne` (#400): rank I invades only for the push and a counter; `false` is line 2. */
-  rankOne = true,
-  /** `festWall` (#400): against Monster X, behind on counters, wall up; `false` is off. */
-  wall = true,
+  /** The plan's switches (#402: `groupOptions(settings, "fest")`); each defaults to on. */
+  options: FestOptions = {},
 ): { against: Set<Action>; rescued: Set<Action> } {
+  const { rankOne = true, wall = true } = options;
   const against = new Set<Action>();
   const rescued = new Set<Action>();
   if (!isFestDeck(own)) return { against, rescued };
