@@ -108,6 +108,8 @@ export interface IsmctsSettings {
   mxWhiteKeep: number;
   /** The Monster X plan's #373: 1 (the default) skips a Fear that blocks next turn's strategy. */
   mxFearReach: number;
+  /** Card rule 23b (#345): 1 (the default) covers your own token before a battle card; 0 off. */
+  coverToken: number;
   /**
    * The Wrangler plan: 2 (the default) is v2 (`wranglerPlanV2.ts`, Paul, Nov 13) with the card
    * rules (Medium and Hard); 1 is v1 (`wranglerPlan.ts`, #276) with `rules` (Hard); 0 is off.
@@ -177,6 +179,7 @@ export const ISMCTS_DEFAULTS: IsmctsSettings = {
   mxTargets: 1,
   mxWhiteKeep: 1,
   mxFearReach: 1,
+  coverToken: 1,
   wranglerPlan: 2,
   wranglerV21: 1,
   wranglerV22: 1,
@@ -543,6 +546,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         ownCover: settings.ownCover > 0,
         targetCheck: settings.targetCheck > 0,
         modeBest: settings.modeBest > 0,
+        coverToken: settings.coverToken > 0,
       };
       const unsafe = cardRulesDead(
         first,
@@ -769,6 +773,7 @@ function cardRulesSafe(
   ownCover = 1,
   targetCheck = 1,
   modeBest = 1,
+  coverToken = 1,
   ownBehind = 1,
   activeInvading = 1,
   keepStrategy = 1,
@@ -784,6 +789,7 @@ function cardRulesSafe(
     ownCover: ownCover > 0,
     targetCheck: targetCheck > 0,
     modeBest: modeBest > 0,
+    coverToken: coverToken > 0,
     ownBehind: ownBehind > 0,
     activeInvading: activeInvading > 0,
     keepStrategy: keepStrategy > 0,
@@ -857,6 +863,7 @@ export function blunderAllowed(
     settings.ownCover,
     settings.targetCheck,
     settings.modeBest,
+    settings.coverToken,
     settings.ownBehind,
     settings.activeInvading,
     settings.keepStrategy,
@@ -944,6 +951,7 @@ export function decide(input: BotInput): Decision {
               settings.ownCover,
               settings.targetCheck,
               settings.modeBest,
+              settings.coverToken,
               settings.ownBehind,
               settings.activeInvading,
               settings.keepStrategy,
