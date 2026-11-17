@@ -425,7 +425,7 @@ describe("the Wrangler plan v2", () => {
     expect(against.has(yes)).toBe(true);
   });
 
-  it("#380 (Ian's record 40b04608 move 59): with GAM in hand but not playable and no counter this turn, a Landing that lets GAM go out of their reach goes before raging; GAM goes out of the column of their monster's zone and its next (4.4.5.4)", () => {
+  it("#380 (Ian's record 40b04608 move 59): GAM goes out of the column of their monster's zone and its next (4.4.5.4), and down before passing; no Landing to set it up (Paul: card rule 31 has no exception)", () => {
     // Their monster in zone 6: GAM (rank 7) can't be played until a push takes it to zone 7.
     const setUp = (oppAt: ZoneNumber) => {
       const pos = position([LANDING, GAM, "EBP01-002"], 3, oppAt, 14);
@@ -462,14 +462,13 @@ describe("the Wrangler plan v2", () => {
           .map((a) => v.against.has(a)),
       };
     };
-    const on = judge(true);
-    expect(on.landing.length).toBeGreaterThan(0);
-    for (const d of on.landing) expect(d).toBe(false);
-    for (const d of [...on.rage, ...on.pass]) expect(d).toBe(true);
-    // `wranglerGamSetup: false` (the paired check's control): no counter after it, so the
-    // Landing waits (#317).
-    const off = judge(false);
-    for (const d of off.landing) expect(d).toBe(true);
+    // Paul, Nov 16 (card rule 31, no exception): no Landing to set GAM up. With no counter after
+    // it, the Landing waits (#317), the switch on or off.
+    for (const on of [true, false]) {
+      const v = judge(on);
+      expect(v.landing.length).toBeGreaterThan(0);
+      for (const d of v.landing) expect(d).toBe(true);
+    }
 
     // Their monster in zone 7: their zones 7 and 8 share columns with your zones 2, 3 and 8, so GAM
     // goes in zone 1, and down before passing.

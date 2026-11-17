@@ -210,7 +210,7 @@ The Wrangler plan's GAM reach (Ian): the opponent's reach counts the zone a coun
 
 Default 1 · built · from #380
 
-The Wrangler plan's GAM setup (Ian): Godzilla Against Mechagodzilla EBP01-073 goes out of the opponent's reach (not in the same column as their monster's zone or its next one, where Godzilla (2023) EBP01-010's column destroy hits) when one of its zones is; and with GAM in hand but not playable and no counter this turn, a push (Godzilla Landing, The Slithering Disaster) after which GAM can go there is taken over raging or passing; GAM playable there goes down before passing. Needs `wranglerPlan` 2.
+The Wrangler plan's GAM setup (Ian): Godzilla Against Mechagodzilla EBP01-073 goes out of the opponent's reach (not in the same column as their monster's zone or its next one, where Godzilla (2023) EBP01-010's column destroy hits) when one of its zones is, and GAM playable there goes down before passing. (Its push to set GAM up was dropped: Paul, Nov 16, card rule 31.) Needs `wranglerPlan` 2.
 
 ### `wranglerPlan`
 
