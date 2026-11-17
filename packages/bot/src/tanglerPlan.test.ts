@@ -267,3 +267,42 @@ describe("the Tangler plan (#403)", () => {
         expect(off.against.has(a)).toBe(false);
   });
 });
+
+describe("the Tangler plan's rule 6 (#403)", () => {
+  it("Destoroyah Perfect Form EBP02-037 is held unless only it makes this turn's counter (card rule 5's test)", () => {
+    // Their threat 6000 (rage 0, +5000 a rage): Perfect Form counters for 9000, Mothra (Imago) 5000.
+    const judge = (opts: {
+      rage?: number;
+      onBoard?: number;
+      save?: boolean;
+    }) => {
+      const { state, p1, p2 } = position([PERFECT_FORM, IMAGO], 3, 8);
+      p2.rage = opts.rage ?? 0;
+      for (let i = 0; i < (opts.onBoard ?? 0); i++)
+        p1.zones[(i + 1) as ZoneNumber] = [[add(state, real(IMAGO), "P1")]];
+      const v = verdict(state, {
+        fear: false,
+        build: false,
+        discard: false,
+        stop: false,
+        save: opts.save ?? true,
+      });
+      const plays = v.legal.filter(
+        (a) => a.type === "playBattle" && ofCard(state, p1, a) === PERFECT_FORM,
+      );
+      expect(plays.length).toBeGreaterThan(0);
+      return plays.map((a) => v.against.has(a));
+    };
+    // Only Perfect Form makes the counter: it goes.
+    for (const d of judge({})) expect(d).toBe(false);
+    // One Mothra (Imago) on the board: another one makes it too, so Perfect Form waits.
+    for (const d of judge({ onBoard: 1 })) expect(d).toBe(true);
+    // Two on the board: the counter is made already.
+    for (const d of judge({ onBoard: 2 })) expect(d).toBe(true);
+    // Their rage 1 (threat 11000): Mothra (Imago) and Perfect Form make it together (14000), the
+    // Imago alone doesn't: Perfect Form is needed, so it goes.
+    for (const d of judge({ rage: 1 })) expect(d).toBe(false);
+    // `tanglerSave: false` (the control).
+    for (const d of judge({ onBoard: 1, save: false })) expect(d).toBe(false);
+  });
+});

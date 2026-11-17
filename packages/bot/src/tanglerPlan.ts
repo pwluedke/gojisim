@@ -4,7 +4,8 @@ import type {
   GameState,
   PlayerId,
 } from "@gojisim/engine";
-import { RAGE_THREAT } from "@gojisim/engine";
+import { getLegalActions, RAGE_THREAT } from "@gojisim/engine";
+import { counterPlays } from "./cardRules";
 import { cardData, ENTANGLING_FEAR } from "./mxPlan";
 import { counters } from "./rules";
 import type { GroupOptions } from "./switches/settings";
@@ -32,11 +33,20 @@ import type { Decklist } from "./types";
  * 5. With the counter made, stop playing out the hand (`tanglerStop`): battle card plays and
  *    strategies wait (passing is fine; the hand refills to 5), but Entangling Fear and the low
  *    evolution cards of rule 1.
- * 6. (Waits on Monarch: which Destoroyah card is saved for the late game, and what counts as late.)
+ * 6. Save the finishers (`tanglerSave`, Monarch, Nov 16): Destoroyah Perfect Form EBP02-037 is
+ *    held unless it's needed for this turn's counter: it makes the counter, the counter isn't made
+ *    already, and no other play makes it (Godzilla vs. Destoroyah EBP01-062 aside). That's card
+ *    rule 5's test, which already holds Godzilla vs. Destoroyah the same way. (BFW182 is asked
+ *    which Destoroyah card he meant; Perfect Form for now.)
  */
 
 /** The Tangler's monsters that lower the opponent's rage when a battle card is discarded. */
 export const RAGE_REDUCERS = new Set(["EBP03-015", "EPR-020", "EBP03-017"]);
+
+/** Rule 6: the battle card held for the late-game counter (Monarch: Perfect Form, for now). */
+export const FINISHER = "EBP02-037";
+/** Rule 6: the counter-only strategy card rule 5 already holds the same way. */
+const VS_DESTOROYAH = "EBP01-062";
 
 /** Rule 1: Entangling Fear copies in hand that make one a spare to discard. */
 const FEAR_SPARES = 3;
@@ -72,7 +82,13 @@ export function tanglerVerdict(
   own: Decklist | undefined,
   options: TanglerOptions = {},
 ): { against: Set<Action>; rescued: Set<Action> } {
-  const { fear = true, build = true, discard = true, stop = true } = options;
+  const {
+    fear = true,
+    build = true,
+    discard = true,
+    stop = true,
+    save = true,
+  } = options;
   const against = new Set<Action>();
   const rescued = new Set<Action>();
   if (!isTanglerDeck(own)) return { against, rescued };
@@ -171,6 +187,36 @@ export function tanglerVerdict(
         !evolutions.includes(a)
       )
         against.add(a);
+
+  // Rule 6: Perfect Form waits unless only it (with Godzilla vs. Destoroyah) makes this turn's
+  // counter.
+  if (save) {
+    const finishers = actions.filter(
+      (a) => a.type === "playBattle" && numberOf(a.cardInstanceId) === FINISHER,
+    );
+    if (finishers.length > 0) {
+      const makes = counterPlays(state, actions, me);
+      // The same hand without the finishers: can it still make the counter this turn?
+      const without: GameState = {
+        ...state,
+        players: state.players.map((p) =>
+          p.id === me
+            ? {
+                ...p,
+                hand: p.hand.filter((c) => {
+                  const n = cardData(state, c)?.deckCardNumber;
+                  return n !== FINISHER && n !== VS_DESTOROYAH;
+                }),
+              }
+            : p,
+        ) as GameState["players"],
+      };
+      const othersMake =
+        counterPlays(without, getLegalActions(without, me), me).size > 0;
+      const needed = !counters(state, me) && !othersMake;
+      for (const a of finishers) if (!(needed && makes.has(a))) against.add(a);
+    }
+  }
 
   // Rule 1: Entangling Fear every turn it can be played (#369); the low evolution cards early.
   if (fear && !feared && fearPlays.length > 0) {

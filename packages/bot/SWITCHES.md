@@ -194,6 +194,12 @@ Default 1 · built · from #403
 
 BFW182's Tangler plan (`tanglerPlan.ts`), with `rules`: Entangling Fear every turn, spares kept, the low evolution cards early, discards by the rage math, and the hand kept once the counter is made.
 
+### `tanglerSave`
+
+Default 1 · built · from #403
+
+The Tangler plan's rule 6 (BFW182; Monarch, Nov 16): Destoroyah Perfect Form EBP02-037 is held unless it's needed for this turn's counter (it makes the counter, the counter isn't made already, and no other play makes it, Godzilla vs. Destoroyah aside): card rule 5's test, which already holds Godzilla vs. Destoroyah. Perfect Form until BFW182 names the card. Needs `tanglerPlan`.
+
 ### `tanglerStop`
 
 Default 1 · built · from #403
