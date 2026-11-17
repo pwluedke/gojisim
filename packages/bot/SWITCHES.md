@@ -266,6 +266,12 @@ Default 1 · built · from #425
 
 The Wrangler plan's fetch for rage (Ian): with Godzilla (2023) ESD01-002 on top, v2.2's invasion for its fetch (a rank III Godzilla (2023) per zone it invades) counts a King to be played this turn as one to protect with 3 rage, not only one in zones 1-5; with such an invasion, tagging out (its fetch goes with it) and passing wait. Needs `wranglerPlan` 2.
 
+### `wranglerKeepRankOne`
+
+Default 1 · built · from #428
+
+The Wrangler plan's keep the rank I (Ian): with a King to protect (in play or in hand) and the rage short of 3, no monster play over the rank I Godzilla (1954) EBP01-001 (a burst covers it through this turn's counter phase, and its mill of a monster card is a rage), unless it wins now. Needs `wranglerPlan` 2.
+
 ### `wranglerPlan`
 
 Default 2 · kept · from #276, #311
