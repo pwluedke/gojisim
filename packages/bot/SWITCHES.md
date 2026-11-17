@@ -260,6 +260,12 @@ Default 1 · built · from #388
 
 The Wrangler plan's reset line (Ian): an invasion that triggers Godzilla Against Mechagodzilla EBP01-073's rage reset (the opponent's rage to 0, so a King's protection is gone), after which a rage gain (Godzilla (2023) EBP01-010's column destroy) and up to 3 battle card plays make the counter this turn, is taken over raging or passing, ahead of v2.1's rage to 3 for a King. Needs `wranglerPlan` 2.
 
+### `wranglerTagOut`
+
+Default 1 · built · from #384
+
+The Wrangler plan's tag-out against a rage reset (Ian): with the opponent's Godzilla Against Mechagodzilla EBP01-073 up and nothing under it (their next invasion sets your rage to 0), a tag-out to Godzilla (2001) EBP03-004 (from zone 4 its rage can't be reduced by their effects; the end-phase advance takes it there) goes before raging or passing. Needs `wranglerPlan` 2.
+
 ### `wranglerV21`
 
 Default 1 · kept · from #332
