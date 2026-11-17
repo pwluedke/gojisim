@@ -1435,6 +1435,25 @@ describe(
       // Paying for an invasion with it (one that doesn't win now).
       for (const d of landingOnly(5).invade) expect(d).toBe(true);
 
+      // The counter made already: a push that leaves their monster short of zone 6 makes no counter
+      // (5.15.1.1, Ian's 3e4c0913 move 48), so the Landing waits; one that takes it to 6 may go.
+      for (const z of [1, 2, 6, 7] as const)
+        p1.zones[z] = [[add(state, real("EBP01-075"), "P1")]];
+      const made = (oppAt: ZoneNumber) => {
+        opp.monsterPosition = oppAt;
+        opp.rage = 0;
+        p1.hand = [add(state, { ...real("EBP01-030"), rank: 1 }, "P1")];
+        expect(counters(state, "P1")).toBe(true);
+        const legal = getLegalActions(state, "P1");
+        const dead = cardRulesDead(state, legal, "P1");
+        return legal
+          .filter((a) => a.type === "activateStrategy")
+          .map((a) => dead.has(a));
+      };
+      for (const d of made(4)) expect(d).toBe(true);
+      for (const d of made(5)) expect(d).toBe(false);
+      for (const z of [1, 2, 6, 7] as const) p1.zones[z] = [];
+
       // A discard pick (5.7.2): another card goes while there is one; alone, it may go.
       const pick = (hand: string[], landingRule = true) => {
         p1.hand = hand.map((n) => add(state, real(n), "P1"));

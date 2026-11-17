@@ -160,7 +160,8 @@ import type { Decklist } from "./types";
  * 31. #419 (Paul, Nov 16: "sacred in any deck"): Godzilla Landing EBP01-030 is never discarded
  *    (a discard pick takes another card; no invasion is paid with it, but one that wins now), never
  *    played at a monster already in zone 8, and never played unless the counter is certain this
- *    turn (made after it, or one battle card play away, rule 9). Rule 7's way to the counter still
+ *    turn (made after it, or one battle card play away, rule 9, with their monster in zone 6 or
+ *    beyond, where a counter sends it back, 5.15.1.1). Rule 7's way to the counter still
  *    outranks it. Any deck.
  */
 
@@ -168,6 +169,8 @@ type Json = Record<string, unknown>;
 
 /** Rules 22b and 31: Godzilla Landing EBP01-030 (#419, Paul, Nov 16: sacred in any deck). */
 const GODZILLA_LANDING = "EBP01-030";
+/** Rule 31: a counter sends their monster back from this zone (5.15.1.1). */
+const LANDING_COUNTER_ZONE = 6;
 
 /** Every object nested anywhere in a value. */
 function nested(value: unknown, out: Json[] = []): Json[] {
@@ -1201,11 +1204,16 @@ function landingPlays(
     } catch {
       continue;
     }
+    // (#419, Ian's 3e4c0913 move 48: a counter only sends a monster back from zone 6 to 8,
+    // 5.15.1.1, so a push that leaves their monster short of zone 6 makes no counter.)
+    const theirAt =
+      s.players.find((p) => p.id === opponent.id)?.monsterPosition ?? 0;
     const certain =
-      counters(s, me) ||
-      (s.turnPlayer === me &&
-        !s.pendingChoice &&
-        counterPlays(s, getLegalActions(s, me), me).size > 0);
+      theirAt >= LANDING_COUNTER_ZONE &&
+      (counters(s, me) ||
+        (s.turnPlayer === me &&
+          !s.pendingChoice &&
+          counterPlays(s, getLegalActions(s, me), me).size > 0));
     if (!certain) out.push(a);
   }
   return out;
