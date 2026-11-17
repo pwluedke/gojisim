@@ -6,7 +6,7 @@
 
 /** Where a switch is read: a plan's options object, or the search's own settings. */
 export type SwitchGroup =
-  "search" | "cardRules" | "mxPlan" | "wrangler" | "fest";
+  "search" | "cardRules" | "mxPlan" | "wrangler" | "fest" | "tangler";
 
 /** The status column of `SWITCHES.md`. */
 export type SwitchStatus = "built" | "measured" | "kept";

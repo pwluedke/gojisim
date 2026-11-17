@@ -149,7 +149,15 @@ export function newReports(record: unknown, earlier: unknown): NewReport[] {
 /** The game's bot level(s) and deck names, from the record's seats and `deckNames`. */
 export interface GameContext {
   bots: string;
+  /** #430: "mirror <name>" when both seats run the same deck, else "<name> vs <name>". */
   decks: string;
+}
+
+/** #430 (Paul): "mirror <name>" when both decks are the same, else "<name> vs <name>". */
+export function deckLabel(record: unknown): string {
+  const names = obj(obj(record)?.["deckNames"]) ?? {};
+  const [a, b] = ["P1", "P2"].map((id) => str(names[id]) ?? "Mystery Deck");
+  return a === b && a !== "Mystery Deck" ? `mirror ${a}` : `${a} vs ${b}`;
 }
 
 const PRESETS: Record<number, string> = {
@@ -176,7 +184,6 @@ export function botLevels(record: unknown): string | null {
 export function gameContext(record: unknown): GameContext {
   const r = obj(record) ?? {};
   const seats = obj(r["seats"]) ?? {};
-  const names = obj(r["deckNames"]) ?? {};
   const levels = ["P1", "P2"].map((id) => {
     const seat = obj(seats[id]);
     if (seat?.["kind"] !== "bot")
@@ -184,10 +191,9 @@ export function gameContext(record: unknown): GameContext {
     const d = obj(seat["settings"])?.["difficulty"];
     return typeof d === "number" ? levelName(d) : "bot";
   });
-  const deckNames = ["P1", "P2"].map((id) => str(names[id]) ?? "Mystery Deck");
   return {
     bots: `${levels[0]} vs ${levels[1]}`,
-    decks: `${deckNames[0]} vs ${deckNames[1]}`,
+    decks: deckLabel(record),
   };
 }
 
@@ -237,12 +243,14 @@ export function reportMessage(
 
 /**
  * #214: a community channel's post: the kind, the name unless posted without it, the turn and
- * phase, the bot level for bot feedback, and the note. Never the record's file, decks, the bot
- * move's label or any id.
+ * phase, the bot level for bot feedback, and the note. Never the record's file, deck lists, the
+ * bot move's label or any id. #430 (Paul): in a game vs the bot, the deck names too ("mirror
+ * <name>" or "<name> vs <name>"); a head to head game's opponent deck stays out.
  */
 export function communityMessage(
   report: NewReport,
   bots: string | null,
+  decks: string | null = null,
 ): string {
   const head = [
     `**${report.kind}**`,
@@ -251,6 +259,7 @@ export function communityMessage(
       : null,
     report.when,
     report.kind !== "Report bug" && bots ? `vs ${bots} bot` : null,
+    decks,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -500,6 +509,8 @@ export function reportPoster({
         if (await post(target.name, target.url, target.body(content))) posted++;
     }
     const bots = botLevels(record);
+    // #430: deck names for a game vs the bot (never a head to head opponent's).
+    const deckLine = bots ? deckLabel(record) : null;
     for (const target of community) {
       const mine = reports.filter(
         (r) => target.kinds.includes(r.kind) && r.community !== "none",
@@ -518,7 +529,7 @@ export function reportPoster({
           await post(
             target.name,
             target.url,
-            discordBody(communityMessage(report, bots)),
+            discordBody(communityMessage(report, bots, deckLine)),
           )
         )
           posted++;
