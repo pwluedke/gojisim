@@ -200,6 +200,12 @@ Default 0 · measured · from Paul, Nov 15
 
 Three of `wranglerBio`'s lines as prunes (the search and a blunder can't override them): no strategy when Biollante's rank III EBP02-027 can reach zone 6+, unless your counter beats 40,000; no counter on its Rose Form; no push out of zone 5. Needs `wranglerBio`. Off by default: its check was worse (40 / 160 vs 63 / 160, Paul, Nov 15).
 
+### `wranglerGamReach`
+
+Default 1 · built · from #424
+
+The Wrangler plan's GAM reach (Ian): the opponent's reach counts the zone a counter sends their monster back to (5.15.1.1, from zone 6 to 8) and the one after it, as well as its zone and next one; Godzilla Against Mechagodzilla EBP01-073 into a zone in the same column as one of those (4.4.5.4, Godzilla (2023) EBP01-010's column destroy) is pruned while a zone out of reach (any, off your path) is open. Needs `wranglerPlan` 2.
+
 ### `wranglerGamSetup`
 
 Default 1 · built · from #380

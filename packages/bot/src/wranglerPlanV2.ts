@@ -5,6 +5,7 @@ import {
   counterPowerOf,
   type GameState,
   getLegalActions,
+  behind,
   isAdjacent,
   type PlayerId,
   sameColumn,
@@ -52,6 +53,9 @@ import {
  *   strategy's zone (8.3.1). An invasion (not paid with a push card) after which a push strategy
  *   and then battle card plays make the counter this turn is taken over raging or passing; the
  *   push's follow-up counts a counter made by up to 3 battle card plays, not only one.
+ * - GAM reach (#424, Ian, `wranglerGamReach`): the reach counts the zone a counter sends their
+ *   monster back to and the one after; GAM into a zone in reach is pruned while one out of reach
+ *   (any, off your path) is open.
  * - GAM setup (#380, Ian, `wranglerGamSetup`): GAM goes out of the opponent's reach (not in the
  *   column of their monster's zone or its next one) when one of its zones is; and with GAM in hand
  *   but not playable and no counter this turn, a push (Landing, The Slithering Disaster) after
@@ -154,6 +158,7 @@ export function wranglerV2Verdict(
     bioHard = true,
     pushLine = true,
     gamSetup = true,
+    gamReach = true,
   } = options;
   if (!isWranglerDeck(own)) return { against: new Set(), rescued: new Set() };
   // Line 1 (v1's Despair line) goes first.
@@ -424,11 +429,15 @@ export function wranglerV2Verdict(
   const zones = vs1994 ? KING_ZONES_VS_1994 : KING_ZONES;
   const offPath = (z: number) => !(z > at && z <= at + PATH);
   // #380 (Ian): GAM out of the opponent's reach: not in the same column (4.4.5.4) as their
-  // monster's zone or its next one (Godzilla (2023) EBP01-010's column destroy).
+  // monster's zone or its next one (Godzilla (2023) EBP01-010's column destroy). #424 (Ian): nor
+  // the zone a counter sends it back to (5.15.1.1, from zone 6 to 8) or the one after it, where
+  // their next turn starts.
   const outOfReach = (s: GameState, z: ZoneNumber) => {
     const o = s.players.find((p) => p.id !== me);
     const t = o?.monsterPosition ?? 0;
-    return ![t, t + 1].some(
+    const back = gamReach && t >= 6 ? behind(t as ZoneNumber) : null;
+    const reach = back === null ? [t, t + 1] : [t, t + 1, back, back + 1];
+    return !reach.some(
       (y) =>
         y >= 1 &&
         y <= 8 &&
@@ -438,6 +447,7 @@ export function wranglerV2Verdict(
         ),
     );
   };
+  const reachPrunes = new Set<Action>();
   for (const n of [KING, GAM]) {
     const plays = actions.filter(
       (a): a is Extract<Action, { type: "playBattle" }> =>
@@ -449,6 +459,19 @@ export function wranglerV2Verdict(
     if (gamSetup && n === GAM && safe.length > 0) good = safe;
     if (good.length > 0)
       for (const a of plays) if (!good.includes(a)) against.add(a);
+    // #424 (Ian): GAM never goes where their monster can destroy it next turn while a zone out of
+    // reach (any, off your path) is open: a prune, the search placed it there over the argument.
+    if (gamReach && n === GAM) {
+      const anySafe = plays.filter(
+        (a) => offPath(a.zone) && outOfReach(state, a.zone),
+      );
+      if (anySafe.length > 0)
+        for (const a of plays)
+          if (!anySafe.includes(a)) {
+            against.add(a);
+            reachPrunes.add(a);
+          }
+    }
   }
 
   // Churn from turn 1: rage discards over passing, freed from the holds; the held cards stay
@@ -558,7 +581,8 @@ export function wranglerV2Verdict(
         return (
           !!c &&
           s.cards[c.cardId]?.deckCardNumber === GAM &&
-          zones.has(g.zone) &&
+          // #424: any zone out of reach, as its prune allows.
+          (gamReach || zones.has(g.zone)) &&
           offPath(g.zone) &&
           outOfReach(s, g.zone)
         );
@@ -570,7 +594,7 @@ export function wranglerV2Verdict(
     (a) =>
       a.type === "playBattle" &&
       number(a) === GAM &&
-      zones.has(a.zone) &&
+      (gamReach || zones.has(a.zone)) &&
       offPath(a.zone) &&
       outOfReach(state, a.zone),
   );
@@ -673,6 +697,7 @@ export function wranglerV2Verdict(
   // Never argue against everything.
   if (actions.every((a) => a.type === "concede" || against.has(a)))
     against.clear();
+  for (const a of reachPrunes) pruned.add(a);
   // Nor prune everything.
   if (actions.every((a) => a.type === "concede" || pruned.has(a)))
     pruned.clear();

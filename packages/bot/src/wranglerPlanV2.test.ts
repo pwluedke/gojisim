@@ -473,11 +473,14 @@ describe("the Wrangler plan v2", () => {
 
     // Their monster in zone 7: their zones 7 and 8 share columns with your zones 2, 3 and 8, so GAM
     // goes in zone 1, and down before passing.
+    // (#424's wider reach, the zone a counter sends their monster back to, is off here: its own
+    // test covers it.)
     const place = (gamSetup: boolean) => {
       const { state, p1 } = setUp(7);
       const legal = getLegalActions(state, "P1");
       const v = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
         gamSetup,
+        gamReach: false,
       });
       const gam = legal.filter(
         (a): a is Extract<Action, { type: "playBattle" }> =>
@@ -499,6 +502,35 @@ describe("the Wrangler plan v2", () => {
     expect(plain.zones[1]).toBe(true);
     expect(plain.zones[2]).toBe(true);
     expect(plain.zones[8]).toBe(true);
+  });
+
+  it("#424 (Ian's record 5ac1295d move 77): GAM never goes where their monster can destroy it next turn (the zone a counter sends it back to, 5.15.1.1, counts) while a zone out of reach is open", () => {
+    const judge = (gamReach: boolean) => {
+      const { state, p1 } = position([GAM], 3, 7, 16);
+      p1.discard = Array.from({ length: 10 }, () =>
+        add(state, real("EBP01-002"), "P1"),
+      );
+      const legal = getLegalActions(state, "P1");
+      const v = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
+        gamReach,
+      });
+      const at = (zone: number) =>
+        legal.find(
+          (a) =>
+            a.type === "playBattle" &&
+            a.zone === zone &&
+            ofCard(state, p1, a) === GAM,
+        )!;
+      return (zone: number) => v.pruned?.has(at(zone)) ?? false;
+    };
+    const on = judge(true);
+    // Their monster in zone 7 (a counter sends it back to zone 4): their zones 7, 8, 4 and 5 share
+    // columns with your zones 1, 2, 3 and 8. Zones 6 and 7 are out of reach.
+    for (const z of [1, 2, 8]) expect(on(z)).toBe(true);
+    for (const z of [6, 7]) expect(on(z)).toBe(false);
+    // `wranglerGamReach: false` (the control): nothing pruned for it.
+    const off = judge(false);
+    for (const z of [1, 2, 6, 7, 8]) expect(off(z)).toBe(false);
   });
 
   it("v2.3 (Ian): against Monster X, with fewer than 2 battle cards in hand, dig (Despair over passing)", () => {

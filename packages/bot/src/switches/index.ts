@@ -32,6 +32,7 @@ import targetCheck from "./targetCheck";
 import targetKey from "./targetKey";
 import wranglerBio from "./wranglerBio";
 import wranglerBioHard from "./wranglerBioHard";
+import wranglerGamReach from "./wranglerGamReach";
 import wranglerGamSetup from "./wranglerGamSetup";
 import wranglerPlan from "./wranglerPlan";
 import wranglerPushLine from "./wranglerPushLine";
@@ -72,6 +73,7 @@ export const SWITCHES = [
   targetKey,
   wranglerBio,
   wranglerBioHard,
+  wranglerGamReach,
   wranglerGamSetup,
   wranglerPlan,
   wranglerPushLine,
