@@ -13,6 +13,7 @@ import festRankOne from "./festRankOne";
 import festWall from "./festWall";
 import keepLowRank from "./keepLowRank";
 import keepStrategy from "./keepStrategy";
+import landingRule from "./landingRule";
 import modeBest from "./modeBest";
 import mxFearReach from "./mxFearReach";
 import mxLanding from "./mxLanding";
@@ -55,6 +56,7 @@ export const SWITCHES = [
   festWall,
   keepLowRank,
   keepStrategy,
+  landingRule,
   modeBest,
   mxFearReach,
   mxLanding,

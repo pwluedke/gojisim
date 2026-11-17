@@ -687,21 +687,25 @@ describe(
       ).toBe(true);
     });
 
-    it("#275: Godzilla Landing EBP01-030 (advances the opponent's monster) waits when nothing then makes the counter or blocks zone 8; with zone 8 blocked it may go", () => {
+    it("#275: Godzilla Landing EBP01-030 (advances the opponent's monster) waits when nothing then makes the counter or blocks zone 8; with zone 8 blocked it may go (rule 31 off: #419 has it wait there too)", () => {
       const { state, p1 } = withGodzilla1995();
       const opp = state.players[1] as PlayerState;
       opp.monsterPosition = 6;
       opp.rage = 6;
       p1.hand = [add(state, real("EBP01-030"), "P1")];
-      const activation = () => {
+      const activation = (landingRule = false) => {
         const legal = getLegalActions(state, "P1");
         const a = legal.find((x) => x.type === "activateStrategy");
         if (!a) throw new Error("Godzilla Landing can't be activated here");
-        return cardRulesDead(state, legal, "P1").has(a);
+        return cardRulesDead(state, legal, "P1", undefined, {
+          landingRule,
+        }).has(a);
       };
       expect(activation()).toBe(true);
       p1.zones[8] = [[add(state, { ...real("ESD01-008"), rank: 1 }, "P1")]];
       expect(activation()).toBe(false);
+      // Rule 31 (#419, Paul): a zone 8 block isn't a certain counter, so it waits.
+      expect(activation(true)).toBe(true);
     });
 
     /**
@@ -1396,8 +1400,70 @@ describe(
       for (const a of plays) expect(dead.has(a)).toBe(true);
       const off = cardRulesDead(state, legal, "P1", undefined, {
         targetAll: false,
+        landingRule: false,
       });
       for (const a of plays) expect(off.has(a)).toBe(false);
+    });
+
+    it("rule 31, #419 (Paul, Nov 16: Godzilla Landing is sacred in any deck): never at a monster already in zone 8, never without a certain counter, never paid for an invasion, never the card a discard pick takes", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      const landingOnly = (oppAt: ZoneNumber) => {
+        opp.monsterPosition = oppAt;
+        opp.rage = 6;
+        p1.hand = [add(state, { ...real("EBP01-030"), rank: 1 }, "P1")];
+        const legal = getLegalActions(state, "P1");
+        const of = (t: Action["type"]) => legal.filter((a) => a.type === t);
+        const dead = cardRulesDead(state, legal, "P1");
+        const off = cardRulesDead(state, legal, "P1", undefined, {
+          landingRule: false,
+          targetAll: false,
+        });
+        return {
+          play: of("activateStrategy").map((a) => dead.has(a)),
+          invade: of("invade").map((a) => dead.has(a)),
+          playOff: of("activateStrategy").map((a) => off.has(a)),
+        };
+      };
+      // Zone 8: the push moves nothing.
+      const at8 = landingOnly(8);
+      expect(at8.play.length).toBeGreaterThan(0);
+      for (const d of at8.play) expect(d).toBe(true);
+      for (const d of at8.playOff) expect(d).toBe(false);
+      // Zone 5, rage 6: the push makes no counter.
+      for (const d of landingOnly(5).play) expect(d).toBe(true);
+      // Paying for an invasion with it (one that doesn't win now).
+      for (const d of landingOnly(5).invade) expect(d).toBe(true);
+
+      // A discard pick (5.7.2): another card goes while there is one; alone, it may go.
+      const pick = (hand: string[], landingRule = true) => {
+        p1.hand = hand.map((n) => add(state, real(n), "P1"));
+        state.pendingChoice = {
+          id: 96,
+          player: "P1",
+          kind: "target",
+          rule: "5.7.2",
+          options: p1.hand.map((c) => ({
+            id: c.instanceId,
+            cardId: c.cardId,
+            abilityId: null,
+          })),
+        } as unknown as GameState["pendingChoice"];
+        const actions: Action[] = p1.hand.map((c) => ({
+          type: "choose",
+          player: "P1",
+          choiceId: 96,
+          optionId: c.instanceId,
+        }));
+        const dead = cardRulesDead(state, actions, "P1", undefined, {
+          landingRule,
+        });
+        state.pendingChoice = null;
+        return actions.map((a) => dead.has(a));
+      };
+      expect(pick(["EBP01-030", "ESC01-004"])).toEqual([true, false]);
+      expect(pick(["EBP01-030", "EBP01-030"])).toEqual([false, false]);
+      expect(pick(["EBP01-030", "ESC01-004"], false)).toEqual([false, false]);
     });
 
     it("rule 22b: a strategy with a continuous ability (Entangling Fear EBP04-081, whose effect is staying in play) isn't judged", () => {

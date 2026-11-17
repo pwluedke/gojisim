@@ -156,13 +156,18 @@ import type { Decklist } from "./types";
  *    activated when no way of answering its choices changes anything on the board, the rage, the
  *    discard pile or the decks and hands (beyond the card itself). Paul's exception: with 2+
  *    copies of it in hand, a spare may still go as the turn's hand-cycling play (#419: but not
- *    Godzilla Landing EBP01-030, never played unless the counter follows). Any deck.
+ *    Godzilla Landing EBP01-030, rule 31). Any deck.
+ * 31. #419 (Paul, Nov 16: "sacred in any deck"): Godzilla Landing EBP01-030 is never discarded
+ *    (a discard pick takes another card; no invasion is paid with it, but one that wins now), never
+ *    played at a monster already in zone 8, and never played unless the counter is certain this
+ *    turn (made after it, or one battle card play away, rule 9). Rule 7's way to the counter still
+ *    outranks it. Any deck.
  */
 
 type Json = Record<string, unknown>;
 
-/** Rule 22b: Godzilla Landing EBP01-030 gets no spare-copy exception (#419, Paul, Nov 16). */
-const NO_SPARE_PLAY = "EBP01-030";
+/** Rules 22b and 31: Godzilla Landing EBP01-030 (#419, Paul, Nov 16: sacred in any deck). */
+const GODZILLA_LANDING = "EBP01-030";
 
 /** Every object nested anywhere in a value. */
 function nested(value: unknown, out: Json[] = []): Json[] {
@@ -1147,6 +1152,65 @@ function recurringDiscards(
   return invades.filter((a) => !recurs(payWith(a)));
 }
 
+/** Rule 31 (#419): the moves that spend Godzilla Landing without a certain counter. */
+function landingPlays(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const player = state.players.find((p) => p.id === me);
+  const opponent = state.players.find((p) => p.id !== me);
+  if (!player || !opponent) return [];
+  const isLanding = (cardId: number | null | undefined) =>
+    cardId !== null &&
+    cardId !== undefined &&
+    state.cards[cardId]?.deckCardNumber === GODZILLA_LANDING;
+  const choice = state.pendingChoice;
+  // A discard pick (5.7): another card goes, while there is one.
+  if (choice?.player === me) {
+    if (!choice.rule.startsWith("5.7")) return [];
+    const picks = actions.filter(
+      (a): a is Extract<Action, { type: "choose" }> => a.type === "choose",
+    );
+    const landing = (a: Extract<Action, { type: "choose" }>) =>
+      isLanding(choice.options.find((o) => o.id === a.optionId)?.cardId);
+    return picks.some((a) => !landing(a)) ? picks.filter(landing) : [];
+  }
+  if (choice || state.turnPlayer !== me) return [];
+  const out: Action[] = [];
+  for (const a of actions) {
+    if (a.type !== "invade" && a.type !== "activateStrategy") continue;
+    const c = player.hand.find((h) => h.instanceId === a.cardInstanceId);
+    if (!c || !isLanding(c.cardId)) continue;
+    if (a.type === "invade") {
+      if (!winsNow(state, a, me)) out.push(a);
+      continue;
+    }
+    if ((opponent.monsterPosition ?? 0) >= 8) {
+      out.push(a);
+      continue;
+    }
+    let s: GameState;
+    try {
+      s = advanceToDecision(applyAction(state, a));
+      for (let i = 0; i < 10 && s.pendingChoice?.player === me; i++) {
+        const first = getLegalActions(s, me).find((x) => x.type === "choose");
+        if (!first) break;
+        s = advanceToDecision(applyAction(s, first));
+      }
+    } catch {
+      continue;
+    }
+    const certain =
+      counters(s, me) ||
+      (s.turnPlayer === me &&
+        !s.pendingChoice &&
+        counterPlays(s, getLegalActions(s, me), me).size > 0);
+    if (!certain) out.push(a);
+  }
+  return out;
+}
+
 /** Rule 22's search budget (states visited) for a way an activation destroys something. */
 const FIZZLE_BUDGET = 60;
 
@@ -1330,7 +1394,7 @@ function idleStrategies(
     // Paul's exception: a spare copy may go as the turn's hand-cycling play; but not Godzilla
     // Landing EBP01-030 (#419, Paul, Nov 16: never played unless the counter follows).
     if (
-      card?.deckCardNumber !== NO_SPARE_PLAY &&
+      card?.deckCardNumber !== GODZILLA_LANDING &&
       player.hand.filter((h) => h.cardId === c.cardId).length >= 2
     )
       return false;
@@ -1847,6 +1911,8 @@ export function cardRulesDead(
   if (options.coverToken !== false)
     for (const action of ownCoverPlays(state, actions, me, true))
       dead.add(action);
+  if (options.landingRule !== false)
+    for (const action of landingPlays(state, actions, me)) dead.add(action);
   // Rule 7: a way to make the counter (#305), else to block zone 8, is taken: every other move
   // waits (but an invasion that wins now), and it outranks the others' holds. (Rule 9 alone only
   // frees holds, in `rescuedPlays`.)

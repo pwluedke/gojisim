@@ -52,10 +52,9 @@ import {
  *   strategy's zone (8.3.1). An invasion (not paid with a push card) after which a push strategy
  *   and then battle card plays make the counter this turn is taken over raging or passing; the
  *   push's follow-up counts a counter made by up to 3 battle card plays, not only one.
- * - No dead push (#419, Ian and Paul, `wranglerDeadPush`): a push strategy that leaves the
- *   opponent's monster where it is (already in zone 8) isn't played, a spare copy in hand or not;
- *   and Godzilla Landing isn't discarded unless the counter follows (a discard pick takes another
- *   card; an invasion it pays for needs the counter after it, or to win).
+ * - No dead push (#419, Ian, `wranglerDeadPush`): a push strategy that leaves the opponent's
+ *   monster where it is (already in zone 8) isn't played, a spare copy in hand or not. (Paul's
+ *   Landing rule for every deck is card rule 31.)
  */
 
 export const KING = "EBP01-075";
@@ -233,23 +232,6 @@ export function wranglerV2Verdict(
       for (const a of picks) if (!best.includes(a)) against.add(a);
     return { against, rescued };
   }
-  // #419 (Paul, Nov 16): Godzilla Landing is never discarded unless the counter follows: at a
-  // discard pick (5.7), it waits while another card can go.
-  if (deadPush && choice?.player === me && choice.rule.startsWith("5.7")) {
-    const picks = actions.filter(
-      (a): a is Extract<Action, { type: "choose" }> => a.type === "choose",
-    );
-    const isLanding = (a: Extract<Action, { type: "choose" }>) => {
-      const id = choice.options.find((o) => o.id === a.optionId)?.cardId;
-      return (
-        id !== null &&
-        id !== undefined &&
-        state.cards[id]?.deckCardNumber === LANDING
-      );
-    };
-    if (picks.some((a) => !isLanding(a)))
-      for (const a of picks) if (isLanding(a)) against.add(a);
-  }
   if (v21 && choice?.player === me && choice.rule === "5.7.2") {
     const cardOf = (optionId: string) => {
       const id = choice.options.find((o) => o.id === optionId)?.cardId;
@@ -409,18 +391,6 @@ export function wranglerV2Verdict(
       return (c ? (s.cards[c.cardId]?.rank ?? 0) : 0) >= FOLLOW_UP_RANK;
     });
   };
-  // #419 (Paul, Nov 16): nor paid for an invasion, unless the counter follows it this turn.
-  if (deadPush)
-    for (const a of actions) {
-      if (a.type !== "invade" || number(a) !== LANDING) continue;
-      const s = after(state, a, me);
-      const follows =
-        !!s &&
-        (counters(s, me) ||
-          (s.turnPlayer === me &&
-            counterPlays(s, getLegalActions(s, me), me).size > 0));
-      if (!follows && !winsNow(state, a, me)) against.add(a);
-    }
   const theirCards = battleCards(state, opponent.id);
   for (const a of actions) {
     const n = number(a);

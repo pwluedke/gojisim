@@ -321,15 +321,10 @@ describe("the Wrangler plan v2", () => {
         : undefined;
     for (const a of picks)
       expect(against.has(a)).toBe(of(a) === LANDING || of(a) === KING);
-    // With no spare monster card, v2.1 argues against neither (one of them has to go); #419
-    // (Paul: Landing is never discarded unless the counter follows) keeps the Landing.
+    // With no spare monster card, nothing is argued against (one of them has to go).
     const keys = picks.filter((a) => of(a) !== "EBP01-002");
     const none = wranglerV2Verdict(state, keys, "P1", WRANGLER);
-    for (const a of keys) expect(none.against.has(a)).toBe(of(a) === LANDING);
-    const v21 = wranglerV2Verdict(state, keys, "P1", WRANGLER, undefined, {
-      deadPush: false,
-    });
-    for (const a of keys) expect(v21.against.has(a)).toBe(false);
+    for (const a of keys) expect(none.against.has(a)).toBe(false);
   });
 
   it("#318 (v2.2): with no battle card in hand, dig: Despair even for no value over passing (the end phase draws up to the hand size, 7.5.4); the held cards stay", () => {
@@ -454,37 +449,6 @@ describe("the Wrangler plan v2", () => {
     for (const d of judge(8, false)) expect(d).toBe(false);
     // Their monster in zone 7: the push moves it, and the rule stays out.
     for (const d of judge(7)) expect(d).toBe(false);
-  });
-
-  it("#419 (Paul, Nov 16): at a discard pick (5.7), Godzilla Landing waits while another card can go", () => {
-    const pick = (deadPush: boolean) => {
-      const { state, p1 } = position([LANDING, "ESC01-004"], 4, 4, 10);
-      state.pendingChoice = {
-        id: 97,
-        player: "P1",
-        kind: "target",
-        rule: "5.7.2",
-        options: p1.hand.map((c) => ({
-          id: c.instanceId,
-          cardId: c.cardId,
-          abilityId: null,
-        })),
-      } as unknown as GameState["pendingChoice"];
-      const actions: Action[] = p1.hand.map((c) => ({
-        type: "choose",
-        player: "P1",
-        choiceId: 97,
-        optionId: c.instanceId,
-      }));
-      const v = wranglerV2Verdict(state, actions, "P1", WRANGLER, undefined, {
-        deadPush,
-      });
-      return actions.map((a) => v.against.has(a));
-    };
-    // [Landing, Godzilla (2023) ESC01-004]: the Landing is argued against, the other isn't.
-    expect(pick(true)).toEqual([true, false]);
-    // `wranglerDeadPush: false` (the control): no preference.
-    expect(pick(false)).toEqual([false, false]);
   });
 
   it("v2.3 (Ian): against Monster X, with fewer than 2 battle cards in hand, dig (Despair over passing)", () => {

@@ -86,6 +86,12 @@ Default 1 · built · from #353
 
 Card rule 27: discarding from your hand (5.7.1, 5.7.2), a strategy card isn't the one to go while a battle card you can't play this turn or next (rank above the opponent's monster's zone plus 2) is offered.
 
+### `landingRule`
+
+Default 1 · built · from #419
+
+Card rule 31 (Paul, Nov 16: Godzilla Landing EBP01-030 is sacred in any deck): it's never discarded (a discard pick takes another card; no invasion is paid with it but one that wins now), never played at a monster already in zone 8, and never played unless the counter is certain this turn (made after it, or one battle card play away); rule 7's way to the counter still outranks it.
+
 ### `modeBest`
 
 Default 1 · built · from #386
@@ -216,7 +222,7 @@ Three of `wranglerBio`'s lines as prunes (the search and a blunder can't overrid
 
 Default 1 · built · from #419
 
-The Wrangler plan's dead push (Ian): a push strategy (Godzilla Landing, The Slithering Disaster) that leaves the opponent's monster where it is (already in zone 8) is argued against, a spare copy in hand or not (card rule 22b, off by default, would let a spare go as hand cycling); and Godzilla Landing isn't discarded unless the counter follows (Paul: a discard pick takes another card; an invasion it pays for needs the counter after it, or to win). Needs `wranglerPlan` 2.
+The Wrangler plan's dead push (Ian): a push strategy (Godzilla Landing, The Slithering Disaster) that leaves the opponent's monster where it is (already in zone 8) is argued against, a spare copy in hand or not (card rule 22b, off by default, would let a spare go as hand cycling); Paul's Landing rule for every deck is card rule 31 (`landingRule`). Needs `wranglerPlan` 2.
 
 ### `wranglerPlan`
 
