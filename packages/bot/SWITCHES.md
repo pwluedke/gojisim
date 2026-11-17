@@ -260,6 +260,12 @@ Default 0 · measured · from Paul, Nov 15
 
 Three of `wranglerBio`'s lines as prunes (the search and a blunder can't override them): no strategy when Biollante's rank III EBP02-027 can reach zone 6+, unless your counter beats 40,000; no counter on its Rose Form; no push out of zone 5. Needs `wranglerBio`. Off by default: its check was worse (40 / 160 vs 63 / 160, Paul, Nov 15).
 
+### `wranglerFetchDespair`
+
+Default 1 · built · from #442
+
+The Wrangler plan's Despair rage (Ian): with Godzilla (2023) ESD01-002 on top and the rage under 2, an invasion whose fetches (the monster cards in hand after it) bring the rage to 2, with one of their battle cards at or before your zone for Despair, comes first, and Despair now (it would do nothing below 2 rage), tagging out and passing wait; without that line v2.2's dig may still play Despair. Needs `wranglerPlan` 2.
+
 ### `wranglerFetchRage`
 
 Default 1 · built · from #425

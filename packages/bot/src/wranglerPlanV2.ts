@@ -61,6 +61,9 @@ import {
  * - Tag out against a reset (#384, Ian, `wranglerTagOut`): with the opponent's GAM up and unused,
  *   a tag-out to Godzilla (2001) EBP03-004 (rage the opponent can't reduce from zone 4) goes
  *   before raging or passing.
+ * - Despair's rage (#442, Ian, `wranglerFetchDespair`): no Despair below 2 rage (it does nothing);
+ *   with Godzilla (2023) ESD01-002 on top, an invasion whose fetches bring the rage to 2, with a
+ *   target for Despair after it, comes first.
  * - Fetch for rage (#425, Ian, `wranglerFetchRage`): v2.2's fetch invasion (Godzilla (2023)
  *   ESD01-002 on top) counts a King to be played this turn, not only one in zones 1-5; with such an
  *   invasion, tagging out (it loses the fetch) and passing wait.
@@ -88,6 +91,8 @@ const RAGE_LOCK_ZONE = 4;
 const BIO_III_COUNTER = 40000;
 /** v2.2 (Ian, point 2): the monster card whose invasion fetches more (Godzilla (2023) ESD01-002). */
 const FETCH_MONSTER = "ESD01-002";
+/** #442: the rage Despair EBP02-018 needs. */
+const DESPAIR_RAGE = 2;
 /** #321: the cards kept when discarding down, while a spare monster card can go instead. */
 const KEY_CARDS = new Set([
   LANDING,
@@ -264,6 +269,7 @@ export function wranglerV2Verdict(
     resetLine = true,
     tagOut = true,
     fetchRage = true,
+    fetchDespair = true,
   } = options;
   if (!isWranglerDeck(own)) return { against: new Set(), rescued: new Set() };
   // Line 1 (v1's Despair line) goes first.
@@ -461,6 +467,56 @@ export function wranglerV2Verdict(
     if (fetchRage && fetching)
       for (const a of actions)
         if (a.type === "playMonster" || a.type === "pass") against.add(a);
+  }
+
+  // #442 (Ian): Despair needs 2 rage ("If your monster card has 2 or more rage"). With Godzilla
+  // (2023) ESD01-002 on top and the rage under 2, an invasion whose fetches (the monster cards in
+  // hand after it) bring the rage to 2, with one of their battle cards at or before your zone for
+  // it, comes first: Despair now (it would do nothing), tagging out (the fetch goes) and passing
+  // wait. (Without that line v2.2's dig may still play Despair for no value.)
+  if (fetchDespair && player.rage < DESPAIR_RAGE) {
+    const despairs = actions.filter(
+      (a) => a.type === "activateStrategy" && number(a) === DESPAIR,
+    );
+    if (
+      despairs.length > 0 &&
+      top &&
+      state.cards[top.cardId]?.deckCardNumber === FETCH_MONSTER
+    ) {
+      let opens = false;
+      for (const a of actions) {
+        if (a.type !== "invade" || winsNow(state, a, me)) continue;
+        if (number(a) === DESPAIR) continue;
+        const s = after(state, a, me);
+        const mine = s?.players.find((p) => p.id === me);
+        const theirs = s?.players.find((p) => p.id !== me);
+        if (!s || !mine || !theirs || s.turnPlayer !== me) continue;
+        const monsters = mine.hand.filter(
+          (c) => s.cards[c.cardId]?.type === "Monster",
+        ).length;
+        const at = mine.monsterPosition ?? 0;
+        const target = ([1, 2, 3, 4, 5, 6, 7, 8] as const).some(
+          (z) =>
+            z <= at &&
+            theirs.zones[z].some(
+              (stack) => s.cards[stack.at(-1)?.cardId ?? -1]?.type === "Battle",
+            ),
+        );
+        if (mine.rage + monsters >= DESPAIR_RAGE && target) {
+          against.delete(a);
+          rescued.add(a);
+          opens = true;
+        }
+      }
+      if (opens)
+        for (const a of actions)
+          if (
+            a.type === "playMonster" ||
+            a.type === "pass" ||
+            despairs.includes(a)
+          )
+            against.add(a);
+    }
   }
 
   // #381: an invasion that reaches a push strategy's zone, the push, then the counter this turn.
