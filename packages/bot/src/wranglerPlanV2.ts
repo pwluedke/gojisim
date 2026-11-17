@@ -52,6 +52,15 @@ import {
  *   strategy's zone (8.3.1). An invasion (not paid with a push card) after which a push strategy
  *   and then battle card plays make the counter this turn is taken over raging or passing; the
  *   push's follow-up counts a counter made by up to 3 battle card plays, not only one.
+ * - Reset line (#388, Ian, `wranglerResetLine`): protection goes before the destroys. With GAM up
+ *   and the opponent's rage above 0, an invasion whose reset (their rage to 0, a King's protection
+ *   gone), then a rage gain (Godzilla (2023) EBP01-010's column destroy) and up to 3 battle card
+ *   plays make the counter this turn is taken over raging or passing, ahead of v2.1's rage to 3.
+ *   #417 (Ian): when the reset alone makes the counter (the invasion settles with their rage 0
+ *   and the counter made), that invasion is taken over every other move.
+ * - Tag out against a reset (#384, Ian, `wranglerTagOut`): with the opponent's GAM up and unused,
+ *   a tag-out to Godzilla (2001) EBP03-004 (rage the opponent can't reduce from zone 4) goes
+ *   before raging or passing.
  * - Fetch for rage (#425, Ian, `wranglerFetchRage`): v2.2's fetch invasion (Godzilla (2023)
  *   ESD01-002 on top) counts a King to be played this turn, not only one in zones 1-5; with such an
  *   invasion, tagging out (it loses the fetch) and passing wait.
@@ -71,6 +80,10 @@ const KING_ZONES_VS_1994 = new Set([1, 5]);
 const PATH = 2;
 /** wranglerBio: the rank IV whose rage clears the opponent's column (Godzilla (2023) EBP01-010). */
 const COLUMN_CLEAR = "EBP01-010";
+/** #384: Godzilla (2001), whose rage the opponent's effects can't reduce from zone 4 (awakening-4). */
+const RAGE_LOCK = "EBP03-004";
+/** #384: the zone its awakening needs. */
+const RAGE_LOCK_ZONE = 4;
 /** `wranglerBioHard` (Paul, Nov 15): a counter over this beats Biollante's rank III anyway. */
 const BIO_III_COUNTER = 40000;
 /** v2.2 (Ian, point 2): the monster card whose invasion fetches more (Godzilla (2023) ESD01-002). */
@@ -107,6 +120,103 @@ const battleCards = (state: GameState, who: PlayerId) =>
 const LINE_PLAYS = 3;
 /** #381: the most plays-and-choices the counter search looks at, per line. */
 const LINE_NODES = 120;
+
+/** #388: the most plays-and-choices the reset line looks at, per decision. */
+const RESET_NODES = 400;
+
+/** #381: the counter is made, or up to LINE_PLAYS battle card plays make it this turn. */
+function counterWithin(s: GameState, me: PlayerId): boolean {
+  if (counters(s, me)) return true;
+  if (s.turnPlayer !== me || s.pendingChoice) return false;
+  let nodes = LINE_NODES;
+  const search = (t: GameState, left: number): boolean => {
+    if (nodes-- <= 0) return false;
+    if (counters(t, me)) return true;
+    if (left === 0 || t.turnPlayer !== me || t.pendingChoice) return false;
+    const hand = t.players.find((p) => p.id === me)?.hand ?? [];
+    const seen = new Set<string>();
+    for (const a of getLegalActions(t, me)) {
+      if (a.type !== "playBattle") continue;
+      const c = hand.find((h) => h.instanceId === a.cardInstanceId);
+      const key = `${c ? t.cards[c.cardId]?.deckCardNumber : ""}@${a.zone}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const u = after(t, a, me);
+      if (u && search(u, left - 1)) return true;
+    }
+    return false;
+  };
+  return search(s, LINE_PLAYS);
+}
+
+/** A player's rage. */
+const rageOf = (s: GameState, who: PlayerId) =>
+  s.players.find((p) => p.id === who)?.rage ?? 0;
+
+/**
+ * #388: every way through my own pending choices from `s`, within `budget`'s plays. #417: options
+ * naming copies of one card (GAM's pick of a monster card from the discard pile, two GAMs'
+ * order) are tried once, so two GAMs' prompts fit the budget.
+ */
+function settled(
+  s: GameState,
+  me: PlayerId,
+  budget: { n: number },
+): GameState[] {
+  const choice = s.pendingChoice;
+  if (choice?.player !== me) return [s];
+  const out: GameState[] = [];
+  const seen = new Set<string>();
+  for (const c of getLegalActions(s, me)) {
+    if (c.type === "concede") continue;
+    if (c.type === "choose") {
+      const cardId = choice.options.find((o) => o.id === c.optionId)?.cardId;
+      const key =
+        cardId === null || cardId === undefined
+          ? c.optionId
+          : `card:${s.cards[cardId]?.deckCardNumber ?? cardId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    if (budget.n-- <= 0) continue;
+    try {
+      out.push(...settled(advanceToDecision(applyAction(s, c)), me, budget));
+    } catch {
+      /* an option the engine refuses: skip it */
+    }
+  }
+  return out;
+}
+
+/**
+ * #388: after GAM's reset, a rage gain (Godzilla (2023) EBP01-010's column destroy, now that a
+ * King's protection is gone), its choices, then the counter by up to LINE_PLAYS battle card plays.
+ */
+function rageThenCounter(
+  s: GameState,
+  me: PlayerId,
+  budget: { n: number },
+): boolean {
+  if (counters(s, me)) return true;
+  if (s.turnPlayer !== me || s.pendingChoice) return false;
+  const hand = s.players.find((p) => p.id === me)?.hand ?? [];
+  const seen = new Set<string>();
+  for (const g of getLegalActions(s, me)) {
+    if (g.type !== "gainRage" || budget.n <= 0) continue;
+    const c = hand.find((h) => h.instanceId === g.cardInstanceId);
+    const key = c ? (s.cards[c.cardId]?.deckCardNumber ?? "") : "";
+    if (seen.has(key)) continue;
+    seen.add(key);
+    try {
+      const next = advanceToDecision(applyAction(s, g));
+      if (settled(next, me, budget).some((t) => counterWithin(t, me)))
+        return true;
+    } catch {
+      /* skip */
+    }
+  }
+  return false;
+}
 
 /** `action` played out, the bot's own choices answered first-option, or `null`. */
 function after(
@@ -151,6 +261,8 @@ export function wranglerV2Verdict(
     bio = true,
     bioHard = true,
     pushLine = true,
+    resetLine = true,
+    tagOut = true,
     fetchRage = true,
   } = options;
   if (!isWranglerDeck(own)) return { against: new Set(), rescued: new Set() };
@@ -183,8 +295,15 @@ export function wranglerV2Verdict(
         (counters(s, me) ||
           (s.turnPlayer === me &&
             counterPlays(s, getLegalActions(s, me), me).size > 0));
-      if (!(reaches(after(state, yes, me)) && !reaches(after(state, no, me))))
-        against.add(yes);
+      const makes =
+        reaches(after(state, yes, me)) && !reaches(after(state, no, me));
+      if (!makes) against.add(yes);
+      // #417: the reset that alone makes the counter this turn is taken (the search answered no
+      // to it otherwise).
+      else if (resetLine) {
+        against.add(no);
+        return { against, rescued, pruned: new Set([no]) };
+      }
     }
     return { against, rescued };
   }
@@ -344,31 +463,8 @@ export function wranglerV2Verdict(
         if (a.type === "playMonster" || a.type === "pass") against.add(a);
   }
 
-  // #381: the counter is made, or up to LINE_PLAYS battle card plays make it this turn.
-  const reachesCounter = (s: GameState): boolean => {
-    if (counters(s, me)) return true;
-    if (s.turnPlayer !== me || s.pendingChoice) return false;
-    let nodes = LINE_NODES;
-    const search = (t: GameState, left: number): boolean => {
-      if (nodes-- <= 0) return false;
-      if (counters(t, me)) return true;
-      if (left === 0 || t.turnPlayer !== me || t.pendingChoice) return false;
-      const hand = t.players.find((p) => p.id === me)?.hand ?? [];
-      const seen = new Set<string>();
-      for (const a of getLegalActions(t, me)) {
-        if (a.type !== "playBattle") continue;
-        const c = hand.find((h) => h.instanceId === a.cardInstanceId);
-        const key = `${c ? t.cards[c.cardId]?.deckCardNumber : ""}@${a.zone}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const u = after(t, a, me);
-        if (u && search(u, left - 1)) return true;
-      }
-      return false;
-    };
-    return search(s, LINE_PLAYS);
-  };
   // #381: an invasion that reaches a push strategy's zone, the push, then the counter this turn.
+  const reachesCounter = (s: GameState) => counterWithin(s, me);
   const pushLines = new Set<Action>();
   if (
     pushLine &&
@@ -395,6 +491,48 @@ export function wranglerV2Verdict(
         })
       ) {
         pushLines.add(a);
+        against.delete(a);
+        rescued.add(a);
+      }
+    }
+
+  // #388 (Ian): the rage reset before the destroys. An invasion that triggers GAM's reset (the
+  // opponent's rage to 0, so a King's protection is gone), then a rage gain (Godzilla (2023)
+  // EBP01-010's column destroy) and up to LINE_PLAYS battle card plays, makes the counter this
+  // turn: it's taken over raging or passing (raging first spends the destroy on a protected King).
+  const resetLines = new Set<Action>();
+  // #417 (Ian): the reset lines whose invasion makes the counter right away (their rage to 0 is
+  // all it takes): the counter now, so every other move waits.
+  const resetCounters = new Set<Action>();
+  const budget = { n: RESET_NODES };
+  const gamUp = Object.values(player?.zones ?? {}).some((stacks) =>
+    stacks.some((stack) => {
+      const t = stack[stack.length - 1];
+      return t !== undefined && state.cards[t.cardId]?.deckCardNumber === GAM;
+    }),
+  );
+  if (
+    resetLine &&
+    gamUp &&
+    rageOf(state, opponent.id) > 0 &&
+    !counters(state, me) &&
+    counterPlays(state, actions, me).size === 0
+  )
+    for (const a of actions) {
+      if (a.type !== "invade" || budget.n <= 0) continue;
+      let lands: GameState[];
+      try {
+        lands = settled(advanceToDecision(applyAction(state, a)), me, budget);
+      } catch {
+        continue;
+      }
+      const reset = lands.filter((t) => rageOf(t, opponent.id) === 0);
+      if (reset.some((t) => counters(t, me))) resetCounters.add(a);
+      if (
+        resetCounters.has(a) ||
+        reset.some((t) => rageThenCounter(t, me, budget))
+      ) {
+        resetLines.add(a);
         against.delete(a);
         rescued.add(a);
       }
@@ -537,13 +675,48 @@ export function wranglerV2Verdict(
       for (const a of actions) if (a.type === "pass") against.add(a);
   }
 
-  // #381: with a push line on, raging and passing wait (rage first would spend the turn).
-  if (pushLines.size > 0)
+  // #384 (Ian): against a rage reset on their board (their GAM up with nothing under it: their next
+  // invasion sets your rage to 0), rage is only worth something on a monster it can't touch. A
+  // tag-out to Godzilla (2001) EBP03-004 (its rage can't be reduced by their effects from zone 4,
+  // where the end-phase advance takes it, 7.5.2) goes before raging or passing.
+  const theirReset = Object.values(opponent.zones).some((stacks) =>
+    stacks.some(
+      (stack) =>
+        stack.length === 1 &&
+        state.cards[stack[0]!.cardId]?.deckCardNumber === GAM,
+    ),
+  );
+  const tagOuts = actions.filter(
+    (a) => a.type === "playMonster" && number(a) === RAGE_LOCK,
+  );
+  if (
+    tagOut &&
+    theirReset &&
+    tagOuts.length > 0 &&
+    (player.monsterPosition ?? 0) + 1 >= RAGE_LOCK_ZONE
+  ) {
     for (const a of actions)
       if (a.type === "pass" || a.type === "gainRage") {
         against.add(a);
         rescued.delete(a);
       }
+    for (const a of tagOuts) {
+      against.delete(a);
+      rescued.add(a);
+    }
+  }
+
+  // #381: with a push line on, raging and passing wait (rage first would spend the turn); #388:
+  // so with a reset line (rage first would spend the destroy on a protected King).
+  if (pushLines.size > 0 || resetLines.size > 0)
+    for (const a of actions)
+      if (a.type === "pass" || a.type === "gainRage") {
+        against.add(a);
+        rescued.delete(a);
+      }
+  // #388: the reset line goes ahead of v2.1's rage to 3 for a King in zones 1-5 (its rage gains
+  // come right after the invasion, so the King is covered by the end of the turn).
+  for (const a of resetLines) against.delete(a);
 
   // wranglerBio (Ian, Nov 15): the Wrangler play guide's rules against Biollante.
   // wranglerBioHard (Paul, Nov 15): its strategy, Rose Form and zone 5 lines are prunes, not
@@ -613,6 +786,20 @@ export function wranglerV2Verdict(
           else hard(a);
   }
 
+  // #417: a reset invasion that makes the counter now is taken, as card rule 7 takes a way to
+  // the counter: every other move is pruned (an invasion that wins now aside), the monster plays
+  // too (as a preference, the search took a monster play over it).
+  if (resetCounters.size > 0)
+    for (const a of actions)
+      if (
+        a.type !== "concede" &&
+        !resetCounters.has(a) &&
+        !(a.type === "invade" && winsNow(state, a, me))
+      ) {
+        against.add(a);
+        rescued.delete(a);
+        pruned.add(a);
+      }
   // Never argue against everything.
   if (actions.every((a) => a.type === "concede" || against.has(a)))
     against.clear();
