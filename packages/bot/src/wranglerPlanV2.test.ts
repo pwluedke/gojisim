@@ -403,6 +403,52 @@ describe("the Wrangler plan v2", () => {
     for (const a of invade(SLITHERING)) expect(v21.against.has(a)).toBe(true);
   });
 
+  it("#425 (Ian's record 9a35a4c6 move 37): Kings to be played count for v2.2's fetch invasion; the one that reaches 3 rage (two zones, two fetches) is taken over tagging out", () => {
+    const judge = (fetchRage: boolean) => {
+      const { state, p1 } = position(
+        [KING, KING, KING, DESPAIR, "EBP01-008"],
+        4,
+        8,
+        12,
+      );
+      p1.invadingMonsterZone = ["EBP01-001", "ESD01-002"].map((n) =>
+        add(state, real(n), "P1"),
+      );
+      // The rank III burst Godzilla (2023) the invasion fetches, in the deck.
+      p1.deck.unshift(
+        ...Array.from({ length: 3 }, () => add(state, real("ESD01-006"), "P1")),
+      );
+      p1.rage = 0;
+      const legal = getLegalActions(state, "P1");
+      const v = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
+        fetchRage,
+      });
+      const invade = (n: string) =>
+        legal
+          .filter((a) => a.type === "invade" && ofCard(state, p1, a) === n)
+          .map((a) => v.against.has(a));
+      return {
+        payKing: invade(KING),
+        payDespair: invade(DESPAIR),
+        tagOut: legal
+          .filter((a) => a.type === "playMonster")
+          .map((a) => v.against.has(a)),
+      };
+    };
+    const on = judge(true);
+    // A King has invasion icon 2: two zones, two fetches, three monster cards for 3 rage.
+    expect(on.payKing.length).toBeGreaterThan(0);
+    for (const d of on.payKing) expect(d).toBe(false);
+    // Despair has icon 1: one fetch, 2 rage, short of 3.
+    for (const d of on.payDespair) expect(d).toBe(true);
+    expect(on.tagOut.length).toBeGreaterThan(0);
+    for (const d of on.tagOut) expect(d).toBe(true);
+    // `wranglerFetchRage: false` (the control): no King in zones 1-5, so no fetch invasion.
+    const off = judge(false);
+    for (const d of off.payKing) expect(d).toBe(true);
+    for (const d of off.tagOut) expect(d).toBe(false);
+  });
+
   it("v2.2 (Ian, point 10): Godzilla Against Mechagodzilla's rage reset is saved when it doesn't make the counter", () => {
     const { state, p1 } = position([LANDING], 3, 2);
     p1.zones[1] = [[add(state, real(GAM), "P1")]];
