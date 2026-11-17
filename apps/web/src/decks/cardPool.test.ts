@@ -63,6 +63,17 @@ describe("the Deckbuilder's card pool (#157)", () => {
     ).toBe(true);
     const godzilla = applyFilter(pool, { ...NO_FILTER, trait: "godzilla" });
     expect(godzilla.length).toBeGreaterThan(0);
+    // #447: the invasion icon (1-step, 2-step), or none (rage and token cards).
+    const twoStep = applyFilter(pool, { ...NO_FILTER, invasion: "2" });
+    expect(twoStep.length).toBeGreaterThan(0);
+    expect(twoStep.every((e) => e.card.invadeZones === 2)).toBe(true);
+    const oneStep = applyFilter(pool, { ...NO_FILTER, invasion: "1" });
+    expect(oneStep.length).toBeGreaterThan(0);
+    expect(oneStep.every((e) => e.card.invadeZones === 1)).toBe(true);
+    const none = applyFilter(pool, { ...NO_FILTER, invasion: "none" });
+    expect(none.length).toBeGreaterThan(0);
+    expect(none.every((e) => e.card.invadeZones === null)).toBe(true);
+    expect(oneStep.length + twoStep.length + none.length).toBe(pool.length);
     const burst = applyFilter(pool, { ...NO_FILTER, keyword: "burst" });
     expect(burst.length).toBeGreaterThan(0);
     expect(burst.every((e) => e.keywords.includes("burst"))).toBe(true);
@@ -125,8 +136,11 @@ describe("the Deckbuilder's card pool (#157)", () => {
       trait: "Godzilla",
       keyword: "burst",
       movie: "Godzilla (1954)",
+      invasion: "2" as const,
     };
     expect(filterFromQuery(filterToQuery(f))).toEqual(f);
+    expect(filterFromQuery("invasion=none").invasion).toBe("none");
+    expect(filterFromQuery("invasion=3").invasion).toBe("");
     expect(filterToQuery(NO_FILTER)).toBe("");
     expect(filterFromQuery("type=Rage,Monster&rankMin=x&rankMax=99")).toEqual({
       ...NO_FILTER,

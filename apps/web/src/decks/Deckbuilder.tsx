@@ -26,6 +26,7 @@ import {
   facets,
   filterFromQuery,
   filterToQuery,
+  type InvasionFilter,
   movieOf,
   NO_FILTER,
   type PoolEntry,
@@ -370,6 +371,21 @@ export function Deckbuilder() {
               />
             </span>
           </fieldset>
+          <label className={styles.field}>
+            Invasion
+            <select
+              data-testid="db-invasion"
+              value={filter.invasion}
+              onChange={(e) =>
+                set({ invasion: e.target.value as InvasionFilter })
+              }
+            >
+              <option value="">Any</option>
+              <option value="1">1-step</option>
+              <option value="2">2-step</option>
+              <option value="none">None</option>
+            </select>
+          </label>
           <label className={styles.field}>
             Trait
             <input
