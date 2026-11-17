@@ -61,6 +61,9 @@ import {
  * - Tag out against a reset (#384, Ian, `wranglerTagOut`): with the opponent's GAM up and unused,
  *   a tag-out to Godzilla (2001) EBP03-004 (rage the opponent can't reduce from zone 4) goes
  *   before raging or passing.
+ * - Fetch for rage (#425, Ian, `wranglerFetchRage`): v2.2's fetch invasion (Godzilla (2023)
+ *   ESD01-002 on top) counts a King to be played this turn, not only one in zones 1-5; with such an
+ *   invasion, tagging out (it loses the fetch) and passing wait.
  */
 
 export const KING = "EBP01-075";
@@ -260,6 +263,7 @@ export function wranglerV2Verdict(
     pushLine = true,
     resetLine = true,
     tagOut = true,
+    fetchRage = true,
   } = options;
   if (!isWranglerDeck(own)) return { against: new Set(), rescued: new Set() };
   // Line 1 (v1's Despair line) goes first.
@@ -408,10 +412,15 @@ export function wranglerV2Verdict(
     const free = actions.filter(
       (a) => a.type === "gainRage" && !HELD.has(number(a) ?? ""),
     ).length;
+    // #425 (Ian): a King to be played this turn counts too, not only one already in zones 1-5.
+    const kingPlay =
+      fetchRage &&
+      actions.some((a) => a.type === "playBattle" && number(a) === KING);
     const short =
-      kingIn([1, 2, 3, 4, 5]) &&
+      (kingIn([1, 2, 3, 4, 5]) || kingPlay) &&
       player.rage < kingRage &&
       player.rage + free < kingRage;
+    let fetching = false;
     const counterNow =
       counters(state, me) || counterPlays(state, actions, me).size > 0;
     for (const a of actions) {
@@ -428,8 +437,30 @@ export function wranglerV2Verdict(
       const need = short || counterAfter;
       const spare =
         pay?.deckCardNumber === DESPAIR || pay?.deckCardNumber === SLITHERING;
-      if (need && (icon >= 2 || spare)) against.delete(a);
+      // #425: for a King still in hand (v2.2's King in zones 1-5 keeps its "closer" rule), the
+      // line must reach the rage: the rage now and a discard for each monster card in hand after
+      // the invasion (its fetches in).
+      const reaches =
+        !fetchRage ||
+        !short ||
+        counterAfter ||
+        kingIn([1, 2, 3, 4, 5]) ||
+        (!!s &&
+          player.rage +
+            (s.players.find((p) => p.id === me)?.hand ?? []).filter(
+              (c) => s.cards[c.cardId]?.type === "Monster",
+            ).length >=
+            kingRage);
+      if (need && (icon >= 2 || spare) && reaches) {
+        against.delete(a);
+        fetching = true;
+      }
     }
+    // #425: with a fetch invasion the bot needs, tagging out (its fetch goes with Godzilla (2023)
+    // ESD01-002) and passing wait.
+    if (fetchRage && fetching)
+      for (const a of actions)
+        if (a.type === "playMonster" || a.type === "pass") against.add(a);
   }
 
   // #381: an invasion that reaches a push strategy's zone, the push, then the counter this turn.

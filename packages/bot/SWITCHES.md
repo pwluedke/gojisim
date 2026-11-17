@@ -242,6 +242,12 @@ Default 0 · measured · from Paul, Nov 15
 
 Three of `wranglerBio`'s lines as prunes (the search and a blunder can't override them): no strategy when Biollante's rank III EBP02-027 can reach zone 6+, unless your counter beats 40,000; no counter on its Rose Form; no push out of zone 5. Needs `wranglerBio`. Off by default: its check was worse (40 / 160 vs 63 / 160, Paul, Nov 15).
 
+### `wranglerFetchRage`
+
+Default 1 · built · from #425
+
+The Wrangler plan's fetch for rage (Ian): with Godzilla (2023) ESD01-002 on top, v2.2's invasion for its fetch (a rank III Godzilla (2023) per zone it invades) counts a King to be played this turn as one to protect with 3 rage, not only one in zones 1-5; with such an invasion, tagging out (its fetch goes with it) and passing wait. Needs `wranglerPlan` 2.
+
 ### `wranglerPlan`
 
 Default 2 · kept · from #276, #311
