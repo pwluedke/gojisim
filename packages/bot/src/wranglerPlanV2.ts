@@ -52,6 +52,9 @@ import {
  *   strategy's zone (8.3.1). An invasion (not paid with a push card) after which a push strategy
  *   and then battle card plays make the counter this turn is taken over raging or passing; the
  *   push's follow-up counts a counter made by up to 3 battle card plays, not only one.
+ * - Spare cost (#418, Ian, `wranglerSpareCost`): early (your monster at rank I or II), an invasion
+ *   paid with a spare strategy (The Slithering Disaster, a Despair beyond the one kept; never
+ *   Godzilla Landing) is freed from "don't race".
  */
 
 export const KING = "EBP01-075";
@@ -72,6 +75,8 @@ const COLUMN_CLEAR = "EBP01-010";
 const BIO_III_COUNTER = 40000;
 /** v2.2 (Ian, point 2): the monster card whose invasion fetches more (Godzilla (2023) ESD01-002). */
 const FETCH_MONSTER = "ESD01-002";
+/** #418: the highest rank of your monster while a spare strategy pays an invasion. */
+const SPARE_COST_RANK = 2;
 /** #321: the cards kept when discarding down, while a spare monster card can go instead. */
 const KEY_CARDS = new Set([
   LANDING,
@@ -148,6 +153,7 @@ export function wranglerV2Verdict(
     bio = true,
     bioHard = true,
     pushLine = true,
+    spareCost = true,
   } = options;
   if (!isWranglerDeck(own)) return { against: new Set(), rescued: new Set() };
   // Line 1 (v1's Despair line) goes first.
@@ -279,6 +285,26 @@ export function wranglerV2Verdict(
   // Don't race: an invasion only when it wins this turn; never paid with a push card.
   for (const a of actions)
     if (a.type === "invade" && !winsNow(state, a, me)) against.add(a);
+  const top0 = player.invadingMonsterZone.at(-1);
+  // #418 (Ian): early (your monster at rank I or II), a dead strategy clogs the hand: an
+  // invasion paid with a spare one is freed from "don't race" (monster cards still go for rage).
+  // Spares: The Slithering Disaster, and a Despair beyond the one the plan keeps. Never Godzilla
+  // Landing (card rule 31).
+  const topRank = (top0 && state.cards[top0.cardId]?.rank) ?? 0;
+  if (spareCost && topRank <= SPARE_COST_RANK) {
+    const despairs = player.hand.filter(
+      (c) => state.cards[c.cardId]?.deckCardNumber === DESPAIR,
+    ).length;
+    for (const a of actions) {
+      if (a.type !== "invade" || winsNow(state, a, me)) continue;
+      const n = card(a.cardInstanceId)?.deckCardNumber;
+      if (n === SLITHERING || (n === DESPAIR && despairs >= 2)) {
+        against.delete(a);
+        rescued.add(a);
+      }
+    }
+  }
+
   // v2.2 (Ian, point 2): with Godzilla (2023) ESD01-002 on top, an invasion for its fetch (a rank
   // III burst Godzilla (2023) per zone it invades) when the bot needs the monster cards: to reach
   // 3 rage with a King in zones 1-5 that its free rage discards can't, or to make a counter it

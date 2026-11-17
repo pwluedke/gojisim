@@ -396,11 +396,41 @@ describe("the Wrangler plan v2", () => {
     const { against } = wranglerV2Verdict(state, legal, "P1", WRANGLER);
     for (const a of invade(SLITHERING)) expect(against.has(a)).toBe(false);
     for (const a of invade(LANDING)) expect(against.has(a)).toBe(true);
-    // v2.1 (`v22: false`): don't race, so both are argued against.
+    // v2.1 (`v22: false`, and #418's spare cost off): don't race, so both are argued against.
     const v21 = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
       v22: false,
+      spareCost: false,
     });
     for (const a of invade(SLITHERING)) expect(v21.against.has(a)).toBe(true);
+  });
+
+  it("#418 (Ian; Paul's option a): early, an invasion paid with a spare strategy (The Slithering Disaster, a second Despair) is freed from don't race; one Despair, a monster card or a later rank isn't", () => {
+    const judge = (hand: string[], top = "EBP01-001", spareCost = true) => {
+      const { state, p1 } = position(hand, 2, 2, 4);
+      p1.invadingMonsterZone = [add(state, real(top), "P1")];
+      const legal = getLegalActions(state, "P1");
+      const v = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
+        spareCost,
+      });
+      return (n: string) =>
+        legal
+          .filter((a) => a.type === "invade" && ofCard(state, p1, a) === n)
+          .map((a) => v.against.has(a));
+    };
+    const early = judge([SLITHERING, DESPAIR, "EBP01-002"]);
+    expect(early(SLITHERING).length).toBeGreaterThan(0);
+    for (const d of early(SLITHERING)) expect(d).toBe(false);
+    // One Despair: the plan keeps it. A monster card goes for rage, not as a cost.
+    for (const d of early(DESPAIR)) expect(d).toBe(true);
+    for (const d of early("EBP01-002")) expect(d).toBe(true);
+    // A second Despair is a spare.
+    for (const d of judge([DESPAIR, DESPAIR])(DESPAIR)) expect(d).toBe(false);
+    // Later (rank IV): don't race as before.
+    for (const d of judge([SLITHERING], "EBP01-010")(SLITHERING))
+      expect(d).toBe(true);
+    // `wranglerSpareCost: false` (the control).
+    for (const d of judge([SLITHERING], "EBP01-001", false)(SLITHERING))
+      expect(d).toBe(true);
   });
 
   it("v2.2 (Ian, point 10): Godzilla Against Mechagodzilla's rage reset is saved when it doesn't make the counter", () => {
