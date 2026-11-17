@@ -199,7 +199,7 @@ test("End Main confirm: Cancel and Esc keep the main phase; the old Pass setting
   await expect(page.getByTestId("setting-confirm-pass")).toHaveCount(0);
 });
 
-test("a single-target destroy is still asked (confirmSingleTarget), with its zone label; hovering it rings the zone", async ({
+test("a single-target destroy is still asked (confirmSingleTarget), with its zone label; hovering it rings the zone and names it (#421)", async ({
   page,
 }) => {
   await loadFixture(page, "single-target");
@@ -208,13 +208,17 @@ test("a single-target destroy is still asked (confirmSingleTarget), with its zon
   const option = page.getByTestId("choice-option");
   await expect(option).toHaveCount(1);
   const label = page.getByTestId("choice-location");
-  await expect(label).toHaveText(/^Z[1-8]( \(opponent\))?$/);
+  await expect(label).toHaveText(/^Zone [1-8]( \(opponent\))?$/);
   const [, zone, theirs] =
-    /^Z(\d)( \(opponent\))?$/.exec((await label.textContent()) ?? "") ?? [];
+    /^Zone (\d)( \(opponent\))?$/.exec((await label.textContent()) ?? "") ?? [];
   const cell = `zone-${theirs ? "P2" : "P1"}-${zone}`;
   await option.hover();
   const ring = page.getByTestId("target-ring");
   await expect(ring).toHaveAttribute("data-for", cell);
+  // #421: the lit zone says which zone it is.
+  await expect(page.getByTestId("target-ring-label")).toHaveText(
+    (await label.textContent()) ?? "",
+  );
   const [a, b] = [
     await ring.boundingBox(),
     await page.getByTestId(cell).boundingBox(),

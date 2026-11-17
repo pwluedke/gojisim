@@ -91,9 +91,11 @@ export function ChoiceModal({
     card: Card;
   } | null>(null);
   // The mat cell of the hovered target, ringed over the backdrop.
-  const [ring, setRing] = useState<{ testId: string; rect: DOMRect } | null>(
-    null,
-  );
+  const [ring, setRing] = useState<{
+    testId: string;
+    rect: DOMRect;
+    label?: string;
+  } | null>(null);
   const choice = state.pendingChoice;
   const choose = actions.filter((a): a is Choose => a.type === "choose");
   const done = choose.find((a) => a.optionId === "done");
@@ -414,10 +416,18 @@ export function ChoiceModal({
                   ? {
                       testId: location.testId,
                       rect: cell.getBoundingClientRect(),
+                      label: location.label,
                     }
                   : null,
               );
             };
+            // #421 (Ian): copies of one card in different places show where each one is on
+            // the card itself, not only in the line above it.
+            const copies =
+              !!card &&
+              shownOptions.filter(
+                (a) => optionCard(a)?.deckCardNumber === card.deckCardNumber,
+              ).length > 1;
             const ordering =
               kind === "standbyOrder" || kind === "replacementOrder";
             const order = selected.indexOf(action.optionId) + 1;
@@ -466,6 +476,14 @@ export function ChoiceModal({
                   {!search && (
                     <span className={styles.keyBadge} data-testid="choice-key">
                       {i + 1}
+                    </span>
+                  )}
+                  {copies && location && (
+                    <span
+                      className={styles.choiceZoneBadge}
+                      data-testid="choice-zone"
+                    >
+                      {location.label}
                     </span>
                   )}
                   {order > 0 && (
@@ -576,7 +594,16 @@ export function ChoiceModal({
             width: ring.rect.width,
             height: ring.rect.height,
           }}
-        />
+        >
+          {ring.label && (
+            <span
+              className={styles.targetRingLabel}
+              data-testid="target-ring-label"
+            >
+              {ring.label}
+            </span>
+          )}
+        </div>
       )}
       <FloatingWindow
         title={<span data-testid="choice-heading">{heading}</span>}

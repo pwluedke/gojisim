@@ -1588,6 +1588,36 @@
   pointer-events: none;
 }
 
+/* #421: the ringed place's name ("Zone 8"), on the ring, so the lit zone says which one it is. */
+.targetRingLabel {
+  position: absolute;
+  top: -1.6em;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--color-highlight);
+  color: var(--color-chip-text);
+  font-size: var(--font-size-sm);
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+/* #421: the zone of one of several copies of a card in a pick, on the card button. */
+.choiceZoneBadge {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--color-chip);
+  color: var(--color-chip-text);
+  font-size: var(--font-size-sm);
+  font-weight: bold;
+  white-space: nowrap;
+}
+
 /* The history view's banner, at the bottom over the (locked) hand, clear of the side columns. */
 /* The history view's bar (M5h #12): full width at the bottom, with a big Back to live button. */
 .historyBanner {
