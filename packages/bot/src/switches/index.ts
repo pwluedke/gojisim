@@ -41,8 +41,11 @@ import targetCheck from "./targetCheck";
 import targetKey from "./targetKey";
 import wranglerBio from "./wranglerBio";
 import wranglerBioHard from "./wranglerBioHard";
+import wranglerFetchRage from "./wranglerFetchRage";
 import wranglerPlan from "./wranglerPlan";
 import wranglerPushLine from "./wranglerPushLine";
+import wranglerResetLine from "./wranglerResetLine";
+import wranglerTagOut from "./wranglerTagOut";
 import wranglerV21 from "./wranglerV21";
 import wranglerV22 from "./wranglerV22";
 import wranglerV23 from "./wranglerV23";
@@ -89,8 +92,11 @@ export const SWITCHES = [
   targetKey,
   wranglerBio,
   wranglerBioHard,
+  wranglerFetchRage,
   wranglerPlan,
   wranglerPushLine,
+  wranglerResetLine,
+  wranglerTagOut,
   wranglerV21,
   wranglerV22,
   wranglerV23,

@@ -254,6 +254,12 @@ Default 0 · measured · from Paul, Nov 15
 
 Three of `wranglerBio`'s lines as prunes (the search and a blunder can't override them): no strategy when Biollante's rank III EBP02-027 can reach zone 6+, unless your counter beats 40,000; no counter on its Rose Form; no push out of zone 5. Needs `wranglerBio`. Off by default: its check was worse (40 / 160 vs 63 / 160, Paul, Nov 15).
 
+### `wranglerFetchRage`
+
+Default 1 · built · from #425
+
+The Wrangler plan's fetch for rage (Ian): with Godzilla (2023) ESD01-002 on top, v2.2's invasion for its fetch (a rank III Godzilla (2023) per zone it invades) counts a King to be played this turn as one to protect with 3 rage, not only one in zones 1-5; with such an invasion, tagging out (its fetch goes with it) and passing wait. Needs `wranglerPlan` 2.
+
 ### `wranglerPlan`
 
 Default 2 · kept · from #276, #311
@@ -265,6 +271,18 @@ The Wrangler plan: 2 is v2 (`wranglerPlanV2.ts`, with the card rules), 1 is v1 (
 Default 1 · built · from #381
 
 The Wrangler plan's push line (Ian): an invasion that reaches a push strategy's zone (The Slithering Disaster, Godzilla Landing), after which the push and up to 3 battle card plays make the counter this turn, is taken over raging or passing; a push's follow-up counts a counter made by up to 3 plays. Needs `wranglerPlan` 2.
+
+### `wranglerResetLine`
+
+Default 1 · built · from #388
+
+The Wrangler plan's reset line (Ian): an invasion that triggers Godzilla Against Mechagodzilla EBP01-073's rage reset (the opponent's rage to 0, so a King's protection is gone), after which a rage gain (Godzilla (2023) EBP01-010's column destroy) and up to 3 battle card plays make the counter this turn, is taken over raging or passing, ahead of v2.1's rage to 3 for a King. Needs `wranglerPlan` 2.
+
+### `wranglerTagOut`
+
+Default 1 · built · from #384
+
+The Wrangler plan's tag-out against a rage reset (Ian): with the opponent's Godzilla Against Mechagodzilla EBP01-073 up and nothing under it (their next invasion sets your rage to 0), a tag-out to Godzilla (2001) EBP03-004 (from zone 4 its rage can't be reduced by their effects; the end-phase advance takes it there) goes before raging or passing. Needs `wranglerPlan` 2.
 
 ### `wranglerV21`
 
