@@ -62,6 +62,18 @@ Default 0 · measured · from #307
 
 Slick's Red Fest plan (`festPlan.ts`), with `rules`. Off by default.
 
+### `festRankOne`
+
+Default 1 · built · from #400
+
+The Red Fest plan's rank I line (Slick): the rank I Fest EBP01-011 invades only to line up its same-column push with a counter to follow this turn (up to 3 battle card plays); no other rank I invasion. Needs `festPlan` (off by default).
+
+### `festWall`
+
+Default 1 · built · from #400
+
+The Red Fest plan's wall-up (Slick): against Monster X, once losing the counter race (2 ranks above their monster, or 1 with its own monster in zones 6-8), below rank IV no invasion but a winning one, Heat Ray ESD01-016 held for the invasion win, the rank IV Godzilla (2023) EBP01-010 not raged away or paid with. Needs `festPlan` (off by default).
+
 ### `keepLowRank`
 
 Default 1 · built · from #326
@@ -164,11 +176,41 @@ Default 0; 1 from Hard (`difficulty.ts`) · kept · from #175
 
 Paul's play rules at the search root (`rules.ts`): prunes and prior bonuses.
 
+### `tanglerBuild`
+
+Default 1 · built · from #403
+
+The Tangler plan's rule 1 (BFW182): the low evolution cards (rank 4 or lower with [evolution]) come out early: no passing while one can be played, even with the counter made. Needs `tanglerPlan`.
+
+### `tanglerDiscard`
+
+Default 1 · built · from #403
+
+The Tangler plan's rule 3 (BFW182): with a rage-lowering monster (Godzilla (2002) EBP03-015, Godzilla (2003) EPR-020, EBP03-017) and the opponent's rage above 0, a battle card worth less than 5000 on the board this turn (3.4.5) is the discard picked first, and a rage gain that discards one goes before passing; off at their rage 0 (3.4.4). Needs `tanglerPlan`.
+
 ### `tanglerEarly`
 
 Default 1 · built · from #314
 
 Card rule 29: a Tangler deck (Godzilla (2002) EBP03-014 and EBP03-015 in its monster deck, Entangling Fear EBP04-081 in its main deck; Paul's signature) doesn't invade before its own turn 4 unless the invasion wins this turn.
+
+### `tanglerFear`
+
+Default 1 · built · from #403
+
+The Tangler plan's rule 1 (BFW182, #369): one Entangling Fear EBP04-081 every turn it can be played and none is in force (no passing before it); spare copies kept (none discarded, raged or paid with while fewer than 3 are in hand). Needs `tanglerPlan`.
+
+### `tanglerPlan`
+
+Default 1 · built · from #403
+
+BFW182's Tangler plan (`tanglerPlan.ts`), with `rules`: Entangling Fear every turn, spares kept, the low evolution cards early, discards by the rage math, and the hand kept once the counter is made.
+
+### `tanglerStop`
+
+Default 1 · built · from #403
+
+The Tangler plan's rule 5 (BFW182): with the counter made, battle card plays, strategies and rage gains wait (but Entangling Fear and the low evolution cards), so the rest of the hand is kept for later turns. Needs `tanglerPlan`.
 
 ### `targetAll`
 
@@ -211,6 +253,12 @@ The Wrangler plan: 2 is v2 (`wranglerPlanV2.ts`, with the card rules), 1 is v1 (
 Default 1 · built · from #381
 
 The Wrangler plan's push line (Ian): an invasion that reaches a push strategy's zone (The Slithering Disaster, Godzilla Landing), after which the push and up to 3 battle card plays make the counter this turn, is taken over raging or passing; a push's follow-up counts a counter made by up to 3 plays. Needs `wranglerPlan` 2.
+
+### `wranglerResetLine`
+
+Default 1 · built · from #388
+
+The Wrangler plan's reset line (Ian): an invasion that triggers Godzilla Against Mechagodzilla EBP01-073's rage reset (the opponent's rage to 0, so a King's protection is gone), after which a rage gain (Godzilla (2023) EBP01-010's column destroy) and up to 3 battle card plays make the counter this turn, is taken over raging or passing, ahead of v2.1's rage to 3 for a King. Needs `wranglerPlan` 2.
 
 ### `wranglerTagOut`
 

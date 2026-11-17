@@ -32,7 +32,7 @@ describe("targetLocation (M5d choice labels)", () => {
     p2.hand.push(card(4));
     state.revealed = ["c990004"];
     expect(at("c990001")).toEqual({
-      label: "Z3 (opponent)",
+      label: "Zone 3 (opponent)",
       testId: "zone-P2-3",
     });
     expect(at("c990002")).toEqual({

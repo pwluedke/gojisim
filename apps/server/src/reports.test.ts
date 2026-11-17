@@ -7,6 +7,7 @@ import { createAppServer } from "./index.js";
 import {
   botLevels,
   communityMessage,
+  deckLabel,
   firstAppFrame,
   gameContext,
   MESSAGE_MAX,
@@ -384,7 +385,7 @@ describe("community posts: Report bug to #bugs, bot feedback to #bot-feedback (#
     );
   });
 
-  it("nothing private reaches a community post: no file, decks, deck names, move label or ids", async () => {
+  it("nothing private reaches a community post: no file, deck lists, move label or ids (#430: the deck names do)", async () => {
     const { calls, fake } = fakeFetch();
     const post = reportPoster({
       webhook: undefined,
@@ -401,14 +402,31 @@ describe("community posts: Report bug to #bugs, bot feedback to #bot-feedback (#
         GAME,
         ".json",
         "SECRET",
-        "ESD01 official",
-        "Kaiju Rush",
+        "Monster deck (",
+        "Main deck (",
         "Move Godzilla",
         "--at",
       ])
         expect(text, secret).not.toContain(secret);
       expect(c.body).toMatchObject({ allowed_mentions: { parse: [] } });
     }
+  });
+
+  it('#430 (Paul): the deck names read "mirror <name>" when both seats run the same deck, else "<name> vs <name>", in the staff and the community posts', () => {
+    const mirror = {
+      ...record,
+      deckNames: { P1: "Wrangler (generic)", P2: "Wrangler (generic)" },
+    };
+    expect(deckLabel(mirror)).toBe("mirror Wrangler (generic)");
+    expect(deckLabel(record)).toBe("ESD01 official vs Kaiju Rush");
+    expect(deckLabel({ ...record, deckNames: {} })).toBe(
+      "Mystery Deck vs Mystery Deck",
+    );
+    expect(gameContext(mirror).decks).toBe("mirror Wrangler (generic)");
+    const [, bb] = newReports(mirror, null);
+    expect(communityMessage(bb!, botLevels(mirror), deckLabel(mirror))).toBe(
+      "**Bad Bot!** · Turn 6, Main phase · vs Easy bot · mirror Wrangler (generic)\n> big blunder",
+    );
   });
 
   it("each kind goes to its channel; opted-out entries, the Mailbox and crashes stay off them", async () => {
@@ -424,8 +442,14 @@ describe("community posts: Report bug to #bugs, bot feedback to #bot-feedback (#
     expect(
       calls.map((c) => [c.url, String(c.body["content"]).split("\n")[0]]),
     ).toEqual([
-      [BUGS, "**Report bug** · from Kong Fan · Turn 6, Main phase"],
-      [BOTS, "**Bad Bot!** · Turn 6, Main phase · vs Easy bot"],
+      [
+        BUGS,
+        "**Report bug** · from Kong Fan · Turn 6, Main phase · ESD01 official vs Kaiju Rush",
+      ],
+      [
+        BOTS,
+        "**Bad Bot!** · Turn 6, Main phase · vs Easy bot · ESD01 official vs Kaiju Rush",
+      ],
     ]);
     // An entry from an app before #214 (no `community`) was never offered: not posted.
     calls.length = 0;

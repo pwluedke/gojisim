@@ -23,6 +23,8 @@ import {
   isFestDeck,
   RIDE,
   SPACE_BEAM,
+  HEAT_RAY,
+  GODZILLA_2023_IV,
 } from "./festPlan";
 import type { Decklist } from "./types";
 
@@ -124,7 +126,10 @@ describe("the Red Fest plan", () => {
       const legal = getLegalActions(state, "P1");
       const invades = legal.filter((a) => a.type === "invade");
       expect(invades.length).toBeGreaterThan(0);
-      const { against } = festVerdict(state, legal, "P1", FEST);
+      // Line 2 as it was (`festRankOne: false`); the rank I line has its own test below.
+      const { against } = festVerdict(state, legal, "P1", FEST, undefined, {
+        rankOne: false,
+      });
       return invades.every((a) => against.has(a));
     };
     expect(invadesAgainst("EBP01-011", ["ESD01-005", "ESD01-006"])).toBe(true);
@@ -138,6 +143,38 @@ describe("the Red Fest plan", () => {
         SPACE_BEAM,
       ]),
     ).toBe(false);
+  });
+
+  it("line 2, rank I (#400, Slick): the rank I Fest invades only to line up its same-column push with a counter to follow; not without the counter, not paid with the card the counter needs", () => {
+    // Your monster in zone 1, theirs in zone 7: the rank I's advance into their column pushes
+    // them to zone 8 (EBP01-011's [column-advance]), where the battle cards in hand counter.
+    const verdict = (hand: string[], rankOne = true) => {
+      const { state, p1 } = position("EBP01-011", hand, 7);
+      p1.monsterPosition = 1;
+      const legal = getLegalActions(state, "P1");
+      const invades = legal.filter((a) => a.type === "invade");
+      expect(invades.length).toBeGreaterThan(0);
+      const { against } = festVerdict(state, legal, "P1", FEST, undefined, {
+        rankOne: rankOne,
+      });
+      return new Map(
+        invades.map((a) => [ofCard(state, p1, a), against.has(a)]),
+      );
+    };
+    const line = verdict(["ESD01-011", "ESD01-012", "ESD01-013"]);
+    expect(line.get("ESD01-011")).toBe(false);
+    expect(line.get("ESD01-013")).toBe(false);
+    // Paid with ESD01-012, the counter is gone: still argued against.
+    expect(line.get("ESD01-012")).toBe(true);
+    // The push but nothing to counter with: argued against.
+    for (const d of verdict(["ESD01-005", "ESD01-006"]).values())
+      expect(d).toBe(true);
+    // `festRankOne: false` (the paired check's control): line 2 as it was.
+    for (const d of verdict(
+      ["ESD01-011", "ESD01-012", "ESD01-013"],
+      false,
+    ).values())
+      expect(d).toBe(true);
   });
 
   it("line 3: Anguirus (2004) EBP02-016 goes in zone 1 or 2", () => {
@@ -196,5 +233,51 @@ describe("the Red Fest plan", () => {
     const plain = festVerdict(state, legal, "P1", FEST);
     for (const a of legal)
       if (a.type === "pass") expect(plain.against.has(a)).toBe(false);
+  });
+
+  it("line 5, wall up (#400, Slick): against Monster X and losing the counter race (two ranks ahead of them, or one with their counter likely), no invasion below rank IV but a winning one, and Heat Ray and the rank IV Godzilla (2023) are held", () => {
+    const monsterX = getAllCards().find(
+      (c) =>
+        c.name === "Monster X" && c.type === "Monster" && c.parentId === null,
+    ) as Card;
+    const theirs: Decklist = { monsterDeck: [monsterX], mainDeck: [] };
+    // Your rank III Fest against their rank I: two ranks ahead, the counter race lost (Slick).
+    const verdict = (theirTop: string, wall = true, myAt?: ZoneNumber) => {
+      const { state, p1, p2 } = position(
+        "EBP01-013",
+        [HEAT_RAY, GODZILLA_2023_IV, "ESD01-005"],
+        4,
+      );
+      p2.invadingMonsterZone = [add(state, real(theirTop), "P2")];
+      if (myAt) p1.monsterPosition = myAt;
+      const legal = getLegalActions(state, "P1");
+      const { against } = festVerdict(state, legal, "P1", FEST, theirs, {
+        wall: wall,
+      });
+      const of = (pick: (a: Action) => boolean) =>
+        legal.filter(pick).map((a) => against.has(a));
+      return {
+        rage2023: of(
+          (a) =>
+            a.type === "gainRage" && ofCard(state, p1, a) === GODZILLA_2023_IV,
+        ),
+        heatRay: of(
+          (a) =>
+            a.type === "activateStrategy" && ofCard(state, p1, a) === HEAT_RAY,
+        ),
+      };
+    };
+    const walled = verdict("ESD02-001");
+    expect(walled.rage2023.length).toBeGreaterThan(0);
+    for (const d of walled.rage2023) expect(d).toBe(true);
+    expect(walled.heatRay.length).toBeGreaterThan(0);
+    for (const d of walled.heatRay) expect(d).toBe(true);
+    // One rank ahead (their rank II): no wall, unless your monster is where their counter can
+    // reach it (zones 6-8) next turn.
+    for (const d of verdict("ESD02-002").rage2023) expect(d).toBe(false);
+    for (const d of verdict("ESD02-002", true, 6).rage2023)
+      expect(d).toBe(true);
+    // `festWall: false` (the paired check's control).
+    for (const d of verdict("ESD02-001", false).rage2023) expect(d).toBe(false);
   });
 });
