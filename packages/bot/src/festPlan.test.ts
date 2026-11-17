@@ -177,6 +177,61 @@ describe("the Red Fest plan", () => {
       expect(d).toBe(true);
   });
 
+  it("#406 (Slick): the rank II Fest invades when its end-phase push takes their monster to zone 6 or beyond (the counter next turn, 5.15.1.1)", () => {
+    const against = (oppAt: ZoneNumber, rankTwoPush = true) => {
+      const { state } = position(
+        "EBP01-012",
+        ["ESD01-005", "ESD01-006"],
+        oppAt,
+      );
+      const legal = getLegalActions(state, "P1");
+      const invades = legal.filter((a) => a.type === "invade");
+      expect(invades.length).toBeGreaterThan(0);
+      const v = festVerdict(state, legal, "P1", FEST, undefined, {
+        rankTwoPush,
+      });
+      return invades.map((a) => v.against.has(a));
+    };
+    for (const d of against(5)) expect(d).toBe(false);
+    // Zone 3: the push takes them only to zone 4, out of the counter's reach.
+    for (const d of against(3)) expect(d).toBe(true);
+    // `festRankTwoPush: false` (the control): line 2 as it was.
+    for (const d of against(5, false)) expect(d).toBe(true);
+  });
+
+  it("#406 (Slick): an early invasion that takes your monster to zone 6 fires Godzilla Emerges ESD01-014 (rank 6, 2 rage) for the rank 8 Godzilla (2023)", () => {
+    const WITH_EMERGES: Decklist = {
+      ...FEST,
+      mainDeck: [...FEST.mainDeck, real("ESD01-014"), real("EBP03-041")],
+    };
+    const against = (opts: {
+      at?: ZoneNumber;
+      rage?: number;
+      emerges?: boolean;
+    }) => {
+      const { state, p1 } = position(
+        "EBP01-012",
+        ["ESD01-014", "ESD01-005"],
+        2,
+      );
+      p1.monsterPosition = opts.at ?? 5;
+      p1.rage = opts.rage ?? 2;
+      const legal = getLegalActions(state, "P1");
+      const invades = legal.filter((a) => a.type === "invade");
+      expect(invades.length).toBeGreaterThan(0);
+      const v = festVerdict(state, legal, "P1", WITH_EMERGES, undefined, {
+        emerges: opts.emerges ?? true,
+      });
+      return invades.map((a) => v.against.has(a));
+    };
+    // Zone 5, 2 rage: the invasion takes it to zone 6.
+    for (const d of against({})) expect(d).toBe(false);
+    // Zone 3: the invasion only reaches zone 4.
+    for (const d of against({ at: 3 })) expect(d).toBe(true);
+    // `festEmerges: false` (the control).
+    for (const d of against({ emerges: false })) expect(d).toBe(true);
+  });
+
   it("line 3: Anguirus (2004) EBP02-016 goes in zone 1 or 2", () => {
     const { state, p1 } = position("EBP01-010", [ANGUIRUS_2004], 7);
     const legal = getLegalActions(state, "P1");

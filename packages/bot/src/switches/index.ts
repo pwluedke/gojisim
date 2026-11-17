@@ -8,8 +8,10 @@ import collectorRage from "./collectorRage";
 import counterAlways from "./counterAlways";
 import counterFirst from "./counterFirst";
 import coverToken from "./coverToken";
+import festEmerges from "./festEmerges";
 import festPlan from "./festPlan";
 import festRankOne from "./festRankOne";
+import festRankTwoPush from "./festRankTwoPush";
 import festWall from "./festWall";
 import keepLowRank from "./keepLowRank";
 import keepStrategy from "./keepStrategy";
@@ -49,8 +51,10 @@ export const SWITCHES = [
   counterAlways,
   counterFirst,
   coverToken,
+  festEmerges,
   festPlan,
   festRankOne,
+  festRankTwoPush,
   festWall,
   keepLowRank,
   keepStrategy,

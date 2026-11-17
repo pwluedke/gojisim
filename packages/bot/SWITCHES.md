@@ -56,6 +56,12 @@ Default 1 · built · from #345
 
 Card rule 23b: with no empty zone off your monster's path, but a legal play over your own token, a play over your own battle card is left out.
 
+### `festEmerges`
+
+Default 1 · built · from #406
+
+The Red Fest plan's Godzilla Emerges line (Slick): an exception to line 2 (no invasion before rank IV): an invasion that takes your monster to zone 6 or beyond (Godzilla Emerges ESD01-014 is rank 6, 8.3.1), with it in hand and 2 rage there or to be raged, so it fires this turn for the rank 8 Godzilla (2023) EBP03-041. Needs `festPlan` (off by default).
+
 ### `festPlan`
 
 Default 0 · measured · from #307
@@ -67,6 +73,12 @@ Slick's Red Fest plan (`festPlan.ts`), with `rules`. Off by default.
 Default 1 · built · from #400
 
 The Red Fest plan's rank I line (Slick): the rank I Fest EBP01-011 invades only to line up its same-column push with a counter to follow this turn (up to 3 battle card plays); no other rank I invasion. Needs `festPlan` (off by default).
+
+### `festRankTwoPush`
+
+Default 1 · built · from #406
+
+The Red Fest plan's rank II push (Slick): an exception to line 2 (no invasion before rank IV): the rank II Fest EBP01-012 invades when its end-phase push (it advances their monster a zone on a turn it invaded) takes their monster to zone 6 or beyond, lining up the counter next turn. Needs `festPlan` (off by default).
 
 ### `festWall`
 

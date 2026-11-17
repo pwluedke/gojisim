@@ -29,6 +29,10 @@ import type { Decklist } from "./types";
  * its same-column push (advancing into the column of their monster pushes it forward) with a
  * counter to follow this turn (up to 3 battle card plays); then it isn't argued against, and no
  * other invasion at rank I is allowed (the early exception included).
+ * Line 2's exceptions (#406, Slick): (`festRankTwoPush`) the rank II Fest EBP01-012 invades when
+ * its end-phase push takes their monster to zone 6 or beyond, lining up the counter next turn;
+ * (`festEmerges`) an invasion that takes your monster to zone 6 or beyond fires Godzilla Emerges
+ * ESD01-014 (in hand, 2 rage there or to be raged) for the rank 8 Godzilla (2023) EBP03-041.
  * Line 5, wall up (#400, Slick, `festWall`): against Monster X, once losing the counter race
  * (Slick: about to be two ranks ahead of them, a countered monster going up a rank: 2 ranks
  * above their monster, or 1 with your monster in zones 6-8), stop racing: below rank IV no invasion but one
@@ -51,6 +55,12 @@ export const GODZILLA_1954_BATTLE = "ESC01-001";
 /** Line 5, wall up: the removal held for the invasion win, and the rank IV it rides on. */
 export const HEAT_RAY = "ESD01-016";
 export const GODZILLA_2023_IV = "EBP01-010";
+/** #406: Godzilla Emerges (rank 6, 2 rage) and the rank 8 Godzilla (2023) battle card it fetches. */
+export const GODZILLA_EMERGES = "ESD01-014";
+export const GODZILLA_2023_VIII = "EBP03-041";
+/** #406: Godzilla Emerges' rank (the zone your monster needs, 8.3.1) and its rage. */
+const EMERGES_ZONE = 6;
+const EMERGES_RAGE = 2;
 /** Line 2: invade from this rank of the invading monster. */
 const INVADE_FROM_RANK = 4;
 /** Line 2's exception: monster cards in hand to rage. */
@@ -98,7 +108,12 @@ export function festVerdict(
   /** The plan's switches (#402: `groupOptions(settings, "fest")`); each defaults to on. */
   options: FestOptions = {},
 ): { against: Set<Action>; rescued: Set<Action> } {
-  const { rankOne = true, wall = true } = options;
+  const {
+    rankOne = true,
+    wall = true,
+    rankTwoPush = true,
+    emerges = true,
+  } = options;
   const against = new Set<Action>();
   const rescued = new Set<Action>();
   if (!isFestDeck(own)) return { against, rescued };
@@ -153,6 +168,42 @@ export function festVerdict(
       } else against.add(a);
     }
   }
+
+  // #406 (Slick), line 2's exceptions below rank IV:
+  // (a) the rank II Fest EBP01-012's push: invading, its end phase advances their monster a zone;
+  // an invasion when that takes their monster to zone 6 or beyond, where the counter next turn
+  // sends it back (5.15.1.1), lines up that counter.
+  if (rankTwoPush && topNumber === FEST_RANK_TWO && invades.length > 0) {
+    const theirAt = opponent.monsterPosition ?? 0;
+    if (theirAt < 8 && theirAt + 1 >= COUNTERED_FROM)
+      for (const a of invades) {
+        against.delete(a);
+        rescued.add(a);
+      }
+  }
+  // (b) Godzilla Emerges ESD01-014 (rank 6, so from zone 6, 8.3.1; it needs 2 rage): an invasion
+  // that takes your monster to zone 6 or beyond, with it in hand and 2 rage there or to be raged,
+  // fires it this turn for the rank 8 Godzilla (2023) EBP03-041.
+  const emergesInHand = player.hand.some(
+    (c) => state.cards[c.cardId]?.deckCardNumber === GODZILLA_EMERGES,
+  );
+  const myAt = player.monsterPosition ?? 0;
+  if (
+    emerges &&
+    emergesInHand &&
+    has(own, GODZILLA_2023_VIII) &&
+    rank < INVADE_FROM_RANK &&
+    myAt < EMERGES_ZONE &&
+    player.rage + rages.length >= EMERGES_RAGE
+  )
+    for (const a of invades) {
+      const s = playOut(state, a, me);
+      const at = s?.players.find((p) => p.id === me)?.monsterPosition ?? 0;
+      if (s && s.turnPlayer === me && at >= EMERGES_ZONE) {
+        against.delete(a);
+        rescued.add(a);
+      }
+    }
 
   // Line 3: Anguirus (2004) in zone 1 or 2, unless the counter needs it in zone 3 or 8 now.
   if (has(own, ANGUIRUS_2004)) {
