@@ -405,11 +405,16 @@ describe("the Wrangler plan v2", () => {
   });
 
   it("#418 (Ian; Paul's option a): early, an invasion paid with a spare strategy (The Slithering Disaster, a second Despair) is freed from don't race; one Despair, a monster card or a later rank isn't", () => {
-    const judge = (hand: string[], top = "EBP01-001", spareCost = true) => {
+    const judge = (
+      hand: string[],
+      top = "EBP01-001",
+      spareCost = true,
+      theirs?: Decklist,
+    ) => {
       const { state, p1 } = position(hand, 2, 2, 4);
       p1.invadingMonsterZone = [add(state, real(top), "P1")];
       const legal = getLegalActions(state, "P1");
-      const v = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
+      const v = wranglerV2Verdict(state, legal, "P1", WRANGLER, theirs, {
         spareCost,
       });
       return (n: string) =>
@@ -430,6 +435,21 @@ describe("the Wrangler plan v2", () => {
       expect(d).toBe(true);
     // `wranglerSpareCost: false` (the control).
     for (const d of judge([SLITHERING], "EBP01-001", false)(SLITHERING))
+      expect(d).toBe(true);
+    // #434's check: against Tangler (Godzilla (2002) and Entangling Fear) nothing is spare: The
+    // Slithering Disaster lifts their low monster into counter range.
+    const tangler = {
+      monsterDeck: ["EBP03-014", "EBP03-015"].map(real),
+      mainDeck: ["EBP04-081"].map(real),
+    } as unknown as Decklist;
+    for (const d of judge([SLITHERING], "EBP01-001", true, tangler)(SLITHERING))
+      expect(d).toBe(true);
+    for (const d of judge(
+      [DESPAIR, DESPAIR],
+      "EBP01-001",
+      true,
+      tangler,
+    )(DESPAIR))
       expect(d).toBe(true);
   });
 
