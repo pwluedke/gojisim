@@ -98,7 +98,13 @@ export interface CardFilter {
   keyword: string;
   /** #158: a movie title, or `NO_MOVIE` for cards without one. */
   movie: string;
+  /** #447: the invasion icon (1-step or 2-step, 6.1.1.2.2), or cards without one; "" any. */
+  invasion: InvasionFilter;
 }
+
+/** #447: the Invasion filter's values: a card's invasion icon (`invadeZones`), or none. */
+export const INVASION_FILTERS = ["1", "2", "none"] as const;
+export type InvasionFilter = "" | (typeof INVASION_FILTERS)[number];
 
 /** The Movie filter's entry for cards whose data names no movie. */
 export const NO_MOVIE = "No movie";
@@ -117,6 +123,7 @@ export const NO_FILTER: CardFilter = {
   trait: "",
   keyword: "",
   movie: "",
+  invasion: "",
 };
 
 /** The set a card belongs to for the filter: its deck card number's prefix (`EBP01`). */
@@ -149,6 +156,13 @@ export function applyFilter(
       return false;
     if (f.keyword && !e.keywords.includes(f.keyword)) return false;
     if (f.movie && movieOf(e).toLowerCase() !== f.movie.trim().toLowerCase())
+      return false;
+    if (
+      f.invasion &&
+      (f.invasion === "none"
+        ? c.invadeZones !== null
+        : c.invadeZones !== Number(f.invasion))
+    )
       return false;
     return true;
   });
@@ -191,6 +205,7 @@ export function filterToQuery(f: CardFilter): string {
   if (f.trait.trim()) p.set("trait", f.trait.trim());
   if (f.keyword) p.set("keyword", f.keyword);
   if (f.movie.trim()) p.set("movie", f.movie.trim());
+  if (f.invasion) p.set("invasion", f.invasion);
   return p.toString();
 }
 
@@ -218,5 +233,10 @@ export function filterFromQuery(query: string): CardFilter {
     trait: p.get("trait") ?? "",
     keyword: p.get("keyword") ?? "",
     movie: p.get("movie") ?? "",
+    invasion: (INVASION_FILTERS as readonly string[]).includes(
+      p.get("invasion") ?? "",
+    )
+      ? (p.get("invasion") as InvasionFilter)
+      : "",
   };
 }
