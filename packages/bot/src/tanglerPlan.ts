@@ -4,7 +4,7 @@ import type {
   GameState,
   PlayerId,
 } from "@gojisim/engine";
-import { getLegalActions, RAGE_THREAT } from "@gojisim/engine";
+import { RAGE_THREAT } from "@gojisim/engine";
 import { counterPlays } from "./cardRules";
 import { cardData, ENTANGLING_FEAR } from "./mxPlan";
 import { counters } from "./rules";
@@ -33,20 +33,25 @@ import type { Decklist } from "./types";
  * 5. With the counter made, stop playing out the hand (`tanglerStop`): battle card plays and
  *    strategies wait (passing is fine; the hand refills to 5), but Entangling Fear and the low
  *    evolution cards of rule 1.
- * 6. Save the finishers (`tanglerSave`, Monarch, Nov 16): Destoroyah Perfect Form EBP02-037 is
- *    held unless it's needed for this turn's counter: it makes the counter, the counter isn't made
- *    already, and no other play makes it (Godzilla vs. Destoroyah EBP01-062 aside). That's card
- *    rule 5's test, which already holds Godzilla vs. Destoroyah the same way. (BFW182 is asked
- *    which Destoroyah card he meant; Perfect Form for now.)
+ * 6. Save the finishers (`tanglerSave`; BFW182 and Paul, Nov 16): any Destoroyah battle card
+ *    (Aggregate Form EBP01-049, Flying Form EBP01-054, Perfect Form EBP02-037) turns on Godzilla
+ *    vs. Destoroyah EBP01-062. (a) With none on your field, the last rank 4 or 6 copy in hand stays:
+ *    it isn't discarded or paid with, nor played unless the play makes this turn's counter. (b)
+ *    Godzilla vs. Destoroyah is held for the final counter (their monster deck empty) or the one
+ *    that stops a losing invasion (their monster in zone 6 or beyond): otherwise it waits.
  */
 
 /** The Tangler's monsters that lower the opponent's rage when a battle card is discarded. */
 export const RAGE_REDUCERS = new Set(["EBP03-015", "EPR-020", "EBP03-017"]);
 
-/** Rule 6: the battle card held for the late-game counter (Monarch: Perfect Form, for now). */
-export const FINISHER = "EBP02-037";
-/** Rule 6: the counter-only strategy card rule 5 already holds the same way. */
+/** Rule 6 (BFW182): the Destoroyah battle cards, any of which turns on Godzilla vs. Destoroyah. */
+export const DESTOROYAH = new Set(["EBP01-049", "EBP01-054", "EBP02-037"]);
+/** Rule 6: the rank 4 (Aggregate Form) and rank 6 (Flying Form) copies, one of which stays. */
+const DESTOROYAH_KEPT = new Set(["EBP01-049", "EBP01-054"]);
+/** Rule 6: Godzilla vs. Destoroyah EBP01-062 (+10,000 with a Destoroyah battle card out). */
 const VS_DESTOROYAH = "EBP01-062";
+/** Rule 6: their monster from this zone is in reach of your zone 8 (a losing invasion). */
+const LOSING_ZONE = 6;
 
 /** Rule 1: Entangling Fear copies in hand that make one a spare to discard. */
 const FEAR_SPARES = 3;
@@ -125,6 +130,17 @@ export function tanglerVerdict(
     return (playable ? (d.counterOrThreat ?? 0) : 0) < RAGE_THREAT;
   };
 
+  // Rule 6a: the last rank 4 or 6 Destoroyah copy in hand, with no Destoroyah on your field.
+  const onField = Object.values(player.zones).some((stacks) =>
+    stacks.some((stack) =>
+      DESTOROYAH.has(cardData(state, stack.at(-1))?.deckCardNumber ?? ""),
+    ),
+  );
+  const kept = player.hand.filter((c) =>
+    DESTOROYAH_KEPT.has(cardData(state, c)?.deckCardNumber ?? ""),
+  );
+  const keep = !onField && kept.length === 1 ? [kept[0]!.instanceId] : [];
+
   // Rule 1: spare Entangling Fears are kept (fewer than 3 in hand: none goes).
   if (fear && fears < FEAR_SPARES)
     for (const a of actions) {
@@ -134,6 +150,14 @@ export function tanglerVerdict(
       if (cardData(state, card)?.deckCardNumber === ENTANGLING_FEAR)
         against.add(a);
     }
+
+  // Rule 6a at a discard pick: that copy waits while another card can go.
+  if (save && choice && keep.length > 0) {
+    const picks = actions.filter((a) => picked(a) !== undefined);
+    if (picks.some((a) => picked(a)?.instanceId !== keep[0]))
+      for (const a of picks)
+        if (picked(a)?.instanceId === keep[0]) against.add(a);
+  }
 
   // Rule 3 at a discard pick: a cheap battle card goes before any other card; at a "you may
   // discard a battle card" of a rage-lowering monster, yes while there is one.
@@ -153,7 +177,10 @@ export function tanglerVerdict(
         against.add(no);
     } else if (lowers) {
       const picks = actions.filter((a) => picked(a) !== undefined);
-      const good = picks.filter((a) => cheap(picked(a)));
+      // (Rule 6a's kept Destoroyah copy isn't one.)
+      const good = picks.filter(
+        (a) => cheap(picked(a)) && picked(a)?.instanceId !== keep[0],
+      );
       if (good.length > 0)
         for (const a of picks)
           if (good.includes(a)) rescued.add(a);
@@ -188,33 +215,31 @@ export function tanglerVerdict(
       )
         against.add(a);
 
-  // Rule 6: Perfect Form waits unless only it (with Godzilla vs. Destoroyah) makes this turn's
-  // counter.
+  // Rule 6a: the last rank 4 or 6 Destoroyah battle card in hand stays (with none on the field),
+  // unless playing it makes this turn's counter.
+  if (save && keep.length > 0)
+    for (const a of actions) {
+      if (a.type === "invade" && keep.includes(a.cardInstanceId))
+        against.add(a);
+      if (a.type !== "playBattle" || !keep.includes(a.cardInstanceId)) continue;
+      if (counters(state, me) || !counterPlays(state, actions, me).has(a))
+        against.add(a);
+    }
+  // Rule 6b: Godzilla vs. Destoroyah waits unless it makes the counter that's the last one (their
+  // monster deck is empty) or that stops a losing invasion (their monster in reach of your zone 8).
   if (save) {
-    const finishers = actions.filter(
-      (a) => a.type === "playBattle" && numberOf(a.cardInstanceId) === FINISHER,
+    const vs = actions.filter(
+      (a) =>
+        a.type === "activateStrategy" &&
+        numberOf(a.cardInstanceId) === VS_DESTOROYAH,
     );
-    if (finishers.length > 0) {
-      const makes = counterPlays(state, actions, me);
-      // The same hand without the finishers: can it still make the counter this turn?
-      const without: GameState = {
-        ...state,
-        players: state.players.map((p) =>
-          p.id === me
-            ? {
-                ...p,
-                hand: p.hand.filter((c) => {
-                  const n = cardData(state, c)?.deckCardNumber;
-                  return n !== FINISHER && n !== VS_DESTOROYAH;
-                }),
-              }
-            : p,
-        ) as GameState["players"],
-      };
-      const othersMake =
-        counterPlays(without, getLegalActions(without, me), me).size > 0;
-      const needed = !counters(state, me) && !othersMake;
-      for (const a of finishers) if (!(needed && makes.has(a))) against.add(a);
+    if (vs.length > 0) {
+      const makes = counterPlays(state, actions, me, true);
+      const last = opponent.monsterDeck.length === 0;
+      const losing = (opponent.monsterPosition ?? 0) >= LOSING_ZONE;
+      for (const a of vs)
+        if (counters(state, me) || !makes.has(a) || !(last || losing))
+          against.add(a);
     }
   }
 

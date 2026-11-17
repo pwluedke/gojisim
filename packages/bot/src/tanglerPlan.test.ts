@@ -268,18 +268,18 @@ describe("the Tangler plan (#403)", () => {
   });
 });
 
-describe("the Tangler plan's rule 6 (#403)", () => {
-  it("Destoroyah Perfect Form EBP02-037 is held unless only it makes this turn's counter (card rule 5's test)", () => {
-    // Their threat 6000 (rage 0, +5000 a rage): Perfect Form counters for 9000, Mothra (Imago) 5000.
-    const judge = (opts: {
-      rage?: number;
-      onBoard?: number;
-      save?: boolean;
-    }) => {
-      const { state, p1, p2 } = position([PERFECT_FORM, IMAGO], 3, 8);
-      p2.rage = opts.rage ?? 0;
-      for (let i = 0; i < (opts.onBoard ?? 0); i++)
-        p1.zones[(i + 1) as ZoneNumber] = [[add(state, real(IMAGO), "P1")]];
+describe("the Tangler plan's rule 6 (#403; BFW182 and Paul, Nov 16)", () => {
+  const AGGREGATE = "EBP01-049";
+  const VS = "EBP01-062";
+
+  it("6a: with no Destoroyah battle card on the field, the last rank 4 or 6 copy in hand stays: not played unless it makes the counter, not the card a discard pick takes", () => {
+    const plays = (
+      hand: string[],
+      opts: { onField?: boolean; rage?: number; save?: boolean } = {},
+    ) => {
+      const { state, p1, p2 } = position(hand, 3, 4);
+      p2.rage = opts.rage ?? 2;
+      if (opts.onField) p1.zones[1] = [[add(state, real(PERFECT_FORM), "P1")]];
       const v = verdict(state, {
         fear: false,
         build: false,
@@ -287,22 +287,48 @@ describe("the Tangler plan's rule 6 (#403)", () => {
         stop: false,
         save: opts.save ?? true,
       });
-      const plays = v.legal.filter(
-        (a) => a.type === "playBattle" && ofCard(state, p1, a) === PERFECT_FORM,
-      );
-      expect(plays.length).toBeGreaterThan(0);
-      return plays.map((a) => v.against.has(a));
+      return v.legal
+        .filter(
+          (a) => a.type === "playBattle" && ofCard(state, p1, a) === AGGREGATE,
+        )
+        .map((a) => v.against.has(a));
     };
-    // Only Perfect Form makes the counter: it goes.
-    for (const d of judge({})) expect(d).toBe(false);
-    // One Mothra (Imago) on the board: another one makes it too, so Perfect Form waits.
-    for (const d of judge({ onBoard: 1 })) expect(d).toBe(true);
-    // Two on the board: the counter is made already.
-    for (const d of judge({ onBoard: 2 })) expect(d).toBe(true);
-    // Their rage 1 (threat 11000): Mothra (Imago) and Perfect Form make it together (14000), the
-    // Imago alone doesn't: Perfect Form is needed, so it goes.
-    for (const d of judge({ rage: 1 })) expect(d).toBe(false);
+    // One Aggregate Form, none on the field, their threat 16000 (it doesn't make the counter): it stays.
+    expect(plays([AGGREGATE]).length).toBeGreaterThan(0);
+    for (const d of plays([AGGREGATE])) expect(d).toBe(true);
+    // Two copies: one may go.
+    for (const d of plays([AGGREGATE, AGGREGATE])) expect(d).toBe(false);
+    // A Destoroyah on the field already: it may go.
+    for (const d of plays([AGGREGATE], { onField: true }))
+      expect(d).toBe(false);
     // `tanglerSave: false` (the control).
-    for (const d of judge({ onBoard: 1, save: false })) expect(d).toBe(false);
+    for (const d of plays([AGGREGATE], { save: false })) expect(d).toBe(false);
+  });
+
+  it("6b: Godzilla vs. Destoroyah EBP01-062 waits unless it makes the counter that's the final one or stops a losing invasion", () => {
+    const judge = (oppAt: ZoneNumber, lastMonster: boolean) => {
+      const { state, p1, p2 } = position([VS], 3, oppAt);
+      p2.rage = 0;
+      // A Destoroyah on the field turns it on; their threat 6000: it makes the counter.
+      p1.zones[1] = [[add(state, real(AGGREGATE), "P1")]];
+      if (lastMonster) p2.monsterDeck = [];
+      const v = verdict(state, {
+        fear: false,
+        build: false,
+        discard: false,
+        stop: false,
+      });
+      const vs = v.legal.filter(
+        (a) => a.type === "activateStrategy" && ofCard(state, p1, a) === VS,
+      );
+      expect(vs.length).toBeGreaterThan(0);
+      return vs.map((a) => v.against.has(a));
+    };
+    // Their monster in zone 3, monsters left: no losing invasion, not the final counter: it waits.
+    for (const d of judge(3, false)) expect(d).toBe(true);
+    // Their monster in zone 6 (in reach of your zone 8): it stops a losing invasion.
+    for (const d of judge(6, false)) expect(d).toBe(false);
+    // Their last monster: the final counter.
+    for (const d of judge(3, true)) expect(d).toBe(false);
   });
 });

@@ -198,7 +198,7 @@ BFW182's Tangler plan (`tanglerPlan.ts`), with `rules`: Entangling Fear every tu
 
 Default 1 · built · from #403
 
-The Tangler plan's rule 6 (BFW182; Monarch, Nov 16): Destoroyah Perfect Form EBP02-037 is held unless it's needed for this turn's counter (it makes the counter, the counter isn't made already, and no other play makes it, Godzilla vs. Destoroyah aside): card rule 5's test, which already holds Godzilla vs. Destoroyah. Perfect Form until BFW182 names the card. Needs `tanglerPlan`.
+The Tangler plan's rule 6 (BFW182; Monarch, Nov 16): any Destoroyah battle card (EBP01-049, EBP01-054, EBP02-037) turns on Godzilla vs. Destoroyah; with none on your field the last rank 4 or 6 copy in hand stays (not discarded or paid with, nor played unless the play makes this turn's counter); Godzilla vs. Destoroyah is held for the final counter (their monster deck empty) or the one that stops a losing invasion (their monster in zone 6 or beyond). Needs `tanglerPlan`.
 
 ### `tanglerStop`
 
