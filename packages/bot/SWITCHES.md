@@ -176,11 +176,41 @@ Default 0; 1 from Hard (`difficulty.ts`) · kept · from #175
 
 Paul's play rules at the search root (`rules.ts`): prunes and prior bonuses.
 
+### `tanglerBuild`
+
+Default 1 · built · from #403
+
+The Tangler plan's rule 1 (BFW182): the low evolution cards (rank 4 or lower with [evolution]) come out early: no passing while one can be played, even with the counter made. Needs `tanglerPlan`.
+
+### `tanglerDiscard`
+
+Default 1 · built · from #403
+
+The Tangler plan's rule 3 (BFW182): with a rage-lowering monster (Godzilla (2002) EBP03-015, Godzilla (2003) EPR-020, EBP03-017) and the opponent's rage above 0, a battle card worth less than 5000 on the board this turn (3.4.5) is the discard picked first, and a rage gain that discards one goes before passing; off at their rage 0 (3.4.4). Needs `tanglerPlan`.
+
 ### `tanglerEarly`
 
 Default 1 · built · from #314
 
 Card rule 29: a Tangler deck (Godzilla (2002) EBP03-014 and EBP03-015 in its monster deck, Entangling Fear EBP04-081 in its main deck; Paul's signature) doesn't invade before its own turn 4 unless the invasion wins this turn.
+
+### `tanglerFear`
+
+Default 1 · built · from #403
+
+The Tangler plan's rule 1 (BFW182, #369): one Entangling Fear EBP04-081 every turn it can be played and none is in force (no passing before it); spare copies kept (none discarded, raged or paid with while fewer than 3 are in hand). Needs `tanglerPlan`.
+
+### `tanglerPlan`
+
+Default 1 · built · from #403
+
+BFW182's Tangler plan (`tanglerPlan.ts`), with `rules`: Entangling Fear every turn, spares kept, the low evolution cards early, discards by the rage math, and the hand kept once the counter is made.
+
+### `tanglerStop`
+
+Default 1 · built · from #403
+
+The Tangler plan's rule 5 (BFW182): with the counter made, battle card plays, strategies and rage gains wait (but Entangling Fear and the low evolution cards), so the rest of the hand is kept for later turns. Needs `tanglerPlan`.
 
 ### `targetAll`
 

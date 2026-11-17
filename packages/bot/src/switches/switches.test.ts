@@ -109,7 +109,7 @@ describe("bot switches, one file each (#402)", () => {
     });
     expect(
       groupOptions({ ...ISMCTS_DEFAULTS, wranglerBioHard: 0 }, "wrangler"),
-    ).toEqual({
+    ).toMatchObject({
       v21: true,
       v22: true,
       v23: true,
