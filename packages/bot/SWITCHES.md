@@ -200,6 +200,12 @@ Default 1 · built · from #408
 
 The SpaceG plan's rule 2 (Paul): at rank 3 (SpaceGodzilla EBP02-054: each rage destroys a rank 5 or lower battle card of theirs per Crystals) with Crystals and a target, and with the rank 4 Flying Form EBP02-057 (each rage makes 2 Crystals), no passing while a rage discard can be made. Needs `spacegPlan`.
 
+### `spacegZone`
+
+Default 1 · built · from #408
+
+The SpaceG plan's positioning (Paul, Nov 16): end the turn in zone 7 (the end-of-turn advance adds one zone); an invasion that would end it in zone 8 waits, while one ending it in zone 7 or short of it can be made, unless SpaceG survives their next counter there: their board's counter power plus their best battle cards in hand up to rank 8 (one per empty zone; the discard pile doesn't count) stays below SpaceG's threat. Needs `spacegPlan`.
+
 ### `tanglerEarly`
 
 Default 1 · built · from #314

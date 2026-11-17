@@ -164,4 +164,46 @@ describe("the SpaceG plan (#408)", () => {
     const off = verdict(state, { invade: false, rage: false, cover: false });
     for (const a of covers) expect(off.against.has(a)).toBe(false);
   });
+  it("rule 4 (Paul): the turn ends in zone 7 by default (an invasion that ends it in zone 8 waits) unless SpaceG survives their next counter there", () => {
+    const judge = (theirCounter: boolean, zone = true) => {
+      // A King (icon 2) pays a 2-zone invasion, a King Ghidorah (1991) monster card a 1-zone one.
+      const { state, p1, p2 } = position(
+        "EBP02-053",
+        ["EBP01-075", KING_1991],
+        5,
+        5,
+      );
+      if (theirCounter)
+        for (const z of [1, 2, 3, 4] as const)
+          p2.zones[z] = [[add(state, real("EBP01-075"), "P2")]];
+      const v = verdict(state, {
+        invade: false,
+        rage: false,
+        cover: false,
+        zone,
+      });
+      const icon = (a: Action) =>
+        "cardInstanceId" in a
+          ? state.cards[
+              p1.hand.find((h) => h.instanceId === a.cardInstanceId)?.cardId ??
+                -1
+            ]?.invadeZones
+          : undefined;
+      const invades = of(v.legal, "invade");
+      return {
+        two: invades.filter((a) => icon(a) === 2).map((a) => v.against.has(a)),
+        one: invades.filter((a) => icon(a) === 1).map((a) => v.against.has(a)),
+      };
+    };
+    const strong = judge(true);
+    expect(strong.two.length).toBeGreaterThan(0);
+    expect(strong.one.length).toBeGreaterThan(0);
+    // Their counter reaches: the 2-zone invasion (zone 8 at the end of the turn) waits.
+    for (const d of strong.two) expect(d).toBe(true);
+    for (const d of strong.one) expect(d).toBe(false);
+    // Nothing of theirs reaches SpaceG's threat: into zone 8 on purpose.
+    for (const d of judge(false).two) expect(d).toBe(false);
+    // `spacegZone: false` (the control).
+    for (const d of judge(true, false).two) expect(d).toBe(false);
+  });
 });

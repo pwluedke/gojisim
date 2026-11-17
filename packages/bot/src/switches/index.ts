@@ -32,6 +32,7 @@ import spacegCover from "./spacegCover";
 import spacegInvade from "./spacegInvade";
 import spacegPlan from "./spacegPlan";
 import spacegRage from "./spacegRage";
+import spacegZone from "./spacegZone";
 import tanglerEarly from "./tanglerEarly";
 import targetAll from "./targetAll";
 import targetCheck from "./targetCheck";
@@ -77,6 +78,7 @@ export const SWITCHES = [
   spacegInvade,
   spacegPlan,
   spacegRage,
+  spacegZone,
   tanglerEarly,
   targetAll,
   targetCheck,

@@ -1,4 +1,6 @@
 import type { Action, GameState, PlayerId } from "@gojisim/engine";
+import { counterPowerOf, getThreat } from "@gojisim/engine";
+import { playOut } from "./counterReach";
 import { cardData } from "./mxPlan";
 import type { GroupOptions } from "./switches/settings";
 import type { Decklist } from "./types";
@@ -20,8 +22,12 @@ import type { Decklist } from "./types";
  *    on the one in play makes 2 more Crystals: no passing while it can be played; and while this
  *    turn's invasion can still be made, it waits for it (the addendum: invade, then cover, so the
  *    Crystals land behind SpaceG).
- * (Paul's positioning, zone 7 or advance to 8 by whether SpaceG survives the counter, waits on
- * Monarch's answer.)
+ * 4. Positioning (`spacegZone`, Paul, Nov 16): the choice is how far to invade; the end-of-turn
+ *    advance adds one zone either way. End the turn in zone 7 by default; an invasion that would
+ *    end it in zone 8 waits (while one that ends it in zone 7 or short of it can be made) unless
+ *    SpaceG survives their next counter there: their best counter power next turn (their board's,
+ *    and their best battle cards in hand up to rank 8, one per empty zone; the discard pile doesn't
+ *    count) stays below SpaceG's threat.
  */
 
 /** SpaceG's monster deck. */
@@ -39,6 +45,9 @@ const SPACEG_MONSTERS = new Set([
 ]);
 /** The Crystals token. */
 export const CRYSTALS = "EBP02-T03";
+/** Rule 4: the default zone to end the turn in, and the highest rank they can play against 8. */
+const END_ZONE = 7;
+const ZONE_8_RANK = 8;
 /** Rule 2: the rank of their battle cards the rank 3's rage destroys. */
 const DESTROY_RANK = 5;
 
@@ -60,7 +69,7 @@ export function spacegVerdict(
   own: Decklist | undefined,
   options: SpaceGOptions = {},
 ): { against: Set<Action>; rescued: Set<Action> } {
-  const { invade = true, rage = true, cover = true } = options;
+  const { invade = true, rage = true, cover = true, zone = true } = options;
   const against = new Set<Action>();
   const rescued = new Set<Action>();
   if (!isSpaceGDeck(own)) return { against, rescued };
@@ -96,6 +105,33 @@ export function spacegVerdict(
   if (invade && spaceg && (rank <= 2 || rank === 4) && invades.length > 0) {
     for (const a of invades) rescued.add(a);
     for (const a of passes) against.add(a);
+  }
+
+  // Rule 4: end the turn in zone 7, unless SpaceG survives their next counter in zone 8.
+  if (zone && spaceg && invades.length > 0) {
+    const endZone = (a: Action) => {
+      const s = playOut(state, a, me);
+      const at = s?.players.find((p) => p.id === me)?.monsterPosition;
+      return at === undefined || at === null ? null : at + 1;
+    };
+    const ends = invades.map((a) => ({ a, end: endZone(a) }));
+    const short = ends.filter((x) => x.end !== null && x.end <= END_ZONE);
+    const over = ends.filter((x) => x.end !== null && x.end > END_ZONE);
+    if (short.length > 0 && over.length > 0) {
+      const empty = Object.values(opponent.zones).filter(
+        (stacks) => stacks.length === 0,
+      ).length;
+      const best = opponent.hand
+        .map((c) => cardData(state, c))
+        .filter((c) => c?.type === "Battle" && (c.rank ?? 0) <= ZONE_8_RANK)
+        .map((c) => c?.counterOrThreat ?? 0)
+        .sort((x, y) => y - x)
+        .slice(0, empty)
+        .reduce((n, v) => n + v, 0);
+      const survives =
+        counterPowerOf(state, opponent) + best < getThreat(state, me);
+      if (!survives) for (const x of over) against.add(x.a);
+    }
   }
 
   // Rule 3: the rank 3 covered by a rank 3, after this turn's invasion.
