@@ -1,5 +1,12 @@
-import type { Action, GameState, PlayerId } from "@gojisim/engine";
-import { canClearZone8, counterPlays } from "./cardRules";
+import {
+  type Action,
+  type GameState,
+  getLegalActions,
+  type PlayerId,
+} from "@gojisim/engine";
+import { canClearZone8, counterPlays, winsNow } from "./cardRules";
+import { counterWithin, playOut } from "./counterReach";
+import type { GroupOptions } from "./switches/settings";
 import type { Decklist } from "./types";
 
 /**
@@ -18,6 +25,16 @@ import type { Decklist } from "./types";
  * Line 4 (needs Godzilla the Ride EPR-015): get a Ride into the discard pile (it turns on the
  * others' +5000): Godzilla (1954) ESC01-001 pays with a Ride when one can pay, and a Ride goes on
  * a Ride (11.5 sends the first to the discard pile) when one can.
+ * Line 2, rank I (#400, Slick, `festRankOne`): the rank I Fest EBP01-011 invades only to line up
+ * its same-column push (advancing into the column of their monster pushes it forward) with a
+ * counter to follow this turn (up to 3 battle card plays); then it isn't argued against, and no
+ * other invasion at rank I is allowed (the early exception included).
+ * Line 5, wall up (#400, Slick, `festWall`): against Monster X, once losing the counter race
+ * (Slick: about to be two ranks ahead of them, a countered monster going up a rank: 2 ranks
+ * above their monster, or 1 with your monster in zones 6-8), stop racing: below rank IV no invasion but one
+ * that wins this turn; Heat Ray ESD01-016 is held for the invasion win (only when an invasion after it wins);
+ * the rank IV Godzilla (2023) EBP01-010 isn't raged away or paid with. Hoard and rage toward the
+ * rank IV Fest (line 5's rage over passing).
  * Line 5 (needs the Fest rank IV EBP01-014), against Monster X: the rank IV Fest with 2 or more
  * battle cards in your zones (Monster X's rank 5 or lower battle cards can't engage it), rage
  * heavily, and from rank IV go for the invasion.
@@ -31,10 +48,17 @@ export const SPACE_BEAM = "EBP01-031";
 export const ANGUIRUS_2004 = "EBP02-016";
 export const RIDE = "EPR-015";
 export const GODZILLA_1954_BATTLE = "ESC01-001";
+/** Line 5, wall up: the removal held for the invasion win, and the rank IV it rides on. */
+export const HEAT_RAY = "ESD01-016";
+export const GODZILLA_2023_IV = "EBP01-010";
 /** Line 2: invade from this rank of the invading monster. */
 const INVADE_FROM_RANK = 4;
 /** Line 2's exception: monster cards in hand to rage. */
 const RAGE_CARDS = 3;
+/** Line 5, wall up (Slick): ranks ahead of their monster that mean the counter race is lost. */
+const WALL_RANKS = 2;
+/** A monster in this zone or beyond can be countered (5.15.1.1). */
+const COUNTERED_FROM = 6;
 /** Line 5: battle cards in your zones for the rank IV Fest's guard. */
 const FEST_GUARD_CARDS = 2;
 
@@ -60,6 +84,9 @@ const has = (deck: Decklist | undefined, n: string) =>
 const isMonsterX = (deck: Decklist | undefined) =>
   deck?.monsterDeck.some((c) => c.name === "Monster X") ?? false;
 
+/** The Red Fest plan's switches (#402): one key per `fest` switch file, each on by default. */
+export type FestOptions = GroupOptions<"fest">;
+
 /** The moves the plan argues against. */
 export function festVerdict(
   state: GameState,
@@ -68,7 +95,10 @@ export function festVerdict(
   own: Decklist | undefined,
   /** The opponent's decklist (public), when known. */
   theirs?: Decklist,
+  /** The plan's switches (#402: `groupOptions(settings, "fest")`); each defaults to on. */
+  options: FestOptions = {},
 ): { against: Set<Action>; rescued: Set<Action> } {
+  const { rankOne = true, wall = true } = options;
   const against = new Set<Action>();
   const rescued = new Set<Action>();
   if (!isFestDeck(own)) return { against, rescued };
@@ -105,6 +135,23 @@ export function festVerdict(
       ) &&
       canClearZone8(state, actions, me);
     if (!early) for (const a of invades) against.add(a);
+  }
+
+  // Line 2, rank I (#400, Slick): invade only for the same-column push with a counter to follow.
+  const topNumber = top ? state.cards[top.cardId]?.deckCardNumber : undefined;
+  if (rankOne && topNumber === FEST_RANK_ONE && invades.length > 0) {
+    const theirAt = opponent.monsterPosition;
+    for (const a of invades) {
+      const s = playOut(state, a, me);
+      const pushed =
+        !!s &&
+        s.players.find((p) => p.id === opponent.id)?.monsterPosition !==
+          theirAt;
+      if (pushed && s && counterWithin(s, me)) {
+        against.delete(a);
+        rescued.add(a);
+      } else against.add(a);
+    }
   }
 
   // Line 3: Anguirus (2004) in zone 1 or 2, unless the counter needs it in zone 3 or 8 now.
@@ -179,6 +226,45 @@ export function festVerdict(
     // From rank IV, the invasion over passing.
     if (rank >= INVADE_FROM_RANK && invades.length > 0)
       for (const a of actions) if (a.type === "pass") against.add(a);
+  }
+
+  // Line 5, wall up (#400, Slick): against Monster X and losing the counter race, which Slick
+  // counts as "about to be two ranks ahead of them" (a countered monster goes up a rank,
+  // 5.15.1.2): 2 ranks above their monster, or 1 with their counter likely next turn (your
+  // monster in zones 6-8, where it can be countered).
+  const theirTop = opponent.invadingMonsterZone.at(-1);
+  const theirRank = (theirTop && state.cards[theirTop.cardId]?.rank) ?? 0;
+  const at = player.monsterPosition ?? 0;
+  const losingRace =
+    rank - theirRank >= WALL_RANKS ||
+    (rank - theirRank === WALL_RANKS - 1 && at >= COUNTERED_FROM);
+  if (wall && vsMonsterX && losingRace) {
+    // Below rank IV: no invasion but one that wins now (from rank IV, line 5 goes for it).
+    if (rank < INVADE_FROM_RANK)
+      for (const a of invades) if (!winsNow(state, a, me)) against.add(a);
+    for (const a of actions) {
+      const n =
+        "cardInstanceId" in a
+          ? card(a.cardInstanceId)?.deckCardNumber
+          : undefined;
+      // The rank IV Godzilla (2023) is held: not raged away, not paid with.
+      if (
+        (a.type === "gainRage" || a.type === "invade") &&
+        n === GODZILLA_2023_IV
+      )
+        against.add(a);
+      // Heat Ray waits for the invasion win: only when an invasion after it wins.
+      if (a.type === "activateStrategy" && n === HEAT_RAY) {
+        const s = playOut(state, a, me);
+        const wins =
+          !!s &&
+          s.turnPlayer === me &&
+          getLegalActions(s, me).some(
+            (b) => b.type === "invade" && winsNow(s, b, me),
+          );
+        if (!wins) against.add(a);
+      }
+    }
   }
 
   // Never argue against everything.

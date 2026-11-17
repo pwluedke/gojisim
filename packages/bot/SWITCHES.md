@@ -62,6 +62,18 @@ Default 0 · measured · from #307
 
 Slick's Red Fest plan (`festPlan.ts`), with `rules`. Off by default.
 
+### `festRankOne`
+
+Default 1 · built · from #400
+
+The Red Fest plan's rank I line (Slick): the rank I Fest EBP01-011 invades only to line up its same-column push with a counter to follow this turn (up to 3 battle card plays); no other rank I invasion. Needs `festPlan` (off by default).
+
+### `festWall`
+
+Default 1 · built · from #400
+
+The Red Fest plan's wall-up (Slick): against Monster X, once losing the counter race (2 ranks above their monster, or 1 with its own monster in zones 6-8), below rank IV no invasion but a winning one, Heat Ray ESD01-016 held for the invasion win, the rank IV Godzilla (2023) EBP01-010 not raged away or paid with. Needs `festPlan` (off by default).
+
 ### `keepLowRank`
 
 Default 1 · built · from #326
