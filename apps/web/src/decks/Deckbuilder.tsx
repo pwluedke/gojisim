@@ -383,7 +383,6 @@ export function Deckbuilder() {
               <option value="">Any</option>
               <option value="1">1-step</option>
               <option value="2">2-step</option>
-              <option value="none">None</option>
             </select>
           </label>
           <label className={styles.field}>
