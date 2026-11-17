@@ -155,10 +155,14 @@ import type { Decklist } from "./types";
  *    22b. #378 (Paul): the same for every strategy without a continuous ability: one isn't
  *    activated when no way of answering its choices changes anything on the board, the rage, the
  *    discard pile or the decks and hands (beyond the card itself). Paul's exception: with 2+
- *    copies of it in hand, a spare may still go as the turn's hand-cycling play. Any deck.
+ *    copies of it in hand, a spare may still go as the turn's hand-cycling play (#419: but not
+ *    Godzilla Landing EBP01-030, never played unless the counter follows). Any deck.
  */
 
 type Json = Record<string, unknown>;
+
+/** Rule 22b: Godzilla Landing EBP01-030 gets no spare-copy exception (#419, Paul, Nov 16). */
+const NO_SPARE_PLAY = "EBP01-030";
 
 /** Every object nested anywhere in a value. */
 function nested(value: unknown, out: Json[] = []): Json[] {
@@ -1323,8 +1327,12 @@ function idleStrategies(
     const c = player.hand.find((h) => h.instanceId === a.cardInstanceId);
     const card = c ? state.cards[c.cardId] : undefined;
     if (!c || !oneShotStrategy(card)) return false;
-    // Paul's exception: a spare copy may go as the turn's hand-cycling play.
-    if (player.hand.filter((h) => h.cardId === c.cardId).length >= 2)
+    // Paul's exception: a spare copy may go as the turn's hand-cycling play; but not Godzilla
+    // Landing EBP01-030 (#419, Paul, Nov 16: never played unless the counter follows).
+    if (
+      card?.deckCardNumber !== NO_SPARE_PLAY &&
+      player.hand.filter((h) => h.cardId === c.cardId).length >= 2
+    )
       return false;
     // Hand counts change by the card itself; the rest of the position is what the effect moves.
     const before = publicPosition(state, c.cardId);

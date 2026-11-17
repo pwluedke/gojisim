@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "wrangler",
   option: "deadPush",
-  what: "The Wrangler plan's dead push (Ian): a push strategy (Godzilla Landing, The Slithering Disaster) that leaves the opponent's monster where it is (already in zone 8) is argued against, a spare copy in hand or not (card rule 22b, off by default, would let a spare go as hand cycling). Needs `wranglerPlan` 2.",
+  what: "The Wrangler plan's dead push (Ian): a push strategy (Godzilla Landing, The Slithering Disaster) that leaves the opponent's monster where it is (already in zone 8) is argued against, a spare copy in hand or not (card rule 22b, off by default, would let a spare go as hand cycling); and Godzilla Landing isn't discarded unless the counter follows (Paul: a discard pick takes another card; an invasion it pays for needs the counter after it, or to win). Needs `wranglerPlan` 2.",
   from: "#419",
   status: "built",
 });

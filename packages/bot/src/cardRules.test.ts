@@ -1378,6 +1378,28 @@ describe(
       for (const d of idle(7, 2).on) expect(d).toBe(false);
     });
 
+    it("rule 22b, #419 (Paul, Nov 16): Godzilla Landing EBP01-030 gets no spare-copy exception: two in hand, their monster in zone 8, neither is activated", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      opp.monsterPosition = 8;
+      const landing = () => add(state, { ...real("EBP01-030"), rank: 1 }, "P1");
+      p1.hand = [landing(), landing()];
+      p1.rage = 10;
+      const legal = getLegalActions(state, "P1");
+      const plays = legal.filter(
+        (a) =>
+          a.type === "activateStrategy" &&
+          p1.hand.some((h) => h.instanceId === a.cardInstanceId),
+      );
+      expect(plays.length).toBeGreaterThan(0);
+      const dead = cardRulesDead(state, legal, "P1");
+      for (const a of plays) expect(dead.has(a)).toBe(true);
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        targetAll: false,
+      });
+      for (const a of plays) expect(off.has(a)).toBe(false);
+    });
+
     it("rule 22b: a strategy with a continuous ability (Entangling Fear EBP04-081, whose effect is staying in play) isn't judged", () => {
       const { state, p1 } = withGodzilla1995();
       const fear = add(state, { ...real("EBP04-081"), rank: 1 }, "P1");
