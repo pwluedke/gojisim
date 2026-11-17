@@ -176,6 +176,30 @@ Default 0; 1 from Hard (`difficulty.ts`) · kept · from #175
 
 Paul's play rules at the search root (`rules.ts`): prunes and prior bonuses.
 
+### `spacegCover`
+
+Default 1 · built · from #408
+
+The SpaceG plan's rule 3 (Paul and his addendum): another rank 3 SpaceGodzilla EBP02-054 from your hand covers the one in play (2 more Crystals) before passing, and waits for this turn's invasion while it can still be made (invade, then cover, so the Crystals land behind SpaceG). Needs `spacegPlan`.
+
+### `spacegInvade`
+
+Default 1 · built · from #408
+
+The SpaceG plan's rule 1 (Paul): at ranks 1 and 2 (SpaceGodzilla Flying Form EBP02-052, SpaceGodzilla EBP02-053, whose [invading] makes Crystals) and at rank 4, no passing while an invasion can be made. Needs `spacegPlan`.
+
+### `spacegPlan`
+
+Default 1 · built · from #408
+
+Paul's SpaceG plan (`spacegPlan.ts`), with `rules`: invade every turn at ranks 1, 2 and 4; rage at rank 3 and with the rank 4 Flying Form; cover the rank 3 with a rank 3 after the invasion.
+
+### `spacegRage`
+
+Default 1 · built · from #408
+
+The SpaceG plan's rule 2 (Paul): at rank 3 (SpaceGodzilla EBP02-054: each rage destroys a rank 5 or lower battle card of theirs per Crystals) with Crystals and a target, and with the rank 4 Flying Form EBP02-057 (each rage makes 2 Crystals), no passing while a rage discard can be made. Needs `spacegPlan`.
+
 ### `tanglerEarly`
 
 Default 1 · built · from #314

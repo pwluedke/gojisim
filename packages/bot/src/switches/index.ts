@@ -28,6 +28,10 @@ import recognizer from "./recognizer";
 import recurDiscard from "./recurDiscard";
 import revengeStep from "./revengeStep";
 import rules from "./rules";
+import spacegCover from "./spacegCover";
+import spacegInvade from "./spacegInvade";
+import spacegPlan from "./spacegPlan";
+import spacegRage from "./spacegRage";
 import tanglerEarly from "./tanglerEarly";
 import targetAll from "./targetAll";
 import targetCheck from "./targetCheck";
@@ -69,6 +73,10 @@ export const SWITCHES = [
   recurDiscard,
   revengeStep,
   rules,
+  spacegCover,
+  spacegInvade,
+  spacegPlan,
+  spacegRage,
   tanglerEarly,
   targetAll,
   targetCheck,
