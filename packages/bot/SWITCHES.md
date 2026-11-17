@@ -74,6 +74,12 @@ Default 1 · built · from #400
 
 The Red Fest plan's rank I line (Slick): the rank I Fest EBP01-011 invades only to line up its same-column push with a counter to follow this turn (up to 3 battle card plays); no other rank I invasion. Needs `festPlan` (off by default).
 
+### `festRankThreeSave`
+
+Default 1 · built · from #406
+
+The Red Fest plan's rank III save (Slick): at rank III in reach of their counter (your monster in zone 6 or beyond, their counter power at least your threat), the rage goes to the rank IV turn as monster cards kept in hand (no rage discards this turn), and the battle cards and strategies that do nothing now are played out before passing, to make room for the end-of-turn draw. Needs `festPlan` (off by default).
+
 ### `festRankTwoPush`
 
 Default 1 · built · from #406

@@ -11,6 +11,7 @@ import coverToken from "./coverToken";
 import festEmerges from "./festEmerges";
 import festPlan from "./festPlan";
 import festRankOne from "./festRankOne";
+import festRankThreeSave from "./festRankThreeSave";
 import festRankTwoPush from "./festRankTwoPush";
 import festWall from "./festWall";
 import keepLowRank from "./keepLowRank";
@@ -54,6 +55,7 @@ export const SWITCHES = [
   festEmerges,
   festPlan,
   festRankOne,
+  festRankThreeSave,
   festRankTwoPush,
   festWall,
   keepLowRank,

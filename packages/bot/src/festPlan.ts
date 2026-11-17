@@ -1,5 +1,7 @@
 import {
   type Action,
+  counterPowerOf,
+  getThreat,
   type GameState,
   getLegalActions,
   type PlayerId,
@@ -32,7 +34,10 @@ import type { Decklist } from "./types";
  * Line 2's exceptions (#406, Slick): (`festRankTwoPush`) the rank II Fest EBP01-012 invades when
  * its end-phase push takes their monster to zone 6 or beyond, lining up the counter next turn;
  * (`festEmerges`) an invasion that takes your monster to zone 6 or beyond fires Godzilla Emerges
- * ESD01-014 (in hand, 2 rage there or to be raged) for the rank 8 Godzilla (2023) EBP03-041.
+ * ESD01-014 (in hand, 2 rage there or to be raged) for the rank 8 Godzilla (2023) EBP03-041;
+ * (`festRankThreeSave`) at rank III in reach of their counter, the rage goes to the rank IV as
+ * monster cards kept in hand (no rage discards), and the battle cards and strategies are played
+ * out before passing, to make room for the end-of-turn draw.
  * Line 5, wall up (#400, Slick, `festWall`): against Monster X, once losing the counter race
  * (Slick: about to be two ranks ahead of them, a countered monster going up a rank: 2 ranks
  * above their monster, or 1 with your monster in zones 6-8), stop racing: below rank IV no invasion but one
@@ -113,6 +118,7 @@ export function festVerdict(
     wall = true,
     rankTwoPush = true,
     emerges = true,
+    rankThreeSave = true,
   } = options;
   const against = new Set<Action>();
   const rescued = new Set<Action>();
@@ -204,6 +210,22 @@ export function festVerdict(
         rescued.add(a);
       }
     }
+
+  // #406 (Slick), line 2c: at rank III in reach of their counter (zone 6 or beyond, their counter
+  // power at least your threat), the counter comes and the rank IV is next: carry the rage to it
+  // as cards in hand (no rage discards this turn), and play out the battle cards and strategies
+  // that do nothing now, to make room for the end-of-turn draw (no passing while one can go).
+  const countered =
+    (player.monsterPosition ?? 0) >= COUNTERED_FROM &&
+    counterPowerOf(state, opponent) >= getThreat(state, me);
+  if (rankThreeSave && rank === 3 && countered) {
+    for (const a of rages) against.add(a);
+    const playOuts = actions.filter(
+      (a) => a.type === "playBattle" || a.type === "activateStrategy",
+    );
+    if (playOuts.length > 0)
+      for (const a of actions) if (a.type === "pass") against.add(a);
+  }
 
   // Line 3: Anguirus (2004) in zone 1 or 2, unless the counter needs it in zone 3 or 8 now.
   if (has(own, ANGUIRUS_2004)) {
