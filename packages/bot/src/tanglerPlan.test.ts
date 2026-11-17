@@ -45,6 +45,8 @@ const ORGA = "EBP01-047";
 const IMAGO = "ESD02-010";
 const PERFECT_FORM = "EBP02-037";
 const BOND = "EBP04-080";
+/** #439's tie: a rank 3, 2000 battle card with no draw-discard. */
+const KAMACURAS = "EBP01-019";
 
 /** A Tangler list, as the plan recognizes one: its rage-lowering monsters and Entangling Fear. */
 const TANGLER = {
@@ -373,13 +375,19 @@ describe("the Tangler plan's discard tiebreaks (#439, #440; BFW182)", () => {
     return of;
   };
 
-  it("#439: with the counter still to make, a playable Orga (about 7000: its own discard drops their rage again) stays and a spare Destoroyah Aggregate goes; with the counter made, the Destoroyah cards stay and Orga may go", () => {
+  it("#439 (BFW182, Nov 17): Orga's own discard is a strict tiebreak: against another 2000 card (Kamacuras (1967)) the other goes; against a 3000 Aggregate Orga, the cheaper, goes (no holding it back); with the counter made, the Destoroyah cards stay and Orga may go", () => {
+    const tie = pick([ORGA, KAMACURAS, AGGREGATE], 5);
+    for (const d of tie(KAMACURAS)) expect(d).toBe(false);
+    for (const d of [...tie(ORGA), ...tie(AGGREGATE)]) expect(d).toBe(true);
     const need = pick([ORGA, AGGREGATE, AGGREGATE, AGGREGATE], 5);
-    for (const d of need(ORGA)) expect(d).toBe(true);
-    for (const d of need(AGGREGATE)) expect(d).toBe(false);
+    for (const d of need(ORGA)) expect(d).toBe(false);
+    for (const d of need(AGGREGATE)) expect(d).toBe(true);
     const made = pick([ORGA, AGGREGATE, AGGREGATE, AGGREGATE], 5, true);
     for (const d of made(ORGA)) expect(d).toBe(false);
     for (const d of made(AGGREGATE)) expect(d).toBe(true);
+    // `tanglerWorth: false` (the control): Orga and Kamacuras tie.
+    const off = pick([ORGA, KAMACURAS, AGGREGATE], 5, false, false);
+    for (const d of [...off(ORGA), ...off(KAMACURAS)]) expect(d).toBe(false);
   });
 
   it("#440: with their monster in zone 6, a rank 8 Perfect Form (it needs them in zone 8) goes before a playable Aggregate, the last Destoroyah piece kept (rule 6)", () => {

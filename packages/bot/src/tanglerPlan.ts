@@ -29,8 +29,9 @@ import type { Decklist } from "./types";
  *    power if its rank lets it be played now, 8.2.1, else nothing) goes before any other card; at
  *    a "you may discard a battle card" (10.5.4, Godzilla (2003) EBP03-017's enter), yes while there
  *    is one. (Rage gains discard only monster cards, 8.4.1, so they aren't a way.) #439, #440
- *    (BFW182): of the cheap ones the least worth goes first; a playable card that draws and
- *    discards counts each of its discards' rage drop (Orga about 7000); one its rank keeps out of
+ *    (BFW182): of the cheap ones the least worth goes first; between cheap ones of the same worth,
+ *    one that doesn't draw and discard when played goes before one that does (Orga: a strict
+ *    tiebreak, no holding it back, Nov 17); one its rank keeps out of
  *    play now counts 0 (a Perfect Form needing their monster in zone 8); with the counter made,
  *    the Destoroyah cards stay and the rest may go.
  * 4. At their rage 0 (3.4.4) there is nothing to lower: rule 3 is off, and discards only filter.
@@ -135,7 +136,7 @@ export function tanglerVerdict(
     RAGE_REDUCERS.has(top?.deckCardNumber ?? "") &&
     opponent.rage > 0;
   // #439 (BFW182): a playable card that draws and discards drops their rage again for each
-  // discard (Orga: about 7000, not 2000). #440: a card its rank keeps out of play now (Perfect Form
+  // discard (Orga: about 7000, not 2000), a tiebreak below. #440: a card its rank keeps out of play now (Perfect Form
   // needing their monster in zone 8) is worth nothing. With the counter made, the Destoroyah cards
   // stay (rule 6) and the rest may go.
   const made = counters(state, me);
@@ -146,10 +147,17 @@ export function tanglerVerdict(
       return Number.POSITIVE_INFINITY;
     const playable = (d.rank ?? 0) <= (opponent.monsterPosition ?? 0);
     if (!playable) return 0;
-    // (With the counter made, the extra drop isn't needed: Orga may go.)
-    const extra =
-      byWorth && lowers && !made ? (DRAW_DISCARDS[d.deckCardNumber] ?? 0) : 0;
-    return (d.counterOrThreat ?? 0) + extra * RAGE_THREAT;
+    return d.counterOrThreat ?? 0;
+  };
+  // #439 (BFW182, Nov 17): the draw-discards are a strict tiebreak between cheap discards of the
+  // same worth, not a reason to hold Orga (it filters well too): of those, one with none goes
+  // first. (With the counter made, the extra drop isn't needed: Orga may go.)
+  const extra = (c: CardInstance | undefined) => {
+    const d = cardData(state, c);
+    const playable = (d?.rank ?? 0) <= (opponent.monsterPosition ?? 0);
+    return byWorth && lowers && !made && d && playable
+      ? (DRAW_DISCARDS[d.deckCardNumber] ?? 0)
+      : 0;
   };
   const cheap = (c: CardInstance | undefined) => worth(c) < RAGE_THREAT;
 
@@ -205,8 +213,10 @@ export function tanglerVerdict(
         (a) => cheap(picked(a)) && picked(a)?.instanceId !== keep[0],
       );
       const least = Math.min(...cheapPicks.map((a) => worth(picked(a))));
+      const leastWorth = cheapPicks.filter((a) => worth(picked(a)) === least);
+      const fewest = Math.min(...leastWorth.map((a) => extra(picked(a))));
       const good = byWorth
-        ? cheapPicks.filter((a) => worth(picked(a)) === least)
+        ? leastWorth.filter((a) => extra(picked(a)) === fewest)
         : cheapPicks;
       if (good.length > 0)
         for (const a of picks)
