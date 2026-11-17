@@ -62,7 +62,7 @@ test("#158: the Movie filter narrows the grid and lives in the URL", async ({
   await expect(page).toHaveURL(/movie=Godzilla\+%281954%29/);
 });
 
-test("#447: the Invasion filter (1-step, 2-step, none) splits the grid and lives in the URL", async ({
+test("#447: the Invasion filter (1-step, 2-step) splits the grid and lives in the URL; #450: every card has an icon", async ({
   page,
 }) => {
   await page.goto("/decks");
@@ -81,8 +81,10 @@ test("#447: the Invasion filter (1-step, 2-step, none) splits the grid and lives
   await expect(page.getByTestId("db-invasion")).toHaveValue("2");
   await expect.poll(() => count(page)).toBe(two);
   const one = await of("1");
-  const none = await of("none");
-  expect(one + two + none).toBe(all);
+  expect(one + two).toBe(all);
+  await expect(
+    page.getByTestId("db-invasion").locator("option[value=none]"),
+  ).toHaveCount(0);
   await page.getByTestId("db-invasion").selectOption("");
   await expect.poll(() => count(page)).toBe(all);
   await expect(page).toHaveURL(/\/decks$/);

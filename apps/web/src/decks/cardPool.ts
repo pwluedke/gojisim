@@ -98,12 +98,13 @@ export interface CardFilter {
   keyword: string;
   /** #158: a movie title, or `NO_MOVIE` for cards without one. */
   movie: string;
-  /** #447: the invasion icon (1-step or 2-step, 6.1.1.2.2), or cards without one; "" any. */
+  /** #447: the invasion icon (1-step or 2-step, 6.1.1.2.2); "" any. */
   invasion: InvasionFilter;
 }
 
-/** #447: the Invasion filter's values: a card's invasion icon (`invadeZones`), or none. */
-export const INVASION_FILTERS = ["1", "2", "none"] as const;
+/** #447: the Invasion filter's values: a card's invasion icon (`invadeZones`). #450: every deck
+ * card has one (2.8), so there's no "none". */
+export const INVASION_FILTERS = ["1", "2"] as const;
 export type InvasionFilter = "" | (typeof INVASION_FILTERS)[number];
 
 /** The Movie filter's entry for cards whose data names no movie. */
@@ -157,13 +158,7 @@ export function applyFilter(
     if (f.keyword && !e.keywords.includes(f.keyword)) return false;
     if (f.movie && movieOf(e).toLowerCase() !== f.movie.trim().toLowerCase())
       return false;
-    if (
-      f.invasion &&
-      (f.invasion === "none"
-        ? c.invadeZones !== null
-        : c.invadeZones !== Number(f.invasion))
-    )
-      return false;
+    if (f.invasion && c.invadeZones !== Number(f.invasion)) return false;
     return true;
   });
 }
