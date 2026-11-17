@@ -102,3 +102,51 @@ describe("choice modal (M5c)", () => {
     expect(choiceSource(state)).toBe("The counter (5.15.1.2)");
   });
 });
+
+describe("copies of one card in a pick (#421)", () => {
+  it("each copy shows its zone on the card itself; a card with no copy among the options doesn't", () => {
+    const state = game();
+    const [gam, other] = Object.values(state.cards);
+    if (!gam || !other) throw new Error("no cards");
+    const p2 = state.players.find((p) => p.id === "P2")!;
+    const copy = (n: number, cardId: number) => ({
+      instanceId: `c99${n}`,
+      cardId,
+      owner: "P2",
+    });
+    p2.zones[2] = [[copy(1, gam.id)]];
+    p2.zones[8] = [[copy(2, gam.id)]];
+    p2.zones[5] = [[copy(3, other.id)]];
+    state.pendingChoice = {
+      id: 98,
+      player: "P1",
+      kind: "target",
+      rule: "10.5.3",
+      options: [
+        { id: "c991", cardId: gam.id, abilityId: null },
+        { id: "c992", cardId: gam.id, abilityId: null },
+        { id: "c993", cardId: other.id, abilityId: null },
+      ],
+    };
+    const html = renderToStaticMarkup(
+      <ChoiceModal
+        state={state}
+        heading={choiceHeading(state, names)}
+        source={choiceSource(state)}
+        actions={state.pendingChoice.options.map((o) => ({
+          type: "choose" as const,
+          player: "P1",
+          choiceId: 98,
+          optionId: o.id,
+        }))}
+        manualCards={[]}
+        onAction={() => {}}
+        labelOf={(action) => action.type}
+      />,
+    );
+    const badges = [
+      ...html.matchAll(/data-testid="choice-zone"[^>]*>([^<]*)</g),
+    ].map((m) => m[1]);
+    expect(badges).toEqual(["Zone 2 (opponent)", "Zone 8 (opponent)"]);
+  });
+});

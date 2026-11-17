@@ -9,6 +9,8 @@ import counterAlways from "./counterAlways";
 import counterFirst from "./counterFirst";
 import coverToken from "./coverToken";
 import festPlan from "./festPlan";
+import festRankOne from "./festRankOne";
+import festWall from "./festWall";
 import keepLowRank from "./keepLowRank";
 import keepStrategy from "./keepStrategy";
 import modeBest from "./modeBest";
@@ -53,6 +55,8 @@ export const SWITCHES = [
   counterFirst,
   coverToken,
   festPlan,
+  festRankOne,
+  festWall,
   keepLowRank,
   keepStrategy,
   modeBest,

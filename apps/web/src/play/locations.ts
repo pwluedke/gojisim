@@ -28,7 +28,8 @@ export function targetLocation(
     });
     for (const zone of ZONE_NUMBERS)
       if (p.zones[zone].some(has))
-        return at(`Z${zone}`, `zone-${p.id}-${zone}`);
+        // #421: "Zone 8" in full, so copies of a card in different zones read apart.
+        return at(`Zone ${zone}`, `zone-${p.id}-${zone}`);
     if (has(p.invadingMonsterZone)) return at("Monster", `monster-${p.id}`);
     // Strategy zone 3 too, once a player has it (E20).
     for (const [i, zone] of p.strategyZones.entries())
