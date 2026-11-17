@@ -15,7 +15,9 @@ import {
   type ZoneNumber,
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
+import { counterPlays } from "./cardRules";
 import { blunderAllowed, ISMCTS_DEFAULTS, withPrunes } from "./ismcts";
+import { counters } from "./rules";
 import type { Decklist } from "./types";
 import { DESPAIR, GAM } from "./wranglerPlan";
 import {
@@ -523,6 +525,75 @@ describe("the Wrangler plan v2", () => {
       }).against.has(yes);
     };
     expect(prompt(true)).toBe(false);
+  });
+
+  it("#417 (Ian's record 4fac1b21 move 46): when GAM's reset alone makes the counter, that invasion is taken (every other move pruned, the monster play too), and at the reset's prompt no is pruned", () => {
+    const setUp = () => {
+      const pos = position([LANDING, "EBP01-009", "EBP01-002"], 5, 7, 10);
+      const { state, p1, p2 } = pos;
+      // As in the record: the rank III Godzilla (2004) on top, so the rank III play is legal.
+      p1.invadingMonsterZone = ["EBP01-001", "ESD01-002", "EBP01-008"].map(
+        (n) => add(state, real(n), "P1"),
+      );
+      // Two GAMs, as in the record: the line (both resets' prompts and picks) is too long for
+      // card rule 20's counter search, so only the reset line finds it.
+      p1.zones[2] = [[add(state, real(GAM), "P1")]];
+      p1.zones[8] = [[add(state, real(GAM), "P1")]];
+      p1.discard = Array.from({ length: 10 }, () =>
+        add(state, real("EBP01-002"), "P1"),
+      );
+      // Their rage 5: a threat the board can't counter until it's reset to 0.
+      p2.rage = 5;
+      return pos;
+    };
+    const { state, p1 } = setUp();
+    expect(counters(state, "P1")).toBe(false);
+    expect(
+      counterPlays(state, getLegalActions(state, "P1"), "P1", true).size,
+    ).toBe(0);
+    const legal = getLegalActions(state, "P1");
+    const v = wranglerV2Verdict(state, legal, "P1", WRANGLER);
+    const invades = legal.filter(
+      (a) => a.type === "invade" && ofCard(state, p1, a) === "EBP01-002",
+    );
+    expect(invades.length).toBeGreaterThan(0);
+    for (const a of invades) expect(v.pruned?.has(a) ?? false).toBe(false);
+    const monster = legal.filter((a) => a.type === "playMonster");
+    expect(monster.length).toBeGreaterThan(0);
+    for (const a of [...monster, ...legal.filter((a) => a.type === "pass")])
+      expect(v.pruned?.has(a)).toBe(true);
+    // `wranglerResetLine: false` (the control): nothing pruned for it.
+    const off = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
+      resetLine: false,
+    });
+    for (const a of monster) expect(off.pruned?.has(a) ?? false).toBe(false);
+
+    // The prompts: at the first GAM, either answer still reaches the counter (the second GAM
+    // follows), so v2.2 saves this reset; at the second, only yes makes it, so no is pruned.
+    let s = advanceToDecision(applyAction(state, invades[0]!));
+    const toConfirm = () => {
+      for (let i = 0; i < 5 && s.pendingChoice?.kind !== "confirm"; i++) {
+        const next = getLegalActions(s, "P1").find((a) => a.type === "choose");
+        if (!next) break;
+        s = advanceToDecision(applyAction(s, next));
+      }
+      expect(s.pendingChoice?.kind).toBe("confirm");
+      const answers = getLegalActions(s, "P1");
+      const pick = (id: string) =>
+        answers.find((a) => a.type === "choose" && a.optionId === id)!;
+      return {
+        answers,
+        yes: pick("yes"),
+        no: pick("no"),
+        v: wranglerV2Verdict(s, answers, "P1", WRANGLER),
+      };
+    };
+    const first = toConfirm();
+    expect(first.v.against.has(first.yes)).toBe(true);
+    expect(first.v.pruned?.has(first.no) ?? false).toBe(false);
+    s = advanceToDecision(applyAction(s, first.no));
+    const second = toConfirm();
+    expect(second.v.pruned?.has(second.no)).toBe(true);
   });
 
   it("v2.3 (Ian): against Monster X, with fewer than 2 battle cards in hand, dig (Despair over passing)", () => {

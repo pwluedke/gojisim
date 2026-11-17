@@ -56,6 +56,8 @@ import {
  *   and the opponent's rage above 0, an invasion whose reset (their rage to 0, a King's protection
  *   gone), then a rage gain (Godzilla (2023) EBP01-010's column destroy) and up to 3 battle card
  *   plays make the counter this turn is taken over raging or passing, ahead of v2.1's rage to 3.
+ *   #417 (Ian): when the reset alone makes the counter (the invasion settles with their rage 0
+ *   and the counter made), that invasion is taken over every other move.
  */
 
 export const KING = "EBP01-075";
@@ -141,16 +143,32 @@ function counterWithin(s: GameState, me: PlayerId): boolean {
 const rageOf = (s: GameState, who: PlayerId) =>
   s.players.find((p) => p.id === who)?.rage ?? 0;
 
-/** #388: every way through my own pending choices from `s`, within `budget`'s plays. */
+/**
+ * #388: every way through my own pending choices from `s`, within `budget`'s plays. #417: options
+ * naming copies of one card (GAM's pick of a monster card from the discard pile, two GAMs'
+ * order) are tried once, so two GAMs' prompts fit the budget.
+ */
 function settled(
   s: GameState,
   me: PlayerId,
   budget: { n: number },
 ): GameState[] {
-  if (s.pendingChoice?.player !== me) return [s];
+  const choice = s.pendingChoice;
+  if (choice?.player !== me) return [s];
   const out: GameState[] = [];
+  const seen = new Set<string>();
   for (const c of getLegalActions(s, me)) {
-    if (c.type === "concede" || budget.n-- <= 0) continue;
+    if (c.type === "concede") continue;
+    if (c.type === "choose") {
+      const cardId = choice.options.find((o) => o.id === c.optionId)?.cardId;
+      const key =
+        cardId === null || cardId === undefined
+          ? c.optionId
+          : `card:${s.cards[cardId]?.deckCardNumber ?? cardId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    if (budget.n-- <= 0) continue;
     try {
       out.push(...settled(advanceToDecision(applyAction(s, c)), me, budget));
     } catch {
@@ -265,8 +283,15 @@ export function wranglerV2Verdict(
         (counters(s, me) ||
           (s.turnPlayer === me &&
             counterPlays(s, getLegalActions(s, me), me).size > 0));
-      if (!(reaches(after(state, yes, me)) && !reaches(after(state, no, me))))
-        against.add(yes);
+      const makes =
+        reaches(after(state, yes, me)) && !reaches(after(state, no, me));
+      if (!makes) against.add(yes);
+      // #417: the reset that alone makes the counter this turn is taken (the search answered no
+      // to it otherwise).
+      else if (resetLine) {
+        against.add(no);
+        return { against, rescued, pruned: new Set([no]) };
+      }
     }
     return { against, rescued };
   }
@@ -437,6 +462,9 @@ export function wranglerV2Verdict(
   // EBP01-010's column destroy) and up to LINE_PLAYS battle card plays, makes the counter this
   // turn: it's taken over raging or passing (raging first spends the destroy on a protected King).
   const resetLines = new Set<Action>();
+  // #417 (Ian): the reset lines whose invasion makes the counter right away (their rage to 0 is
+  // all it takes): the counter now, so every other move waits.
+  const resetCounters = new Set<Action>();
   const budget = { n: RESET_NODES };
   const gamUp = Object.values(player?.zones ?? {}).some((stacks) =>
     stacks.some((stack) => {
@@ -459,10 +487,11 @@ export function wranglerV2Verdict(
       } catch {
         continue;
       }
+      const reset = lands.filter((t) => rageOf(t, opponent.id) === 0);
+      if (reset.some((t) => counters(t, me))) resetCounters.add(a);
       if (
-        lands.some(
-          (t) => rageOf(t, opponent.id) === 0 && rageThenCounter(t, me, budget),
-        )
+        resetCounters.has(a) ||
+        reset.some((t) => rageThenCounter(t, me, budget))
       ) {
         resetLines.add(a);
         against.delete(a);
@@ -687,6 +716,20 @@ export function wranglerV2Verdict(
           else hard(a);
   }
 
+  // #417: a reset invasion that makes the counter now is taken, as card rule 7 takes a way to
+  // the counter: every other move is pruned (an invasion that wins now aside), the monster plays
+  // too (as a preference, the search took a monster play over it).
+  if (resetCounters.size > 0)
+    for (const a of actions)
+      if (
+        a.type !== "concede" &&
+        !resetCounters.has(a) &&
+        !(a.type === "invade" && winsNow(state, a, me))
+      ) {
+        against.add(a);
+        rescued.delete(a);
+        pruned.add(a);
+      }
   // Never argue against everything.
   if (actions.every((a) => a.type === "concede" || against.has(a)))
     against.clear();
