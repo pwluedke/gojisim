@@ -8,8 +8,11 @@ import collectorRage from "./collectorRage";
 import counterAlways from "./counterAlways";
 import counterFirst from "./counterFirst";
 import coverToken from "./coverToken";
+import festEmerges from "./festEmerges";
 import festPlan from "./festPlan";
 import festRankOne from "./festRankOne";
+import festRankThreeSave from "./festRankThreeSave";
+import festRankTwoPush from "./festRankTwoPush";
 import festWall from "./festWall";
 import keepLowRank from "./keepLowRank";
 import keepStrategy from "./keepStrategy";
@@ -28,15 +31,23 @@ import recognizer from "./recognizer";
 import recurDiscard from "./recurDiscard";
 import revengeStep from "./revengeStep";
 import rules from "./rules";
+import tanglerBuild from "./tanglerBuild";
+import tanglerDiscard from "./tanglerDiscard";
 import tanglerEarly from "./tanglerEarly";
+import tanglerFear from "./tanglerFear";
+import tanglerPlan from "./tanglerPlan";
+import tanglerStop from "./tanglerStop";
 import targetAll from "./targetAll";
 import targetCheck from "./targetCheck";
 import targetKey from "./targetKey";
 import wranglerBio from "./wranglerBio";
 import wranglerBioHard from "./wranglerBioHard";
+import wranglerFetchRage from "./wranglerFetchRage";
 import wranglerPlan from "./wranglerPlan";
 import wranglerPushLine from "./wranglerPushLine";
+import wranglerResetLine from "./wranglerResetLine";
 import wranglerSpareCost from "./wranglerSpareCost";
+import wranglerTagOut from "./wranglerTagOut";
 import wranglerV21 from "./wranglerV21";
 import wranglerV22 from "./wranglerV22";
 import wranglerV23 from "./wranglerV23";
@@ -50,8 +61,11 @@ export const SWITCHES = [
   counterAlways,
   counterFirst,
   coverToken,
+  festEmerges,
   festPlan,
   festRankOne,
+  festRankThreeSave,
+  festRankTwoPush,
   festWall,
   keepLowRank,
   keepStrategy,
@@ -70,15 +84,23 @@ export const SWITCHES = [
   recurDiscard,
   revengeStep,
   rules,
+  tanglerBuild,
+  tanglerDiscard,
   tanglerEarly,
+  tanglerFear,
+  tanglerPlan,
+  tanglerStop,
   targetAll,
   targetCheck,
   targetKey,
   wranglerBio,
   wranglerBioHard,
+  wranglerFetchRage,
   wranglerPlan,
   wranglerPushLine,
+  wranglerResetLine,
   wranglerSpareCost,
+  wranglerTagOut,
   wranglerV21,
   wranglerV22,
   wranglerV23,

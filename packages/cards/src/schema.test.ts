@@ -51,6 +51,18 @@ describe("cards.json", () => {
     expect(summary.perSet).toEqual(perSet);
     expect(summary.total).toBe(cards.length);
   });
+
+  it("2.8: every Monster, Battle and Strategy card has an invasion icon of 1 or 2 (#450)", () => {
+    const missing = (cards as Card[])
+      .filter(
+        (c) =>
+          ["Monster", "Battle", "Strategy"].includes(c.type) &&
+          c.invadeZones !== 1 &&
+          c.invadeZones !== 2,
+      )
+      .map((c) => `${c.id} ${c.cardNumber} ${c.name}: ${c.invadeZones}`);
+    expect(missing).toEqual([]);
+  });
 });
 
 describe("print linking", () => {

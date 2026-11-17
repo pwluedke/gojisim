@@ -56,6 +56,12 @@ Default 1 · built · from #345
 
 Card rule 23b: with no empty zone off your monster's path, but a legal play over your own token, a play over your own battle card is left out.
 
+### `festEmerges`
+
+Default 1 · built · from #406
+
+The Red Fest plan's Godzilla Emerges line (Slick): an exception to line 2 (no invasion before rank IV): an invasion that takes your monster to zone 6 or beyond (Godzilla Emerges ESD01-014 is rank 6, 8.3.1), with it in hand and 2 rage there or to be raged, so it fires this turn for the rank 8 Godzilla (2023) EBP03-041. Needs `festPlan` (off by default).
+
 ### `festPlan`
 
 Default 0 · measured · from #307
@@ -67,6 +73,18 @@ Slick's Red Fest plan (`festPlan.ts`), with `rules`. Off by default.
 Default 1 · built · from #400
 
 The Red Fest plan's rank I line (Slick): the rank I Fest EBP01-011 invades only to line up its same-column push with a counter to follow this turn (up to 3 battle card plays); no other rank I invasion. Needs `festPlan` (off by default).
+
+### `festRankThreeSave`
+
+Default 1 · built · from #406
+
+The Red Fest plan's rank III save (Slick): at rank III in reach of their counter (your monster in zone 6 or beyond, their counter power at least your threat), the rage goes to the rank IV turn as monster cards kept in hand (no rage discards this turn), and the battle cards and strategies that do nothing now are played out before passing, to make room for the end-of-turn draw. Needs `festPlan` (off by default).
+
+### `festRankTwoPush`
+
+Default 1 · built · from #406
+
+The Red Fest plan's rank II push (Slick): an exception to line 2 (no invasion before rank IV): the rank II Fest EBP01-012 invades when its end-phase push (it advances their monster a zone on a turn it invaded) takes their monster to zone 6 or beyond, lining up the counter next turn. Needs `festPlan` (off by default).
 
 ### `festWall`
 
@@ -176,11 +194,41 @@ Default 0; 1 from Hard (`difficulty.ts`) · kept · from #175
 
 Paul's play rules at the search root (`rules.ts`): prunes and prior bonuses.
 
+### `tanglerBuild`
+
+Default 1 · built · from #403
+
+The Tangler plan's rule 1 (BFW182): the low evolution cards (rank 4 or lower with [evolution]) come out early: no passing while one can be played, even with the counter made. Needs `tanglerPlan`.
+
+### `tanglerDiscard`
+
+Default 1 · built · from #403
+
+The Tangler plan's rule 3 (BFW182): with a rage-lowering monster (Godzilla (2002) EBP03-015, Godzilla (2003) EPR-020, EBP03-017) and the opponent's rage above 0, a battle card worth less than 5000 on the board this turn (3.4.5) is the discard picked first, and a rage gain that discards one goes before passing; off at their rage 0 (3.4.4). Needs `tanglerPlan`.
+
 ### `tanglerEarly`
 
 Default 1 · built · from #314
 
 Card rule 29: a Tangler deck (Godzilla (2002) EBP03-014 and EBP03-015 in its monster deck, Entangling Fear EBP04-081 in its main deck; Paul's signature) doesn't invade before its own turn 4 unless the invasion wins this turn.
+
+### `tanglerFear`
+
+Default 1 · built · from #403
+
+The Tangler plan's rule 1 (BFW182, #369): one Entangling Fear EBP04-081 every turn it can be played and none is in force (no passing before it); spare copies kept (none discarded, raged or paid with while fewer than 3 are in hand). Needs `tanglerPlan`.
+
+### `tanglerPlan`
+
+Default 1 · built · from #403
+
+BFW182's Tangler plan (`tanglerPlan.ts`), with `rules`: Entangling Fear every turn, spares kept, the low evolution cards early, discards by the rage math, and the hand kept once the counter is made.
+
+### `tanglerStop`
+
+Default 1 · built · from #403
+
+The Tangler plan's rule 5 (BFW182): with the counter made, battle card plays, strategies and rage gains wait (but Entangling Fear and the low evolution cards), so the rest of the hand is kept for later turns. Needs `tanglerPlan`.
 
 ### `targetAll`
 
@@ -212,6 +260,12 @@ Default 0 · measured · from Paul, Nov 15
 
 Three of `wranglerBio`'s lines as prunes (the search and a blunder can't override them): no strategy when Biollante's rank III EBP02-027 can reach zone 6+, unless your counter beats 40,000; no counter on its Rose Form; no push out of zone 5. Needs `wranglerBio`. Off by default: its check was worse (40 / 160 vs 63 / 160, Paul, Nov 15).
 
+### `wranglerFetchRage`
+
+Default 1 · built · from #425
+
+The Wrangler plan's fetch for rage (Ian): with Godzilla (2023) ESD01-002 on top, v2.2's invasion for its fetch (a rank III Godzilla (2023) per zone it invades) counts a King to be played this turn as one to protect with 3 rage, not only one in zones 1-5; with such an invasion, tagging out (its fetch goes with it) and passing wait. Needs `wranglerPlan` 2.
+
 ### `wranglerPlan`
 
 Default 2 · kept · from #276, #311
@@ -224,11 +278,23 @@ Default 1 · built · from #381
 
 The Wrangler plan's push line (Ian): an invasion that reaches a push strategy's zone (The Slithering Disaster, Godzilla Landing), after which the push and up to 3 battle card plays make the counter this turn, is taken over raging or passing; a push's follow-up counts a counter made by up to 3 plays. Needs `wranglerPlan` 2.
 
+### `wranglerResetLine`
+
+Default 1 · built · from #388
+
+The Wrangler plan's reset line (Ian): an invasion that triggers Godzilla Against Mechagodzilla EBP01-073's rage reset (the opponent's rage to 0, so a King's protection is gone), after which a rage gain (Godzilla (2023) EBP01-010's column destroy) and up to 3 battle card plays make the counter this turn, is taken over raging or passing, ahead of v2.1's rage to 3 for a King. Needs `wranglerPlan` 2.
+
 ### `wranglerSpareCost`
 
 Default 1 · built · from #418
 
 The Wrangler plan's spare cost (Ian; Paul's option a, Nov 16): early (your monster at rank I or II), an invasion paid with a spare strategy (The Slithering Disaster, or a Despair beyond the one the plan keeps) is freed from "don't race", to clear the dead card out of the hand; monster cards still go for rage, and Godzilla Landing is never a spare (card rule 31). Needs `wranglerPlan` 2.
+
+### `wranglerTagOut`
+
+Default 1 · built · from #384
+
+The Wrangler plan's tag-out against a rage reset (Ian): with the opponent's Godzilla Against Mechagodzilla EBP01-073 up and nothing under it (their next invasion sets your rage to 0), a tag-out to Godzilla (2001) EBP03-004 (from zone 4 its rage can't be reduced by their effects; the end-phase advance takes it there) goes before raging or passing. Needs `wranglerPlan` 2.
 
 ### `wranglerV21`
 

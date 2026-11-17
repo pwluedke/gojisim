@@ -62,6 +62,34 @@ test("#158: the Movie filter narrows the grid and lives in the URL", async ({
   await expect(page).toHaveURL(/movie=Godzilla\+%281954%29/);
 });
 
+test("#447: the Invasion filter (1-step, 2-step) splits the grid and lives in the URL; #450: every card has an icon", async ({
+  page,
+}) => {
+  await page.goto("/decks");
+  await expect(page.getByTestId("db-card").first()).toBeVisible();
+  const all = await count(page);
+  const of = async (value: string) => {
+    await page.getByTestId("db-invasion").selectOption(value);
+    await expect.poll(() => count(page)).toBeLessThan(all);
+    return count(page);
+  };
+  const two = await of("2");
+  expect(two).toBeGreaterThan(0);
+  await expect(page).toHaveURL(/invasion=2/);
+  // The URL restores it.
+  await page.reload();
+  await expect(page.getByTestId("db-invasion")).toHaveValue("2");
+  await expect.poll(() => count(page)).toBe(two);
+  const one = await of("1");
+  expect(one + two).toBe(all);
+  await expect(
+    page.getByTestId("db-invasion").locator("option[value=none]"),
+  ).toHaveCount(0);
+  await page.getByTestId("db-invasion").selectOption("");
+  await expect.poll(() => count(page)).toBe(all);
+  await expect(page).toHaveURL(/\/decks$/);
+});
+
 test("#157: hovering a card shows it in full; #165: the card detail has the art choice", async ({
   page,
 }) => {

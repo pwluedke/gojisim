@@ -18,6 +18,22 @@
     "deckCardNumber": "EPR-005",
     "reason": "Paul: EPR-005+ is a version of Godzilla's Bite; base print is EPR-005 (id 896). The site lists it as a parent-less parallel."
   },
+  "536": {
+    "invadeZones": 2,
+    "reason": "Tester report (Ian, Discord #ideas, Nov 17; #450): every deck card prints an invasion icon (CR 2.8), and the site lists none for this card. The card image (tools/scraper/.cache/images/EBP03/536.png) prints icon 2, the same icon as Moguera EBP03-036. EBP03-035 Satsuma."
+  },
+  "537": {
+    "invadeZones": 2,
+    "reason": "Tester report (Ian, Discord #ideas, Nov 17; #450): every deck card prints an invasion icon (CR 2.8), and the site lists none for this card. The card image (tools/scraper/.cache/images/EBP03/536.png) prints icon 2, the same icon as Moguera EBP03-036. Same card as 536 (the + print)."
+  },
+  "540": {
+    "invadeZones": 1,
+    "reason": "Tester report (Ian, Discord #ideas, Nov 17; #450): every deck card prints an invasion icon (CR 2.8), and the site lists none for this card. The card image (tools/scraper/.cache/images/EBP03/540.png) prints icon 1, the same icon as Jet Jaguar (1973) EBP03-034. EBP03-037 Godzilla (2001)."
+  },
+  "541": {
+    "invadeZones": 1,
+    "reason": "Tester report (Ian, Discord #ideas, Nov 17; #450): every deck card prints an invasion icon (CR 2.8), and the site lists none for this card. The card image (tools/scraper/.cache/images/EBP03/540.png) prints icon 1, the same icon as Jet Jaguar (1973) EBP03-034. Same card as 540 (the + print)."
+  },
   "896": {
     "parentId": null,
     "reason": "Base print of Godzilla's Bite (see 443). The site lists it as a child of 443; without this the 443 override makes a parent cycle."

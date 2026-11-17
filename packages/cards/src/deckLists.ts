@@ -163,7 +163,9 @@ export function parseDeckList(text: string): ParsedDeckList {
       return;
     }
 
-    const entry = /^(\S+)\s+(\S+)$/.exec(text);
+    // #437: a finish print's number has a space in it ("EBP01-008+ (Foil)", the SSP), as the card
+    // data and `formatDeckList` write it.
+    const entry = /^(\S+)\s+(\S+(?: \((?:Foil|Alt)\))?)$/.exec(text);
     if (!entry)
       return void error(
         'Expected a count and a card number, e.g. "2 EBP02-027"',
