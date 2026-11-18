@@ -38,7 +38,7 @@ function monsterWith(state: GameState, me: PlayerState, traits: string[]) {
   me.invadingMonsterZone = [addCard(state, monsterCard(1, { traits }), me.id)];
 }
 
-/** A battle card in `zone` that repels your Minilla monster's end phase advance, leaving Crystals. */
+/** A battle card in `zone` that repels your Godzilla monster's end phase advance, leaving Crystals. */
 function repeller(state: GameState, me: PlayerState, zone: ZoneNumber) {
   const card = battleCard({ id: 970001 });
   abilities(card.deckCardNumber, [
@@ -49,7 +49,7 @@ function repeller(state: GameState, me: PlayerState, zone: ZoneNumber) {
         {
           flag: "repelsEndPhaseAdvance",
           target: { owner: "you", area: "zones", this: true },
-          traits: ["Minilla"],
+          traits: ["Godzilla"],
           token: "Crystals",
         },
       ],
@@ -87,8 +87,8 @@ describe("repelsEndPhaseAdvance (7.5.2)", () => {
     return { state, me, card, after: advance(state) };
   };
 
-  it("Paul's example: Minilla in 4, the card in 5: at the end phase it goes to 3, and Crystals is played in 4", () => {
-    const { me, card, after } = endPhase(["Minilla"]);
+  it("the monster in 4, the card in 5: at the end phase it goes to 3, and Crystals is played in 4", () => {
+    const { me, card, after } = endPhase(["Godzilla"]);
     expect(self(after, me).monsterPosition).toBe(3);
     expect(has(after, me, 4, "Crystals")).toBe(true);
     expect(holds(after, me, 5, card.instanceId)).toBe(true);
@@ -102,7 +102,7 @@ describe("repelsEndPhaseAdvance (7.5.2)", () => {
 
   it("only the end phase advance: invading into its zone crushes it as usual (11.3)", () => {
     const { state, me } = setup(4);
-    monsterWith(state, me, ["Minilla"]);
+    monsterWith(state, me, ["Godzilla"]);
     const card = repeller(state, me, 5);
     const after = settle(
       invade(state, me, inHand(state, me, battleCard({ invadeZones: 1 }))),
@@ -113,11 +113,11 @@ describe("repelsEndPhaseAdvance (7.5.2)", () => {
 });
 
 describe("shieldsFromRepel (7.5.2)", () => {
-  it("Paul's example: the monster shares a shielding card's zone (5), the repeller is in 6: its end phase advance happens and crushes the repeller (11.3)", () => {
+  it("the monster shares a shielding card's zone (5), the repeller is in 6: its end phase advance happens and crushes the repeller (11.3)", () => {
     const state = at(newGame(), "7.5.2");
     const me = turnPlayer(state);
     me.monsterPosition = 5;
-    monsterWith(state, me, ["Minilla"]);
+    monsterWith(state, me, ["Godzilla"]);
     const shield = battleCard({ id: 970003 });
     abilities(shield.deckCardNumber, [
       {
@@ -127,7 +127,7 @@ describe("shieldsFromRepel (7.5.2)", () => {
           {
             flag: "shieldsFromRepel",
             target: { owner: "you", area: "zones", this: true },
-            traits: ["Minilla"],
+            traits: ["Godzilla"],
           },
         ],
       },
@@ -147,7 +147,7 @@ describe("repelled: a trigger when a repel made your monster retreat", () => {
     const me = turnPlayer(state);
     const opp = state.players.find((p) => p.id !== me.id)!;
     me.monsterPosition = 4;
-    monsterWith(state, me, ["Minilla"]);
+    monsterWith(state, me, ["Godzilla"]);
     const bully = battleCard({ id: 970004, rank: 3 });
     abilities(bully.deckCardNumber, [
       {
