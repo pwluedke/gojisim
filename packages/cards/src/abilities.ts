@@ -1306,6 +1306,26 @@ export function loadAbilities(): Map<string, CardAbilities> {
   return map;
 }
 
+/**
+ * Adds a set's ability file at runtime (the cards from `registerCards`), validated like the
+ * bundled files. Entries for card numbers already known are skipped. Returns how many were added.
+ */
+export function registerAbilities(raw: unknown): number {
+  const result = AbilityFileSchema.safeParse(raw);
+  if (!result.success)
+    throw new Error(
+      `registered abilities are invalid: ${result.error.message}`,
+    );
+  const map = loadAbilities();
+  let added = 0;
+  for (const [number, card] of Object.entries(result.data))
+    if (!map.has(number)) {
+      map.set(number, card);
+      added++;
+    }
+  return added;
+}
+
 /** A card's abilities by `deckCardNumber`. A card with no entry is `manual` with no abilities. */
 export function getCardAbilities(deckCardNumber: string): CardAbilities {
   return (
