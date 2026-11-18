@@ -290,6 +290,12 @@ Default 1 · built · from #388
 
 The Wrangler plan's reset line (Ian): an invasion that triggers Godzilla Against Mechagodzilla EBP01-073's rage reset (the opponent's rage to 0, so a King's protection is gone), after which a rage gain (Godzilla (2023) EBP01-010's column destroy) and up to 3 battle card plays make the counter this turn, is taken over raging or passing, ahead of v2.1's rage to 3 for a King. Needs `wranglerPlan` 2.
 
+### `wranglerSpareCost`
+
+Default 1 · built · from #418
+
+The Wrangler plan's spare cost (Ian; Paul's option a, Nov 16): early (your monster at rank I or II), an invasion paid with a spare strategy (The Slithering Disaster, or a Despair beyond the one the plan keeps) is freed from "don't race", to clear the dead card out of the hand; monster cards still go for rage, and Godzilla Landing is never a spare (card rule 31). Needs `wranglerPlan` 2.
+
 ### `wranglerTagOut`
 
 Default 1 · built · from #384

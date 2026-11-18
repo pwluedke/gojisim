@@ -47,6 +47,7 @@ import wranglerFetchRage from "./wranglerFetchRage";
 import wranglerPlan from "./wranglerPlan";
 import wranglerPushLine from "./wranglerPushLine";
 import wranglerResetLine from "./wranglerResetLine";
+import wranglerSpareCost from "./wranglerSpareCost";
 import wranglerTagOut from "./wranglerTagOut";
 import wranglerV21 from "./wranglerV21";
 import wranglerV22 from "./wranglerV22";
@@ -100,6 +101,7 @@ export const SWITCHES = [
   wranglerPlan,
   wranglerPushLine,
   wranglerResetLine,
+  wranglerSpareCost,
   wranglerTagOut,
   wranglerV21,
   wranglerV22,
