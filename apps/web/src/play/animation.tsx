@@ -10,6 +10,7 @@ import styles from "./Board.module.css";
 import { clipPath, shardLayout } from "./shards";
 import type { BoardModel } from "./model";
 import type { AnimationSpeed } from "./settings";
+import { cardImage } from "../game/cardImage";
 
 /**
  * Card movement animations (M5f), built from two board snapshots: where every rendered card and
@@ -862,7 +863,7 @@ export function FlightLayer({
     <div className={styles.flightLayer} aria-hidden>
       {flights.map((flight) => {
         const card = flight.cardId === null ? undefined : cards[flight.cardId];
-        const src = card ? `/cards/${card.id}-thumb.webp` : null;
+        const src = card ? cardImage(card.id, "thumb") : null;
         const { from } = flight;
         const ghost = (
           <div

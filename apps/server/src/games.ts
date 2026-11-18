@@ -201,6 +201,13 @@ export interface GamesOptions {
   db?: DatabaseSync | undefined;
   /** M9a: a live head to head game's id, which an upload can't take (only the server writes it). */
   isH2hGame?: (gameId: string) => boolean;
+  /**
+   * The private card set: a record holding one of its cards goes to this folder instead, by
+   * game id, and is never indexed or passed to `onStored` (whose posts and stats are shared).
+   */
+  privateRecordsDir?: string;
+  /** Whether a record holds a private card (`privateRecords.ts`; the server passes it in). */
+  isPrivateRecord?: (record: unknown) => boolean;
   now?: () => number;
   /** Where the "records folder full" line goes (default `console.error`). */
   log?: (line: string) => void;
@@ -223,6 +230,8 @@ export function gamesMiddleware({
   playerOf,
   db,
   isH2hGame,
+  privateRecordsDir,
+  isPrivateRecord,
   now = Date.now,
   log = (line) => console.error(line),
 }: GamesOptions) {
@@ -358,6 +367,18 @@ export function gamesMiddleware({
         sendJson(res, 403, { error: "not-yours" });
         return;
       }
+    }
+    // The private card set's games stay out of the shared folder, index and posts.
+    if (isPrivateRecord?.(record)) {
+      if (!privateRecordsDir) {
+        sendJson(res, 403, { error: "private-cards" });
+        return;
+      }
+      const id = gameId ?? randomUUID();
+      await mkdir(privateRecordsDir, { recursive: true });
+      await writeFile(join(privateRecordsDir, `${id}.json`), body);
+      sendJson(res, 201, { id });
+      return;
     }
     const earlier = gameId ? await storedGame(recordsDir, gameId) : null;
     folderSize ??= folderBytes(recordsDir);

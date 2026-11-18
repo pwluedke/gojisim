@@ -2,6 +2,7 @@ import type { CardInstance, PlayerView } from "@gojisim/engine";
 import { useEffect } from "react";
 import styles from "./Board.module.css";
 import { FloatingWindow } from "./FloatingWindow";
+import { cardImage } from "../game/cardImage";
 
 /** A public stack on the board (M5h #9): a discard pile, the invading monster, or a zone. */
 export type StackKey =
@@ -85,7 +86,7 @@ export function StackViewer({
                   <div className={styles.cardFallback}>{data?.name}</div>
                   <img
                     className={styles.cardImage}
-                    src={`/cards/${card.cardId}-thumb.webp`}
+                    src={cardImage(card.cardId, "thumb")}
                     alt={data?.name ?? ""}
                     draggable={false}
                     onError={(e) => {
