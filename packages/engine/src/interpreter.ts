@@ -937,6 +937,39 @@ function triggerMatches(
       }
       return true;
     }
+    case "monsterEntered": {
+      // A monster moves into a zone: every step of every move (5.13.1, 5.13.2, 5.15.1.1, 4.4.5.1).
+      if (
+        !["advance", "retreat", "moveBehind", "moveVertically"].includes(
+          event.type,
+        ) ||
+        event.player === null
+      )
+        return false;
+      if (!isPlayer(trigger.whose, event.player, master)) return false;
+      const mover = getPlayer(state, event.player);
+      if (trigger.traits) {
+        const top = topOf(mover.invadingMonsterZone);
+        const traits = top ? getCardTraits(cardOf(state, top)) : [];
+        if (!trigger.traits.some((t) => traits.includes(t))) return false;
+      }
+      if (trigger.into) {
+        const to = Number(event.payload["to"]) as ZoneNumber;
+        const ctx: Context = {
+          state,
+          master,
+          sourceInstanceId: source.instanceId,
+          bindings: {},
+        };
+        if (
+          !resolveZoneSet(ctx, trigger.into, [mover]).some(
+            (r) => r.player === mover.id && r.zone === to,
+          )
+        )
+          return false;
+      }
+      return true;
+    }
     case "revenge":
       // T2 (12.7.2): this card was destroyed from the field (an effect, or crush and destroy,
       // 11.3), not by overload (duplicate card processing, Q17), and is now in the discard pile.
