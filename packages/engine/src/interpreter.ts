@@ -339,7 +339,15 @@ export function resolveZoneSet(
             leftRightPosition(anchor, anchor.player),
       ),
     );
-  else if (set.relation === "oneLowerThan") {
+  else if (set.relation === "oneTowardMonster") {
+    // One zone number toward its owner's monster (+1 or -1), on the anchor's field.
+    const monster = getPlayer(ctx.state, anchor.player).monsterPosition;
+    if (monster !== null && monster !== anchor.zone)
+      refs.push({
+        player: anchor.player,
+        zone: (anchor.zone + (monster > anchor.zone ? 1 : -1)) as ZoneNumber,
+      });
+  } else if (set.relation === "oneLowerThan") {
     // The zone numbered 1 lower on the anchor's field (zone 5 -> 4); none below zone 1.
     if (anchor.zone > 1)
       refs.push({
@@ -357,6 +365,13 @@ export function resolveZoneSet(
     if (zone !== null) refs.push({ player: anchor.player, zone });
   }
   if (set.includeSelf) refs.push(anchor);
+  if (set.unoccupied)
+    return refs.filter((r) => {
+      const owner = getPlayer(ctx.state, r.player);
+      return (
+        owner.zones[r.zone].length === 0 && r.zone !== owner.monsterPosition
+      );
+    });
   return refs;
 }
 
