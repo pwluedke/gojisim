@@ -73,9 +73,18 @@ export const ZoneSetSchema = z.union([
       "atOrBefore",
       /** C3: the zones beside it in its row (4.4.5.2, 4.4.5.5), not in front or behind. */
       "horizontallyAdjacentTo",
+      /**
+       * The zone on the anchor's field numbered 1 toward its owner's monster (+1 when the monster
+       * is in a higher zone, -1 when lower); none when the monster is in the anchor's zone.
+       */
+      "oneTowardMonster",
+      /** The anchor's own field's zone numbered 1 lower (none below zone 1); not 4.4.5.1's behind. */
+      "oneLowerThan",
     ]),
     of: ZoneAnchorSchema,
     includeSelf: z.boolean().optional(),
+    /** Only the zones without a card that aren't their owner's monster's zone (Q5). */
+    unoccupied: z.boolean().optional(),
   }),
   z.enum(["unoccupied", "any"]),
   /** C3: the zones numbered like the ranks of the cards bound with `as` (EBP03-073). */
@@ -249,6 +258,14 @@ export const TriggerSchema = z.discriminatedUnion("on", [
     /** T7: binds the played card. */
     as: z.string().min(1).optional(),
   }),
+  /** A battle card's `repelsEndPhaseAdvance` made a player's monster retreat (7.5.2). */
+  z.strictObject({
+    on: z.literal("repelled"),
+    /** Whose monster retreated because a battle card repelled its end phase advance. */
+    whose: PlayerRefSchema,
+    /** Binds the repelling battle card. */
+    as: z.string().min(1).optional(),
+  }),
   /** An invading monster is countered (5.15): `this` card, or a player's monster. */
   z.strictObject({
     on: z.literal("countered"),
@@ -266,6 +283,18 @@ export const TriggerSchema = z.discriminatedUnion("on", [
     during: PhaseSchema.optional(),
     /** What moved it: the 7.5.2 end phase advance, an invasion (8.6), or an effect (E15). */
     cause: z.enum(["endPhase", "invasion", "effect"]).optional(),
+  }),
+  /**
+   * A monster enters a zone (5.13.1, 5.13.2, 5.15.1.1, 4.4.5.1): once per zone it moves into,
+   * whatever moved it (an invasion's every step, an advance, a retreat, a counter's move behind,
+   * a vertical move). `into` keeps the zones (relative to this card; on the mover's own field),
+   * `traits` the moves of a monster with one of them.
+   */
+  z.strictObject({
+    on: z.literal("monsterEntered"),
+    whose: PlayerRefSchema,
+    into: ZoneSetSchema.optional(),
+    traits: z.array(z.string().min(1)).min(1).optional(),
   }),
   /** A player performs an invasion (5.14.1, 8.6): once per invasion action, unlike [invading]. */
   z.strictObject({
@@ -1016,6 +1045,35 @@ export const ModifierSchema = z.union([
   /** M1: the target monster cannot advance (5.13.1) or invade (8.6). */
   z.strictObject({ flag: z.literal("cannotAdvance"), target: SelectorSchema }),
   z.strictObject({ flag: z.literal("cannotInvade"), target: SelectorSchema }),
+  /**
+   * The end phase advance (7.5.2) of its master's own invading monster (with one of `traits`,
+   * when given) into the target battle card's zone doesn't happen: the monster retreats 1 zone
+   * instead (5.13.2), and when it did, its master plays a `token` in the zone it left (5.11.4).
+   */
+  z.strictObject({
+    flag: z.literal("repelsEndPhaseAdvance"),
+    target: SelectorSchema,
+    traits: z.array(z.string().min(1)).min(1).optional(),
+    token: z.string().min(1).optional(),
+  }),
+  /**
+   * While its master's own invading monster (with one of `traits`) is in the target battle card's
+   * zone, `repelsEndPhaseAdvance` can't make it retreat: its 7.5.2 advance happens as usual.
+   */
+  z.strictObject({
+    flag: z.literal("shieldsFromRepel"),
+    target: SelectorSchema,
+    traits: z.array(z.string().min(1)).min(1).optional(),
+  }),
+  /**
+   * An exception to crush and destroy (11.3): its master's own invading monster (with one of
+   * `traits`, when given) can occupy the target battle card's zone without destroying it.
+   */
+  z.strictObject({
+    flag: z.literal("hostsMonster"),
+    target: SelectorSchema,
+    traits: z.array(z.string().min(1)).min(1).optional(),
+  }),
   /** M1: `player` cannot play cards `what` picks (8.2, 8.3, Q32), or only not into `zones`. */
   z.strictObject({
     flag: z.literal("cannotPlay"),
