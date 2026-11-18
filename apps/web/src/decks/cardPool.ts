@@ -100,7 +100,13 @@ export interface CardFilter {
   movie: string;
   /** #447: the invasion icon (1-step or 2-step, 6.1.1.2.2); "" any. */
   invasion: InvasionFilter;
+  /** #452: the list's order: "" by card number (the pool's order), "rank" by rank then number. */
+  sort: CardSort;
 }
+
+/** #452: the card list's orders besides card number. */
+export const CARD_SORTS = ["rank"] as const;
+export type CardSort = "" | (typeof CARD_SORTS)[number];
 
 /** #447: the Invasion filter's values: a card's invasion icon (`invadeZones`). #450: every deck
  * card has one (2.8), so there's no "none". */
@@ -125,6 +131,7 @@ export const NO_FILTER: CardFilter = {
   keyword: "",
   movie: "",
   invasion: "",
+  sort: "",
 };
 
 /** The set a card belongs to for the filter: its deck card number's prefix (`EBP01`). */
@@ -138,7 +145,7 @@ export function applyFilter(
 ): PoolEntry[] {
   const words = f.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const trait = f.trait.trim().toLowerCase();
-  return pool.filter((e) => {
+  const shown = pool.filter((e) => {
     const c = e.card;
     if (words.some((w) => !e.search.includes(w))) return false;
     if (f.sets.length > 0 && !f.sets.includes(setOf(e))) return false;
@@ -161,6 +168,14 @@ export function applyFilter(
     if (f.invasion && c.invadeZones !== Number(f.invasion)) return false;
     return true;
   });
+  // #452: by rank, ties in card number order (the pool's; the sort is stable). No rank goes last.
+  if (f.sort === "rank")
+    shown.sort(
+      (a, b) =>
+        (a.card.rank ?? Number.POSITIVE_INFINITY) -
+        (b.card.rank ?? Number.POSITIVE_INFINITY),
+    );
+  return shown;
 }
 
 /** The values each filter can take, from the pool (sorted). */
@@ -201,6 +216,7 @@ export function filterToQuery(f: CardFilter): string {
   if (f.keyword) p.set("keyword", f.keyword);
   if (f.movie.trim()) p.set("movie", f.movie.trim());
   if (f.invasion) p.set("invasion", f.invasion);
+  if (f.sort) p.set("sort", f.sort);
   return p.toString();
 }
 
@@ -232,6 +248,9 @@ export function filterFromQuery(query: string): CardFilter {
       p.get("invasion") ?? "",
     )
       ? (p.get("invasion") as InvasionFilter)
+      : "",
+    sort: (CARD_SORTS as readonly string[]).includes(p.get("sort") ?? "")
+      ? (p.get("sort") as CardSort)
       : "",
   };
 }

@@ -23,6 +23,7 @@ import {
   buildPool,
   CARD_TYPES,
   type CardFilter,
+  type CardSort,
   facets,
   filterFromQuery,
   filterToQuery,
@@ -383,6 +384,17 @@ export function Deckbuilder() {
               <option value="">Any</option>
               <option value="1">1-step</option>
               <option value="2">2-step</option>
+            </select>
+          </label>
+          <label className={styles.field}>
+            Sort
+            <select
+              data-testid="db-sort"
+              value={filter.sort}
+              onChange={(e) => set({ sort: e.target.value as CardSort })}
+            >
+              <option value="">Card number</option>
+              <option value="rank">Rank</option>
             </select>
           </label>
           <label className={styles.field}>
