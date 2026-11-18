@@ -1,4 +1,5 @@
 import { type BotInput, PRESETS } from "@gojisim/bot";
+import type { PrivateSetData } from "./privateSetData";
 import {
   type Action,
   type CardInstance,
@@ -110,8 +111,8 @@ export interface BotRequest {
   input: Omit<BotInput, "rng">;
   seed: string;
   difficulty: number;
-  /** The private card set's abilities (`privateSet.ts`), registered by the worker once. */
-  abilities?: Record<string, unknown>;
+  /** The private card set's cards and abilities (`privateSet.ts`), registered by the worker. */
+  privateSet?: PrivateSetData;
 }
 
 export type BotResponse =
