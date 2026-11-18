@@ -345,7 +345,28 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
   "7.5.2": (state) => {
     const player = turnPlayer(state);
     if (player.monsterPosition !== null && player.monsterPosition <= 7) {
-      advanceMonster(state, player, { invasion: false, rule: "7.5.2" });
+      // "Can't advance during the end phase": only this advance is skipped.
+      const top = topOf(player.invadingMonsterZone);
+      if (top && hasFlag(state, top, "cannotEndPhaseAdvance"))
+        appendLog(state, "noAdvance", player.id, {
+          rule: "7.5.2",
+          zone: player.monsterPosition,
+        });
+      else advanceMonster(state, player, { invasion: false, rule: "7.5.2" });
+    }
+    // Effects lasting until this player's next end phase advance end now.
+    const ended = state.continuousEffects.filter(
+      (e) =>
+        e.duration === "untilEndPhaseAdvance" && e.endPhaseOf === player.id,
+    );
+    if (ended.length > 0) {
+      state.continuousEffects = state.continuousEffects.filter(
+        (e) => !ended.includes(e),
+      );
+      appendLog(state, "expireEffects", null, {
+        rule: "7.5.2",
+        effectIds: ended.map((e) => e.effectId),
+      });
     }
     goTo(state, "end", "7.5.3");
   },

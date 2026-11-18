@@ -627,3 +627,16 @@ type Amount = ... | { boundCount: string };                // cards bound with `
 - A destroy's `as` now binds the cards actually destroyed, not those a replacement (10.9) or protection (1.3.3) kept. No card bound a destroy before this one.
 - "If 3 cards are [destroy] this way" is `if` with `{ amount: { boundCount: "destroyed" }, op: ">=", value: 3 }`. `boundCount` counts a destroyed Crystals token too, though it is banished (9.1.4.2) and no longer anywhere a selector looks.
 - "Play 1 battle card with the highest rank from your discard pile" is a normal effect play (5.11.1): its [enter] triggers and the player picks the zone. Highest is the printed rank (Mecha-King Ghidorah, rank 23), ties to the player.
+
+### Until the next end phase; this card entered this turn (Nov 18)
+
+```typescript
+type Modifier = ...
+  | { flag: "cannotEndPhaseAdvance"; target: Selector }  // the target monster doesn't make its end phase
+      // advance (7.5.2); invasions and effect advances still happen
+type Effect = ...
+  | { effect: "grant"; duration: "endOfTurn" | "nextEndPhase"; modifier: Modifier }  // nextEndPhase: ends
+      // after the end phase advance step (7.5.2) of the picked cards' master's next end phase
+type Condition = ...
+  | { thisTurn: "thisEntered" }  // this card was played into its master's zones this turn (12.2)
+```

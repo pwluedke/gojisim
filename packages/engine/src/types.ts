@@ -178,7 +178,13 @@ export type ManualOp =
 export interface ContinuousEffect {
   effectId: string;
   timestamp: number;
-  duration: "untilEndOfTurn" | "whileSourceActive" | "permanent";
+  duration:
+    | "untilEndOfTurn"
+    | "untilEndPhaseAdvance"
+    | "whileSourceActive"
+    | "permanent";
+  /** With `untilEndPhaseAdvance`: whose next end phase advance step (7.5.2) ends it. */
+  endPhaseOf?: PlayerId;
   /**
    * E19 (`boost`): fixed bonuses for the cards picked when the effect resolved (10.8.2). A card
    * that moves to another area is a new object (4.1.4), so its bonus ends.
