@@ -91,6 +91,23 @@ export function advanceMonster(
 }
 
 /**
+ * Marks the end of a whole move (an invasion, an effect's advance or retreat, a counter's move
+ * behind, a vertical move, the 7.5.2 advance), for "ends a move" triggers. Nothing when the
+ * monster ends where it started or the game is over.
+ */
+export function endMove(
+  state: GameState,
+  player: PlayerState,
+  from: ZoneNumber | null,
+  rule: string,
+): void {
+  const to = player.monsterPosition;
+  if (state.result !== null || to === null || from === null || to === from)
+    return;
+  appendLog(state, "moveEnded", player.id, { rule, from, to });
+}
+
+/**
  * Retreats the invading monster 1 zone (5.13.2). In zone 1 nothing happens and it is not
  * considered to have retreated (5.13.2.1). Returns whether it retreated (5.13.3).
  */

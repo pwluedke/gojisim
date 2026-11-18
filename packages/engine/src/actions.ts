@@ -1,5 +1,5 @@
 import { getCardTraits } from "@gojisim/cards";
-import { advanceMonster } from "./movement";
+import { advanceMonster, endMove } from "./movement";
 import { closeManualWindow, manualProblem, performManual } from "./manual";
 import {
   applyReplacement,
@@ -383,6 +383,7 @@ function invadeWith(
     if (advanceMonster(state, player, { invasion: true, rule: "8.6.1.2" }))
       advances++;
   }
+  endMove(state, player, from, "8.6.1.2");
   // 5.13.3: whether the monster actually advanced during this invasion (for When invading, M4).
   appendLog(state, "invasionDone", player.id, {
     rule: "5.13.3",

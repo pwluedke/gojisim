@@ -7,7 +7,7 @@ import {
 } from "./counter";
 import { resolveLosses } from "./losses";
 import { guardLoop, resetLoopGuard } from "./loop";
-import { advanceMonster } from "./movement";
+import { advanceMonster, endMove } from "./movement";
 import { checkTiming, hasPendingRuleActions, topOf } from "./rules";
 import { requireChoice } from "./choices";
 import {
@@ -345,7 +345,9 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
   "7.5.2": (state) => {
     const player = turnPlayer(state);
     if (player.monsterPosition !== null && player.monsterPosition <= 7) {
+      const from = player.monsterPosition;
       advanceMonster(state, player, { invasion: false, rule: "7.5.2" });
+      endMove(state, player, from, "7.5.2");
     }
     goTo(state, "end", "7.5.3");
   },

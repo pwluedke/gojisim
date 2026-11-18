@@ -30,6 +30,7 @@ import { counterMonster, moveBehind } from "./counter";
 import {
   advanceMonster,
   advanceMonsterTo,
+  endMove,
   retreatMonster,
   retreatMonsterTo,
 } from "./movement";
@@ -966,6 +967,33 @@ function triggerMatches(
           !sameColumn(
             { player: mover.id, zone: to },
             { player: other.id, zone: other.monsterPosition },
+          )
+        )
+          return false;
+      }
+      return true;
+    }
+    case "monsterMoveEnded": {
+      // 5.13, 5.15.1.1, 4.4.5.1: once per whole move, where it stopped.
+      if (event.type !== "moveEnded" || event.player === null) return false;
+      if (!isPlayer(trigger.whose, event.player, master)) return false;
+      const mover = getPlayer(state, event.player);
+      if (trigger.traits) {
+        const top = topOf(mover.invadingMonsterZone);
+        const traits = top ? getCardTraits(cardOf(state, top)) : [];
+        if (!trigger.traits.some((t) => traits.includes(t))) return false;
+      }
+      if (trigger.into) {
+        const to = Number(event.payload["to"]) as ZoneNumber;
+        const ctx: Context = {
+          state,
+          master,
+          sourceInstanceId: source.instanceId,
+          bindings: {},
+        };
+        if (
+          !resolveZoneSet(ctx, trigger.into, [mover]).some(
+            (r) => r.player === mover.id && r.zone === to,
           )
         )
           return false;
@@ -2818,6 +2846,7 @@ function perform(state: GameState, effect: Effect): Outcome {
         if (moveProtected(state, player, ctx.master)) continue;
         // "By" can be an amount ("1 additional zone for each Crystals", E15).
         const by = effect.by === undefined ? 1 : amountOf(ctx, effect.by);
+        const movedFrom = player.monsterPosition;
         if (effect.effect === "advance") {
           const options = { invasion: false, rule: "5.13.1" };
           if (effect.toZone !== undefined)
@@ -2828,6 +2857,12 @@ function perform(state: GameState, effect: Effect): Outcome {
           retreatMonsterTo(state, player, effect.toZone, "5.13.2");
         else
           for (let i = 0; i < by; i++) retreatMonster(state, player, "5.13.2");
+        endMove(
+          state,
+          player,
+          movedFrom,
+          effect.effect === "advance" ? "5.13.1" : "5.13.2",
+        );
       }
       return "done";
     }
@@ -3344,6 +3379,7 @@ function perform(state: GameState, effect: Effect): Outcome {
         to,
         abilityId,
       });
+      endMove(state, player, from, "4.4.5.1");
       return "done";
     }
     case "until": {

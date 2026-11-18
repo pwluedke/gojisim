@@ -2,7 +2,7 @@ import type { CardAbilities } from "@gojisim/cards";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { type ZoneNumber } from "../src";
 import { setTestAbilities } from "../src/testing";
-import { activate, play, self, settle, setup } from "./fixtures/play";
+import { activate, invade, play, self, settle, setup } from "./fixtures/play";
 import { inHand, place } from "./fixtures/real";
 import { battleCard, strategyCard } from "./fixtures/state";
 
@@ -109,5 +109,60 @@ describe("zone sets for columns (4.4.5.4, 4.4.5.5)", () => {
     // Monster in 1: from zone 2, zone 1 is the monster's zone (never a target, Q5); zone 3 is
     // farther, so it stays in 2.
     expect(run(1, 2).map(Number)).toEqual([2]);
+  });
+});
+
+/** A battle card in zone 8 that gives you 1 rage when your monster ends a move in its column. */
+function columnWatcher(
+  state: ReturnType<typeof setup>["state"],
+  me: ReturnType<typeof setup>["me"],
+  traits?: string[],
+) {
+  const card = battleCard({ id: 968003 });
+  abilities(card.deckCardNumber, [
+    {
+      kind: "triggered",
+      id: "watch",
+      trigger: {
+        on: "monsterMoveEnded",
+        whose: "you",
+        into: { relation: "sharesColumnWith", of: "this" },
+        ...(traits ? { traits } : {}),
+      },
+      effects: [{ effect: "rage", player: "you", delta: 1 }],
+    },
+  ]);
+  place(state, me, card, 8);
+}
+
+describe("monsterMoveEnded (5.13, 5.15.1.1): once per whole move, where it stops", () => {
+  const invader = (icon: number) =>
+    battleCard({ id: 968010 + icon, invadeZones: icon });
+
+  it("an invasion of 1 that stops in the watcher's column (3, with the watcher in 8) triggers it", () => {
+    const { state, me } = setup(2);
+    columnWatcher(state, me);
+    const rage = me.rage;
+    const after = settle(invade(state, me, inHand(state, me, invader(1))));
+    expect(self(after, me).monsterPosition).toBe(3);
+    expect(self(after, me).rage).toBe(rage + 1);
+  });
+
+  it("an invasion of 2 passing through that column (2 to 4 via 3) doesn't: it ends in 4", () => {
+    const { state, me } = setup(2);
+    columnWatcher(state, me);
+    const rage = me.rage;
+    const after = settle(invade(state, me, inHand(state, me, invader(2))));
+    expect(self(after, me).monsterPosition).toBe(4);
+    expect(self(after, me).rage).toBe(rage);
+  });
+
+  it("traits: only a monster with one of them", () => {
+    const { state, me } = setup(2);
+    columnWatcher(state, me, ["No Such Trait"]);
+    const rage = me.rage;
+    const after = settle(invade(state, me, inHand(state, me, invader(1))));
+    expect(self(after, me).monsterPosition).toBe(3);
+    expect(self(after, me).rage).toBe(rage);
   });
 });

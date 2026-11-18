@@ -6,6 +6,7 @@ import { markLoss } from "./losses";
 import { cardOf, crushAndDestroy, topOf } from "./rules";
 import { appendLog, moved } from "./state";
 import type { CardInstance, GameState, PlayerState } from "./types";
+import { endMove } from "./movement";
 
 export { activeMonster, counterPowerOf, getThreat, RAGE_THREAT } from "./stats";
 
@@ -87,6 +88,7 @@ export function moveBehind(
       ...(asCountered ? { asCountered: true } : {}),
     });
     crushAndDestroy(state);
+    endMove(state, player, from, "5.15.1.1");
   }
 }
 

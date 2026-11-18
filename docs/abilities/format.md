@@ -642,3 +642,14 @@ type ZoneSet = ...
   | { relation: ...; unoccupied: true }  // any relation: only the zones without a card that aren't their
       // owner's monster's zone (Q5)
 ```
+
+And a trigger for a monster's whole move:
+
+```typescript
+type Trigger = ...
+  | { on: "monsterMoveEnded"; whose: PlayerRef; into?: ZoneSet; traits?: string[] }  // 5.13, 5.15.1.1,
+      // 4.4.5.1: once per whole move (an invasion, an effect's advance or retreat, a counter's move behind,
+      // a vertical move, the 7.5.2 advance), where it stopped: an invasion of 2 ends once, in its last zone.
+      // `into` keeps moves that end in those zones (relative to this card); `traits`, moves of a monster
+      // with one of them. The engine logs `moveEnded` { from, to } at the end of each such move.
+```

@@ -339,10 +339,12 @@ describe("rule actions (11)", () => {
     expect(turnPlayer(after).discard.map((c) => c.cardId)).toEqual([
       card.cardId,
     ]);
-    const last = after.log.slice(-2).map((e) => [e.type, e.payload["rule"]]);
+    const last = after.log.slice(-3).map((e) => [e.type, e.payload["rule"]]);
     expect(last).toEqual([
       ["advance", "7.5.2"],
       ["destroy", "11.3"],
+      // The whole move's end, for "ends a move" triggers.
+      ["moveEnded", "7.5.2"],
     ]);
   });
 
@@ -455,8 +457,10 @@ describe("full turns", () => {
     // loopGuard hashes changed too; the game itself is identical to M4e (diffed).
     // M4g added manualQueue; with it removed it hashes to the M4f value 7aa94879...fb1ea1.
     // M5d added currentStep; with it removed it hashes to the M4g value 844f7f07...6daa57.
+    // Nov 18 added a moveEnded log entry per whole move (10 here); with those removed the game
+    // is identical to the 7a015a99...59f0be2 value (diffed).
     expect(hash(first)).toMatchInlineSnapshot(
-      `"7a015a99e26780ad044b756a67dd2c9441ff40b0404e7cbf0693d08e959f0be2"`,
+      `"29996defa2f8f5cf2943ffeef5ed01aeafb7495c58d9cde18edfae66253aa93b"`,
     );
     // Each player had 5 turns, so each monster advanced from zone 1 to zone 6 (7.5.2).
     expect(first.players.map((p) => p.monsterPosition)).toEqual([6, 6]);

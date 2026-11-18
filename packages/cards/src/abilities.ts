@@ -279,6 +279,17 @@ export const TriggerSchema = z.discriminatedUnion("on", [
     /** What moved it: the 7.5.2 end phase advance, an invasion (8.6), or an effect (E15). */
     cause: z.enum(["endPhase", "invasion", "effect"]).optional(),
   }),
+  /**
+   * A monster ends a move (5.13, 5.15.1.1, 4.4.5.1): once per whole move, where it stops (an
+   * invasion of 2 ends once, in its last zone), whatever moved it. `into` keeps the moves that end
+   * in those zones (relative to this card), `traits` the moves of a monster with one of them.
+   */
+  z.strictObject({
+    on: z.literal("monsterMoveEnded"),
+    whose: PlayerRefSchema,
+    into: ZoneSetSchema.optional(),
+    traits: z.array(z.string().min(1)).min(1).optional(),
+  }),
   /** A player performs an invasion (5.14.1, 8.6): once per invasion action, unlike [invading]. */
   z.strictObject({
     on: z.literal("invades"),
