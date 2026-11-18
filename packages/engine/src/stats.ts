@@ -508,6 +508,11 @@ function FLAG_CHANGES(flag: FlagModifier): Omit<CardChange, "kind"> {
         label: "No end phase advance",
         detail: "Doesn't advance in the end phase (7.5.2)",
       };
+    case "hostsMonster":
+      return {
+        label: "Hosts",
+        detail: `Your ${flag.traits ? `${flag.traits.join(" or ")} ` : ""}monster card can occupy its zone without destroying it (11.3)`,
+      };
     case "rageCannotBeReducedByOpponent":
       return {
         label: "Rage protected",

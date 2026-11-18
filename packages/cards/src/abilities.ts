@@ -267,6 +267,18 @@ export const TriggerSchema = z.discriminatedUnion("on", [
     /** What moved it: the 7.5.2 end phase advance, an invasion (8.6), or an effect (E15). */
     cause: z.enum(["endPhase", "invasion", "effect"]).optional(),
   }),
+  /**
+   * A monster enters a zone (5.13.1, 5.13.2, 5.15.1.1, 4.4.5.1): once per zone it moves into,
+   * whatever moved it (an invasion's every step, an advance, a retreat, a counter's move behind,
+   * a vertical move). `into` keeps the zones (relative to this card; on the mover's own field),
+   * `traits` the moves of a monster with one of them.
+   */
+  z.strictObject({
+    on: z.literal("monsterEntered"),
+    whose: PlayerRefSchema,
+    into: ZoneSetSchema.optional(),
+    traits: z.array(z.string().min(1)).min(1).optional(),
+  }),
   /** A player performs an invasion (5.14.1, 8.6): once per invasion action, unlike [invading]. */
   z.strictObject({
     on: z.literal("invades"),
@@ -1025,6 +1037,15 @@ export const ModifierSchema = z.union([
   z.strictObject({
     flag: z.literal("cannotEndPhaseAdvance"),
     target: SelectorSchema,
+  }),
+  /**
+   * An exception to crush and destroy (11.3): its master's own invading monster (with one of
+   * `traits`, when given) can occupy the target battle card's zone without destroying it.
+   */
+  z.strictObject({
+    flag: z.literal("hostsMonster"),
+    target: SelectorSchema,
+    traits: z.array(z.string().min(1)).min(1).optional(),
   }),
   /** M1: `player` cannot play cards `what` picks (8.2, 8.3, Q32), or only not into `zones`. */
   z.strictObject({

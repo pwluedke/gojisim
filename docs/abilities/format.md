@@ -19,22 +19,22 @@ Cards the format can't express yet use one of two fallbacks:
 
 ## Rulings Q1 to Q14 (Paul approved all proposed answers, Oct 21, 2026)
 
-| # | Ruling | Format impact |
-| --- | --- | --- |
-| Q1 | "When destroyed, ... instead" also replaces crush and destroy (11.3) and the overload rule (11.5) | Replacement effects hook every destroy, including rule actions |
-| Q2 | The `A: B` cost is optional. With no card to pay, nothing happens | `cost` with `optional: true` |
-| Q3 | "Play 2 ...": play as many as possible, empty zones first; occupied zones allowed | `play` effect with `asManyAsPossible`, `preferEmpty` |
-| Q4 | When invading triggers once per zone advanced | `invading` event fires per advance step |
-| Q5 | "Move to an unoccupied zone" never means the own monster's zone. Burst plays count as monster plays | Zone set `unoccupied` excludes the monster's zone |
-| Q6 | City of Tokyo in zone 8: its "other battle card in zone 8" bonus has no target. Its two bonuses stack | Selector `other: true` excludes the source |
-| Q7 | Awakening is checked when the trigger fires and again on resolution | Gates are checked at both points |
-| Q8 | Evolve searches the deck by the target's Evolution rank and trait, then shuffles. An evolved card counts as played | `evolve` effect reuses the Evolution keyword's search; records `playedVia: "evolution"` |
-| Q9 | [Your Turn] / [Opponent's Turn] make an ability active only during that turn. `opponent-turn` and `opponents-turn` are the same | `turn` gate |
-| Q10 | Strategy text that is its own trigger stays active in the strategy zone and does nothing on placement | Strategy abilities declare their own trigger; `placedInStrategyZone` only when the text has none |
-| Q11 | Rage placed under a card is a counter on that card | Card counters in state |
-| Q12 | Scraped typos are fixed through an override file | `text-overrides.json` |
-| Q13 | "Any number of this card" lifts the 4-copy limit | `deckRules` on the card |
-| Q14 | "Moves as though countered" only moves; it is not a counter | `moveAsCountered` effect fires no countered event |
+| #   | Ruling                                                                                                                          | Format impact                                                                                    |
+| --- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Q1  | "When destroyed, ... instead" also replaces crush and destroy (11.3) and the overload rule (11.5)                               | Replacement effects hook every destroy, including rule actions                                   |
+| Q2  | The `A: B` cost is optional. With no card to pay, nothing happens                                                               | `cost` with `optional: true`                                                                     |
+| Q3  | "Play 2 ...": play as many as possible, empty zones first; occupied zones allowed                                               | `play` effect with `asManyAsPossible`, `preferEmpty`                                             |
+| Q4  | When invading triggers once per zone advanced                                                                                   | `invading` event fires per advance step                                                          |
+| Q5  | "Move to an unoccupied zone" never means the own monster's zone. Burst plays count as monster plays                             | Zone set `unoccupied` excludes the monster's zone                                                |
+| Q6  | City of Tokyo in zone 8: its "other battle card in zone 8" bonus has no target. Its two bonuses stack                           | Selector `other: true` excludes the source                                                       |
+| Q7  | Awakening is checked when the trigger fires and again on resolution                                                             | Gates are checked at both points                                                                 |
+| Q8  | Evolve searches the deck by the target's Evolution rank and trait, then shuffles. An evolved card counts as played              | `evolve` effect reuses the Evolution keyword's search; records `playedVia: "evolution"`          |
+| Q9  | [Your Turn] / [Opponent's Turn] make an ability active only during that turn. `opponent-turn` and `opponents-turn` are the same | `turn` gate                                                                                      |
+| Q10 | Strategy text that is its own trigger stays active in the strategy zone and does nothing on placement                           | Strategy abilities declare their own trigger; `placedInStrategyZone` only when the text has none |
+| Q11 | Rage placed under a card is a counter on that card                                                                              | Card counters in state                                                                           |
+| Q12 | Scraped typos are fixed through an override file                                                                                | `text-overrides.json`                                                                            |
+| Q13 | "Any number of this card" lifts the 4-copy limit                                                                                | `deckRules` on the card                                                                          |
+| Q14 | "Moves as though countered" only moves; it is not a counter                                                                     | `moveAsCountered` effect fires no countered event                                                |
 
 ## How abilities run
 
@@ -53,74 +53,127 @@ type CardAbilities = {
   deckCardNumber: string;
   status: "implemented" | "partial" | "manual"; // partial: some abilities manual
   abilities: Ability[];
-  deckRules?: DeckRule[];                         // Q13, Resonance (12.8)
-  notes?: string;                                 // rulings used, with Q numbers
+  deckRules?: DeckRule[]; // Q13, Resonance (12.8)
+  notes?: string; // rulings used, with Q numbers
 };
 
 type Ability =
-  | { kind: "triggered"; id: string; gates?: Gate[]; trigger: Trigger;
-      condition?: Condition; optional?: boolean; cost?: Cost; effects: Effect[] }
-  | { kind: "continuous"; id: string; gates?: Gate[]; condition?: Condition;
-      modifiers: Modifier[] }
-  | { kind: "replacement"; id: string; gates?: Gate[]; replaces: ReplaceableEvent;
-      condition?: Condition; optional?: boolean; instead: Effect[] }
-  | { kind: "keyword"; keyword: KeywordAbility };   // Burst, Evolution, Base, Revenge
+  | {
+      kind: "triggered";
+      id: string;
+      gates?: Gate[];
+      trigger: Trigger;
+      condition?: Condition;
+      optional?: boolean;
+      cost?: Cost;
+      effects: Effect[];
+    }
+  | {
+      kind: "continuous";
+      id: string;
+      gates?: Gate[];
+      condition?: Condition;
+      modifiers: Modifier[];
+    }
+  | {
+      kind: "replacement";
+      id: string;
+      gates?: Gate[];
+      replaces: ReplaceableEvent;
+      condition?: Condition;
+      optional?: boolean;
+      instead: Effect[];
+    }
+  | { kind: "keyword"; keyword: KeywordAbility }; // Burst, Evolution, Base, Revenge
 
 type Gate =
-  | { gate: "turn"; whose: "yours" | "opponents" }                      // Q9
-  | { gate: "awakening"; zone: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 };          // 12.4
+  | { gate: "turn"; whose: "yours" | "opponents" } // Q9
+  | { gate: "awakening"; zone: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 }; // 12.4
 
 type Trigger =
-  | { on: "enter" }                                                       // 12.2
-  | { on: "invading" }                                                    // 12.3, per advance (Q4)
-  | { on: "placedInStrategyZone" }                                        // 10.1.1.1.2 (Q10)
+  | { on: "enter" } // 12.2
+  | { on: "invading" } // 12.3, per advance (Q4)
+  | { on: "placedInStrategyZone" } // 10.1.1.1.2 (Q10)
   | { on: "phaseBegins"; phase: Phase; whose: "yours" | "opponents" | "either" }
   | { on: "destroyed"; what: Selector }
   | { on: "discarded"; what: Selector; byOpponentEffect?: boolean }
-  | { on: "rageChanged"; whose: PlayerRef; change: "increased" | "reduced" | "setToZero" }
+  | {
+      on: "rageChanged";
+      whose: PlayerRef;
+      change: "increased" | "reduced" | "setToZero";
+    }
   | { on: "cardPlayed"; by: PlayerRef; what: Selector }
   | { on: "countered"; whose: PlayerRef }
   | { on: "advanced"; whose: PlayerRef; toZone?: Zone }
   | { on: "gameStarts" };
 
 type Condition =
-  | { all: Condition[] } | { any: Condition[] } | { not: Condition }
+  | { all: Condition[] }
+  | { any: Condition[] }
+  | { not: Condition }
   | { rage: PlayerRef; op: Op; value: number }
   | { zoneOf: "this" | "yourMonster" | "opponentMonster"; in: ZoneSet }
   | { count: Selector; op: Op; value: number }
   | { monsterRank: PlayerRef; op: Op; value: number }
   | { playedVia: "evolution" | "burst" | "effect" }
-  | { didLastStep: true };                          // "if you do" (10.5.4)
+  | { didLastStep: true }; // "if you do" (10.5.4)
 
 type Selector = {
   owner: "you" | "opponent" | "any";
-  area: "zones" | "hand" | "deck" | "discard" | "strategy" | "monster"
-      | "monsterDeck" | "under" | "bound";        // bound = a card named by `as`
-  this?: true; other?: true;                       // other: excludes the source (Q6)
+  area:
+    | "zones"
+    | "hand"
+    | "deck"
+    | "discard"
+    | "strategy"
+    | "monster"
+    | "monsterDeck"
+    | "under"
+    | "bound"; // bound = a card named by `as`
+  this?: true;
+  other?: true; // other: excludes the source (Q6)
   type?: "Monster" | "Battle" | "Strategy";
-  name?: string; traits?: string[]; keyword?: string; colors?: string[];
+  name?: string;
+  traits?: string[];
+  keyword?: string;
+  colors?: string[];
   rank?: { op: Op; value: number | ValueRef };
   zones?: ZoneSet;
-  bind?: string;                                   // area: "bound" reads this name
+  bind?: string; // area: "bound" reads this name
 };
 
 type ZoneSet =
   | Zone[]
-  | { relation: "adjacentTo" | "sameColumnAs" | "inFrontOf" | "behind";
+  | {
+      relation: "adjacentTo" | "sameColumnAs" | "inFrontOf" | "behind";
       of: "this" | "yourMonster" | "opponentMonster" | { bound: string };
-      includeSelf?: boolean }
-  | "unoccupied" | "any";                          // unoccupied never includes your monster's zone (Q5)
+      includeSelf?: boolean;
+    }
+  | "unoccupied"
+  | "any"; // unoccupied never includes your monster's zone (Q5)
 
 type Amount = number | { per: Selector; times: number } | ValueRef;
-type ValueRef = { ref: string; field: "rank" | "counterPower" | "threat" };  // last known info (10.10)
+type ValueRef = { ref: string; field: "rank" | "counterPower" | "threat" }; // last known info (10.10)
 
 type Modifier =
-  | { stat: "counterPower" | "threat" | "rank"; target: Selector; amount: Amount }
+  | {
+      stat: "counterPower" | "threat" | "rank";
+      target: Selector;
+      amount: Amount;
+    }
   | { stat: "totalCounterPower"; amount: Amount }
-  | { flag: "cannotEngage" | "cannotBeDestroyedByOpponent" | "cannotAdvanceOrInvade"
-          | "cannotBeCounteredAtOrBelow" | "rageCannotBeReduced"; target: Selector; value?: number };
+  | {
+      flag:
+        | "cannotEngage"
+        | "cannotBeDestroyedByOpponent"
+        | "cannotAdvanceOrInvade"
+        | "cannotBeCounteredAtOrBelow"
+        | "rageCannotBeReduced";
+      target: Selector;
+      value?: number;
+    };
 
-type Cost = { optional: boolean; effects: Effect[] };   // `A: B` (Q2), `you may A to B` (10.5.4)
+type Cost = { optional: boolean; effects: Effect[] }; // `A: B` (Q2), `you may A to B` (10.5.4)
 
 type Count = { exact: number } | { upTo: number } | "all" | "anyNumber";
 ```
@@ -133,40 +186,40 @@ The 22 effects below cover every starter card. With the 7 modifiers, they also c
 
 **Effects**
 
-| Effect | Parameters | Survey cards | Starters | Built in |
-| --- | --- | --- | --- | --- |
-| `destroy` | `target: { select, count, chooser }`, `oneByOne?` | 93 | 7 | M4c |
-| `discard` | `player`, `count`, `filter`, `chooser` | 36 | 1 | M4d |
-| `discardDownTo` | `player`, `size` (that player chooses which to keep, 5.7.2) | 19 | 3 | M4d |
-| `rage` | `player`, `delta` (+ or -), floor 0 (3.4.4) | 52 | 3 | M4c |
-| `setRage` | `player`, `value` | 3 | 0 | M12 |
-| `search` | `player`, `filter`, `count`, `reveal?`, then nested `effects` on the found cards; may find nothing (5.8.1.2) | 14 | 2 | M4d |
-| `play` | `from`, `filter`, `count`, `zones?`, `asManyAsPossible?`, `preferEmpty?`, `ignoreRankLimit?` (default true: 8.2.1 limits only the main phase action) | 24 | 2 | M4d |
-| `addToHand` | `target` (usually bound) | 14 | 1 | M4d |
-| `shuffle` | `player` | 16 | 2 | M4d |
-| `draw` | `player`, `count` | 14 | 1 | M4c |
-| `moveBattle` | `target`, `to: ZoneSet`, `optional?` | 9 | 1 | M4e |
-| `putOnDeck` | `target`, `where: top or bottom` | 6 | 2 | M4e |
-| `evolve` | `target` (search by its Evolution keyword, Q8) | 9 | 1 | M4f |
-| `chooseZone` | `owner`, `as` (binds the chosen zone) | 10 | 1 | M4c |
-| `advance` / `retreat` | `player`, `by` or `toZone` | 25 | 0 | M12 |
-| `mill` | `player`, `count` | 19 | 0 | M12 |
-| `revealTop` / `lookTop` | `player`, `count`, then nested effects | 17 | 0 | M12 |
-| `placeUnder` | `target`, `under` | 14 | 0 | M12 |
-| `returnToHand` | `from: discard`, `target` | 17 | 0 | M12 |
-| `createToken` | `name`, `zones` | 10 | 0 | M12 |
-| `chooseOne` | `options: Effect[][]` (10.5.2.2.1) | 9 | 0 | M12 |
-| `custom` | `handler: string`: named code for one card | as needed | 0 | any |
+| Effect                  | Parameters                                                                                                                                           | Survey cards | Starters | Built in |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | -------- | -------- |
+| `destroy`               | `target: { select, count, chooser }`, `oneByOne?`                                                                                                    | 93           | 7        | M4c      |
+| `discard`               | `player`, `count`, `filter`, `chooser`                                                                                                               | 36           | 1        | M4d      |
+| `discardDownTo`         | `player`, `size` (that player chooses which to keep, 5.7.2)                                                                                          | 19           | 3        | M4d      |
+| `rage`                  | `player`, `delta` (+ or -), floor 0 (3.4.4)                                                                                                          | 52           | 3        | M4c      |
+| `setRage`               | `player`, `value`                                                                                                                                    | 3            | 0        | M12      |
+| `search`                | `player`, `filter`, `count`, `reveal?`, then nested `effects` on the found cards; may find nothing (5.8.1.2)                                         | 14           | 2        | M4d      |
+| `play`                  | `from`, `filter`, `count`, `zones?`, `asManyAsPossible?`, `preferEmpty?`, `ignoreRankLimit?` (default true: 8.2.1 limits only the main phase action) | 24           | 2        | M4d      |
+| `addToHand`             | `target` (usually bound)                                                                                                                             | 14           | 1        | M4d      |
+| `shuffle`               | `player`                                                                                                                                             | 16           | 2        | M4d      |
+| `draw`                  | `player`, `count`                                                                                                                                    | 14           | 1        | M4c      |
+| `moveBattle`            | `target`, `to: ZoneSet`, `optional?`                                                                                                                 | 9            | 1        | M4e      |
+| `putOnDeck`             | `target`, `where: top or bottom`                                                                                                                     | 6            | 2        | M4e      |
+| `evolve`                | `target` (search by its Evolution keyword, Q8)                                                                                                       | 9            | 1        | M4f      |
+| `chooseZone`            | `owner`, `as` (binds the chosen zone)                                                                                                                | 10           | 1        | M4c      |
+| `advance` / `retreat`   | `player`, `by` or `toZone`                                                                                                                           | 25           | 0        | M12      |
+| `mill`                  | `player`, `count`                                                                                                                                    | 19           | 0        | M12      |
+| `revealTop` / `lookTop` | `player`, `count`, then nested effects                                                                                                               | 17           | 0        | M12      |
+| `placeUnder`            | `target`, `under`                                                                                                                                    | 14           | 0        | M12      |
+| `returnToHand`          | `from: discard`, `target`                                                                                                                            | 17           | 0        | M12      |
+| `createToken`           | `name`, `zones`                                                                                                                                      | 10           | 0        | M12      |
+| `chooseOne`             | `options: Effect[][]` (10.5.2.2.1)                                                                                                                   | 9            | 0        | M12      |
+| `custom`                | `handler: string`: named code for one card                                                                                                           | as needed    | 0        | any      |
 
 **Modifiers (continuous)**
 
-| Modifier | Survey cards | Starters |
-| --- | --- | --- |
-| `counterPower` +/- N on selected cards | 71 | 5 |
-| `threat` +/- N on a monster | 23 | 2 |
-| `rank` +/- N (8.2.1 and 8.3.1 legality read the modified rank) | 21 | 0 |
-| `totalCounterPower` + N | 7 | 0 |
-| Flags: cannot engage, cannot be destroyed, cannot advance or invade, cannot be countered at or below N, rage cannot be reduced | 25 | 0 |
+| Modifier                                                                                                                       | Survey cards | Starters |
+| ------------------------------------------------------------------------------------------------------------------------------ | ------------ | -------- |
+| `counterPower` +/- N on selected cards                                                                                         | 71           | 5        |
+| `threat` +/- N on a monster                                                                                                    | 23           | 2        |
+| `rank` +/- N (8.2.1 and 8.3.1 legality read the modified rank)                                                                 | 21           | 0        |
+| `totalCounterPower` + N                                                                                                        | 7            | 0        |
+| Flags: cannot engage, cannot be destroyed, cannot advance or invade, cannot be countered at or below N, rage cannot be reduced | 25           | 0        |
 
 **Gates, triggers and conditions used by the starters**
 
@@ -181,71 +234,198 @@ The 22 effects below cover every starter card. With the 7 modifiers, they also c
 **ESD01-003 Godzilla (2023):** "If this card has 2 or more [rage], this card gains +5000 threat level."
 
 ```json
-{ "deckCardNumber": "ESD01-003", "status": "implemented", "abilities": [
-  { "kind": "continuous", "id": "rage-threat",
-    "condition": { "rage": "you", "op": ">=", "value": 2 },
-    "modifiers": [ { "stat": "threat", "target": { "owner": "you", "area": "monster", "this": true }, "amount": 5000 } ] }
-] }
+{
+  "deckCardNumber": "ESD01-003",
+  "status": "implemented",
+  "abilities": [
+    {
+      "kind": "continuous",
+      "id": "rage-threat",
+      "condition": { "rage": "you", "op": ">=", "value": 2 },
+      "modifiers": [
+        {
+          "stat": "threat",
+          "target": { "owner": "you", "area": "monster", "this": true },
+          "amount": 5000
+        }
+      ]
+    }
+  ]
+}
 ```
 
 **ESD01-010 City of Tokyo:** two bonuses on "your other battle card in zone 8". They stack, and give nothing when City of Tokyo is the zone 8 card (Q6).
 
 ```json
-{ "deckCardNumber": "ESD01-010", "status": "implemented", "abilities": [
-  { "kind": "continuous", "id": "rage-bonus",
-    "condition": { "rage": "you", "op": ">=", "value": 2 },
-    "modifiers": [ { "stat": "counterPower", "target": { "owner": "you", "area": "zones", "type": "Battle", "other": true, "zones": [8] }, "amount": 5000 } ] },
-  { "kind": "continuous", "id": "awakening-bonus", "gates": [ { "gate": "awakening", "zone": 6 } ],
-    "modifiers": [ { "stat": "counterPower", "target": { "owner": "you", "area": "zones", "type": "Battle", "other": true, "zones": [8] }, "amount": 5000 } ] }
-] }
+{
+  "deckCardNumber": "ESD01-010",
+  "status": "implemented",
+  "abilities": [
+    {
+      "kind": "continuous",
+      "id": "rage-bonus",
+      "condition": { "rage": "you", "op": ">=", "value": 2 },
+      "modifiers": [
+        {
+          "stat": "counterPower",
+          "target": {
+            "owner": "you",
+            "area": "zones",
+            "type": "Battle",
+            "other": true,
+            "zones": [8]
+          },
+          "amount": 5000
+        }
+      ]
+    },
+    {
+      "kind": "continuous",
+      "id": "awakening-bonus",
+      "gates": [{ "gate": "awakening", "zone": 6 }],
+      "modifiers": [
+        {
+          "stat": "counterPower",
+          "target": {
+            "owner": "you",
+            "area": "zones",
+            "type": "Battle",
+            "other": true,
+            "zones": [8]
+          },
+          "amount": 5000
+        }
+      ]
+    }
+  ]
+}
 ```
 
 **ESD01-011 Godzilla (2023):** an Enter trigger plus a replacement on destroy. The replacement also covers rule-action destruction (Q1).
 
 ```json
-{ "deckCardNumber": "ESD01-011", "status": "implemented", "abilities": [
-  { "kind": "triggered", "id": "enter-rage", "trigger": { "on": "enter" },
-    "condition": { "rage": "you", "op": ">=", "value": 2 },
-    "effects": [ { "effect": "rage", "player": "opponent", "delta": -1 } ] },
-  { "kind": "replacement", "id": "bottom-instead",
-    "replaces": { "event": "destroyed", "what": { "owner": "you", "area": "zones", "this": true } },
-    "instead": [ { "effect": "putOnDeck", "target": { "owner": "you", "area": "zones", "this": true }, "where": "bottom" } ] }
-] }
+{
+  "deckCardNumber": "ESD01-011",
+  "status": "implemented",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "id": "enter-rage",
+      "trigger": { "on": "enter" },
+      "condition": { "rage": "you", "op": ">=", "value": 2 },
+      "effects": [{ "effect": "rage", "player": "opponent", "delta": -1 }]
+    },
+    {
+      "kind": "replacement",
+      "id": "bottom-instead",
+      "replaces": {
+        "event": "destroyed",
+        "what": { "owner": "you", "area": "zones", "this": true }
+      },
+      "instead": [
+        {
+          "effect": "putOnDeck",
+          "target": { "owner": "you", "area": "zones", "this": true },
+          "where": "bottom"
+        }
+      ]
+    }
+  ]
+}
 ```
 
 **ESD01-013 Ginza Annihilated:** strategy text that is its own trigger, gated to your turn. It does nothing on placement (Q9, Q10).
 
 ```json
-{ "deckCardNumber": "ESD01-013", "status": "implemented", "abilities": [
-  { "kind": "triggered", "id": "rage-destroy", "gates": [ { "gate": "turn", "whose": "yours" } ],
-    "trigger": { "on": "rageChanged", "whose": "you", "change": "increased" },
-    "effects": [ { "effect": "destroy",
-      "target": { "select": { "owner": "opponent", "area": "zones", "type": "Battle", "rank": { "op": "<=", "value": 6 } },
-                  "count": { "exact": 1 }, "chooser": "you" } } ] }
-] }
+{
+  "deckCardNumber": "ESD01-013",
+  "status": "implemented",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "id": "rage-destroy",
+      "gates": [{ "gate": "turn", "whose": "yours" }],
+      "trigger": { "on": "rageChanged", "whose": "you", "change": "increased" },
+      "effects": [
+        {
+          "effect": "destroy",
+          "target": {
+            "select": {
+              "owner": "opponent",
+              "area": "zones",
+              "type": "Battle",
+              "rank": { "op": "<=", "value": 6 }
+            },
+            "count": { "exact": 1 },
+            "chooser": "you"
+          }
+        }
+      ]
+    }
+  ]
+}
 ```
 
 **ESD02-004 Godzilla (1994):** an optional cost, with a bound card whose rank feeds the destroy filter (Q2, Q4, 10.10).
 
 ```json
-{ "deckCardNumber": "ESD02-004", "status": "implemented", "abilities": [
-  { "kind": "triggered", "id": "invading-destroy", "trigger": { "on": "invading" },
-    "cost": { "optional": true, "effects": [
-      { "effect": "discard", "player": "you", "count": { "exact": 1 },
-        "filter": { "owner": "you", "area": "hand", "type": "Battle" }, "chooser": "you", "as": "paid" } ] },
-    "effects": [ { "effect": "destroy",
-      "target": { "select": { "owner": "opponent", "area": "zones", "type": "Battle",
-                             "rank": { "op": "<=", "value": { "ref": "paid", "field": "rank" } } },
-                  "count": "all", "chooser": "you" } } ] }
-] }
+{
+  "deckCardNumber": "ESD02-004",
+  "status": "implemented",
+  "abilities": [
+    {
+      "kind": "triggered",
+      "id": "invading-destroy",
+      "trigger": { "on": "invading" },
+      "cost": {
+        "optional": true,
+        "effects": [
+          {
+            "effect": "discard",
+            "player": "you",
+            "count": { "exact": 1 },
+            "filter": { "owner": "you", "area": "hand", "type": "Battle" },
+            "chooser": "you",
+            "as": "paid"
+          }
+        ]
+      },
+      "effects": [
+        {
+          "effect": "destroy",
+          "target": {
+            "select": {
+              "owner": "opponent",
+              "area": "zones",
+              "type": "Battle",
+              "rank": {
+                "op": "<=",
+                "value": { "ref": "paid", "field": "rank" }
+              }
+            },
+            "count": "all",
+            "chooser": "you"
+          }
+        }
+      ]
+    }
+  ]
+}
 ```
 
 **ESD02-007 Mothra (Larva) (1992):** Evolution is a keyword, so the engine expands it into the 12.6.2 trigger. The data carries only the rank and trait.
 
 ```json
-{ "deckCardNumber": "ESD02-007", "status": "implemented", "abilities": [
-  { "kind": "keyword", "keyword": { "name": "evolution", "rank": 5, "trait": "Mothra" } }
-] }
+{
+  "deckCardNumber": "ESD02-007",
+  "status": "implemented",
+  "abilities": [
+    {
+      "kind": "keyword",
+      "keyword": { "name": "evolution", "rank": 5, "trait": "Mothra" }
+    }
+  ]
+}
 ```
 
 The engine expands that keyword into an optional `phaseBegins` (main, yours) trigger. It runs `search` for a Battle card with trait Mothra and rank 5 or lower, plays it on top of this card with `playedVia: "evolution"`, then shuffles. ESD02-010's `playedVia` condition reads that value.
@@ -254,18 +434,18 @@ The engine expands that keyword into an optional `phaseBegins` (main, yours) tri
 
 Each one adds a line to `docs/rules/spec.md`.
 
-| # | Change | Why | Source |
-| --- | --- | --- | --- |
-| 1 | Ability loader: reads `abilities/<SET>.json`, validates it with Zod at startup, and replaces the M3d test-only registry | Abilities become data | This doc |
-| 2 | Interpreter: matches triggers, evaluates conditions and selectors, runs effects, binds `as` names for the rest of one resolution | Runs the data | 10.5 |
-| 3 | Gates checked when a trigger matches and again at resolution | Q7, Q9 | 10.3.2 |
-| 4 | A replacement check before each destroy, including crush and destroy (11.3) and the overload rule (11.5) | Q1 | 10.9 |
-| 5 | Strategy cards: a `placedInStrategyZone` trigger only when the card's ability declares it; otherwise its abilities stay active in the strategy zone. Remove `strategyTextPending` | Q10 | 10.3.4.3 |
-| 6 | `invading` event fires once per advance step of an invasion, and only if the monster moved (12.3.2.1) | Q4 | 12.3 |
-| 7 | Card memory on each instance: `playedVia`, counters (Q11), `placedOnTurn` | Q8, Q11 | 12.5, 12.6 |
-| 8 | `getCounterPower(card)` and `getRank(card)` through the 10.8.1 layers, next to the existing `getThreat`. 7.4.2, 8.2.1 and 8.3.1 call them | F10 | 10.8.1 |
-| 9 | Revealed cards: `getPlayerView` shows a card to both players while it is revealed (5.10) | F12 | 5.10 |
-| 10 | Manual override action set in `/debug`: move a card, change rage, advance or retreat, draw, shuffle, reveal. Offered when a `manual` card's ability would trigger. Every manual action is logged | Hybrid mode | Spec "Manual override" |
+| #   | Change                                                                                                                                                                                           | Why                   | Source                 |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------- | ---------------------- |
+| 1   | Ability loader: reads `abilities/<SET>.json`, validates it with Zod at startup, and replaces the M3d test-only registry                                                                          | Abilities become data | This doc               |
+| 2   | Interpreter: matches triggers, evaluates conditions and selectors, runs effects, binds `as` names for the rest of one resolution                                                                 | Runs the data         | 10.5                   |
+| 3   | Gates checked when a trigger matches and again at resolution                                                                                                                                     | Q7, Q9                | 10.3.2                 |
+| 4   | A replacement check before each destroy, including crush and destroy (11.3) and the overload rule (11.5)                                                                                         | Q1                    | 10.9                   |
+| 5   | Strategy cards: a `placedInStrategyZone` trigger only when the card's ability declares it; otherwise its abilities stay active in the strategy zone. Remove `strategyTextPending`                | Q10                   | 10.3.4.3               |
+| 6   | `invading` event fires once per advance step of an invasion, and only if the monster moved (12.3.2.1)                                                                                            | Q4                    | 12.3                   |
+| 7   | Card memory on each instance: `playedVia`, counters (Q11), `placedOnTurn`                                                                                                                        | Q8, Q11               | 12.5, 12.6             |
+| 8   | `getCounterPower(card)` and `getRank(card)` through the 10.8.1 layers, next to the existing `getThreat`. 7.4.2, 8.2.1 and 8.3.1 call them                                                        | F10                   | 10.8.1                 |
+| 9   | Revealed cards: `getPlayerView` shows a card to both players while it is revealed (5.10)                                                                                                         | F12                   | 5.10                   |
+| 10  | Manual override action set in `/debug`: move a card, change rage, advance or retreat, draw, shuffle, reveal. Offered when a `manual` card's ability would trigger. Every manual action is logged | Hybrid mode           | Spec "Manual override" |
 
 **Deferred to M12** (other sets): vertical monster moves, moving as though countered (Q14), the third strategy zone, starting in zone 5, extra advances, placing cards under cards, tokens, "trigger all [enter] abilities again" (F13), Japanese-name matching for FC01 and PR cards, and the Revenge keyword (12.7: triggers when the card goes from the field to the discard pile, other than by overload processing; inactive while stacked under another card). Revenge is built with the first set that uses it (EBP02, 11 cards); Paul approved Oct 21, 2026.
 
@@ -582,7 +762,6 @@ Built differently from the plan:
 - The two new monster plays and EBP04-045's cost are fields of the existing actions: `playMonster` carries `underInstanceId` and `playBattle` carries `costCardInstanceId`, one action per card, so a bot or a player picks the card with the play.
 - CU: `godzillaEarthLink` and `bindLinked` (EBP04-067), and `inheritedLife` (EBP04-089). Links and Q11 counts are permanent continuous effects, so they are copied, compared for loops and shown like the others.
 
-
 ### M12e: PR and EPR (no new pieces)
 
 The 15 promo cards with their own deck card numbers: EPR-005 and PR-014 (Heat Ray's column destroy), the vanilla monsters PR-001 to PR-003 and PR-006 to PR-010, and EPR-015 to EPR-019. PR is 16 of 16 with EPR-020; 376 of 388 cards are implemented, and only ESC01 and FC01 are left.
@@ -639,6 +818,24 @@ type Effect = ...
       // after the end phase advance step (7.5.2) of the picked cards' master's next end phase
 type Condition = ...
   | { thisTurn: "thisEntered" }  // this card was played into its master's zones this turn (12.2)
+```
+
+### Sharing a zone with your monster, entering a zone (Nov 18)
+
+General pieces (no card in the public data uses them yet):
+
+```typescript
+type Modifier = ...
+  | { flag: "hostsMonster"; target: Selector; traits?: string[] }  // an exception to crush and destroy
+      // (11.3): its master's own invading monster (with one of `traits`, when given) can occupy the target
+      // battle card's zone without destroying it; another monster still crushes it
+
+type Trigger = ...
+  | { on: "monsterEntered"; whose: PlayerRef; into?: ZoneSet; traits?: string[] }  // a monster moves into
+      // a zone: once per zone, whatever moved it (an invasion's every step, an advance, a retreat, a counter's
+      // move behind, a vertical move); `into` relative to this card, on the mover's own field
+      // ("this card's zone" is { relation: "sameNumberAs", of: "this" })
+```
 
 ### The zone a monster was countered in (Nov 18)
 
