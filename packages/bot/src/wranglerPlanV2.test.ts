@@ -398,9 +398,10 @@ describe("the Wrangler plan v2", () => {
     const { against } = wranglerV2Verdict(state, legal, "P1", WRANGLER);
     for (const a of invade(SLITHERING)) expect(against.has(a)).toBe(false);
     for (const a of invade(LANDING)) expect(against.has(a)).toBe(true);
-    // v2.1 (`v22: false`): don't race, so both are argued against.
+    // v2.1 (`v22: false`, and #418's spare cost off): don't race, so both are argued against.
     const v21 = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
       v22: false,
+      spareCost: false,
     });
     for (const a of invade(SLITHERING)) expect(v21.against.has(a)).toBe(true);
   });
@@ -449,6 +450,55 @@ describe("the Wrangler plan v2", () => {
     const off = judge(false);
     for (const d of off.payKing) expect(d).toBe(true);
     for (const d of off.tagOut) expect(d).toBe(false);
+  });
+
+  it("#418 (Ian; Paul's option a): early, an invasion paid with a spare strategy (The Slithering Disaster, a second Despair) is freed from don't race; one Despair, a monster card or a later rank isn't", () => {
+    const judge = (
+      hand: string[],
+      top = "EBP01-001",
+      spareCost = true,
+      theirs?: Decklist,
+    ) => {
+      const { state, p1 } = position(hand, 2, 2, 4);
+      p1.invadingMonsterZone = [add(state, real(top), "P1")];
+      const legal = getLegalActions(state, "P1");
+      const v = wranglerV2Verdict(state, legal, "P1", WRANGLER, theirs, {
+        spareCost,
+      });
+      return (n: string) =>
+        legal
+          .filter((a) => a.type === "invade" && ofCard(state, p1, a) === n)
+          .map((a) => v.against.has(a));
+    };
+    const early = judge([SLITHERING, DESPAIR, "EBP01-002"]);
+    expect(early(SLITHERING).length).toBeGreaterThan(0);
+    for (const d of early(SLITHERING)) expect(d).toBe(false);
+    // One Despair: the plan keeps it. A monster card goes for rage, not as a cost.
+    for (const d of early(DESPAIR)) expect(d).toBe(true);
+    for (const d of early("EBP01-002")) expect(d).toBe(true);
+    // A second Despair is a spare.
+    for (const d of judge([DESPAIR, DESPAIR])(DESPAIR)) expect(d).toBe(false);
+    // Later (rank IV): don't race as before.
+    for (const d of judge([SLITHERING], "EBP01-010")(SLITHERING))
+      expect(d).toBe(true);
+    // `wranglerSpareCost: false` (the control).
+    for (const d of judge([SLITHERING], "EBP01-001", false)(SLITHERING))
+      expect(d).toBe(true);
+    // #434's check: against Tangler (Godzilla (2002) and Entangling Fear) nothing is spare: The
+    // Slithering Disaster lifts their low monster into counter range.
+    const tangler = {
+      monsterDeck: ["EBP03-014", "EBP03-015"].map(real),
+      mainDeck: ["EBP04-081"].map(real),
+    } as unknown as Decklist;
+    for (const d of judge([SLITHERING], "EBP01-001", true, tangler)(SLITHERING))
+      expect(d).toBe(true);
+    for (const d of judge(
+      [DESPAIR, DESPAIR],
+      "EBP01-001",
+      true,
+      tangler,
+    )(DESPAIR))
+      expect(d).toBe(true);
   });
 
   it("#442 (Ian's record 962de209 move 18): at 1 rage with the rank II Godzilla (2023) on top, an invasion whose fetches bring the rage to 2 for Despair goes first; Despair now (it would do nothing) waits", () => {
@@ -722,6 +772,26 @@ describe("the Wrangler plan v2", () => {
     for (const d of judge({ at: 2 }).rage) expect(d).toBe(false);
     // `wranglerTagOut: false` (the paired check's control).
     for (const d of judge({ tagOut: false }).rage) expect(d).toBe(false);
+  });
+
+  it("#428 (Ian's record 3e4c0913 move 30): with a King to protect and the rage short of 3, no burst over the rank I Godzilla (1954) EBP01-001 (its counter-phase mill is a rage)", () => {
+    const judge = (rage: number, keepRankOne = true) => {
+      const { state, p1 } = position([KING, "EBP01-002"], 5, 6, 9);
+      p1.invadingMonsterZone = [add(state, real("EBP01-001"), "P1")];
+      p1.rage = rage;
+      const legal = getLegalActions(state, "P1");
+      const v = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
+        keepRankOne,
+      });
+      const bursts = legal.filter((a) => a.type === "playMonster");
+      expect(bursts.length).toBeGreaterThan(0);
+      return bursts.map((a) => v.against.has(a));
+    };
+    for (const d of judge(0)) expect(d).toBe(true);
+    // At 3 rage the King is covered: the burst may go.
+    for (const d of judge(3)) expect(d).toBe(false);
+    // `wranglerKeepRankOne: false` (the paired check's control).
+    for (const d of judge(0, false)) expect(d).toBe(false);
   });
 
   it("v2.3 (Ian): against Monster X, with fewer than 2 battle cards in hand, dig (Despair over passing)", () => {

@@ -1,4 +1,5 @@
 import { difficultyBot, seededRng } from "@gojisim/bot";
+import { registerAbilities } from "@gojisim/cards";
 import type { BotRequest, BotResponse } from "./bots";
 
 /**
@@ -12,9 +13,11 @@ const worker = self as unknown as {
 };
 
 worker.onmessage = (event) => {
-  const { id, input, seed, difficulty } = event.data;
+  const { id, input, seed, difficulty, abilities } = event.data;
   const started = performance.now();
   try {
+    // The private set's abilities (a known card is skipped, so every request may carry them).
+    if (abilities) registerAbilities(abilities);
     const bot = difficultyBot("seat", difficulty);
     const action = bot.chooseAction({ ...input, rng: seededRng(seed) });
     worker.postMessage({ id, action, ms: performance.now() - started });

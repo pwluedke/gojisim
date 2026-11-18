@@ -58,6 +58,8 @@ import {
  *   plays make the counter this turn is taken over raging or passing, ahead of v2.1's rage to 3.
  *   #417 (Ian): when the reset alone makes the counter (the invasion settles with their rage 0
  *   and the counter made), that invasion is taken over every other move.
+ * - Keep the rank I (#428, Ian, `wranglerKeepRankOne`): with a King to protect and the rage short
+ *   of 3, no burst over the rank I Godzilla (1954) EBP01-001 (its counter-phase mill is a rage).
  * - Tag out against a reset (#384, Ian, `wranglerTagOut`): with the opponent's GAM up and unused,
  *   a tag-out to Godzilla (2001) EBP03-004 (rage the opponent can't reduce from zone 4) goes
  *   before raging or passing.
@@ -67,6 +69,9 @@ import {
  * - Fetch for rage (#425, Ian, `wranglerFetchRage`): v2.2's fetch invasion (Godzilla (2023)
  *   ESD01-002 on top) counts a King to be played this turn, not only one in zones 1-5; with such an
  *   invasion, tagging out (it loses the fetch) and passing wait.
+ * - Spare cost (#418, Ian, `wranglerSpareCost`): early (your monster at rank I or II), an invasion
+ *   paid with a spare strategy (The Slithering Disaster, a Despair beyond the one kept; never
+ *   Godzilla Landing) is freed from "don't race".
  */
 
 export const KING = "EBP01-075";
@@ -85,12 +90,24 @@ const PATH = 2;
 const COLUMN_CLEAR = "EBP01-010";
 /** #384: Godzilla (2001), whose rage the opponent's effects can't reduce from zone 4 (awakening-4). */
 const RAGE_LOCK = "EBP03-004";
+/** #428: the rank I Godzilla (1954), whose counter-phase mill adds a rage on a monster card. */
+const RANK_ONE_MILL = "EBP01-001";
 /** #384: the zone its awakening needs. */
 const RAGE_LOCK_ZONE = 4;
 /** `wranglerBioHard` (Paul, Nov 15): a counter over this beats Biollante's rank III anyway. */
 const BIO_III_COUNTER = 40000;
 /** v2.2 (Ian, point 2): the monster card whose invasion fetches more (Godzilla (2023) ESD01-002). */
 const FETCH_MONSTER = "ESD01-002";
+/** #418: the highest rank of your monster while a spare strategy pays an invasion. */
+const SPARE_COST_RANK = 2;
+/** #434: a Tangler deck's signature (card rule 29): Godzilla (2002) and Entangling Fear. */
+const TANGLER_MONSTERS = new Set([
+  "EBP03-014",
+  "EBP03-015",
+  "EPR-020",
+  "EBP03-017",
+]);
+const ENTANGLING_FEAR_CARD = "EBP04-081";
 /** #442: the rage Despair EBP02-018 needs. */
 const DESPAIR_RAGE = 2;
 /** #321: the cards kept when discarding down, while a spare monster card can go instead. */
@@ -268,7 +285,9 @@ export function wranglerV2Verdict(
     pushLine = true,
     resetLine = true,
     tagOut = true,
+    keepRankOne = true,
     fetchRage = true,
+    spareCost = true,
     fetchDespair = true,
   } = options;
   if (!isWranglerDeck(own)) return { against: new Set(), rescued: new Set() };
@@ -408,6 +427,34 @@ export function wranglerV2Verdict(
   // Don't race: an invasion only when it wins this turn; never paid with a push card.
   for (const a of actions)
     if (a.type === "invade" && !winsNow(state, a, me)) against.add(a);
+  const top0 = player.invadingMonsterZone.at(-1);
+  // #418 (Ian): early (your monster at rank I or II), a dead strategy clogs the hand: an
+  // invasion paid with a spare one is freed from "don't race" (monster cards still go for rage).
+  // Spares: The Slithering Disaster, and a Despair beyond the one the plan keeps. Never Godzilla
+  // Landing (card rule 31). Not against Tangler (#434's check).
+  const topRank = (top0 && state.cards[top0.cardId]?.rank) ?? 0;
+  // #434's check: against Tangler, whose monster sits low behind Entangling Fear, The Slithering
+  // Disaster (their monster from zones 3-5 into 6-8) and Despair are the answer, not spares.
+  const vsTangler = theirs
+    ? theirs.monsterDeck.some((c) => TANGLER_MONSTERS.has(c.deckCardNumber)) &&
+      theirs.mainDeck.some((c) => c.deckCardNumber === ENTANGLING_FEAR_CARD)
+    : opponent.invadingMonsterZone.some((c) =>
+        TANGLER_MONSTERS.has(state.cards[c.cardId]?.deckCardNumber ?? ""),
+      );
+  if (spareCost && topRank <= SPARE_COST_RANK && !vsTangler) {
+    const despairs = player.hand.filter(
+      (c) => state.cards[c.cardId]?.deckCardNumber === DESPAIR,
+    ).length;
+    for (const a of actions) {
+      if (a.type !== "invade" || winsNow(state, a, me)) continue;
+      const n = card(a.cardInstanceId)?.deckCardNumber;
+      if (n === SLITHERING || (n === DESPAIR && despairs >= 2)) {
+        against.delete(a);
+        rescued.add(a);
+      }
+    }
+  }
+
   // v2.2 (Ian, point 2): with Godzilla (2023) ESD01-002 on top, an invasion for its fetch (a rank
   // III burst Godzilla (2023) per zone it invades) when the bot needs the monster cards: to reach
   // 3 rage with a King in zones 1-5 that its free rage discards can't, or to make a counter it
@@ -761,6 +808,23 @@ export function wranglerV2Verdict(
       rescued.add(a);
     }
   }
+
+  // #428 (Ian): the rank I Godzilla (1954) EBP01-001's counter-phase mill is a rage source. With a
+  // King to protect (in play or in hand) and the rage short of 3, a burst over it (it covers the
+  // rank I through this turn's counter phase) waits, unless it wins now.
+  const topNow = player.invadingMonsterZone.at(-1);
+  const kingInHand = player.hand.some(
+    (c) => state.cards[c.cardId]?.deckCardNumber === KING,
+  );
+  if (
+    keepRankOne &&
+    topNow &&
+    state.cards[topNow.cardId]?.deckCardNumber === RANK_ONE_MILL &&
+    (kingIn([1, 2, 3, 4, 5, 6, 7, 8]) || kingInHand) &&
+    player.rage < kingRage
+  )
+    for (const a of actions)
+      if (a.type === "playMonster" && !winsNow(state, a, me)) against.add(a);
 
   // #381: with a push line on, raging and passing wait (rage first would spend the turn); #388:
   // so with a reset line (rage first would spend the destroy on a protected King).

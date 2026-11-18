@@ -6,6 +6,7 @@ import type { BoardModel } from "./model";
 import { Preview } from "./Preview";
 import type { SearchResult } from "./searches";
 import { useViewBoard, ViewBoardBanner, ViewBoardButton } from "./ViewBoard";
+import { cardImage } from "../game/cardImage";
 
 function CardImage({
   card,
@@ -25,7 +26,7 @@ function CardImage({
       <div className={styles.cardFallback}>{card.name}</div>
       <img
         className={styles.cardImage}
-        src={`/cards/${card.id}-thumb.webp`}
+        src={cardImage(card.id, "thumb")}
         alt={card.name}
         draggable={false}
         onError={(e) => {
