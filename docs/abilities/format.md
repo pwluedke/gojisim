@@ -820,6 +820,17 @@ type Condition = ...
   | { thisTurn: "thisEntered" }  // this card was played into its master's zones this turn (12.2)
 ```
 
+### One zone toward your monster; only empty zones (Nov 18)
+
+```typescript
+type ZoneSet = ...
+  | { relation: "oneTowardMonster"; of: Anchor; unoccupied?: boolean }  // the zone on the anchor's field
+      // numbered 1 toward its owner's monster (+1 when the monster is higher, -1 when lower; none when
+      // the monster is in the anchor's zone)
+  | { relation: ...; unoccupied: true }  // any relation: only zones with no card that aren't their owner's
+      // monster's zone (Q5)
+```
+
 ### Repelling the end phase advance; the zone 1 lower (Nov 18)
 
 General pieces (no card in the public data uses them yet):
