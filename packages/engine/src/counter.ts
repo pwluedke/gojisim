@@ -62,7 +62,11 @@ export function makeInvadingMonster(
  * player loses (5.15.1.2.1).
  */
 export function counterMonster(state: GameState, countered: PlayerState): void {
-  appendLog(state, "counter", countered.id, { rule: "5.15.1" });
+  // The zone it's countered in (before it moves, 5.15.1.1), for "the zone it occupied".
+  appendLog(state, "counter", countered.id, {
+    rule: "5.15.1",
+    zone: countered.monsterPosition,
+  });
   moveBehind(state, countered);
   continueCounter(state, countered);
 }
