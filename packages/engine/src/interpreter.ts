@@ -1599,6 +1599,17 @@ function bindTriggerCard(
   event: LogEntry,
 ): void {
   const r = state.resolution;
+  // The zone a countered monster was in (5.15.1.1), bound as a zone.
+  if (r && trigger.on === "countered" && trigger.zoneAs) {
+    const zone = Number(event.payload["zone"]);
+    if (event.player !== null && zone >= 1 && zone <= 8)
+      r.bindings[trigger.zoneAs] = {
+        kind: "zone",
+        player: event.player,
+        zone: zone as ZoneNumber,
+      };
+    return;
+  }
   if (
     !r ||
     !(
