@@ -253,6 +253,8 @@ export const TriggerSchema = z.discriminatedUnion("on", [
   z.strictObject({
     on: z.literal("countered"),
     whose: z.union([z.literal("this"), PlayerRefSchema]),
+    /** Binds the zone the monster was in when countered (6, 7 or 8, before it moves, 5.15.1.1). */
+    zoneAs: z.string().min(1).optional(),
   }),
   /** An invading monster advances (5.13.1), whatever caused it; one match per zone advanced. */
   z.strictObject({

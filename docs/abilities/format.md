@@ -627,3 +627,12 @@ type Amount = ... | { boundCount: string };                // cards bound with `
 - A destroy's `as` now binds the cards actually destroyed, not those a replacement (10.9) or protection (1.3.3) kept. No card bound a destroy before this one.
 - "If 3 cards are [destroy] this way" is `if` with `{ amount: { boundCount: "destroyed" }, op: ">=", value: 3 }`. `boundCount` counts a destroyed Crystals token too, though it is banished (9.1.4.2) and no longer anywhere a selector looks.
 - "Play 1 battle card with the highest rank from your discard pile" is a normal effect play (5.11.1): its [enter] triggers and the player picks the zone. Highest is the printed rank (Mecha-King Ghidorah, rank 23), ties to the player.
+
+### The zone a monster was countered in (Nov 18)
+
+```typescript
+type Trigger = ...
+  | { on: "countered"; whose: "this" | PlayerRef; zoneAs?: string }  // zoneAs binds the zone the monster
+      // was in when countered (6, 7 or 8, before it moves behind, 5.15.1.1) as a zone, for an anchor
+      // { bound: zoneAs }; the `counter` log entry carries it as `zone`
+```
