@@ -7,7 +7,7 @@ import { keywordParts, tagLabel } from "./keywordTags";
  * official frames): each is drawn as a text card in Showa Poster's style (cream paper, ink
  * border, poster red for red cards, plain white for white ones) with its name, type, rank,
  * counter power or threat, invasion icon, traits and ability text; a token gets a plain ring.
- * Where the set has a picture for a card (Paul, Nov 18), that picture is used instead, from the
+ * Where the set has a picture for a card (Nov 18), that picture is used instead, from the
  * owner-only `/api/private-set/image/<card number>`.
  */
 
