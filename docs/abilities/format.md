@@ -807,11 +807,46 @@ type Amount = ... | { boundCount: string };                // cards bound with `
 - "If 3 cards are [destroy] this way" is `if` with `{ amount: { boundCount: "destroyed" }, op: ">=", value: 3 }`. `boundCount` counts a destroyed Crystals token too, though it is banished (9.1.4.2) and no longer anywhere a selector looks.
 - "Play 1 battle card with the highest rank from your discard pile" is a normal effect play (5.11.1): its [enter] triggers and the player picks the zone. Highest is the printed rank (Mecha-King Ghidorah, rank 23), ties to the player.
 
+### Repelling the end phase advance; the zone 1 lower (Nov 18)
+
+General pieces (no card in the public data uses them yet):
+
+```typescript
+type Modifier = ...
+  | { flag: "repelsEndPhaseAdvance"; target: Selector; traits?: string[]; token?: string }  // the end
+      // phase advance (7.5.2) of its master's own invading monster (with one of `traits`) into the target
+      // battle card's zone doesn't happen: the monster retreats 1 zone instead (5.13.2; nothing from
+      // zone 1, 5.13.2.1), and when it moved, its master plays `token` in the zone it left (5.11.4).
+      // Only the 7.5.2 advance: an invasion or an effect's advance into the zone crushes it as usual (11.3).
+
+type ZoneSet = ...
+  | { relation: "oneLowerThan"; of: Anchor }  // the zone numbered 1 lower on the anchor's own field
+      // (zone 5 -> 4; none below 1), not 4.4.5.1's "behind"
+```
+
+### Shielded from repelling (Nov 18)
+
+```typescript
+type Modifier = ...
+  | { flag: "shieldsFromRepel"; target: Selector; traits?: string[] }  // while its master's own monster
+      // (with one of traits) is in this card's zone, repelsEndPhaseAdvance can't make it retreat: the 7.5.2
+      // advance happens as usual
+```
+
+### Repelled (Nov 18)
+
+```typescript
+type Trigger = ...
+  | { on: "repelled"; whose: PlayerRef; as?: string }  // a repelsEndPhaseAdvance made that player's monster
+      // retreat (7.5.2); `as` binds the repelling battle card. The advanceRepelled log entry carries it as
+      // `by`, and whether the monster moved as `retreated`
+```
+
 ### Sharing a zone with your monster, entering a zone (Nov 18)
 
 General pieces (no card in the public data uses them yet):
 
-````typescript
+```typescript
 type Modifier = ...
   | { flag: "hostsMonster"; target: Selector; traits?: string[] }  // an exception to crush and destroy
       // (11.3): its master's own invading monster (with one of `traits`, when given) can occupy the target
@@ -822,6 +857,7 @@ type Trigger = ...
       // a zone: once per zone, whatever moved it (an invasion's every step, an advance, a retreat, a counter's
       // move behind, a vertical move); `into` relative to this card, on the mover's own field
       // ("this card's zone" is { relation: "sameNumberAs", of: "this" })
+```
 
 ### The zone a monster was countered in (Nov 18)
 
@@ -830,4 +866,4 @@ type Trigger = ...
   | { on: "countered"; whose: "this" | PlayerRef; zoneAs?: string }  // zoneAs binds the zone the monster
       // was in when countered (6, 7 or 8, before it moves behind, 5.15.1.1) as a zone, for an anchor
       // { bound: zoneAs }; the `counter` log entry carries it as `zone`
-````
+```
