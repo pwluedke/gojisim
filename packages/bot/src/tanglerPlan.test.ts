@@ -45,8 +45,6 @@ const ORGA = "EBP01-047";
 const IMAGO = "ESD02-010";
 const PERFECT_FORM = "EBP02-037";
 const BOND = "EBP04-080";
-/** #439's tie: a rank 3, 2000 battle card with no draw-discard. */
-const KAMACURAS = "EBP01-019";
 
 /** A Tangler list, as the plan recognizes one: its rage-lowering monsters and Entangling Fear. */
 const TANGLER = {
@@ -332,71 +330,5 @@ describe("the Tangler plan's rule 6 (#403; BFW182 and Paul, Nov 16)", () => {
     for (const d of judge(6, false)) expect(d).toBe(false);
     // Their last monster: the final counter.
     for (const d of judge(3, true)) expect(d).toBe(false);
-  });
-});
-
-describe("the Tangler plan's discard tiebreaks (#439, #440; BFW182)", () => {
-  const AGGREGATE = "EBP01-049";
-  // A discard pick (5.7.2) of the whole hand, with Godzilla (2003) EPR-020 on top (it lowers
-  // their rage when a battle card is discarded) and their rage at 2.
-  const pick = (
-    hand: string[],
-    oppAt: ZoneNumber,
-    made = false,
-    worth = true,
-  ) => {
-    const { state, p1 } = position(hand, 3, oppAt);
-    if (made)
-      for (const z of [1, 2, 6, 7] as const)
-        p1.zones[z] = [[add(state, real(IMAGO), "P1")]];
-    expect(counters(state, "P1")).toBe(made);
-    state.pendingChoice = {
-      id: 95,
-      player: "P1",
-      kind: "target",
-      rule: "5.7.2",
-      options: p1.hand.map((c) => ({
-        id: c.instanceId,
-        cardId: c.cardId,
-        abilityId: null,
-      })),
-    } as unknown as GameState["pendingChoice"];
-    const actions: Action[] = p1.hand.map((c) => ({
-      type: "choose",
-      player: "P1",
-      choiceId: 95,
-      optionId: c.instanceId,
-    }));
-    const v = tanglerVerdict(state, actions, "P1", TANGLER, { worth });
-    const of = (n: string) =>
-      actions
-        .filter((a, i) => state.cards[p1.hand[i]!.cardId]?.deckCardNumber === n)
-        .map((a) => v.against.has(a));
-    return of;
-  };
-
-  it("#439 (BFW182, Nov 17): Orga's own discard is a strict tiebreak: against another 2000 card (Kamacuras (1967)) the other goes; against a 3000 Aggregate Orga, the cheaper, goes (no holding it back); with the counter made, the Destoroyah cards stay and Orga may go", () => {
-    const tie = pick([ORGA, KAMACURAS, AGGREGATE], 5);
-    for (const d of tie(KAMACURAS)) expect(d).toBe(false);
-    for (const d of [...tie(ORGA), ...tie(AGGREGATE)]) expect(d).toBe(true);
-    const need = pick([ORGA, AGGREGATE, AGGREGATE, AGGREGATE], 5);
-    for (const d of need(ORGA)) expect(d).toBe(false);
-    for (const d of need(AGGREGATE)) expect(d).toBe(true);
-    const made = pick([ORGA, AGGREGATE, AGGREGATE, AGGREGATE], 5, true);
-    for (const d of made(ORGA)) expect(d).toBe(false);
-    for (const d of made(AGGREGATE)) expect(d).toBe(true);
-    // `tanglerWorth: false` (the control): Orga and Kamacuras tie.
-    const off = pick([ORGA, KAMACURAS, AGGREGATE], 5, false, false);
-    for (const d of [...off(ORGA), ...off(KAMACURAS)]) expect(d).toBe(false);
-  });
-
-  it("#440: with their monster in zone 6, a rank 8 Perfect Form (it needs them in zone 8) goes before a playable Aggregate, the last Destoroyah piece kept (rule 6)", () => {
-    const of = pick([ORGA, AGGREGATE, PERFECT_FORM], 6);
-    for (const d of of(PERFECT_FORM)) expect(d).toBe(false);
-    for (const d of [...of(AGGREGATE), ...of(ORGA)]) expect(d).toBe(true);
-    // `tanglerWorth: false` (the paired check's control): every cheap card ties, the Aggregate
-    // (rule 6's last piece) aside.
-    const off = pick([ORGA, AGGREGATE, PERFECT_FORM], 6, false, false);
-    for (const d of [...off(PERFECT_FORM), ...off(ORGA)]) expect(d).toBe(false);
   });
 });

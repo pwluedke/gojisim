@@ -218,12 +218,6 @@ Default 1 · built · from #403
 
 The Tangler plan's rule 5 (BFW182): with the counter made, battle card plays, strategies and rage gains wait (but Entangling Fear and the low evolution cards), so the rest of the hand is kept for later turns. Needs `tanglerPlan`.
 
-### `tanglerWorth`
-
-Default 1 · built · from #439
-
-The Tangler plan's discard tiebreaks (BFW182): of the cheap battle cards at a discard pick the least worth goes first; between cheap ones of the same worth, one that doesn't draw and discard when played goes first (Orga's own discard as a strict tiebreak only, no holding it back, Nov 17; while the counter still needs numbers); one its rank keeps out of play now counts 0 (a Perfect Form needing their monster in zone 8); with the counter made, the Destoroyah cards stay and the rest may go. Needs `tanglerDiscard`.
-
 ### `targetAll`
 
 Default 0 · measured · from #378

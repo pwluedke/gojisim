@@ -28,12 +28,7 @@ import type { Decklist } from "./types";
  *    threat. Where a discard is picked (5.7), a battle card worth less on the board (its counter
  *    power if its rank lets it be played now, 8.2.1, else nothing) goes before any other card; at
  *    a "you may discard a battle card" (10.5.4, Godzilla (2003) EBP03-017's enter), yes while there
- *    is one. (Rage gains discard only monster cards, 8.4.1, so they aren't a way.) #439, #440
- *    (BFW182): of the cheap ones the least worth goes first; between cheap ones of the same worth,
- *    one that doesn't draw and discard when played goes before one that does (Orga: a strict
- *    tiebreak, no holding it back, Nov 17); one its rank keeps out of
- *    play now counts 0 (a Perfect Form needing their monster in zone 8); with the counter made,
- *    the Destoroyah cards stay and the rest may go.
+ *    is one. (Rage gains discard only monster cards, 8.4.1, so they aren't a way.)
  * 4. At their rage 0 (3.4.4) there is nothing to lower: rule 3 is off, and discards only filter.
  * 5. With the counter made, stop playing out the hand (`tanglerStop`): battle card plays and
  *    strategies wait (passing is fine; the hand refills to 5), but Entangling Fear and the low
@@ -51,12 +46,6 @@ export const RAGE_REDUCERS = new Set(["EBP03-015", "EPR-020", "EBP03-017"]);
 
 /** Rule 6 (BFW182): the Destoroyah battle cards, any of which turns on Godzilla vs. Destoroyah. */
 export const DESTOROYAH = new Set(["EBP01-049", "EBP01-054", "EBP02-037"]);
-/** #439: the discards a card's own enter makes (Orga, Battra (Imago), Destoroyah Perfect Form). */
-const DRAW_DISCARDS: Record<string, number> = {
-  "EBP01-047": 1,
-  "EBP01-055": 1,
-  "EBP02-037": 2,
-};
 /** Rule 6: the rank 4 (Aggregate Form) and rank 6 (Flying Form) copies, one of which stays. */
 const DESTOROYAH_KEPT = new Set(["EBP01-049", "EBP01-054"]);
 /** Rule 6: Godzilla vs. Destoroyah EBP01-062 (+10,000 with a Destoroyah battle card out). */
@@ -104,7 +93,6 @@ export function tanglerVerdict(
     discard = true,
     stop = true,
     save = true,
-    worth: byWorth = true,
   } = options;
   const against = new Set<Action>();
   const rescued = new Set<Action>();
@@ -135,31 +123,12 @@ export function tanglerVerdict(
     discard &&
     RAGE_REDUCERS.has(top?.deckCardNumber ?? "") &&
     opponent.rage > 0;
-  // #439 (BFW182): a playable card that draws and discards drops their rage again for each
-  // discard (Orga: about 7000, not 2000), a tiebreak below. #440: a card its rank keeps out of play now (Perfect Form
-  // needing their monster in zone 8) is worth nothing. With the counter made, the Destoroyah cards
-  // stay (rule 6) and the rest may go.
-  const made = counters(state, me);
-  const worth = (c: CardInstance | undefined) => {
+  const cheap = (c: CardInstance | undefined) => {
     const d = cardData(state, c);
-    if (d?.type !== "Battle") return Number.POSITIVE_INFINITY;
-    if (byWorth && made && DESTOROYAH.has(d.deckCardNumber))
-      return Number.POSITIVE_INFINITY;
+    if (d?.type !== "Battle") return false;
     const playable = (d.rank ?? 0) <= (opponent.monsterPosition ?? 0);
-    if (!playable) return 0;
-    return d.counterOrThreat ?? 0;
+    return (playable ? (d.counterOrThreat ?? 0) : 0) < RAGE_THREAT;
   };
-  // #439 (BFW182, Nov 17): the draw-discards are a strict tiebreak between cheap discards of the
-  // same worth, not a reason to hold Orga (it filters well too): of those, one with none goes
-  // first. (With the counter made, the extra drop isn't needed: Orga may go.)
-  const extra = (c: CardInstance | undefined) => {
-    const d = cardData(state, c);
-    const playable = (d?.rank ?? 0) <= (opponent.monsterPosition ?? 0);
-    return byWorth && lowers && !made && d && playable
-      ? (DRAW_DISCARDS[d.deckCardNumber] ?? 0)
-      : 0;
-  };
-  const cheap = (c: CardInstance | undefined) => worth(c) < RAGE_THREAT;
 
   // Rule 6a: the last rank 4 or 6 Destoroyah copy in hand, with no Destoroyah on your field.
   const onField = Object.values(player.zones).some((stacks) =>
@@ -208,16 +177,10 @@ export function tanglerVerdict(
         against.add(no);
     } else if (lowers) {
       const picks = actions.filter((a) => picked(a) !== undefined);
-      // (Rule 6a's kept Destoroyah copy isn't one.) #439, #440: of those, the least worth goes.
-      const cheapPicks = picks.filter(
+      // (Rule 6a's kept Destoroyah copy isn't one.)
+      const good = picks.filter(
         (a) => cheap(picked(a)) && picked(a)?.instanceId !== keep[0],
       );
-      const least = Math.min(...cheapPicks.map((a) => worth(picked(a))));
-      const leastWorth = cheapPicks.filter((a) => worth(picked(a)) === least);
-      const fewest = Math.min(...leastWorth.map((a) => extra(picked(a))));
-      const good = byWorth
-        ? leastWorth.filter((a) => extra(picked(a)) === fewest)
-        : cheapPicks;
       if (good.length > 0)
         for (const a of picks)
           if (good.includes(a)) rescued.add(a);
