@@ -9,6 +9,7 @@ import {
   isBattle,
   type PlayerId,
   type PlayerState,
+  sameColumn,
   type ZoneNumber,
 } from "@gojisim/engine";
 import { makesCounter } from "./cfPlan";
@@ -204,6 +205,7 @@ export function mxPlanV2Verdict(
     whiteKeep = true,
     fearReach = true,
     protectZones = true,
+    fillBoard = true,
   } = options;
   const dead = new Map<Action, number>();
   const kill = (a: Action, rule: number) => {
@@ -557,8 +559,34 @@ export function mxPlanV2Verdict(
       )
         kill(a, 13);
   }
+
+  // #377 (Paul, Nov 16): fill the board. Every playable battle card is played this turn, big ones
+  // included, rather than held: no passing while one the other rules leave standing can be
+  // played. The only reason to hold one is that it would be easily destroyed: a play into the
+  // column of their monster's zone or its next one (its destroy) doesn't count.
+  if (fillBoard) {
+    const t = opponent.monsterPosition ?? 0;
+    const inReach = (zone: ZoneNumber) =>
+      [t, t + 1].some(
+        (y) =>
+          y >= 1 &&
+          y <= 8 &&
+          sameColumn(
+            { player, zone },
+            { player: opponent.id, zone: y as ZoneNumber },
+          ),
+      );
+    const fill = actions.filter(
+      (a): a is Extract<Action, { type: "playBattle" }> =>
+        a.type === "playBattle" && !dead.has(a) && !inReach(a.zone),
+    );
+    if (fill.length > 0) for (const a of passes) kill(a, FILL_BOARD_RULE);
+  }
   return dead;
 }
+
+/** #377: the rule number `mxPlanV2Verdict` reports for the fill-the-board pass. */
+const FILL_BOARD_RULE = 18;
 
 /** A card's printed counter power, by deck card number, from any copy in the state's cards. */
 function getCardCounter(

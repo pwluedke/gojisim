@@ -147,13 +147,41 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     );
     expect(hedorah.length).toBeGreaterThan(0);
     expect(hedorah.every((a) => dead.has(a))).toBe(true);
-    // From turn 5, pass is free again (no rage or Landing in hand to push it).
+    // From turn 5, rule 1 is done; #377's fill the board (rule 18) keeps passing out while the
+    // battle card can be played. With it off (`fillBoard: false`), pass is free again.
     const late = position({
       turn: 6,
       hand: ["EBP04-057"],
       oppZones: { 8: "EBP04-038" },
     });
-    expect(ruleOf(late, isPass)).toEqual([]);
+    expect(ruleOf(late, isPass)).toEqual([18]);
+    const off = mxPlanV2Verdict(late.state, late.legal, "P1", {
+      fillBoard: false,
+    });
+    expect([...off].filter(([a]) => isPass(a)).map(([, r]) => r)).toEqual([]);
+  });
+
+  it("#377 (Paul, Nov 16): fill the board: no passing while a battle card can be played out of reach of their monster's destroy; one only in reach may be held", () => {
+    // Their monster in zone 5: their zones 5 and 6 share columns with your zone 1 only.
+    const s = position({
+      turn: 8,
+      hand: ["EBP04-057"],
+      oppZones: { 8: "EBP04-038" },
+      oppPosition: 5,
+    });
+    const legal = s.legal;
+    const plays = legal.filter((a) => a.type === "playBattle");
+    expect(plays.length).toBeGreaterThan(0);
+    expect(ruleOf(s, isPass)).toEqual([18]);
+    // Every play in reach (only zone 1 open to it): passing is fine.
+    const onlyOne = mxPlanV2Verdict(
+      s.state,
+      legal.filter(
+        (a) => a.type !== "playBattle" || (a as { zone: number }).zone === 1,
+      ),
+      "P1",
+    );
+    expect([...onlyOne].filter(([a]) => isPass(a))).toEqual([]);
   });
 
   it("rule 2: no play onto your own battle card unless it's weaker and a color is missing", () => {

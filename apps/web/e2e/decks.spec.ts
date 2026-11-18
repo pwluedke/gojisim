@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
 test.use({ viewport: { width: 1280, height: 800 } });
@@ -48,6 +49,44 @@ test("#157: search and filters narrow the grid, combine, live in the URL, and Cl
     .getByTestId("db-card")
     .evaluateAll((els) => els.map((e) => e.getAttribute("data-card-number"))))
     expect(n).toMatch(/^ESD01-/);
+});
+
+test("#452: Sort by rank lines the grid up by rank and lives in the URL", async ({
+  page,
+}) => {
+  const ranks = new Map(
+    (
+      JSON.parse(
+        readFileSync(
+          new URL("../../../packages/cards/data/cards.json", import.meta.url),
+          "utf8",
+        ),
+      ) as { cardNumber: string; rank: number | null }[]
+    ).map((c) => [c.cardNumber, c.rank]),
+  );
+  const shownRanks = async () =>
+    (
+      await page
+        .getByTestId("db-card")
+        .evaluateAll((els) =>
+          els.map((e) => e.getAttribute("data-card-number") ?? ""),
+        )
+    ).map((n) => ranks.get(n) ?? 99);
+  await page.goto("/decks");
+  await expect(page.getByTestId("db-card").first()).toBeVisible();
+  const all = await count(page);
+  await page.getByTestId("db-sort").selectOption("rank");
+  await expect(page).toHaveURL(/sort=rank/);
+  // Rank 1 is the lowest a deck card has.
+  await expect.poll(async () => (await shownRanks())[0]).toBe(1);
+  const first = await shownRanks();
+  expect(first).toEqual([...first].sort((a, b) => a - b));
+  expect(await count(page)).toBe(all);
+  // The URL restores it; the rank range still filters.
+  await page.reload();
+  await expect(page.getByTestId("db-sort")).toHaveValue("rank");
+  await page.getByTestId("db-rank-min").fill("3");
+  await expect.poll(async () => (await shownRanks())[0]).toBe(3);
 });
 
 test("#158: the Movie filter narrows the grid and lives in the URL", async ({
