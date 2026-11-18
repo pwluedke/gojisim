@@ -339,7 +339,14 @@ export function resolveZoneSet(
             leftRightPosition(anchor, anchor.player),
       ),
     );
-  else if (set.relation === "atOrBefore")
+  else if (set.relation === "oneLowerThan") {
+    // The zone numbered 1 lower on the anchor's field (zone 5 -> 4); none below zone 1.
+    if (anchor.zone > 1)
+      refs.push({
+        player: anchor.player,
+        zone: (anchor.zone - 1) as ZoneNumber,
+      });
+  } else if (set.relation === "atOrBefore")
     // C3: zones numbered at most the anchor's, on each field (4.4.5.3.1, EBP02-018).
     refs.push(...allZones(ctx.state).filter((r) => r.zone <= anchor.zone));
   else {

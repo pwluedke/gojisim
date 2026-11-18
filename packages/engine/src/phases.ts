@@ -1,3 +1,4 @@
+import { getCardTraits, getTokenCard } from "@gojisim/cards";
 import {
   counterMonster,
   moveBehind,
@@ -7,8 +8,8 @@ import {
 } from "./counter";
 import { resolveLosses } from "./losses";
 import { guardLoop, resetLoopGuard } from "./loop";
-import { advanceMonster } from "./movement";
-import { checkTiming, hasPendingRuleActions, topOf } from "./rules";
+import { advanceMonster, retreatMonster } from "./movement";
+import { cardOf, checkTiming, hasPendingRuleActions, topOf } from "./rules";
 import { requireChoice } from "./choices";
 import {
   applyReplacement,
@@ -17,12 +18,13 @@ import {
   replacementPayable,
   strategyReplacementFor,
 } from "./interpreter";
-import { cannotDraw, counterProofAgainst, hasFlag } from "./stats";
+import { cannotDraw, counterProofAgainst, flagsOn, hasFlag } from "./stats";
 import {
   appendLog,
   drawCards,
   getOpponent,
   getPlayer,
+  newInstance,
   setRage,
   toDiscard,
 } from "./state";
@@ -32,6 +34,7 @@ import type {
   PlayerState,
   Step,
   StrategyPlacement,
+  ZoneNumber,
 } from "./types";
 
 /** Hand size the end phase draws up to (7.5.4). */
@@ -101,6 +104,54 @@ export function stepPhase(step: Step): Phase {
 }
 
 /** Runs one engine step and sets `state.step` to the next one. Mutates `state`. */
+
+/**
+ * The `repelsEndPhaseAdvance` flag on a battle card in `player`'s `zone` that applies to the
+ * player's invading monster (its traits), or null.
+ */
+function repellerAt(
+  state: GameState,
+  player: PlayerState,
+  zone: ZoneNumber,
+): { token?: string } | null {
+  const monster = topOf(player.invadingMonsterZone);
+  const traits = monster ? getCardTraits(cardOf(state, monster)) : [];
+  for (const stack of player.zones[zone]) {
+    const top = topOf(stack);
+    if (!top) continue;
+    for (const m of flagsOn(state, top))
+      if (
+        m.flag === "repelsEndPhaseAdvance" &&
+        (!m.traits || m.traits.some((t) => traits.includes(t)))
+      )
+        return m.token ? { token: m.token } : {};
+  }
+  return null;
+}
+
+/** Plays a token in `player`'s `zone` (9.1.2, 5.11.4), as `createToken` does. */
+function playToken(
+  state: GameState,
+  player: PlayerState,
+  name: string,
+  zone: ZoneNumber,
+): void {
+  const token = getTokenCard(name);
+  if (!state.cards[token.id])
+    state.cards = { ...state.cards, [token.id]: token };
+  const card = newInstance(state, token.id, player.id);
+  card.playedVia = "effect";
+  player.zones[zone].push([card]);
+  appendLog(state, "place", player.id, {
+    rule: "5.11.4",
+    cardId: card.cardId,
+    instanceId: card.instanceId,
+    from: "token",
+    to: `zone ${zone}`,
+    played: true,
+  });
+}
+
 const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
   "7.2.1": (state) => {
     state.turnFlags = { invasionUsed: false, monsterPlayed: false };
@@ -345,7 +396,19 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
   "7.5.2": (state) => {
     const player = turnPlayer(state);
     if (player.monsterPosition !== null && player.monsterPosition <= 7) {
-      advanceMonster(state, player, { invasion: false, rule: "7.5.2" });
+      const from = player.monsterPosition;
+      const repel = repellerAt(state, player, (from + 1) as ZoneNumber);
+      if (repel) {
+        // A battle card repels the advance into its zone: a retreat instead (5.13.2), and a
+        // token in the zone left when the monster did move.
+        appendLog(state, "advanceRepelled", player.id, {
+          rule: "7.5.2",
+          from,
+          zone: from + 1,
+        });
+        if (retreatMonster(state, player, "7.5.2") && repel.token)
+          playToken(state, player, repel.token, from);
+      } else advanceMonster(state, player, { invasion: false, rule: "7.5.2" });
     }
     goTo(state, "end", "7.5.3");
   },

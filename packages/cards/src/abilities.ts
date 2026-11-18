@@ -73,6 +73,8 @@ export const ZoneSetSchema = z.union([
       "atOrBefore",
       /** C3: the zones beside it in its row (4.4.5.2, 4.4.5.5), not in front or behind. */
       "horizontallyAdjacentTo",
+      /** The anchor's own field's zone numbered 1 lower (none below zone 1); not 4.4.5.1's behind. */
+      "oneLowerThan",
     ]),
     of: ZoneAnchorSchema,
     includeSelf: z.boolean().optional(),
@@ -1014,6 +1016,17 @@ export const ModifierSchema = z.union([
   /** M1: the target monster cannot advance (5.13.1) or invade (8.6). */
   z.strictObject({ flag: z.literal("cannotAdvance"), target: SelectorSchema }),
   z.strictObject({ flag: z.literal("cannotInvade"), target: SelectorSchema }),
+  /**
+   * The end phase advance (7.5.2) of its master's own invading monster (with one of `traits`,
+   * when given) into the target battle card's zone doesn't happen: the monster retreats 1 zone
+   * instead (5.13.2), and when it did, its master plays a `token` in the zone it left (5.11.4).
+   */
+  z.strictObject({
+    flag: z.literal("repelsEndPhaseAdvance"),
+    target: SelectorSchema,
+    traits: z.array(z.string().min(1)).min(1).optional(),
+    token: z.string().min(1).optional(),
+  }),
   /** M1: `player` cannot play cards `what` picks (8.2, 8.3, Q32), or only not into `zones`. */
   z.strictObject({
     flag: z.literal("cannotPlay"),
