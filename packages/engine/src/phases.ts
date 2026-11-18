@@ -116,14 +116,28 @@ function repellerAt(
 ): { token?: string } | null {
   const monster = topOf(player.invadingMonsterZone);
   const traits = monster ? getCardTraits(cardOf(state, monster)) : [];
+  const applies = (m: { traits?: string[] | undefined }) =>
+    !m.traits || m.traits.some((t) => traits.includes(t));
+  // A battle card in the monster's own zone can shield it from being repelled.
+  const here = player.monsterPosition;
+  if (
+    here !== null &&
+    player.zones[here].some((stack) => {
+      const top = topOf(stack);
+      return (
+        !!top &&
+        flagsOn(state, top).some(
+          (m) => m.flag === "shieldsFromRepel" && applies(m),
+        )
+      );
+    })
+  )
+    return null;
   for (const stack of player.zones[zone]) {
     const top = topOf(stack);
     if (!top) continue;
     for (const m of flagsOn(state, top))
-      if (
-        m.flag === "repelsEndPhaseAdvance" &&
-        (!m.traits || m.traits.some((t) => traits.includes(t)))
-      )
+      if (m.flag === "repelsEndPhaseAdvance" && applies(m))
         return m.token ? { token: m.token } : {};
   }
   return null;

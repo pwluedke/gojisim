@@ -503,6 +503,11 @@ function FLAG_CHANGES(flag: FlagModifier): Omit<CardChange, "kind"> {
       return { label: "Can't advance", detail: "Cannot advance (5.13.1)" };
     case "cannotInvade":
       return { label: "Can't invade", detail: "Cannot invade (8.6)" };
+    case "shieldsFromRepel":
+      return {
+        label: "Shields",
+        detail: `While your ${flag.traits ? `${flag.traits.join(" or ")} ` : ""}monster card is in its zone, its end phase advance can't be repelled (7.5.2)`,
+      };
     case "repelsEndPhaseAdvance":
       return {
         label: "Repels",

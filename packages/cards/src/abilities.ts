@@ -1027,6 +1027,15 @@ export const ModifierSchema = z.union([
     traits: z.array(z.string().min(1)).min(1).optional(),
     token: z.string().min(1).optional(),
   }),
+  /**
+   * While its master's own invading monster (with one of `traits`) is in the target battle card's
+   * zone, `repelsEndPhaseAdvance` can't make it retreat: its 7.5.2 advance happens as usual.
+   */
+  z.strictObject({
+    flag: z.literal("shieldsFromRepel"),
+    target: SelectorSchema,
+    traits: z.array(z.string().min(1)).min(1).optional(),
+  }),
   /** M1: `player` cannot play cards `what` picks (8.2, 8.3, Q32), or only not into `zones`. */
   z.strictObject({
     flag: z.literal("cannotPlay"),

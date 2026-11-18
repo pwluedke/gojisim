@@ -112,6 +112,35 @@ describe("repelsEndPhaseAdvance (7.5.2)", () => {
   });
 });
 
+describe("shieldsFromRepel (7.5.2)", () => {
+  it("Paul's example: the monster shares a shielding card's zone (5), the repeller is in 6: its end phase advance happens and crushes the repeller (11.3)", () => {
+    const state = at(newGame(), "7.5.2");
+    const me = turnPlayer(state);
+    me.monsterPosition = 5;
+    monsterWith(state, me, ["Minilla"]);
+    const shield = battleCard({ id: 970003 });
+    abilities(shield.deckCardNumber, [
+      {
+        kind: "continuous",
+        id: "shield",
+        modifiers: [
+          {
+            flag: "shieldsFromRepel",
+            target: { owner: "you", area: "zones", this: true },
+            traits: ["Minilla"],
+          },
+        ],
+      },
+    ]);
+    // Placed directly in the monster's zone (sharing a zone is another flag's job).
+    place(state, me, shield, 5);
+    const card = repeller(state, me, 6);
+    const after = advance(state);
+    expect(self(after, me).monsterPosition).toBe(6);
+    expect(holds(after, me, 6, card.instanceId)).toBe(false);
+  });
+});
+
 describe("oneLowerThan: the zone numbered 1 lower on your field", () => {
   const run = (monsterAt: ZoneNumber) => {
     const { state, me } = setup(monsterAt);

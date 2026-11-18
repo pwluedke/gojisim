@@ -644,3 +644,12 @@ type ZoneSet = ...
   | { relation: "oneLowerThan"; of: Anchor }  // the zone numbered 1 lower on the anchor's own field
       // (zone 5 -> 4; none below 1), not 4.4.5.1's "behind"
 ```
+
+### Shielded from repelling (Nov 18)
+
+```typescript
+type Modifier = ...
+  | { flag: "shieldsFromRepel"; target: Selector; traits?: string[] }  // while its master's own monster
+      // (with one of traits) is in this card's zone, repelsEndPhaseAdvance can't make it retreat: the 7.5.2
+      // advance happens as usual
+```
