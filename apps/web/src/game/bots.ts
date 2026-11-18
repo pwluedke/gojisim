@@ -110,6 +110,8 @@ export interface BotRequest {
   input: Omit<BotInput, "rng">;
   seed: string;
   difficulty: number;
+  /** The private card set's abilities (`privateSet.ts`), registered by the worker once. */
+  abilities?: Record<string, unknown>;
 }
 
 export type BotResponse =

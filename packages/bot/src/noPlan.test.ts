@@ -1,3 +1,4 @@
+import { SPACEG_ONE, SPACEG_THREE } from "./spacegPlan";
 import { readFileSync } from "node:fs";
 import type { Card } from "@gojisim/cards";
 import { parseDeckList } from "@gojisim/cards/deck-lists";
@@ -104,6 +105,16 @@ describe("the no-plan play (#460)", () => {
     const { state } = position([], "ESD01-001", 2, 2);
     expect(hasPlan(state, "P1", STARTER, false)).toBe(false);
     expect(hasPlan(state, "P1", TANGLER, false)).toBe(true);
+  });
+
+  it("SpaceG has a plan only while `spacegPlan` is on (#408)", () => {
+    const { state } = position([], "ESD01-001", 2, 2);
+    const spaceg = {
+      monsterDeck: [SPACEG_ONE, SPACEG_THREE].map(real),
+      mainDeck: [],
+    } as unknown as Decklist;
+    expect(hasPlan(state, "P1", spaceg, false, true)).toBe(true);
+    expect(hasPlan(state, "P1", spaceg, false, false)).toBe(false);
   });
 
   it("rule 1 (`noPlanUse`): no passing while a battle card can be played; nothing with a plan or switched off", () => {

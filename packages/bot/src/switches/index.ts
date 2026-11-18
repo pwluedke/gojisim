@@ -34,18 +34,28 @@ import recognizer from "./recognizer";
 import recurDiscard from "./recurDiscard";
 import revengeStep from "./revengeStep";
 import rules from "./rules";
+import spacegCover from "./spacegCover";
+import spacegInvade from "./spacegInvade";
+import spacegPlan from "./spacegPlan";
+import spacegRage from "./spacegRage";
+import spacegZone from "./spacegZone";
 import tanglerBuild from "./tanglerBuild";
 import tanglerDiscard from "./tanglerDiscard";
 import tanglerEarly from "./tanglerEarly";
 import tanglerFear from "./tanglerFear";
+import tanglerHighRank from "./tanglerHighRank";
 import tanglerPlan from "./tanglerPlan";
+import tanglerSave from "./tanglerSave";
 import tanglerStop from "./tanglerStop";
+import tanglerZoneFive from "./tanglerZoneFive";
 import targetAll from "./targetAll";
 import targetCheck from "./targetCheck";
 import targetKey from "./targetKey";
 import wranglerBio from "./wranglerBio";
 import wranglerBioHard from "./wranglerBioHard";
+import wranglerFetchDespair from "./wranglerFetchDespair";
 import wranglerFetchRage from "./wranglerFetchRage";
+import wranglerKeepRankOne from "./wranglerKeepRankOne";
 import wranglerPlan from "./wranglerPlan";
 import wranglerPushLine from "./wranglerPushLine";
 import wranglerResetLine from "./wranglerResetLine";
@@ -90,18 +100,28 @@ export const SWITCHES = [
   recurDiscard,
   revengeStep,
   rules,
+  spacegCover,
+  spacegInvade,
+  spacegPlan,
+  spacegRage,
+  spacegZone,
   tanglerBuild,
   tanglerDiscard,
   tanglerEarly,
   tanglerFear,
+  tanglerHighRank,
   tanglerPlan,
+  tanglerSave,
   tanglerStop,
+  tanglerZoneFive,
   targetAll,
   targetCheck,
   targetKey,
   wranglerBio,
   wranglerBioHard,
+  wranglerFetchDespair,
   wranglerFetchRage,
+  wranglerKeepRankOne,
   wranglerPlan,
   wranglerPushLine,
   wranglerResetLine,

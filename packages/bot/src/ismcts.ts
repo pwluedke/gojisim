@@ -34,6 +34,7 @@ import {
 } from "./cardRules";
 import { type FestOptions, festVerdict } from "./festPlan";
 import { noPlanVerdict } from "./noPlan";
+import { type SpaceGOptions, spacegVerdict } from "./spacegPlan";
 import { type TanglerOptions, tanglerVerdict } from "./tanglerPlan";
 import { wranglerVerdict } from "./wranglerPlan";
 import { type WranglerOptions, wranglerV2Verdict } from "./wranglerPlanV2";
@@ -536,6 +537,24 @@ export function search(input: BotInput, settings: IsmctsSettings) {
               Math.max(favored.get(actionKey(first, a)) ?? 0, MX_PLAN_BIAS),
             );
     }
+    // Paul's SpaceG plan (#408), a preference like the Wrangler plan.
+    if (iterations === 1 && settings.rules > 0 && settings.spacegPlan > 0) {
+      const first = state;
+      const { against } = spacegVerdict(
+        first,
+        input.legalActions,
+        me,
+        input.knowledge.decks[me],
+        groupOptions(settings, "spaceg") as SpaceGOptions,
+      );
+      if (against.size > 0)
+        for (const a of input.legalActions)
+          if (a.type !== "concede" && !against.has(a))
+            favored.set(
+              actionKey(first, a),
+              Math.max(favored.get(actionKey(first, a)) ?? 0, MX_PLAN_BIAS),
+            );
+    }
     // Slick's Red Fest plan, a preference like the Wrangler plan.
     if (iterations === 1 && settings.rules > 0 && settings.festPlan > 0) {
       const first = state;
@@ -571,6 +590,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
           use: settings.noPlanUse > 0,
           invade: settings.noPlanInvade > 0,
           festPlan: settings.festPlan > 0,
+          spacegPlan: settings.spacegPlan > 0,
         },
       );
       if (against.size > 0)

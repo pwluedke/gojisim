@@ -4,6 +4,7 @@ import type { Action, GameState } from "@gojisim/engine";
 import { useEffect } from "react";
 import { choiceAbilityText } from "../game/labels";
 import styles from "./Board.module.css";
+import { cardImage } from "../game/cardImage";
 
 /** The dragged tray card's id, apart from the hand's instance ids (#357). */
 export const TRAY_ID = "zone-tray-card";
@@ -80,7 +81,7 @@ export function ZoneTray({
           {...listeners}
         >
           <img
-            src={`/cards/${placing.id}-thumb.webp`}
+            src={cardImage(placing.id, "thumb")}
             alt={placing.name}
             draggable={false}
           />

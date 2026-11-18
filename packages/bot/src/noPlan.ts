@@ -10,13 +10,15 @@ import { counterPlays, winsNow } from "./cardRules";
 import { isFestDeck } from "./festPlan";
 import { isMonsterXDeck } from "./mxPlan";
 import { counters, heldCards } from "./rules";
+import { isSpaceGDeck } from "./spacegPlan";
 import { isTanglerDeck } from "./tanglerPlan";
 import type { Decklist } from "./types";
 import { isWranglerDeck } from "./wranglerPlan";
 
 /**
  * #460 (Ian, Nov 17, from Keldroc's Ghidorat reports; Paul's R-43): the play of a deck with no
- * plan of its own (not Wrangler, Tangler, Monster X, or Fest while `festPlan` is on). A preference
+ * plan of its own (not Wrangler, Tangler, Monster X, SpaceG while `spacegPlan` is on, or Fest while
+ * `festPlan` is on). A preference
  * like the plans: the moves it argues against.
  *
  * 1. Use the cards (`noPlanUse`): no passing while a battle card can be played or a spare monster
@@ -31,6 +33,8 @@ export interface NoPlanOptions {
   invade?: boolean;
   /** Whether the Fest plan applies (`festPlan` on): a Fest deck has a plan only then. */
   festPlan?: boolean;
+  /** Whether the SpaceG plan applies (`spacegPlan` on, #408): a SpaceG deck has a plan only then. */
+  spacegPlan?: boolean;
 }
 
 /** A deck the bot has a plan for. */
@@ -39,13 +43,15 @@ export function hasPlan(
   me: PlayerId,
   own: Decklist | undefined,
   festPlan: boolean,
+  spacegPlan = false,
 ): boolean {
   const player = state.players.find((p) => p.id === me);
   return (
     isWranglerDeck(own) ||
     isTanglerDeck(own) ||
     (!!player && isMonsterXDeck(state, player)) ||
-    (festPlan && isFestDeck(own))
+    (festPlan && isFestDeck(own)) ||
+    (spacegPlan && isSpaceGDeck(own))
   );
 }
 
@@ -66,10 +72,15 @@ export function noPlanVerdict(
   own: Decklist | undefined,
   options: NoPlanOptions = {},
 ): Set<Action> {
-  const { use = true, invade = true, festPlan = false } = options;
+  const {
+    use = true,
+    invade = true,
+    festPlan = false,
+    spacegPlan = false,
+  } = options;
   const against = new Set<Action>();
   if (state.turnPlayer !== me || state.pendingChoice) return against;
-  if (hasPlan(state, me, own, festPlan)) return against;
+  if (hasPlan(state, me, own, festPlan, spacegPlan)) return against;
   const player = state.players.find((p) => p.id === me);
   if (!player) return against;
 

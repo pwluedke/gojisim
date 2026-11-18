@@ -212,6 +212,36 @@ Default 0; 1 from Hard (`difficulty.ts`) · kept · from #175
 
 Paul's play rules at the search root (`rules.ts`): prunes and prior bonuses.
 
+### `spacegCover`
+
+Default 1 · built · from #408
+
+The SpaceG plan's rule 3 (Paul and his addendum): another rank 3 SpaceGodzilla EBP02-054 from your hand covers the one in play (2 more Crystals) before passing, and waits for this turn's invasion while it can still be made (invade, then cover, so the Crystals land behind SpaceG). Needs `spacegPlan`.
+
+### `spacegInvade`
+
+Default 0 (measured worse against Despangler, Nov 18) · measured · from #408
+
+The SpaceG plan's rule 1 (Paul): at ranks 1 and 2 (SpaceGodzilla Flying Form EBP02-052, SpaceGodzilla EBP02-053, whose [invading] makes Crystals) and at rank 4, no passing while an invasion can be made. Needs `spacegPlan`.
+
+### `spacegPlan`
+
+Default 1 · built · from #408
+
+Paul's SpaceG plan (`spacegPlan.ts`), with `rules`: invade every turn at ranks 1, 2 and 4; rage at rank 3 and with the rank 4 Flying Form; cover the rank 3 with a rank 3 after the invasion.
+
+### `spacegRage`
+
+Default 1 · built · from #408
+
+The SpaceG plan's rule 2 (Paul): at rank 3 (SpaceGodzilla EBP02-054: each rage destroys a rank 5 or lower battle card of theirs per Crystals) with Crystals and a target, and with the rank 4 Flying Form EBP02-057 (each rage makes 2 Crystals), no passing while a rage discard can be made. Needs `spacegPlan`.
+
+### `spacegZone`
+
+Default 1 · built · from #408
+
+The SpaceG plan's positioning (Paul, Nov 16): end the turn in zone 7 (the end-of-turn advance adds one zone); an invasion that would end it in zone 8 waits, while one ending it in zone 7 or short of it can be made, unless SpaceG survives their next counter there: their board's counter power plus their best battle cards in hand up to rank 8 (one per empty zone; the discard pile doesn't count) stays below SpaceG's threat. Needs `spacegPlan`.
+
 ### `tanglerBuild`
 
 Default 1 · built · from #403
@@ -236,17 +266,35 @@ Default 1 · built · from #403
 
 The Tangler plan's rule 1 (BFW182, #369): one Entangling Fear EBP04-081 every turn it can be played and none is in force (no passing before it); spare copies kept (none discarded, raged or paid with while fewer than 3 are in hand). Needs `tanglerPlan`.
 
+### `tanglerHighRank`
+
+Default 1 · built · from #444
+
+The Tangler plan's early discard (stevilkiwina, R-32): at a discard pick with the rank I Godzilla (2002) EBP03-014 on top (its end-phase discard), the highest-rank battle card goes, the card least likely to be playable soon.
+
 ### `tanglerPlan`
 
 Default 1 · built · from #403
 
 BFW182's Tangler plan (`tanglerPlan.ts`), with `rules`: Entangling Fear every turn, spares kept, the low evolution cards early, discards by the rage math, and the hand kept once the counter is made.
 
+### `tanglerSave`
+
+Default 1 · built · from #403
+
+The Tangler plan's rule 6 (BFW182; Monarch, Nov 16): any Destoroyah battle card (EBP01-049, EBP01-054, EBP02-037) turns on Godzilla vs. Destoroyah; with none on your field the last rank 4 or 6 copy in hand stays (not discarded or paid with, nor played unless the play makes this turn's counter); Godzilla vs. Destoroyah is held for the final counter (their monster deck empty) or the one that stops a losing invasion (their monster in zone 6 or beyond). Needs `tanglerPlan`.
+
 ### `tanglerStop`
 
 Default 1 · built · from #403
 
 The Tangler plan's rule 5 (BFW182): with the counter made, battle card plays, strategies and rage gains wait (but Entangling Fear and the low evolution cards), so the rest of the hand is kept for later turns. Needs `tanglerPlan`.
+
+### `tanglerZoneFive`
+
+Default 1 · built · from #444
+
+The Tangler plan's zone 5 line (stevilkiwina, R-32): with your monster in zone 5, an invasion of 2 or more zones waits when their monster's rank is lower than yours, or the same with no counter this turn, unless their board's counter power already reaches your threat (they counter you next turn wherever you end).
 
 ### `targetAll`
 
@@ -278,11 +326,23 @@ Default 0 · measured · from Paul, Nov 15
 
 Three of `wranglerBio`'s lines as prunes (the search and a blunder can't override them): no strategy when Biollante's rank III EBP02-027 can reach zone 6+, unless your counter beats 40,000; no counter on its Rose Form; no push out of zone 5. Needs `wranglerBio`. Off by default: its check was worse (40 / 160 vs 63 / 160, Paul, Nov 15).
 
+### `wranglerFetchDespair`
+
+Default 1 · built · from #442
+
+The Wrangler plan's Despair rage (Ian): with Godzilla (2023) ESD01-002 on top and the rage under 2, an invasion whose fetches (the monster cards in hand after it) bring the rage to 2, with one of their battle cards at or before your zone for Despair, comes first, and Despair now (it would do nothing below 2 rage), tagging out and passing wait; without that line v2.2's dig may still play Despair. Needs `wranglerPlan` 2.
+
 ### `wranglerFetchRage`
 
 Default 1 · built · from #425
 
 The Wrangler plan's fetch for rage (Ian): with Godzilla (2023) ESD01-002 on top, v2.2's invasion for its fetch (a rank III Godzilla (2023) per zone it invades) counts a King to be played this turn as one to protect with 3 rage, not only one in zones 1-5; with such an invasion, tagging out (its fetch goes with it) and passing wait. Needs `wranglerPlan` 2.
+
+### `wranglerKeepRankOne`
+
+Default 1 · built · from #428
+
+The Wrangler plan's keep the rank I (Ian): with a King to protect (in play or in hand) and the rage short of 3, no monster play over the rank I Godzilla (1954) EBP01-001 (a burst covers it through this turn's counter phase, and its mill of a monster card is a rage), unless it wins now. Needs `wranglerPlan` 2.
 
 ### `wranglerPlan`
 
