@@ -21,6 +21,8 @@ export interface PullOptions {
   /** Where the checkout goes (`PRIVATE_SET_DIR`; `private/` at the repo root). */
   dir: string;
   ref?: string;
+  /** The whole pull's deadline (default 30 s): a hung GitHub must never hold up the start. */
+  timeoutMs?: number;
   fetchImpl?: typeof fetch;
   log?: (line: string) => void;
 }
@@ -31,6 +33,7 @@ export async function pullPrivateSet({
   repo,
   dir,
   ref = "main",
+  timeoutMs = 30_000,
   fetchImpl = fetch,
   log = (line) => console.log(line),
 }: PullOptions): Promise<number | null> {
@@ -44,6 +47,8 @@ export async function pullPrivateSet({
     );
     return null;
   }
+  // One deadline for every request: past it they're aborted and the server starts without the set.
+  const signal = AbortSignal.timeout(timeoutMs);
   const headers = {
     authorization: `Bearer ${token}`,
     "x-github-api-version": "2022-11-28",
@@ -52,7 +57,10 @@ export async function pullPrivateSet({
   try {
     const treeRes = await fetchImpl(
       `https://api.github.com/repos/${repo}/git/trees/${encodeURIComponent(ref)}?recursive=1`,
-      { headers: { ...headers, accept: "application/vnd.github+json" } },
+      {
+        headers: { ...headers, accept: "application/vnd.github+json" },
+        signal,
+      },
     );
     if (!treeRes.ok)
       throw new Error(`the file list answered ${treeRes.status}`);
@@ -76,7 +84,10 @@ export async function pullPrivateSet({
           .split("/")
           .map(encodeURIComponent)
           .join("/")}?ref=${encodeURIComponent(ref)}`,
-        { headers: { ...headers, accept: "application/vnd.github.raw" } },
+        {
+          headers: { ...headers, accept: "application/vnd.github.raw" },
+          signal,
+        },
       );
       if (!res.ok) throw new Error(`a file answered ${res.status}`);
       files.push([path, await res.text()]);
@@ -92,7 +103,11 @@ export async function pullPrivateSet({
     return files.length;
   } catch (err) {
     // The message names no token: only statuses and our own wording reach it.
-    const why = err instanceof Error ? err.message : "unknown error";
+    const why = signal.aborted
+      ? `no answer within ${timeoutMs / 1000} s`
+      : err instanceof Error
+        ? err.message
+        : "unknown error";
     log(
       `GojiSim: the private card set couldn't be pulled (${why.replaceAll(token, "[token]")}); it's off.`,
     );

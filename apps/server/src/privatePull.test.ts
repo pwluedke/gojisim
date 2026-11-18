@@ -106,6 +106,36 @@ describe("pulling the private card set at start", () => {
   });
 });
 
+describe("pulling the private card set: a hung GitHub", () => {
+  it("gives up at the deadline, logs one line and writes nothing, so the server still starts", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "gojisim-pull-"));
+    // A fetch that never answers until its signal aborts it.
+    const hung = ((_: string, init?: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () =>
+          reject(new Error("aborted")),
+        );
+      })) as unknown as typeof fetch;
+    const lines: string[] = [];
+    const started = Date.now();
+    expect(
+      await pullPrivateSet({
+        token: TOKEN,
+        repo: "pwluedke/gojisim-private",
+        dir,
+        timeoutMs: 200,
+        fetchImpl: hung,
+        log: (l) => lines.push(l),
+      }),
+    ).toBeNull();
+    expect(Date.now() - started).toBeLessThan(5_000);
+    expect(existsSync(join(dir, "packages"))).toBe(false);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("no answer within 0.2 s");
+    expect(lines[0]).not.toContain(TOKEN);
+  });
+});
+
 describe("online matches refuse the private set's cards", () => {
   it("a My deck holding a card that isn't in the public cards.json is a bad deck", () => {
     const db = openDb(":memory:", { log: () => {} });
