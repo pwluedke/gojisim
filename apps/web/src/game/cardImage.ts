@@ -7,12 +7,20 @@ import { keywordParts, tagLabel } from "./keywordTags";
  * official frames): each is drawn as a text card in Showa Poster's style (cream paper, ink
  * border, poster red for red cards, plain white for white ones) with its name, type, rank,
  * counter power or threat, invasion icon, traits and ability text; a token gets a plain ring.
+ * Where the set has a picture for a card (Paul, Nov 18), that picture is used instead, from the
+ * owner-only `/api/private-set/image/<card number>`.
  */
 
 export type CardImageSize = "thumb" | "full";
 
 const drawn = new Map<number, Card>();
 const cache = new Map<number, string>();
+const pictures = new Map<number, string>();
+
+/** The private set's cards that have a picture: card id → its URL. */
+export function setCardPictures(urls: ReadonlyMap<number, string>): void {
+  for (const [id, url] of urls) pictures.set(id, url);
+}
 
 /** The private set's cards, drawn instead of loaded (`privateSet.ts` hands them over). */
 export function drawCardsAsText(cards: readonly Card[]): void {
@@ -24,6 +32,8 @@ export function drawCardsAsText(cards: readonly Card[]): void {
 
 /** The image source for a card id at a size. */
 export function cardImage(id: number, size: CardImageSize | string): string {
+  const picture = pictures.get(id);
+  if (picture) return picture;
   const card = drawn.get(id);
   if (!card) return `/cards/${id}-${size}.webp`;
   let src = cache.get(id);

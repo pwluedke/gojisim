@@ -63,6 +63,28 @@ describe("the private card set, in the browser", () => {
     expect(cardImage(15, "thumb")).toBe("/cards/15-thumb.webp");
   });
 
+  it("a card the set has a picture for shows it, from the owner-only route; the others keep their text faces", async () => {
+    const PICTURED = {
+      ...CARD,
+      id: 990202,
+      cardNumber: "PRV-102",
+      baseCardNumber: "PRV-102",
+      deckCardNumber: "PRV-102",
+    };
+    await loadPrivateSet(
+      answer(200, { ...SET, cards: [CARD, PICTURED], images: ["PRV-102"] }),
+    );
+    expect(cardImage(PICTURED.id, "thumb")).toBe(
+      "/api/private-set/image/PRV-102",
+    );
+    expect(cardImage(PICTURED.id, "full")).toBe(
+      "/api/private-set/image/PRV-102",
+    );
+    expect(cardImage(CARD.id, "thumb").startsWith("data:image/svg+xml")).toBe(
+      true,
+    );
+  });
+
   it("a text card shows the name, type and rank, power, traits, escaped text and the icon; a token gets a ring", () => {
     const svg = textCard(CARD as never);
     for (const part of [
