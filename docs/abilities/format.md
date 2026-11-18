@@ -878,3 +878,15 @@ type Trigger = ...
       // was in when countered (6, 7 or 8, before it moves behind, 5.15.1.1) as a zone, for an anchor
       // { bound: zoneAs }; the `counter` log entry carries it as `zone`
 ```
+
+### [bully] and [buddy] (Nov 18)
+
+```typescript
+type KeywordAbility = ...
+  | { name: "bully"; traits?: string[]; token?: string }  // this battle card has repelsEndPhaseAdvance
+      // (target: this card), with the same traits and token
+  | { name: "buddy"; traits?: string[] }  // this battle card has hostsMonster (target: this card)
+```
+
+In card text, keyword abilities ([burst-N], [evolution], [awakening-N], [base], [revenge], [resonance],
+[bully], [buddy]) show as a bordered tag in the preview, the Deckbuilder detail and the text cards.

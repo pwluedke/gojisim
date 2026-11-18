@@ -1175,6 +1175,20 @@ export const KeywordAbilitySchema = z.discriminatedUnion("name", [
     condition: ConditionSchema.optional(),
     cost: CostSchema.optional(),
   }),
+  /**
+   * [bully]: this battle card has `repelsEndPhaseAdvance` (its master's monster with one of
+   * `traits` is repelled from its zone at 7.5.2, leaving `token` in the zone it left).
+   */
+  z.strictObject({
+    name: z.literal("bully"),
+    traits: z.array(z.string().min(1)).min(1).optional(),
+    token: z.string().min(1).optional(),
+  }),
+  /** [buddy]: this battle card has `hostsMonster` (its master's monster with one of `traits`). */
+  z.strictObject({
+    name: z.literal("buddy"),
+    traits: z.array(z.string().min(1)).min(1).optional(),
+  }),
   z.strictObject({
     name: z.literal("resonance"),
     colors: z.array(z.enum(["Red", "Blue", "Green", "White"])).min(2),
