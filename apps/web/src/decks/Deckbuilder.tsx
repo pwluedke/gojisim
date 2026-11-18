@@ -55,6 +55,7 @@ import {
 } from "./deckDraft";
 import { cardImage } from "../game/cardImage";
 import { usePrivateSet } from "../game/privateSet";
+import { CardText } from "../game/CardText";
 
 /** #165: the card grid has 5 or 6 columns (6 once each card gets this wide, px). */
 const SIX_COLUMNS_FROM = 120;
@@ -858,7 +859,9 @@ function DetailPanel({
       {text.hasErrata && (
         <div className={styles.detailMeta}>Errata: the corrected wording.</div>
       )}
-      <p className={styles.detailText}>{text.text}</p>
+      <p className={styles.detailText}>
+        <CardText text={text.text} />
+      </p>
       <CardInsights
         deckCardNumber={entry.deckCardNumber}
         saved={saved}
@@ -917,7 +920,9 @@ function CardDetail({ card, base }: { card: Card; base: Card }) {
       {text.hasErrata && (
         <div className={styles.detailMeta}>Errata: the corrected wording.</div>
       )}
-      <p className={styles.detailText}>{text.text}</p>
+      <p className={styles.detailText}>
+        <CardText text={text.text} />
+      </p>
     </div>
   );
 }

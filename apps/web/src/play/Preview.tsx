@@ -1,5 +1,6 @@
 import { type Card, getCardText, getCardTraits } from "@gojisim/cards";
 import { createContext, useContext } from "react";
+import { CardText } from "../game/CardText";
 import type { CardInstance, PlayerAreasView } from "@gojisim/engine";
 import { printedWithCurrent } from "../game/printed";
 import styles from "./Board.module.css";
@@ -119,7 +120,9 @@ export function Preview({
           Errata: the text below is the corrected wording.
         </div>
       )}
-      <div className={styles.previewText}>{text.text}</div>
+      <div className={styles.previewText}>
+        <CardText text={text.text} />
+      </div>
     </aside>
   );
 }
