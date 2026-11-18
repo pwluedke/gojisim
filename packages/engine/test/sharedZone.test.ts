@@ -25,7 +25,7 @@ function monsterWith(state: GameState, me: PlayerState, traits: string[]) {
   me.invadingMonsterZone = [addCard(state, monsterCard(1, { traits }), me.id)];
 }
 
-/** A battle card in `zone` hosting your Minilla monster, which gives you 1 rage when it enters. */
+/** A battle card in `zone` hosting your Godzilla monster, which gives you 1 rage when it enters. */
 function host(state: GameState, me: PlayerState, zone: ZoneNumber) {
   const card = battleCard({ id: 969001 });
   abilities(card.deckCardNumber, [
@@ -36,7 +36,7 @@ function host(state: GameState, me: PlayerState, zone: ZoneNumber) {
         {
           flag: "hostsMonster",
           target: { owner: "you", area: "zones", this: true },
-          traits: ["Minilla"],
+          traits: ["Godzilla"],
         },
       ],
     },
@@ -47,7 +47,7 @@ function host(state: GameState, me: PlayerState, zone: ZoneNumber) {
         on: "monsterEntered",
         whose: "you",
         into: { relation: "sameNumberAs", of: "this" },
-        traits: ["Minilla"],
+        traits: ["Godzilla"],
       },
       effects: [{ effect: "rage", player: "you", delta: 1 }],
     },
@@ -69,9 +69,9 @@ const invader = (icon: number) =>
   battleCard({ id: 969010 + icon, invadeZones: icon });
 
 describe("hostsMonster: an exception to crush and destroy (11.3)", () => {
-  it("your Minilla monster moves into the hosting card's zone: the card stays, and it entered once", () => {
+  it("your Godzilla monster moves into the hosting card's zone: the card stays, and it entered once", () => {
     const { state, me } = setup(3);
-    monsterWith(state, me, ["Minilla"]);
+    monsterWith(state, me, ["Godzilla"]);
     const card = host(state, me, 4);
     const rage = me.rage;
     const after = settle(invade(state, me, inHand(state, me, invader(1))));
@@ -92,7 +92,7 @@ describe("hostsMonster: an exception to crush and destroy (11.3)", () => {
 
   it("monsterEntered counts every zone moved into: an invasion of 2 passing through it triggers too", () => {
     const { state, me } = setup(3);
-    monsterWith(state, me, ["Minilla"]);
+    monsterWith(state, me, ["Godzilla"]);
     const card = host(state, me, 4);
     const rage = me.rage;
     const after = settle(invade(state, me, inHand(state, me, invader(2))));
