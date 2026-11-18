@@ -627,3 +627,18 @@ type Amount = ... | { boundCount: string };                // cards bound with `
 - A destroy's `as` now binds the cards actually destroyed, not those a replacement (10.9) or protection (1.3.3) kept. No card bound a destroy before this one.
 - "If 3 cards are [destroy] this way" is `if` with `{ amount: { boundCount: "destroyed" }, op: ">=", value: 3 }`. `boundCount` counts a destroyed Crystals token too, though it is banished (9.1.4.2) and no longer anywhere a selector looks.
 - "Play 1 battle card with the highest rank from your discard pile" is a normal effect play (5.11.1): its [enter] triggers and the player picks the zone. Highest is the printed rank (Mecha-King Ghidorah, rank 23), ties to the player.
+
+### Columns on both fields, "toward a column", empty zones (Nov 18)
+
+General zone sets (no card uses them in the public data yet):
+
+```typescript
+type ZoneSet = ...
+  | { relation: "sharesColumnWith"; of: Anchor; unoccupied?: boolean }  // 4.4.5.4, 4.4.5.5: every zone at the
+      // anchor's left-right position on both fields: on its own field the zone in front of or behind it
+      // (3 and 8, 4 and 7, 5 and 6; 1 and 2 are each alone), on the other field sameColumnAs's zones
+  | { relation: "towardColumnOf"; of: Anchor; from?: Anchor }  // 4.4.5.2, 4.4.5.5: the `from` card's (default
+      // `this`) adjacent zones on its own field one column closer to the anchor's; none when no zone is closer
+  | { relation: ...; unoccupied: true }  // any relation: only the zones without a card that aren't their
+      // owner's monster's zone (Q5)
+```

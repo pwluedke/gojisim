@@ -73,9 +73,23 @@ export const ZoneSetSchema = z.union([
       "atOrBefore",
       /** C3: the zones beside it in its row (4.4.5.2, 4.4.5.5), not in front or behind. */
       "horizontallyAdjacentTo",
+      /**
+       * The zones in the anchor's column on both fields (4.4.5.4, 4.4.5.5): on its own field
+       * the zone in front of or behind it, on the other field the zones `sameColumnAs` names.
+       */
+      "sharesColumnWith",
+      /**
+       * The `from` card's adjacent zones on its own field (4.4.5.2) that are one column closer
+       * to the anchor's column (4.4.5.5); none when no adjacent zone is closer.
+       */
+      "towardColumnOf",
     ]),
     of: ZoneAnchorSchema,
+    /** `towardColumnOf`: the card that moves (default `this`). */
+    from: ZoneAnchorSchema.optional(),
     includeSelf: z.boolean().optional(),
+    /** Only the zones without a card that aren't their owner's monster's zone (Q5). */
+    unoccupied: z.boolean().optional(),
   }),
   z.enum(["unoccupied", "any"]),
   /** C3: the zones numbered like the ranks of the cards bound with `as` (EBP03-073). */

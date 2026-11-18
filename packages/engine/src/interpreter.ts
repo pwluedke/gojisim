@@ -339,7 +339,33 @@ export function resolveZoneSet(
             leftRightPosition(anchor, anchor.player),
       ),
     );
-  else if (set.relation === "atOrBefore")
+  else if (set.relation === "sharesColumnWith")
+    // 4.4.5.4, 4.4.5.5: every zone at the anchor's left-right position, seen from its field
+    // (the opponent's zones are mirrored), on both fields.
+    refs.push(
+      ...allZones(ctx.state).filter(
+        (r) =>
+          !(r.player === anchor.player && r.zone === anchor.zone) &&
+          leftRightPosition(r, anchor.player) ===
+            leftRightPosition(anchor, anchor.player),
+      ),
+    );
+  else if (set.relation === "towardColumnOf") {
+    // 4.4.5.2, 4.4.5.5: the moving card's adjacent own zones one column closer to the anchor's.
+    const from = anchorZone(ctx, set.from ?? "this");
+    if (from !== null) {
+      const column = (r: ZoneRef) => leftRightPosition(r, from.player);
+      const gap = (r: ZoneRef) => Math.abs(column(r) - column(anchor));
+      refs.push(
+        ...allZones(ctx.state).filter(
+          (r) =>
+            r.player === from.player &&
+            isAdjacent(from, r) &&
+            gap(r) === gap(from) - 1,
+        ),
+      );
+    }
+  } else if (set.relation === "atOrBefore")
     // C3: zones numbered at most the anchor's, on each field (4.4.5.3.1, EBP02-018).
     refs.push(...allZones(ctx.state).filter((r) => r.zone <= anchor.zone));
   else {
@@ -350,6 +376,15 @@ export function resolveZoneSet(
     if (zone !== null) refs.push({ player: anchor.player, zone });
   }
   if (set.includeSelf) refs.push(anchor);
+  if (set.unoccupied)
+    return refs.filter((r) => {
+      const owner = ctx.state.players.find((p) => p.id === r.player);
+      return (
+        !!owner &&
+        owner.zones[r.zone].length === 0 &&
+        r.zone !== owner.monsterPosition
+      );
+    });
   return refs;
 }
 
