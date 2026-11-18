@@ -687,21 +687,25 @@ describe(
       ).toBe(true);
     });
 
-    it("#275: Godzilla Landing EBP01-030 (advances the opponent's monster) waits when nothing then makes the counter or blocks zone 8; with zone 8 blocked it may go", () => {
+    it("#275: Godzilla Landing EBP01-030 (advances the opponent's monster) waits when nothing then makes the counter or blocks zone 8; with zone 8 blocked it may go (rule 32 off: #419 has it wait there too)", () => {
       const { state, p1 } = withGodzilla1995();
       const opp = state.players[1] as PlayerState;
       opp.monsterPosition = 6;
       opp.rage = 6;
       p1.hand = [add(state, real("EBP01-030"), "P1")];
-      const activation = () => {
+      const activation = (landingCounter = false) => {
         const legal = getLegalActions(state, "P1");
         const a = legal.find((x) => x.type === "activateStrategy");
         if (!a) throw new Error("Godzilla Landing can't be activated here");
-        return cardRulesDead(state, legal, "P1").has(a);
+        return cardRulesDead(state, legal, "P1", undefined, {
+          landingCounter,
+        }).has(a);
       };
       expect(activation()).toBe(true);
       p1.zones[8] = [[add(state, { ...real("ESD01-008"), rank: 1 }, "P1")]];
       expect(activation()).toBe(false);
+      // Rule 32 (#419): a zone 8 block isn't a counter, so it waits.
+      expect(activation(true)).toBe(true);
     });
 
     /**
@@ -1341,6 +1345,62 @@ describe(
         ownPath: false,
       });
       expect(off.has(pay(mechaKing.instanceId)!)).toBe(false);
+    });
+
+    it("rule 31, #419 (R-46): Godzilla Landing EBP01-030 isn't activated at a monster already in zone 8, even with a counter already made; off, it may be", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      opp.monsterPosition = 8;
+      opp.rage = 0;
+      for (const z of [1, 2, 6, 7] as const)
+        p1.zones[z] = [[add(state, real("EBP01-075"), "P1")]];
+      p1.hand = [add(state, { ...real("EBP01-030"), rank: 1 }, "P1")];
+      expect(counters(state, "P1")).toBe(true);
+      const legal = getLegalActions(state, "P1");
+      const plays = legal.filter((a) => a.type === "activateStrategy");
+      expect(plays.length).toBeGreaterThan(0);
+      const on = cardRulesDead(state, legal, "P1", undefined, {
+        landingCounter: false,
+      });
+      const off = cardRulesDead(state, legal, "P1", undefined, {
+        landingCounter: false,
+        landingZone8: false,
+      });
+      for (const a of plays) expect(on.has(a)).toBe(true);
+      for (const a of plays) expect(off.has(a)).toBe(false);
+    });
+
+    it("rule 32, #419 (R-46): Godzilla Landing EBP01-030 is activated only when a counter is made this turn after it; with the counter made, it may go; discards and invasion payments are unchanged", () => {
+      const { state, p1 } = withGodzilla1995();
+      const opp = state.players[1] as PlayerState;
+      const landing = (oppAt: ZoneNumber, rage: number) => {
+        opp.monsterPosition = oppAt;
+        opp.rage = rage;
+        p1.hand = [add(state, { ...real("EBP01-030"), rank: 1 }, "P1")];
+        const legal = getLegalActions(state, "P1");
+        const of = (t: Action["type"]) => legal.filter((a) => a.type === t);
+        const on = cardRulesDead(state, legal, "P1", undefined, {
+          landingZone8: false,
+        });
+        const off = cardRulesDead(state, legal, "P1", undefined, {
+          landingZone8: false,
+          landingCounter: false,
+        });
+        return {
+          play: of("activateStrategy").map((a) => on.has(a)),
+          invade: of("invade").map((a) => on.has(a) === off.has(a)),
+        };
+      };
+      // Their monster in 5 with rage 6: nothing makes the counter, so it waits.
+      const none = landing(5, 6);
+      expect(none.play.length).toBeGreaterThan(0);
+      for (const d of none.play) expect(d).toBe(true);
+      // Paying for an invasion with it is judged as before.
+      for (const same of none.invade) expect(same).toBe(true);
+      // The counter made (their rage 0 and four battle cards): it may go.
+      for (const z of [1, 2, 6, 7] as const)
+        p1.zones[z] = [[add(state, real("EBP01-075"), "P1")]];
+      for (const d of landing(5, 0).play) expect(d).toBe(false);
     });
 
     it("rule 22b (#378, Paul's record 1dfdd328 move 88): The Slithering Disaster EBP04-078 isn't activated while it can move nothing (their monster outside zones 3-5); in zone 4 it is; a spare copy may go as hand cycling", () => {

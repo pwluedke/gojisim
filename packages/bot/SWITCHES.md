@@ -104,6 +104,18 @@ Default 1 · built · from #353
 
 Card rule 27: discarding from your hand (5.7.1, 5.7.2), a strategy card isn't the one to go while a battle card you can't play this turn or next (rank above the opponent's monster's zone plus 2) is offered.
 
+### `landingCounter`
+
+Default 1 · built · from #419
+
+Card rule 32: Godzilla Landing EBP01-030 is activated only when a counter is made this turn after it (made by it, or one battle card play away).
+
+### `landingZone8`
+
+Default 1 · built · from #419
+
+Card rule 31: Godzilla Landing EBP01-030 isn't activated while the opponent's monster is already in zone 8, where its push can't move it.
+
 ### `modeBest`
 
 Default 1 · built · from #386

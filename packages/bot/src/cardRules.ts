@@ -156,9 +156,17 @@ import type { Decklist } from "./types";
  *    activated when no way of answering its choices changes anything on the board, the rage, the
  *    discard pile or the decks and hands (beyond the card itself). Paul's exception: with 2+
  *    copies of it in hand, a spare may still go as the turn's hand-cycling play. Any deck.
+ * 31. #419 (R-46 piece 1): Godzilla Landing EBP01-030 isn't activated while the opponent's monster
+ *    is already in zone 8, where its push can't move it. Any deck.
+ * 32. #419 (R-46 piece 2): Godzilla Landing EBP01-030 is activated only when a counter is made this
+ *    turn after it (by its push, or one battle card play away); rule 10 also takes a zone 8 block.
+ *    Discards and invasion payments are unchanged. Any deck.
  */
 
 type Json = Record<string, unknown>;
+
+/** Rules 31 and 32 (#419). */
+const GODZILLA_LANDING = "EBP01-030";
 
 /** Every object nested anywhere in a value. */
 function nested(value: unknown, out: Json[] = []): Json[] {
@@ -1143,6 +1151,52 @@ function recurringDiscards(
   return invades.filter((a) => !recurs(payWith(a)));
 }
 
+/** Rules 31 and 32 (#419): Godzilla Landing activations at zone 8, or with no counter after. */
+function landingPlays(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+  rules: { zone8: boolean; counter: boolean },
+): Action[] {
+  if (state.pendingChoice || state.turnPlayer !== me) return [];
+  const player = state.players.find((p) => p.id === me);
+  const opponent = state.players.find((p) => p.id !== me);
+  if (!player || !opponent) return [];
+  const out: Action[] = [];
+  for (const a of actions) {
+    if (a.type !== "activateStrategy") continue;
+    const c = player.hand.find((h) => h.instanceId === a.cardInstanceId);
+    if (!c || state.cards[c.cardId]?.deckCardNumber !== GODZILLA_LANDING)
+      continue;
+    // Rule 31: a push can't move a monster already in zone 8.
+    if (rules.zone8 && (opponent.monsterPosition ?? 0) >= 8) {
+      out.push(a);
+      continue;
+    }
+    if (!rules.counter) continue;
+    // Rule 32: after it (its choices answered the first way), a counter is made or one battle
+    // card play away.
+    let s: GameState;
+    try {
+      s = advanceToDecision(applyAction(state, a));
+      for (let i = 0; i < 10 && s.pendingChoice?.player === me; i++) {
+        const first = getLegalActions(s, me).find((x) => x.type === "choose");
+        if (!first) break;
+        s = advanceToDecision(applyAction(s, first));
+      }
+    } catch {
+      continue;
+    }
+    const counter =
+      counters(s, me) ||
+      (s.turnPlayer === me &&
+        !s.pendingChoice &&
+        counterPlays(s, getLegalActions(s, me), me).size > 0);
+    if (!counter) out.push(a);
+  }
+  return out;
+}
+
 /** Rule 22's search budget (states visited) for a way an activation destroys something. */
 const FIZZLE_BUDGET = 60;
 
@@ -1838,6 +1892,12 @@ export function cardRulesDead(
       dead.add(action);
   if (options.coverToken !== false)
     for (const action of ownCoverPlays(state, actions, me, true))
+      dead.add(action);
+  if (options.landingZone8 !== false || options.landingCounter !== false)
+    for (const action of landingPlays(state, actions, me, {
+      zone8: options.landingZone8 !== false,
+      counter: options.landingCounter !== false,
+    }))
       dead.add(action);
   // Rule 7: a way to make the counter (#305), else to block zone 8, is taken: every other move
   // waits (but an invasion that wins now), and it outranks the others' holds. (Rule 9 alone only
