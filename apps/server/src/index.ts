@@ -27,6 +27,8 @@ import {
 import { isResultsUploadPath, resultsMiddleware } from "./results.js";
 import { classroomStore } from "./classroom.js";
 import { isTestDecksUploadPath, testDecksMiddleware } from "./testDecks.js";
+import { holdsUnlistedCard } from "./privateRecords.js";
+import { privateSetMiddleware, privateSetOwnersFrom } from "./privateSet.js";
 import { replayMiddleware } from "./h2h/replayRoute.js";
 import { reporterDeck } from "./h2h/reportDeck.js";
 import { attachH2h, type H2h } from "./h2h/socket.js";
@@ -91,6 +93,10 @@ export interface AppServerOptions {
   testDecksDir?: string;
   /** #359: `TEST_DECKS_UPLOAD_TOKEN` for `pnpm test-decks upload`; unset turns uploads off. */
   testDecksToken?: string | undefined;
+  /** The private card set's checkout (`PRIVATE_SET_DIR`; default `private` at the repo root). */
+  privateSetDir?: string;
+  /** `PRIVATE_SET_OWNERS`: the accounts that get the private set; none by default. */
+  privateSetOwners?: ReadonlySet<string>;
   now?: () => number;
 }
 
@@ -143,6 +149,8 @@ export function createAppServer({
   resultsToken,
   testDecksDir = join(dirname(recordsDir), "test-decks"),
   testDecksToken,
+  privateSetDir = fileURLToPath(new URL("../../../private/", import.meta.url)),
+  privateSetOwners = new Set<string>(),
   maxRecordsBytes,
   uploadsPerMinute,
   reportsWebhook,
@@ -205,6 +213,9 @@ export function createAppServer({
     // #151: with Discord sign-in, uploads carry the player and are indexed per player.
     ...(discord ? { playerOf: requestPlayer, db: discord.db } : {}),
     isH2hGame: (id) => h2h?.isGame(id) ?? false,
+    // The private card set's games: kept apart from the shared records.
+    privateRecordsDir: join(dirname(recordsDir), "private-records"),
+    isPrivateRecord: holdsUnlistedCard,
     onStored: (record, earlier, file) =>
       Promise.all([
         posted(record, earlier, file),
@@ -235,6 +246,10 @@ export function createAppServer({
   const testDecks = testDecksMiddleware({
     dir: testDecksDir,
     token: testDecksToken,
+  });
+  const privateSet = privateSetMiddleware({
+    dir: privateSetDir,
+    owners: privateSetOwners,
   });
   const app = webApp(distDir);
   const server = createServer(
@@ -295,6 +310,7 @@ export function createAppServer({
         return;
       if (!(await passes((next) => results(req, res, next)))) return;
       if (!(await passes((next) => testDecks(req, res, next)))) return;
+      if (!(await passes((next) => privateSet(req, res, next)))) return;
       if (!(await passes((next) => cards(req, res, next)))) return;
       await app(req, res);
     }),
@@ -410,6 +426,10 @@ if (
       ? { testDecksDir: resolve(process.env.TEST_DECKS_DIR) }
       : {}),
     testDecksToken: process.env.TEST_DECKS_UPLOAD_TOKEN?.trim() || undefined,
+    ...(process.env.PRIVATE_SET_DIR
+      ? { privateSetDir: resolve(process.env.PRIVATE_SET_DIR) }
+      : {}),
+    privateSetOwners: privateSetOwnersFrom(process.env),
   }).listen(port, () => {
     console.log(
       `GojiSim server listening on http://localhost:${port}${discord ? " (Discord sign-in on)" : process.env.GOJISIM_PASSWORD ? " (password gate on)" : ""}`,

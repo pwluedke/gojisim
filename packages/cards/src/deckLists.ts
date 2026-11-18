@@ -1,4 +1,4 @@
-import { getAllCards } from "./allCards";
+import { cardsVersion, getAllCards } from "./allCards";
 import type { Card } from "./schema";
 import type { Deck } from "./validate";
 
@@ -60,6 +60,7 @@ export interface ParsedDeckList {
 }
 
 let byNumber: Map<string, Card> | null = null;
+let byNumberVersion = -1;
 
 /**
  * The print a card number stands for. Several prints can share a card number (a parallel and its
@@ -67,7 +68,8 @@ let byNumber: Map<string, Card> | null = null;
  * lowest id.
  */
 export function findCardByNumber(cardNumber: string): Card | undefined {
-  if (!byNumber) {
+  if (!byNumber || byNumberVersion !== cardsVersion()) {
+    byNumberVersion = cardsVersion();
     byNumber = new Map();
     const rank = (c: Card) => [
       c.parentId === null ? 0 : 1,
@@ -163,7 +165,9 @@ export function parseDeckList(text: string): ParsedDeckList {
       return;
     }
 
-    const entry = /^(\S+)\s+(\S+)$/.exec(text);
+    // #437: a finish print's number has a space in it ("EBP01-008+ (Foil)", the SSP), as the card
+    // data and `formatDeckList` write it.
+    const entry = /^(\S+)\s+(\S+(?: \((?:Foil|Alt)\))?)$/.exec(text);
     if (!entry)
       return void error(
         'Expected a count and a card number, e.g. "2 EBP02-027"',

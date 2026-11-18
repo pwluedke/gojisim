@@ -8,7 +8,9 @@ import {
   applyAction,
   type CardInstance,
   type GameState,
+  counterPowerOf,
   getLegalActions,
+  getThreat,
   type PlayerSetup,
   type PlayerState,
   startGame,
@@ -175,6 +177,92 @@ describe("the Red Fest plan", () => {
       false,
     ).values())
       expect(d).toBe(true);
+  });
+
+  it("#406 (Slick): the rank II Fest invades when its end-phase push takes their monster to zone 6 or beyond (the counter next turn, 5.15.1.1)", () => {
+    const against = (oppAt: ZoneNumber, rankTwoPush = true) => {
+      const { state } = position(
+        "EBP01-012",
+        ["ESD01-005", "ESD01-006"],
+        oppAt,
+      );
+      const legal = getLegalActions(state, "P1");
+      const invades = legal.filter((a) => a.type === "invade");
+      expect(invades.length).toBeGreaterThan(0);
+      const v = festVerdict(state, legal, "P1", FEST, undefined, {
+        rankTwoPush,
+      });
+      return invades.map((a) => v.against.has(a));
+    };
+    for (const d of against(5)) expect(d).toBe(false);
+    // Zone 3: the push takes them only to zone 4, out of the counter's reach.
+    for (const d of against(3)) expect(d).toBe(true);
+    // `festRankTwoPush: false` (the control): line 2 as it was.
+    for (const d of against(5, false)) expect(d).toBe(true);
+  });
+
+  it("#406 (Slick): an early invasion that takes your monster to zone 6 fires Godzilla Emerges ESD01-014 (rank 6, 2 rage) for the rank 8 Godzilla (2023)", () => {
+    const WITH_EMERGES: Decklist = {
+      ...FEST,
+      mainDeck: [...FEST.mainDeck, real("ESD01-014"), real("EBP03-041")],
+    };
+    const against = (opts: {
+      at?: ZoneNumber;
+      rage?: number;
+      emerges?: boolean;
+    }) => {
+      const { state, p1 } = position(
+        "EBP01-012",
+        ["ESD01-014", "ESD01-005"],
+        2,
+      );
+      p1.monsterPosition = opts.at ?? 5;
+      p1.rage = opts.rage ?? 2;
+      const legal = getLegalActions(state, "P1");
+      const invades = legal.filter((a) => a.type === "invade");
+      expect(invades.length).toBeGreaterThan(0);
+      const v = festVerdict(state, legal, "P1", WITH_EMERGES, undefined, {
+        emerges: opts.emerges ?? true,
+      });
+      return invades.map((a) => v.against.has(a));
+    };
+    // Zone 5, 2 rage: the invasion takes it to zone 6.
+    for (const d of against({})) expect(d).toBe(false);
+    // Zone 3: the invasion only reaches zone 4.
+    for (const d of against({ at: 3 })) expect(d).toBe(true);
+    // `festEmerges: false` (the control).
+    for (const d of against({ emerges: false })) expect(d).toBe(true);
+  });
+
+  it("#406 (Slick): at rank III in reach of their counter, the rage goes to the rank IV as cards in hand (no rage discards), and battle cards are played out before passing", () => {
+    const judge = (theirCounter: boolean, rankThreeSave = true) => {
+      const { state, p1, p2 } = position(
+        "EBP01-013",
+        ["ESD01-005", "ESD01-006", "ESD01-008"],
+        3,
+      );
+      p1.monsterPosition = 6;
+      if (theirCounter)
+        for (const z of [1, 2, 3, 4, 5] as const)
+          p2.zones[z] = [[add(state, real("EBP01-075"), "P2")]];
+      expect(counterPowerOf(state, p2) >= getThreat(state, "P1")).toBe(
+        theirCounter,
+      );
+      const legal = getLegalActions(state, "P1");
+      const v = festVerdict(state, legal, "P1", FEST, undefined, {
+        rankThreeSave,
+      });
+      const of = (t: Action["type"]) =>
+        legal.filter((a) => a.type === t).map((a) => v.against.has(a));
+      return { rage: of("gainRage"), pass: of("pass") };
+    };
+    const on = judge(true);
+    expect(on.rage.length).toBeGreaterThan(0);
+    for (const d of [...on.rage, ...on.pass]) expect(d).toBe(true);
+    // Their counter can't reach: the rule stays out.
+    for (const d of judge(false).rage) expect(d).toBe(false);
+    // `festRankThreeSave: false` (the control).
+    for (const d of judge(true, false).rage) expect(d).toBe(false);
   });
 
   it("line 3: Anguirus (2004) EBP02-016 goes in zone 1 or 2", () => {

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
 test.use({ viewport: { width: 1280, height: 800 } });
@@ -50,6 +51,44 @@ test("#157: search and filters narrow the grid, combine, live in the URL, and Cl
     expect(n).toMatch(/^ESD01-/);
 });
 
+test("#452: Sort by rank lines the grid up by rank and lives in the URL", async ({
+  page,
+}) => {
+  const ranks = new Map(
+    (
+      JSON.parse(
+        readFileSync(
+          new URL("../../../packages/cards/data/cards.json", import.meta.url),
+          "utf8",
+        ),
+      ) as { cardNumber: string; rank: number | null }[]
+    ).map((c) => [c.cardNumber, c.rank]),
+  );
+  const shownRanks = async () =>
+    (
+      await page
+        .getByTestId("db-card")
+        .evaluateAll((els) =>
+          els.map((e) => e.getAttribute("data-card-number") ?? ""),
+        )
+    ).map((n) => ranks.get(n) ?? 99);
+  await page.goto("/decks");
+  await expect(page.getByTestId("db-card").first()).toBeVisible();
+  const all = await count(page);
+  await page.getByTestId("db-sort").selectOption("rank");
+  await expect(page).toHaveURL(/sort=rank/);
+  // Rank 1 is the lowest a deck card has.
+  await expect.poll(async () => (await shownRanks())[0]).toBe(1);
+  const first = await shownRanks();
+  expect(first).toEqual([...first].sort((a, b) => a - b));
+  expect(await count(page)).toBe(all);
+  // The URL restores it; the rank range still filters.
+  await page.reload();
+  await expect(page.getByTestId("db-sort")).toHaveValue("rank");
+  await page.getByTestId("db-rank-min").fill("3");
+  await expect.poll(async () => (await shownRanks())[0]).toBe(3);
+});
+
 test("#158: the Movie filter narrows the grid and lives in the URL", async ({
   page,
 }) => {
@@ -60,6 +99,34 @@ test("#158: the Movie filter narrows the grid and lives in the URL", async ({
   await expect.poll(() => count(page)).toBeLessThan(all);
   expect(await count(page)).toBeGreaterThan(0);
   await expect(page).toHaveURL(/movie=Godzilla\+%281954%29/);
+});
+
+test("#447: the Invasion filter (1-step, 2-step) splits the grid and lives in the URL; #450: every card has an icon", async ({
+  page,
+}) => {
+  await page.goto("/decks");
+  await expect(page.getByTestId("db-card").first()).toBeVisible();
+  const all = await count(page);
+  const of = async (value: string) => {
+    await page.getByTestId("db-invasion").selectOption(value);
+    await expect.poll(() => count(page)).toBeLessThan(all);
+    return count(page);
+  };
+  const two = await of("2");
+  expect(two).toBeGreaterThan(0);
+  await expect(page).toHaveURL(/invasion=2/);
+  // The URL restores it.
+  await page.reload();
+  await expect(page.getByTestId("db-invasion")).toHaveValue("2");
+  await expect.poll(() => count(page)).toBe(two);
+  const one = await of("1");
+  expect(one + two).toBe(all);
+  await expect(
+    page.getByTestId("db-invasion").locator("option[value=none]"),
+  ).toHaveCount(0);
+  await page.getByTestId("db-invasion").selectOption("");
+  await expect.poll(() => count(page)).toBe(all);
+  await expect(page).toHaveURL(/\/decks$/);
 });
 
 test("#157: hovering a card shows it in full; #165: the card detail has the art choice", async ({
