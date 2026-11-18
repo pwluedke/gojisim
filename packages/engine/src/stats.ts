@@ -508,6 +508,16 @@ function FLAG_CHANGES(flag: FlagModifier): Omit<CardChange, "kind"> {
         label: "No end phase advance",
         detail: "Doesn't advance in the end phase (7.5.2)",
       };
+    case "shieldsFromRepel":
+      return {
+        label: "Shields",
+        detail: `While your ${flag.traits ? `${flag.traits.join(" or ")} ` : ""}monster card is in its zone, its end phase advance can't be repelled (7.5.2)`,
+      };
+    case "repelsEndPhaseAdvance":
+      return {
+        label: "Repels",
+        detail: `Your ${flag.traits ? `${flag.traits.join(" or ")} ` : ""}monster card's end phase advance into its zone becomes a retreat${flag.token ? `, and you play 1 ${flag.token} in the zone it left` : ""} (7.5.2)`,
+      };
     case "hostsMonster":
       return {
         label: "Hosts",

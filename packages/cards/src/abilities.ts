@@ -73,6 +73,8 @@ export const ZoneSetSchema = z.union([
       "atOrBefore",
       /** C3: the zones beside it in its row (4.4.5.2, 4.4.5.5), not in front or behind. */
       "horizontallyAdjacentTo",
+      /** The anchor's own field's zone numbered 1 lower (none below zone 1); not 4.4.5.1's behind. */
+      "oneLowerThan",
     ]),
     of: ZoneAnchorSchema,
     includeSelf: z.boolean().optional(),
@@ -247,6 +249,14 @@ export const TriggerSchema = z.discriminatedUnion("on", [
     /** T7: where the card was played from. */
     from: z.enum(["hand", "deck", "discard", "monsterDeck"]).optional(),
     /** T7: binds the played card. */
+    as: z.string().min(1).optional(),
+  }),
+  /** A battle card's `repelsEndPhaseAdvance` made a player's monster retreat (7.5.2). */
+  z.strictObject({
+    on: z.literal("repelled"),
+    /** Whose monster retreated because a battle card repelled its end phase advance. */
+    whose: PlayerRefSchema,
+    /** Binds the repelling battle card. */
     as: z.string().min(1).optional(),
   }),
   /** An invading monster is countered (5.15): `this` card, or a player's monster. */
@@ -1037,6 +1047,26 @@ export const ModifierSchema = z.union([
   z.strictObject({
     flag: z.literal("cannotEndPhaseAdvance"),
     target: SelectorSchema,
+  }),
+  /**
+   * The end phase advance (7.5.2) of its master's own invading monster (with one of `traits`,
+   * when given) into the target battle card's zone doesn't happen: the monster retreats 1 zone
+   * instead (5.13.2), and when it did, its master plays a `token` in the zone it left (5.11.4).
+   */
+  z.strictObject({
+    flag: z.literal("repelsEndPhaseAdvance"),
+    target: SelectorSchema,
+    traits: z.array(z.string().min(1)).min(1).optional(),
+    token: z.string().min(1).optional(),
+  }),
+  /**
+   * While its master's own invading monster (with one of `traits`) is in the target battle card's
+   * zone, `repelsEndPhaseAdvance` can't make it retreat: its 7.5.2 advance happens as usual.
+   */
+  z.strictObject({
+    flag: z.literal("shieldsFromRepel"),
+    target: SelectorSchema,
+    traits: z.array(z.string().min(1)).min(1).optional(),
   }),
   /**
    * An exception to crush and destroy (11.3): its master's own invading monster (with one of
