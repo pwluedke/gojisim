@@ -224,6 +224,12 @@ Default 1 · built · from #403
 
 The Tangler plan's rule 1 (BFW182, #369): one Entangling Fear EBP04-081 every turn it can be played and none is in force (no passing before it); spare copies kept (none discarded, raged or paid with while fewer than 3 are in hand). Needs `tanglerPlan`.
 
+### `tanglerHighRank`
+
+Default 1 · built · from #444
+
+The Tangler plan's early discard (stevilkiwina, R-32): at a discard pick with the rank I Godzilla (2002) EBP03-014 on top (its end-phase discard), the highest-rank battle card goes, the card least likely to be playable soon.
+
 ### `tanglerPlan`
 
 Default 1 · built · from #403
@@ -241,6 +247,12 @@ The Tangler plan's rule 6 (BFW182; Monarch, Nov 16): any Destoroyah battle card 
 Default 1 · built · from #403
 
 The Tangler plan's rule 5 (BFW182): with the counter made, battle card plays, strategies and rage gains wait (but Entangling Fear and the low evolution cards), so the rest of the hand is kept for later turns. Needs `tanglerPlan`.
+
+### `tanglerZoneFive`
+
+Default 1 · built · from #444
+
+The Tangler plan's zone 5 line (stevilkiwina, R-32): with your monster in zone 5, an invasion of 2 or more zones waits when their monster's rank is lower than yours, or the same with no counter this turn, unless their board's counter power already reaches your threat (they counter you next turn wherever you end).
 
 ### `targetAll`
 

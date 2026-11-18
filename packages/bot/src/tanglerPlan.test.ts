@@ -243,6 +243,86 @@ describe("the Tangler plan (#403)", () => {
     for (const d of [...zero.perfect, ...zero.bond]) expect(d).toBe(false);
   });
 
+  it("rule 7a (#444, stevilkiwina): at a discard pick with the rank I Godzilla (2002) EBP03-014 on top, the highest-rank battle card goes", () => {
+    const pick = (highRank: boolean) => {
+      const { state, p1 } = position(
+        [EGG, ORGA, PERFECT_FORM, PERFECT_FORM],
+        3,
+        4,
+      );
+      p1.invadingMonsterZone = [add(state, real("EBP03-014"), "P1")];
+      state.pendingChoice = {
+        id: 96,
+        player: "P1",
+        kind: "target",
+        rule: "5.7.1",
+        options: p1.hand.map((c) => ({
+          id: c.instanceId,
+          cardId: c.cardId,
+          abilityId: null,
+        })),
+      } as unknown as GameState["pendingChoice"];
+      const actions: Action[] = p1.hand.map((c) => ({
+        type: "choose",
+        player: "P1",
+        choiceId: 96,
+        optionId: c.instanceId,
+      }));
+      const v = tanglerVerdict(state, actions, "P1", TANGLER, { highRank });
+      return (n: string) =>
+        actions
+          .filter(
+            (_, i) => state.cards[p1.hand[i]!.cardId]?.deckCardNumber === n,
+          )
+          .map((a) => v.against.has(a));
+    };
+    const on = pick(true);
+    for (const d of on(PERFECT_FORM)) expect(d).toBe(false);
+    for (const d of [...on(EGG), ...on(ORGA)]) expect(d).toBe(true);
+    // `tanglerHighRank: false` (the paired check's control): no preference.
+    const off = pick(false);
+    for (const d of [...off(EGG), ...off(ORGA), ...off(PERFECT_FORM)])
+      expect(d).toBe(false);
+  });
+
+  it("rule 7b (#444, stevilkiwina): in zone 5 their monster's rank decides the invasion of 2: it waits when theirs is lower, or the same with no counter this turn, unless their board already counters you", () => {
+    // P1's Godzilla (2003) EPR-020 is rank 3; Mothra (Imago) pays 2 zones, Orga 1.
+    const judge = (
+      theirs: string,
+      { made = false, countered = false, zoneFive = true } = {},
+    ) => {
+      const { state, p1, p2 } = position([IMAGO, ORGA], 5, 4);
+      p2.invadingMonsterZone = [add(state, real(theirs), "P2")];
+      p2.rage = 0;
+      if (made)
+        for (const z of [1, 2, 3, 4, 6, 7] as const)
+          p1.zones[z] = [[add(state, real("EBP01-075"), "P1")]];
+      if (countered)
+        for (const z of [1, 2, 3, 4, 5, 6, 7, 8] as const)
+          p2.zones[z] = [[add(state, real(PERFECT_FORM), "P2")]];
+      expect(counters(state, "P1")).toBe(made);
+      const v = verdict(state, { zoneFive });
+      const of = (n: string) =>
+        v.legal
+          .filter((a) => a.type === "invade" && ofCard(state, p1, a) === n)
+          .map((a) => v.against.has(a));
+      expect(of(IMAGO).length).toBeGreaterThan(0);
+      return { two: of(IMAGO), one: of(ORGA) };
+    };
+    const lower = judge("EBP01-002");
+    for (const d of lower.two) expect(d).toBe(true);
+    for (const d of lower.one) expect(d).toBe(false);
+    for (const d of judge("EBP01-003").two) expect(d).toBe(true);
+    for (const d of judge("EBP01-003", { made: true }).two)
+      expect(d).toBe(false);
+    for (const d of judge("EBP01-004").two) expect(d).toBe(false);
+    for (const d of judge("EBP01-002", { countered: true }).two)
+      expect(d).toBe(false);
+    // `tanglerZoneFive: false` (the paired check's control).
+    for (const d of judge("EBP01-002", { zoneFive: false }).two)
+      expect(d).toBe(false);
+  });
+
   it("rule 5: with the counter made, the rest of the hand waits (battle card plays, strategies), but Entangling Fear and the low evolution cards", () => {
     const { state, p1, p2 } = position([ORGA, EGG, BOND], 3, 3);
     p2.rage = 0;
