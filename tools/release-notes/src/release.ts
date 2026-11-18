@@ -9,7 +9,23 @@ export interface PullRequest {
   number: number;
   title: string;
   body: string;
+  /** Its label names. */
+  labels?: string[];
 }
+
+/**
+ * Paul, Nov 18: a PR with this label (a private card set's work) stays out of the release's text
+ * and posts, by title too. It still counts as released.
+ */
+export const PRIVATE_LABEL = "private-set";
+
+/** The PRs whose release notes may be published: those without `PRIVATE_LABEL`. */
+export function publicPrs(prs: readonly PullRequest[]): PullRequest[] {
+  return prs.filter((pr) => !pr.labels?.includes(PRIVATE_LABEL));
+}
+
+/** A release's text when every PR in it is private: nothing to try, and nothing is posted. */
+export const NOTHING_PUBLIC = "Nothing new to try in the game.\n";
 
 /** The PR number in a main commit's subject: GitHub's merge or squash wording; else `null`. */
 export function prFromSubject(subject: string): number | null {
