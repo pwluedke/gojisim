@@ -1,0 +1,10 @@
+/* A keyword ability in card text: a bordered tag, as the printed cards box [burst-1]. */
+.keywordTag {
+  display: inline-block;
+  margin: 0 0.15em;
+  padding: 0 0.35em;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-weight: bold;
+  line-height: 1.25;
+}

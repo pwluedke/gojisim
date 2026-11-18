@@ -1,4 +1,5 @@
 import type { Card } from "@gojisim/cards";
+import { keywordParts, tagLabel } from "./keywordTags";
 
 /*
  * A card's picture. Most cards have a scanned image under `/cards/` (`<id>-thumb.webp` and
@@ -58,6 +59,24 @@ function wrap(text: string, width: number): string[] {
   return lines;
 }
 
+/** About one character's width at the body's 13 px, for placing a keyword tag's border. */
+const CHAR_W = 7.1;
+
+/** One body line; a keyword ability gets a bordered tag, as on the printed cards. */
+function textLine(line: string, y: number): string {
+  let x = 24;
+  let out = "";
+  for (const part of keywordParts(line)) {
+    const label = part.tag ? tagLabel(part.text) : part.text;
+    const width = label.length * CHAR_W;
+    out += part.tag
+      ? `<rect x="${(x - 2).toFixed(1)}" y="${y - 12}" width="${(width + 4).toFixed(1)}" height="16" rx="3" fill="none" stroke="${INK}" stroke-width="1.5"/><text x="${x.toFixed(1)}" y="${y}" font-size="13" font-weight="700" fill="${INK}" textLength="${width.toFixed(1)}" lengthAdjust="spacingAndGlyphs">${escape(label)}</text>`
+      : `<text x="${x.toFixed(1)}" y="${y}" font-size="13" fill="${INK}" xml:space="preserve">${escape(part.text)}</text>`;
+    x += width + (part.tag ? 4 : 0);
+  }
+  return out;
+}
+
 /** The card as an SVG text card, 300 × 420 (the scans' 5:7). */
 export function textCard(card: Card): string {
   const white = card.colors.includes("White") && !card.colors.includes("Red");
@@ -73,10 +92,7 @@ export function textCard(card: Card): string {
   const traits = card.traits.map((t) => `《${escape(t)}》`).join(" ");
   const body = wrap(card.text, 34)
     .slice(0, 14)
-    .map(
-      (line, i) =>
-        `<text x="24" y="${(token ? 300 : 196) + i * 17}" font-size="13" fill="${INK}">${escape(line)}</text>`,
-    )
+    .map((line, i) => textLine(line, (token ? 300 : 196) + i * 17))
     .join("");
   const icon =
     card.invadeZones === null
