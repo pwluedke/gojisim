@@ -513,6 +513,11 @@ function FLAG_CHANGES(flag: FlagModifier): Omit<CardChange, "kind"> {
         label: "Repels",
         detail: `Your ${flag.traits ? `${flag.traits.join(" or ")} ` : ""}monster card's end phase advance into its zone becomes a retreat${flag.token ? `, and you play 1 ${flag.token} in the zone it left` : ""} (7.5.2)`,
       };
+    case "hostsMonster":
+      return {
+        label: "Hosts",
+        detail: `Your ${flag.traits ? `${flag.traits.join(" or ")} ` : ""}monster card can occupy its zone without destroying it (11.3)`,
+      };
     case "rageCannotBeReducedByOpponent":
       return {
         label: "Rage protected",

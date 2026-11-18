@@ -835,11 +835,29 @@ type Modifier = ...
 
 ### Repelled (Nov 18)
 
-````typescript
+```typescript
 type Trigger = ...
   | { on: "repelled"; whose: PlayerRef; as?: string }  // a repelsEndPhaseAdvance made that player's monster
       // retreat (7.5.2); `as` binds the repelling battle card. The advanceRepelled log entry carries it as
       // `by`, and whether the monster moved as `retreated`
+```
+
+### Sharing a zone with your monster, entering a zone (Nov 18)
+
+General pieces (no card in the public data uses them yet):
+
+```typescript
+type Modifier = ...
+  | { flag: "hostsMonster"; target: Selector; traits?: string[] }  // an exception to crush and destroy
+      // (11.3): its master's own invading monster (with one of `traits`, when given) can occupy the target
+      // battle card's zone without destroying it; another monster still crushes it
+
+type Trigger = ...
+  | { on: "monsterEntered"; whose: PlayerRef; into?: ZoneSet; traits?: string[] }  // a monster moves into
+      // a zone: once per zone, whatever moved it (an invasion's every step, an advance, a retreat, a counter's
+      // move behind, a vertical move); `into` relative to this card, on the mover's own field
+      // ("this card's zone" is { relation: "sameNumberAs", of: "this" })
+```
 
 ### The zone a monster was countered in (Nov 18)
 
@@ -848,4 +866,4 @@ type Trigger = ...
   | { on: "countered"; whose: "this" | PlayerRef; zoneAs?: string }  // zoneAs binds the zone the monster
       // was in when countered (6, 7 or 8, before it moves behind, 5.15.1.1) as a zone, for an anchor
       // { bound: zoneAs }; the `counter` log entry carries it as `zone`
-````
+```
