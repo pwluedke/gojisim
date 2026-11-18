@@ -116,6 +116,12 @@ Default 1 · built · from #373
 
 The Monster X plan's #373 (Paul's R-5): no Entangling Fear (which holds your monster in place) while a strategy in hand is one rank past your monster's zone (8.3.1, e.g. Godzilla vs. Megaguirus at rank 5 from zone 4) and this turn's counter is made.
 
+### `mxFillBoard`
+
+Default 1 · built · from #377
+
+The Monster X plan's fill the board (Paul, Nov 16): every playable battle card is played this turn, big ones included, rather than held: no passing while one the plan's other rules leave standing can be played into a zone out of reach of their monster's destroy (not the column of their monster's zone or its next one). Needs `mxPlan` 2.
+
 ### `mxLanding`
 
 Default 1 · built · from #335
@@ -230,6 +236,12 @@ Default 1 · built · from #403
 
 BFW182's Tangler plan (`tanglerPlan.ts`), with `rules`: Entangling Fear every turn, spares kept, the low evolution cards early, discards by the rage math, and the hand kept once the counter is made.
 
+### `tanglerSave`
+
+Default 1 · built · from #403
+
+The Tangler plan's rule 6 (BFW182; Monarch, Nov 16): any Destoroyah battle card (EBP01-049, EBP01-054, EBP02-037) turns on Godzilla vs. Destoroyah; with none on your field the last rank 4 or 6 copy in hand stays (not discarded or paid with, nor played unless the play makes this turn's counter); Godzilla vs. Destoroyah is held for the final counter (their monster deck empty) or the one that stops a losing invasion (their monster in zone 6 or beyond). Needs `tanglerPlan`.
+
 ### `tanglerStop`
 
 Default 1 · built · from #403
@@ -278,6 +290,12 @@ Default 1 · built · from #425
 
 The Wrangler plan's fetch for rage (Ian): with Godzilla (2023) ESD01-002 on top, v2.2's invasion for its fetch (a rank III Godzilla (2023) per zone it invades) counts a King to be played this turn as one to protect with 3 rage, not only one in zones 1-5; with such an invasion, tagging out (its fetch goes with it) and passing wait. Needs `wranglerPlan` 2.
 
+### `wranglerKeepRankOne`
+
+Default 1 · built · from #428
+
+The Wrangler plan's keep the rank I (Ian): with a King to protect (in play or in hand) and the rage short of 3, no monster play over the rank I Godzilla (1954) EBP01-001 (a burst covers it through this turn's counter phase, and its mill of a monster card is a rage), unless it wins now. Needs `wranglerPlan` 2.
+
 ### `wranglerPlan`
 
 Default 2 · kept · from #276, #311
@@ -295,6 +313,12 @@ The Wrangler plan's push line (Ian): an invasion that reaches a push strategy's 
 Default 1 · built · from #388
 
 The Wrangler plan's reset line (Ian): an invasion that triggers Godzilla Against Mechagodzilla EBP01-073's rage reset (the opponent's rage to 0, so a King's protection is gone), after which a rage gain (Godzilla (2023) EBP01-010's column destroy) and up to 3 battle card plays make the counter this turn, is taken over raging or passing, ahead of v2.1's rage to 3 for a King. Needs `wranglerPlan` 2.
+
+### `wranglerSpareCost`
+
+Default 1 · built · from #418
+
+The Wrangler plan's spare cost (Ian; Paul's option a, Nov 16): early (your monster at rank I or II), an invasion paid with a spare strategy (The Slithering Disaster, or a Despair beyond the one the plan keeps) is freed from "don't race", to clear the dead card out of the hand; monster cards still go for rage, and Godzilla Landing is never a spare (card rule 31). Needs `wranglerPlan` 2.
 
 ### `wranglerTagOut`
 

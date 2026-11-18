@@ -4,6 +4,7 @@ import styles from "./Board.module.css";
 import { FloatingWindow } from "./FloatingWindow";
 import type { BoardModel } from "./model";
 import { Preview } from "./Preview";
+import { cardImage } from "../game/cardImage";
 
 /**
  * The combo callout (M5g, Paul's change: a modal). It opens once the move animations land, with
@@ -84,7 +85,7 @@ export function ComboModal({
                       <div className={styles.cardFallback}>{card.name}</div>
                       <img
                         className={styles.cardImage}
-                        src={`/cards/${card.id}-thumb.webp`}
+                        src={cardImage(card.id, "thumb")}
                         alt={card.name}
                         draggable={false}
                         onError={(e) => {

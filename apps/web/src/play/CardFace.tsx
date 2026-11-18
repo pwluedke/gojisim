@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { printedText } from "../game/printed";
 import styles from "./Board.module.css";
 import { useInteraction } from "./interaction";
+import { cardImage } from "../game/cardImage";
 
 export function CardBack({
   testId = "card-back",
@@ -88,7 +89,7 @@ export function CardFace({
       <div className={styles.cardFallback}>{data.name}</div>
       <img
         className={styles.cardImage}
-        src={`/cards/${data.id}-thumb.webp`}
+        src={cardImage(data.id, "thumb")}
         alt={data.name}
         draggable={false}
         onError={(e) => {

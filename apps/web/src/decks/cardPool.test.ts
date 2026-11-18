@@ -63,6 +63,14 @@ describe("the Deckbuilder's card pool (#157)", () => {
     ).toBe(true);
     const godzilla = applyFilter(pool, { ...NO_FILTER, trait: "godzilla" });
     expect(godzilla.length).toBeGreaterThan(0);
+    // #447: the invasion icon (1-step, 2-step); #450: every deck card has one (2.8).
+    const twoStep = applyFilter(pool, { ...NO_FILTER, invasion: "2" });
+    expect(twoStep.length).toBeGreaterThan(0);
+    expect(twoStep.every((e) => e.card.invadeZones === 2)).toBe(true);
+    const oneStep = applyFilter(pool, { ...NO_FILTER, invasion: "1" });
+    expect(oneStep.length).toBeGreaterThan(0);
+    expect(oneStep.every((e) => e.card.invadeZones === 1)).toBe(true);
+    expect(oneStep.length + twoStep.length).toBe(pool.length);
     const burst = applyFilter(pool, { ...NO_FILTER, keyword: "burst" });
     expect(burst.length).toBeGreaterThan(0);
     expect(burst.every((e) => e.keywords.includes("burst"))).toBe(true);
@@ -125,13 +133,38 @@ describe("the Deckbuilder's card pool (#157)", () => {
       trait: "Godzilla",
       keyword: "burst",
       movie: "Godzilla (1954)",
+      invasion: "2" as const,
+      sort: "rank" as const,
     };
     expect(filterFromQuery(filterToQuery(f))).toEqual(f);
+    expect(filterFromQuery("invasion=none").invasion).toBe("");
+    expect(filterFromQuery("invasion=3").invasion).toBe("");
+    expect(filterFromQuery("sort=name").sort).toBe("");
     expect(filterToQuery(NO_FILTER)).toBe("");
     expect(filterFromQuery("type=Rage,Monster&rankMin=x&rankMax=99")).toEqual({
       ...NO_FILTER,
       types: ["Monster"],
     });
+  });
+
+  it("#452: sort by rank, ties by card number; the default keeps card number order", () => {
+    const byRank = applyFilter(pool, { ...NO_FILTER, sort: "rank" });
+    expect(byRank).toHaveLength(pool.length);
+    for (let i = 1; i < byRank.length; i++) {
+      const [a, b] = [byRank[i - 1]!, byRank[i]!];
+      const ra = a.card.rank ?? Number.POSITIVE_INFINITY;
+      const rb = b.card.rank ?? Number.POSITIVE_INFINITY;
+      expect(ra).toBeLessThanOrEqual(rb);
+      if (ra === rb) expect(pool.indexOf(a)).toBeLessThan(pool.indexOf(b));
+    }
+    expect(applyFilter(pool, NO_FILTER)).toEqual(pool);
+    // It sorts what the other filters leave.
+    const red = applyFilter(pool, {
+      ...NO_FILTER,
+      colors: ["Red"],
+      sort: "rank",
+    });
+    expect(red.every((e) => e.card.colors.includes("Red"))).toBe(true);
   });
 
   it("searches the card text, not just names", () => {

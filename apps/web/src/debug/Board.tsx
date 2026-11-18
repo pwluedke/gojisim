@@ -19,6 +19,7 @@ import { Fragment, useEffect } from "react";
 export const CARD_DETAIL_WIDTH = 400;
 import { cardData } from "../game/labels";
 import { printedBase, printedText } from "../game/printed";
+import { cardImage } from "../game/cardImage";
 
 type Select = (card: CardInstance) => void;
 
@@ -83,7 +84,7 @@ export function CardView({
       }}
     >
       <img
-        src={`/cards/${card.cardId}-thumb.webp`}
+        src={cardImage(card.cardId, "thumb")}
         alt=""
         width={80}
         onError={(e) => {
@@ -377,7 +378,7 @@ export function CardDetail({
         {card.name} [{card.cardNumber}]
       </h3>
       <img
-        src={`/cards/${card.id}-full.webp`}
+        src={cardImage(card.id, "full")}
         alt=""
         style={{ maxWidth: "100%" }}
       />

@@ -5,6 +5,7 @@ import type {
   PlayerId,
 } from "@gojisim/engine";
 import { counterPowerOf, getThreat, RAGE_THREAT } from "@gojisim/engine";
+import { counterPlays } from "./cardRules";
 import { cardData, ENTANGLING_FEAR } from "./mxPlan";
 import { counters } from "./rules";
 import type { GroupOptions } from "./switches/settings";
@@ -32,7 +33,12 @@ import type { Decklist } from "./types";
  * 5. With the counter made, stop playing out the hand (`tanglerStop`): battle card plays and
  *    strategies wait (passing is fine; the hand refills to 5), but Entangling Fear and the low
  *    evolution cards of rule 1.
- * 6. (Waits on Monarch: which Destoroyah card is saved for the late game, and what counts as late.)
+ * 6. Save the finishers (`tanglerSave`; BFW182 and Paul, Nov 16): any Destoroyah battle card
+ *    (Aggregate Form EBP01-049, Flying Form EBP01-054, Perfect Form EBP02-037) turns on Godzilla
+ *    vs. Destoroyah EBP01-062. (a) With none on your field, the last rank 4 or 6 copy in hand stays:
+ *    it isn't discarded or paid with, nor played unless the play makes this turn's counter. (b)
+ *    Godzilla vs. Destoroyah is held for the final counter (their monster deck empty) or the one
+ *    that stops a losing invasion (their monster in zone 6 or beyond): otherwise it waits.
  * 7. stevilkiwina's play guide (#444, R-32, BFW182 agrees):
  *    a. Early, the highest rank goes (`tanglerHighRank`): at a discard pick with the rank I Godzilla
  *       (2002) EBP03-014 on top (its end-phase discard), the highest-rank battle card goes, the
@@ -45,6 +51,15 @@ import type { Decklist } from "./types";
 
 /** The Tangler's monsters that lower the opponent's rage when a battle card is discarded. */
 export const RAGE_REDUCERS = new Set(["EBP03-015", "EPR-020", "EBP03-017"]);
+
+/** Rule 6 (BFW182): the Destoroyah battle cards, any of which turns on Godzilla vs. Destoroyah. */
+export const DESTOROYAH = new Set(["EBP01-049", "EBP01-054", "EBP02-037"]);
+/** Rule 6: the rank 4 (Aggregate Form) and rank 6 (Flying Form) copies, one of which stays. */
+const DESTOROYAH_KEPT = new Set(["EBP01-049", "EBP01-054"]);
+/** Rule 6: Godzilla vs. Destoroyah EBP01-062 (+10,000 with a Destoroyah battle card out). */
+const VS_DESTOROYAH = "EBP01-062";
+/** Rule 6: their monster from this zone is in reach of your zone 8 (a losing invasion). */
+const LOSING_ZONE = 6;
 
 /** Rule 1: Entangling Fear copies in hand that make one a spare to discard. */
 const FEAR_SPARES = 3;
@@ -89,6 +104,7 @@ export function tanglerVerdict(
     build = true,
     discard = true,
     stop = true,
+    save = true,
     highRank = true,
     zoneFive = true,
   } = options;
@@ -128,6 +144,17 @@ export function tanglerVerdict(
     return (playable ? (d.counterOrThreat ?? 0) : 0) < RAGE_THREAT;
   };
 
+  // Rule 6a: the last rank 4 or 6 Destoroyah copy in hand, with no Destoroyah on your field.
+  const onField = Object.values(player.zones).some((stacks) =>
+    stacks.some((stack) =>
+      DESTOROYAH.has(cardData(state, stack.at(-1))?.deckCardNumber ?? ""),
+    ),
+  );
+  const kept = player.hand.filter((c) =>
+    DESTOROYAH_KEPT.has(cardData(state, c)?.deckCardNumber ?? ""),
+  );
+  const keep = !onField && kept.length === 1 ? [kept[0]!.instanceId] : [];
+
   // Rule 1: spare Entangling Fears are kept (fewer than 3 in hand: none goes).
   if (fear && fears < FEAR_SPARES)
     for (const a of actions) {
@@ -137,6 +164,14 @@ export function tanglerVerdict(
       if (cardData(state, card)?.deckCardNumber === ENTANGLING_FEAR)
         against.add(a);
     }
+
+  // Rule 6a at a discard pick: that copy waits while another card can go.
+  if (save && choice && keep.length > 0) {
+    const picks = actions.filter((a) => picked(a) !== undefined);
+    if (picks.some((a) => picked(a)?.instanceId !== keep[0]))
+      for (const a of picks)
+        if (picked(a)?.instanceId === keep[0]) against.add(a);
+  }
 
   // Rule 3 at a discard pick: a cheap battle card goes before any other card; at a "you may
   // discard a battle card" of a rage-lowering monster, yes while there is one.
@@ -156,7 +191,10 @@ export function tanglerVerdict(
         against.add(no);
     } else if (lowers) {
       const picks = actions.filter((a) => picked(a) !== undefined);
-      const good = picks.filter((a) => cheap(picked(a)));
+      // (Rule 6a's kept Destoroyah copy isn't one.)
+      const good = picks.filter(
+        (a) => cheap(picked(a)) && picked(a)?.instanceId !== keep[0],
+      );
       if (good.length > 0)
         for (const a of picks)
           if (good.includes(a)) rescued.add(a);
@@ -221,6 +259,34 @@ export function tanglerVerdict(
         !evolutions.includes(a)
       )
         against.add(a);
+
+  // Rule 6a: the last rank 4 or 6 Destoroyah battle card in hand stays (with none on the field),
+  // unless playing it makes this turn's counter.
+  if (save && keep.length > 0)
+    for (const a of actions) {
+      if (a.type === "invade" && keep.includes(a.cardInstanceId))
+        against.add(a);
+      if (a.type !== "playBattle" || !keep.includes(a.cardInstanceId)) continue;
+      if (counters(state, me) || !counterPlays(state, actions, me).has(a))
+        against.add(a);
+    }
+  // Rule 6b: Godzilla vs. Destoroyah waits unless it makes the counter that's the last one (their
+  // monster deck is empty) or that stops a losing invasion (their monster in reach of your zone 8).
+  if (save) {
+    const vs = actions.filter(
+      (a) =>
+        a.type === "activateStrategy" &&
+        numberOf(a.cardInstanceId) === VS_DESTOROYAH,
+    );
+    if (vs.length > 0) {
+      const makes = counterPlays(state, actions, me, true);
+      const last = opponent.monsterDeck.length === 0;
+      const losing = (opponent.monsterPosition ?? 0) >= LOSING_ZONE;
+      for (const a of vs)
+        if (counters(state, me) || !makes.has(a) || !(last || losing))
+          against.add(a);
+    }
+  }
 
   // Rule 1: Entangling Fear every turn it can be played (#369); the low evolution cards early.
   if (fear && !feared && fearPlays.length > 0) {

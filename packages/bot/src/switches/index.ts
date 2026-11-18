@@ -18,6 +18,7 @@ import keepLowRank from "./keepLowRank";
 import keepStrategy from "./keepStrategy";
 import modeBest from "./modeBest";
 import mxFearReach from "./mxFearReach";
+import mxFillBoard from "./mxFillBoard";
 import mxLanding from "./mxLanding";
 import mxManda from "./mxManda";
 import mxPlan from "./mxPlan";
@@ -37,6 +38,7 @@ import tanglerEarly from "./tanglerEarly";
 import tanglerFear from "./tanglerFear";
 import tanglerHighRank from "./tanglerHighRank";
 import tanglerPlan from "./tanglerPlan";
+import tanglerSave from "./tanglerSave";
 import tanglerStop from "./tanglerStop";
 import tanglerZoneFive from "./tanglerZoneFive";
 import targetAll from "./targetAll";
@@ -45,9 +47,11 @@ import targetKey from "./targetKey";
 import wranglerBio from "./wranglerBio";
 import wranglerBioHard from "./wranglerBioHard";
 import wranglerFetchRage from "./wranglerFetchRage";
+import wranglerKeepRankOne from "./wranglerKeepRankOne";
 import wranglerPlan from "./wranglerPlan";
 import wranglerPushLine from "./wranglerPushLine";
 import wranglerResetLine from "./wranglerResetLine";
+import wranglerSpareCost from "./wranglerSpareCost";
 import wranglerTagOut from "./wranglerTagOut";
 import wranglerV21 from "./wranglerV21";
 import wranglerV22 from "./wranglerV22";
@@ -72,6 +76,7 @@ export const SWITCHES = [
   keepStrategy,
   modeBest,
   mxFearReach,
+  mxFillBoard,
   mxLanding,
   mxManda,
   mxPlan,
@@ -91,6 +96,7 @@ export const SWITCHES = [
   tanglerFear,
   tanglerHighRank,
   tanglerPlan,
+  tanglerSave,
   tanglerStop,
   tanglerZoneFive,
   targetAll,
@@ -99,9 +105,11 @@ export const SWITCHES = [
   wranglerBio,
   wranglerBioHard,
   wranglerFetchRage,
+  wranglerKeepRankOne,
   wranglerPlan,
   wranglerPushLine,
   wranglerResetLine,
+  wranglerSpareCost,
   wranglerTagOut,
   wranglerV21,
   wranglerV22,

@@ -23,9 +23,11 @@ import {
   buildPool,
   CARD_TYPES,
   type CardFilter,
+  type CardSort,
   facets,
   filterFromQuery,
   filterToQuery,
+  type InvasionFilter,
   movieOf,
   NO_FILTER,
   type PoolEntry,
@@ -51,6 +53,8 @@ import {
   rows,
   slotOrder,
 } from "./deckDraft";
+import { cardImage } from "../game/cardImage";
+import { usePrivateSet } from "../game/privateSet";
 
 /** #165: the card grid has 5 or 6 columns (6 once each card gets this wide, px). */
 const SIX_COLUMNS_FROM = 120;
@@ -91,7 +95,9 @@ const OVERSCAN = 2;
  */
 export function Deckbuilder() {
   useEffect(() => applyTheme(loadSettings().theme), []);
-  const pool = useMemo(() => buildPool(getAllCards()), []);
+  // The private set's cards join once they're registered (`privateSet.ts`).
+  const privateSet = usePrivateSet();
+  const pool = useMemo(() => buildPool(getAllCards()), [privateSet]);
   const values = useMemo(() => facets(pool), [pool]);
   const [filter, setFilter] = useState<CardFilter>(() =>
     filterFromQuery(window.location.search),
@@ -371,6 +377,31 @@ export function Deckbuilder() {
             </span>
           </fieldset>
           <label className={styles.field}>
+            Invasion
+            <select
+              data-testid="db-invasion"
+              value={filter.invasion}
+              onChange={(e) =>
+                set({ invasion: e.target.value as InvasionFilter })
+              }
+            >
+              <option value="">Any</option>
+              <option value="1">1-step</option>
+              <option value="2">2-step</option>
+            </select>
+          </label>
+          <label className={styles.field}>
+            Sort
+            <select
+              data-testid="db-sort"
+              value={filter.sort}
+              onChange={(e) => set({ sort: e.target.value as CardSort })}
+            >
+              <option value="">Card number</option>
+              <option value="rank">Rank</option>
+            </select>
+          </label>
+          <label className={styles.field}>
             Trait
             <input
               list="db-traits"
@@ -555,7 +586,7 @@ function CardImage({
     <div className={styles.thumb}>
       <span className={styles.fallback}>{name}</span>
       <img
-        src={`/cards/${card.id}-${size}.webp`}
+        src={cardImage(card.id, size)}
         alt={name}
         loading="lazy"
         onError={(e) => {
@@ -871,7 +902,7 @@ function CardDetail({ card, base }: { card: Card; base: Card }) {
     <div data-testid="db-preview">
       <img
         className={styles.full}
-        src={`/cards/${card.id}-full.webp`}
+        src={cardImage(card.id, "full")}
         alt={base.name}
       />
       <h2 className={styles.detailName}>{base.name}</h2>
