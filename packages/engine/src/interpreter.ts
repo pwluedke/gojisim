@@ -339,7 +339,15 @@ export function resolveZoneSet(
             leftRightPosition(anchor, anchor.player),
       ),
     );
-  else if (set.relation === "atOrBefore")
+  else if (set.relation === "oneTowardMonster") {
+    // One zone number toward its owner's monster (+1 or -1), on the anchor's field.
+    const monster = getPlayer(ctx.state, anchor.player).monsterPosition;
+    if (monster !== null && monster !== anchor.zone)
+      refs.push({
+        player: anchor.player,
+        zone: (anchor.zone + (monster > anchor.zone ? 1 : -1)) as ZoneNumber,
+      });
+  } else if (set.relation === "atOrBefore")
     // C3: zones numbered at most the anchor's, on each field (4.4.5.3.1, EBP02-018).
     refs.push(...allZones(ctx.state).filter((r) => r.zone <= anchor.zone));
   else {
@@ -350,6 +358,13 @@ export function resolveZoneSet(
     if (zone !== null) refs.push({ player: anchor.player, zone });
   }
   if (set.includeSelf) refs.push(anchor);
+  if (set.unoccupied)
+    return refs.filter((r) => {
+      const owner = getPlayer(ctx.state, r.player);
+      return (
+        owner.zones[r.zone].length === 0 && r.zone !== owner.monsterPosition
+      );
+    });
   return refs;
 }
 
