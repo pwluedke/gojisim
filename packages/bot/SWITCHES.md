@@ -116,6 +116,12 @@ Default 1 · built · from #373
 
 The Monster X plan's #373 (Paul's R-5): no Entangling Fear (which holds your monster in place) while a strategy in hand is one rank past your monster's zone (8.3.1, e.g. Godzilla vs. Megaguirus at rank 5 from zone 4) and this turn's counter is made.
 
+### `mxFillBoard`
+
+Default 1 · built · from #377
+
+The Monster X plan's fill the board (Paul, Nov 16): every playable battle card is played this turn, big ones included, rather than held: no passing while one the plan's other rules leave standing can be played into a zone out of reach of their monster's destroy (not the column of their monster's zone or its next one). Needs `mxPlan` 2.
+
 ### `mxLanding`
 
 Default 1 · built · from #335

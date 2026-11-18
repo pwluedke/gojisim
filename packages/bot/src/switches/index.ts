@@ -18,6 +18,7 @@ import keepLowRank from "./keepLowRank";
 import keepStrategy from "./keepStrategy";
 import modeBest from "./modeBest";
 import mxFearReach from "./mxFearReach";
+import mxFillBoard from "./mxFillBoard";
 import mxLanding from "./mxLanding";
 import mxManda from "./mxManda";
 import mxPlan from "./mxPlan";
@@ -70,6 +71,7 @@ export const SWITCHES = [
   keepStrategy,
   modeBest,
   mxFearReach,
+  mxFillBoard,
   mxLanding,
   mxManda,
   mxPlan,
