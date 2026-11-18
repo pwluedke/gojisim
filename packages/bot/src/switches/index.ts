@@ -46,6 +46,7 @@ import targetCheck from "./targetCheck";
 import targetKey from "./targetKey";
 import wranglerBio from "./wranglerBio";
 import wranglerBioHard from "./wranglerBioHard";
+import wranglerFetchDespair from "./wranglerFetchDespair";
 import wranglerFetchRage from "./wranglerFetchRage";
 import wranglerKeepRankOne from "./wranglerKeepRankOne";
 import wranglerPlan from "./wranglerPlan";
@@ -104,6 +105,7 @@ export const SWITCHES = [
   targetKey,
   wranglerBio,
   wranglerBioHard,
+  wranglerFetchDespair,
   wranglerFetchRage,
   wranglerKeepRankOne,
   wranglerPlan,
