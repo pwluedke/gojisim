@@ -34,6 +34,9 @@ const path = window.location.pathname;
 detectCardBackImage();
 // The menu and the board fill the window; /debug keeps the browser's default page margin.
 if (!path.startsWith("/debug")) document.body.classList.add("gojisim-body");
+// The private card set, for the accounts that have one (`privateSet.ts`); a 404 for the rest.
+// Loaded on its own, so the card database stays out of the first page's bundle.
+void import("./game/privateSet").then((m) => m.startPrivateSet());
 createRoot(root).render(
   <StrictMode>
     {path.startsWith("/debug") ? (

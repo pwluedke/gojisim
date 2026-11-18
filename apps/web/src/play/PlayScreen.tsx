@@ -121,6 +121,7 @@ import { SoundPlayer, slamCues, stepIsHeard, stepSounds } from "../game/sounds";
 import { fetchMyGame } from "../account";
 import { PlayerBadge } from "../PlayerBadge";
 import { WhatsNew } from "../WhatsNew";
+import { cardImage } from "../game/cardImage";
 
 /** A combo hit's data entry (name, cards, steps, result). */
 const comboOf = (hit: ComboHit): Combo | undefined =>
@@ -1895,7 +1896,7 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
                     <div className={styles.cardFallback}>{data?.name}</div>
                     <img
                       className={styles.cardImage}
-                      src={`/cards/${card.cardId}-full.webp`}
+                      src={cardImage(card.cardId, "full")}
                       alt={data?.name ?? ""}
                       draggable={false}
                       onError={(e) => {

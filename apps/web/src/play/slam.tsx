@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import styles from "./Board.module.css";
 import type { BoardModel } from "./model";
 import type { AnimationSpeed } from "./settings";
+import { cardImage } from "../game/cardImage";
 
 /**
  * Durations in ms of the invasion-win slam (M5h #20) at a speed: the lift onto the opponent's
@@ -317,7 +318,7 @@ export function InvasionSlam({
         <div className={styles.cardFallback}>{data.name}</div>
         <img
           className={styles.cardImage}
-          src={`/cards/${data.id}-thumb.webp`}
+          src={cardImage(data.id, "thumb")}
           alt={data.name}
           draggable={false}
           onError={(e) => {

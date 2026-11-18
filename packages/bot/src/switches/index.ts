@@ -8,13 +8,17 @@ import collectorRage from "./collectorRage";
 import counterAlways from "./counterAlways";
 import counterFirst from "./counterFirst";
 import coverToken from "./coverToken";
+import festEmerges from "./festEmerges";
 import festPlan from "./festPlan";
 import festRankOne from "./festRankOne";
+import festRankThreeSave from "./festRankThreeSave";
+import festRankTwoPush from "./festRankTwoPush";
 import festWall from "./festWall";
 import keepLowRank from "./keepLowRank";
 import keepStrategy from "./keepStrategy";
 import modeBest from "./modeBest";
 import mxFearReach from "./mxFearReach";
+import mxFillBoard from "./mxFillBoard";
 import mxLanding from "./mxLanding";
 import mxManda from "./mxManda";
 import mxPlan from "./mxPlan";
@@ -41,9 +45,11 @@ import targetKey from "./targetKey";
 import wranglerBio from "./wranglerBio";
 import wranglerBioHard from "./wranglerBioHard";
 import wranglerFetchRage from "./wranglerFetchRage";
+import wranglerKeepRankOne from "./wranglerKeepRankOne";
 import wranglerPlan from "./wranglerPlan";
 import wranglerPushLine from "./wranglerPushLine";
 import wranglerResetLine from "./wranglerResetLine";
+import wranglerSpareCost from "./wranglerSpareCost";
 import wranglerTagOut from "./wranglerTagOut";
 import wranglerV21 from "./wranglerV21";
 import wranglerV22 from "./wranglerV22";
@@ -58,13 +64,17 @@ export const SWITCHES = [
   counterAlways,
   counterFirst,
   coverToken,
+  festEmerges,
   festPlan,
   festRankOne,
+  festRankThreeSave,
+  festRankTwoPush,
   festWall,
   keepLowRank,
   keepStrategy,
   modeBest,
   mxFearReach,
+  mxFillBoard,
   mxLanding,
   mxManda,
   mxPlan,
@@ -91,9 +101,11 @@ export const SWITCHES = [
   wranglerBio,
   wranglerBioHard,
   wranglerFetchRage,
+  wranglerKeepRankOne,
   wranglerPlan,
   wranglerPushLine,
   wranglerResetLine,
+  wranglerSpareCost,
   wranglerTagOut,
   wranglerV21,
   wranglerV22,
