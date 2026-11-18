@@ -1,3 +1,4 @@
+import { getCardTraits } from "@gojisim/cards";
 import { getAbility } from "./abilities";
 import {
   applyReplacement,
@@ -10,7 +11,7 @@ import { openManualWindow } from "./manual";
 import { requireChoice } from "./choices";
 import { resolveLosses } from "./losses";
 import { appendLog, getPlayer, isToken, toDiscard } from "./state";
-import { getRank, hasFlag } from "./stats";
+import { flagsOn, getRank, hasFlag } from "./stats";
 import type {
   CardInstance,
   CardStack,
@@ -221,8 +222,17 @@ export function crushAndDestroy(state: GameState, invasion = false): number {
   for (const player of state.players) {
     const zone = player.monsterPosition;
     if (zone === null) continue;
-    const crushed = player.zones[zone].filter((stack) =>
-      isBattleStack(state, stack),
+    // An exception (11.3): a battle card that hosts its master's own invading monster stays.
+    const monster = topOf(player.invadingMonsterZone);
+    const traits = monster ? getCardTraits(cardOf(state, monster)) : [];
+    const crushed = player.zones[zone].filter(
+      (stack) =>
+        isBattleStack(state, stack) &&
+        !flagsOn(state, topOf(stack) as CardInstance).some(
+          (m) =>
+            m.flag === "hostsMonster" &&
+            (!m.traits || m.traits.some((t) => traits.includes(t))),
+        ),
     );
     if (crushed.length === 0) continue;
     const known = new Map(crushed.map((s) => [s, lastKnown(state, s)]));
