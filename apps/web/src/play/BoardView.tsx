@@ -57,6 +57,7 @@ import { InvasionSlam } from "./slam";
 import { type StackKey, StackViewer } from "./StackViewer";
 import { TipBubble } from "./Tooltip";
 import type { AnimationSpeed } from "./settings";
+import { cardImage } from "../game/cardImage";
 
 /** A custom mat image (M5f) as the board draws it: an object URL plus its scale and position. */
 export interface MatView {
@@ -279,7 +280,7 @@ function Slot({
         data-card-id={token.id}
         title={`${token.name}: placed here when the choice is done`}
       >
-        <img src={`/cards/${token.id}-thumb.webp`} alt="" draggable={false} />
+        <img src={cardImage(token.id, "thumb")} alt="" draggable={false} />
         <span>{token.name}</span>
       </div>
     </>
@@ -303,7 +304,7 @@ function Slot({
           <img
             className={styles.zoneGhost}
             data-testid="zone-ghost"
-            src={`/cards/${placing.id}-thumb.webp`}
+            src={cardImage(placing.id, "thumb")}
             alt=""
             draggable={false}
           />
@@ -1422,7 +1423,7 @@ export function BoardView({
           {dragging === TRAY_ID && placing ? (
             <div className={`${styles.zoneTrayCard} ${styles.dragOverlay}`}>
               <img
-                src={`/cards/${placing.id}-thumb.webp`}
+                src={cardImage(placing.id, "thumb")}
                 alt=""
                 draggable={false}
               />

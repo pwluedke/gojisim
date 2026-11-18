@@ -12,6 +12,7 @@ import { abilityText, choiceAbilityText } from "../game/labels";
 import { canConfirm, multiPick, toggle } from "../game/multiPick";
 import { Preview, visibleCards } from "./Preview";
 import { useViewBoard, ViewBoardBanner, ViewBoardButton } from "./ViewBoard";
+import { cardImage } from "../game/cardImage";
 
 type Choose = Extract<Action, { type: "choose" }>;
 
@@ -499,7 +500,7 @@ export function ChoiceModal({
                       <div className={styles.cardFallback}>{card.name}</div>
                       <img
                         className={styles.cardImage}
-                        src={`/cards/${card.id}-thumb.webp`}
+                        src={cardImage(card.id, "thumb")}
                         alt={card.name}
                         draggable={false}
                         onError={(e) => {
@@ -542,7 +543,7 @@ export function ChoiceModal({
                       <div className={styles.cardFallback}>{card.name}</div>
                       <img
                         className={styles.cardImage}
-                        src={`/cards/${card.id}-thumb.webp`}
+                        src={cardImage(card.id, "thumb")}
                         alt={card.name}
                         draggable={false}
                         onError={(e) => {
