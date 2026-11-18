@@ -158,6 +158,18 @@ Default 1 · measured · from #370
 
 The Monster X plan's #370 (Paul's R-3): the white Monster X EBP03-067 is Manda (2004)'s discount discard only with 2+ colors among your zones' battle cards (its ability fires) or for this turn's counter, never just for a new discard-pile color. Measured: level (64 vs 65 of 108), its mistakes 5 → 2; ships on (Monarch, Nov 15).
 
+### `noPlanInvade`
+
+Default 1 · built · from #460
+
+The no-plan play's rule 2 (Ian, R-43): for a deck with no plan of its own, an invasion that doesn't win now waits unless the invading monster has an [invading] ability or the invasion makes the counter (made after it, not before). With `rules`.
+
+### `noPlanUse`
+
+Default 1 · built · from #460
+
+The no-plan play's rule 1 (Ian, R-43): for a deck with no plan of its own (not Wrangler, Tangler, Monster X, or Fest with `festPlan`), no passing while a battle card can be played or a spare monster card raged (one Paul's rules don't hold for a rank-up). With `rules`.
+
 ### `ownBehind`
 
 Default 1 · built · from #337

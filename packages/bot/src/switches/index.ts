@@ -25,6 +25,8 @@ import mxPlan from "./mxPlan";
 import mxProtectZones from "./mxProtectZones";
 import mxTargets from "./mxTargets";
 import mxWhiteKeep from "./mxWhiteKeep";
+import noPlanInvade from "./noPlanInvade";
+import noPlanUse from "./noPlanUse";
 import ownBehind from "./ownBehind";
 import ownCover from "./ownCover";
 import ownPath from "./ownPath";
@@ -79,6 +81,8 @@ export const SWITCHES = [
   mxProtectZones,
   mxTargets,
   mxWhiteKeep,
+  noPlanInvade,
+  noPlanUse,
   ownBehind,
   ownCover,
   ownPath,
