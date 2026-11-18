@@ -36,6 +36,7 @@ import tanglerBuild from "./tanglerBuild";
 import tanglerDiscard from "./tanglerDiscard";
 import tanglerEarly from "./tanglerEarly";
 import tanglerFear from "./tanglerFear";
+import tanglerGigan from "./tanglerGigan";
 import tanglerPlan from "./tanglerPlan";
 import tanglerStop from "./tanglerStop";
 import targetAll from "./targetAll";
@@ -90,6 +91,7 @@ export const SWITCHES = [
   tanglerDiscard,
   tanglerEarly,
   tanglerFear,
+  tanglerGigan,
   tanglerPlan,
   tanglerStop,
   targetAll,
