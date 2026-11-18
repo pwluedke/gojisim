@@ -1,27 +1,28 @@
-import { registerAbilities } from "@gojisim/cards";
-import { getAllCards, registerCards } from "@gojisim/cards/all-cards";
+import { getAllCards } from "@gojisim/cards/all-cards";
 import { type NamedDeck, parseDeckList } from "@gojisim/cards/deck-lists";
 import { useEffect, useState } from "react";
 import { drawCardsAsText, setCardPictures } from "./cardImage";
+import { type PrivateSetData, registerPrivateSet } from "./privateSetData";
 
 /*
  * Paul's private card set (Nov 17): cards only some accounts see. The server sends it from
  * `GET /api/private-set` to those accounts only (everyone else, the dev server and signed-out
  * pages get a 404, and nothing here changes). Its cards and abilities are registered with
  * `@gojisim/cards` once, so deck lists, the Deckbuilder and the engine know them; they're drawn
- * as text cards (`cardImage.ts`); the bot's worker gets the abilities with each request
- * (`privateAbilities`); its decks join the pickers after the test decks.
+ * as text cards (`cardImage.ts`); the bot's worker gets its cards and abilities with each request
+ * (`privateBotSet`), since a worker shares no modules with the page; its decks join the pickers
+ * after the test decks.
  */
 
 export interface PrivateSet {
   decks: NamedDeck[];
 }
 
-let abilities: Record<string, unknown> | null = null;
+let forBot: PrivateSetData | null = null;
 
-/** The set's abilities, for the bot worker; null without a set. */
-export function privateAbilities(): Record<string, unknown> | null {
-  return abilities;
+/** The set's cards and abilities, for the bot worker; null without a set. */
+export function privateBotSet(): PrivateSetData | null {
+  return forBot;
 }
 
 /** Fetches and registers the private set; null when the account has none. */
@@ -40,9 +41,8 @@ export async function loadPrivateSet(
       /** Card numbers with a picture, sent by the owner-only image route. */
       images?: string[];
     };
-    registerCards(data.cards);
-    registerAbilities(data.abilities);
-    abilities = data.abilities;
+    forBot = { cards: data.cards, abilities: data.abilities };
+    registerPrivateSet(forBot);
     const known = new Set((data.cards as { id: number }[]).map((c) => c.id));
     const mine = getAllCards().filter((c) => known.has(c.id));
     drawCardsAsText(mine);
