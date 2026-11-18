@@ -6,7 +6,7 @@ import { putDeck } from "./accountData.js";
 import { openDb } from "./db/db.js";
 import { resolveDeck } from "./h2h/decks.js";
 import { upsertDiscordPlayer } from "./players.js";
-import { pullPrivateSet } from "./privatePull.js";
+import { pullPrivateImages, pullPrivateSet } from "./privatePull.js";
 
 /*
  * The private card set at the server's start (pulled from its private repo with the token), on
@@ -103,6 +103,74 @@ describe("pulling the private card set at start", () => {
     expect(existsSync(join(dir, "packages"))).toBe(false);
     expect(lines.join("\n")).not.toContain(TOKEN);
     expect(lines.at(-1)).toContain("couldn't be pulled");
+  });
+});
+
+describe("pulling the private card set's pictures", () => {
+  it("writes the pictures folder's image files as bytes (no subfolders or other files), with the token only in the header", async () => {
+    const png = String.fromCharCode(0x89, 0x50, 0x4e, 0x47);
+    const { fetchImpl, calls } = github({
+      ...FILES,
+      "apps/web/public/cards/PRV-001.png": png,
+      "apps/web/public/cards/PRV-002.jpeg": "jpeg",
+      "apps/web/public/cards/.DS_Store": "junk",
+      "apps/web/public/cards/old/PRV-003.png": "nested",
+    });
+    const dir = mkdtempSync(join(tmpdir(), "gojisim-pull-"));
+    const lines: string[] = [];
+    const n = await pullPrivateImages({
+      token: TOKEN,
+      repo: "pwluedke/gojisim-private",
+      dir,
+      fetchImpl,
+      log: (l) => lines.push(l),
+    });
+    expect(n).toBe(2);
+    const pics = join(dir, "apps", "web", "public", "cards");
+    expect(readFileSync(join(pics, "PRV-001.png"))).toEqual(
+      Buffer.from(png, "utf8"),
+    );
+    expect(existsSync(join(pics, "PRV-002.jpeg"))).toBe(true);
+    expect(existsSync(join(pics, ".DS_Store"))).toBe(false);
+    expect(existsSync(join(pics, "old"))).toBe(false);
+    // No data file is fetched by the pictures' pull.
+    expect(calls.some((c) => c.url.includes("packages/cards/data"))).toBe(
+      false,
+    );
+    for (const c of calls) expect(c.auth).toBe(`Bearer ${TOKEN}`);
+    expect(lines.join("\n")).not.toContain(TOKEN);
+  });
+
+  it("a failure logs one line without the token and leaves the set's data alone", async () => {
+    const { fetchImpl } = github(
+      { ...FILES, "apps/web/public/cards/PRV-001.png": "x" },
+      "PRV-001.png",
+    );
+    const dir = mkdtempSync(join(tmpdir(), "gojisim-pull-"));
+    const lines: string[] = [];
+    expect(
+      await pullPrivateSet({
+        token: TOKEN,
+        repo: "pwluedke/gojisim-private",
+        dir,
+        fetchImpl,
+        log: () => {},
+      }),
+    ).toBe(3);
+    expect(
+      await pullPrivateImages({
+        token: TOKEN,
+        repo: "pwluedke/gojisim-private",
+        dir,
+        fetchImpl,
+        log: (l) => lines.push(l),
+      }),
+    ).toBeNull();
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).not.toContain(TOKEN);
+    expect(
+      existsSync(join(dir, "packages/cards/data/private-cards.json")),
+    ).toBe(true);
   });
 });
 

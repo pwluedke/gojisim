@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { CardListSchema } from "@gojisim/cards";
 import { requestPlayer } from "./discordAuth.js";
 import type { Player } from "./players.js";
+import { IMAGE_FILE, IMAGES } from "./privatePull.js";
 
 /*
  * Paul's private card set (approved Nov 17): cards only some accounts see until they're made
@@ -12,6 +13,10 @@ import type { Player } from "./players.js";
  * that use them to the accounts in `PRIVATE_SET_OWNERS` (Discord ids) and answers 404 to everyone
  * else, the same 404 as when there's no private set, so the route says nothing about whether one
  * exists. The owners are a server setting, never written in the public code.
+ *
+ * Its card pictures, where the set has them, go the same way: `images` in that answer lists the
+ * card numbers with one, and `GET /api/private-set/image/<card number>` sends it to the owners
+ * only (the same 404 otherwise). They're never in the public build or `/cards/`.
  */
 
 export interface PrivateSet {
@@ -19,6 +24,26 @@ export interface PrivateSet {
   /** Every ability file in the set, merged: card number → abilities entry. */
   abilities: Record<string, unknown>;
   decks: { name: string; list: string }[];
+  /** The card numbers that have a picture (`/api/private-set/image/<card number>`). */
+  images?: string[];
+}
+
+const IMAGE_TYPES: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+};
+
+/** The set's pictures in `dir`: card number → file name. */
+export async function readPrivateImages(
+  dir: string,
+): Promise<Map<string, string>> {
+  const found = new Map<string, string>();
+  for (const file of (await readdir(join(dir, IMAGES)).catch(() => [])).sort())
+    if (IMAGE_FILE.test(file)) found.set(file.replace(/\.[^.]+$/, ""), file);
+  return found;
 }
 
 /** The `PRIVATE_SET_OWNERS` Discord ids. */
@@ -97,23 +122,50 @@ export function privateSetMiddleware({
     next: () => void,
   ): Promise<void> => {
     const path = new URL(req.url ?? "/", "http://localhost").pathname;
-    if (path !== "/api/private-set") {
+    const picture =
+      /^\/api\/private-set\/image\/([A-Za-z0-9]+-[A-Za-z0-9]+)$/.exec(
+        path,
+      )?.[1];
+    if (path !== "/api/private-set" && !picture) {
       next();
       return;
     }
+    const notFound = () => {
+      res.writeHead(404, { "content-type": "text/plain" });
+      res.end("Not found");
+    };
     set ??= readPrivateSet(dir).catch(() => null);
     const data = isPrivateSetOwner(requestPlayer(req), owners)
       ? await set
       : null;
     if (!data || req.method !== "GET") {
-      res.writeHead(404, { "content-type": "text/plain" });
-      res.end("Not found");
+      notFound();
+      return;
+    }
+    // Pulled in the background after the start, so read on each request.
+    const images = await readPrivateImages(dir);
+    if (picture) {
+      const file = images.get(picture);
+      const type = file && IMAGE_TYPES[file.split(".").pop()!.toLowerCase()];
+      const bytes =
+        file && type
+          ? await readFile(join(dir, IMAGES, file)).catch(() => null)
+          : null;
+      if (!bytes || !type) {
+        notFound();
+        return;
+      }
+      res.writeHead(200, {
+        "content-type": type,
+        "cache-control": "private, max-age=3600",
+      });
+      res.end(bytes);
       return;
     }
     res.writeHead(200, {
       "content-type": "application/json",
       "cache-control": "private, no-store",
     });
-    res.end(JSON.stringify(data));
+    res.end(JSON.stringify({ ...data, images: [...images.keys()] }));
   };
 }

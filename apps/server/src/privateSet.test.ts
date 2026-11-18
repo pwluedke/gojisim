@@ -136,6 +136,34 @@ describe("the private card set", () => {
     expect(await readPrivateSet(join(tmpdir(), "no-such-private"))).toBeNull();
   });
 
+  it("a card's picture goes to an owner only, with its type; the set lists which cards have one", async () => {
+    const dir = privateDir();
+    const pics = join(dir, "apps", "web", "public", "cards");
+    mkdirSync(pics, { recursive: true });
+    const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
+    writeFileSync(join(pics, "PRV-001.png"), bytes);
+    writeFileSync(join(pics, "notes.txt"), "not a picture");
+    const { owner, other, call } = await serve(["111"], dir);
+    const set = (await (await call("/api/private-set", owner)).json()) as {
+      images: string[];
+    };
+    expect(set.images).toEqual(["PRV-001"]);
+    const res = await call("/api/private-set/image/PRV-001", owner);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/png");
+    expect(res.headers.get("cache-control")).toBe("private, max-age=3600");
+    expect(Buffer.from(await res.arrayBuffer())).toEqual(bytes);
+    // Anyone else, or a card with no picture: the same 404. Signed out, the gate answers first.
+    for (const r of [
+      await call("/api/private-set/image/PRV-001", other),
+      await call("/api/private-set/image/PRV-002", owner),
+    ]) {
+      expect(r.status).toBe(404);
+      expect(await r.text()).toBe("Not found");
+    }
+    expect((await call("/api/private-set/image/PRV-001")).status).not.toBe(200);
+  });
+
   it("only an owner gets it, not cached; anyone else (or signed out) gets 404", async () => {
     const { owner, other, call } = await serve(["111"]);
     const mine = await call("/api/private-set", owner);

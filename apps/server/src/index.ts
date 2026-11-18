@@ -27,7 +27,7 @@ import {
 import { isResultsUploadPath, resultsMiddleware } from "./results.js";
 import { classroomStore } from "./classroom.js";
 import { isTestDecksUploadPath, testDecksMiddleware } from "./testDecks.js";
-import { pullPrivateSet } from "./privatePull.js";
+import { pullPrivateImages, pullPrivateSet } from "./privatePull.js";
 import { holdsUnlistedCard } from "./privateRecords.js";
 import { privateSetMiddleware, privateSetOwnersFrom } from "./privateSet.js";
 import { replayMiddleware } from "./h2h/replayRoute.js";
@@ -407,12 +407,15 @@ if (
   const privateSetDir = process.env.PRIVATE_SET_DIR
     ? resolve(process.env.PRIVATE_SET_DIR)
     : fileURLToPath(new URL("../../../private/", import.meta.url));
-  await pullPrivateSet({
+  const privatePull = {
     token: process.env.GOJISIM_PRIVATE_TOKEN?.trim() || undefined,
     repo:
       process.env.GOJISIM_PRIVATE_REPO?.trim() || "pwluedke/gojisim-private",
     dir: privateSetDir,
-  });
+  };
+  await pullPrivateSet(privatePull);
+  // Its pictures in the background: the server starts without waiting for them.
+  void pullPrivateImages(privatePull);
   createAppServer({
     ...(discord ? { discord } : {}),
     password: process.env.GOJISIM_PASSWORD || undefined,

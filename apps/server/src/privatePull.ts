@@ -9,10 +9,18 @@ import { dirname, join } from "node:path";
  * `fetch` (no git or tar in the image). The token is sent only in the Authorization header and is
  * never logged. With no token it skips; any failure is logged and the server starts without the
  * set (its route then answers 404 like for everyone).
+ *
+ * Its card pictures (`apps/web/public/cards/<card number>.<jpg|jpeg|png|webp|gif>`) come
+ * afterwards in the background (`pullPrivateImages`), with their own deadline, so they never hold
+ * up the start, and a failure there leaves the set's data working, with text faces.
  */
 
 /** The files the set needs, under the repo root. */
 const DATA = "packages/cards/data/";
+
+/** The set's card pictures, under the repo root: one per card number, any image type. */
+export const IMAGES = "apps/web/public/cards/";
+export const IMAGE_FILE = /\.(jpe?g|png|webp|gif)$/i;
 
 export interface PullOptions {
   token: string | undefined;
@@ -110,6 +118,84 @@ export async function pullPrivateSet({
         : "unknown error";
     log(
       `GojiSim: the private card set couldn't be pulled (${why.replaceAll(token, "[token]")}); it's off.`,
+    );
+    return null;
+  }
+}
+
+/** How many pictures were written, or null when skipped or failed (the data stays either way). */
+export async function pullPrivateImages({
+  token,
+  repo,
+  dir,
+  ref = "main",
+  timeoutMs = 120_000,
+  fetchImpl = fetch,
+  log = (line) => console.log(line),
+}: PullOptions): Promise<number | null> {
+  if (!token || !/^[\w.-]+\/[\w.-]+$/.test(repo)) return null;
+  const signal = AbortSignal.timeout(timeoutMs);
+  const headers = {
+    authorization: `Bearer ${token}`,
+    "x-github-api-version": "2022-11-28",
+    "user-agent": "gojisim-server",
+  };
+  try {
+    const treeRes = await fetchImpl(
+      `https://api.github.com/repos/${repo}/git/trees/${encodeURIComponent(ref)}?recursive=1`,
+      {
+        headers: { ...headers, accept: "application/vnd.github+json" },
+        signal,
+      },
+    );
+    if (!treeRes.ok)
+      throw new Error(`the file list answered ${treeRes.status}`);
+    const tree = (await treeRes.json()) as {
+      tree?: { path?: string; type?: string }[];
+    };
+    // Only files directly in the pictures folder (no subfolders, no `..`).
+    const paths = (tree.tree ?? [])
+      .filter(
+        (e) =>
+          e.type === "blob" &&
+          typeof e.path === "string" &&
+          e.path.startsWith(IMAGES) &&
+          !e.path.slice(IMAGES.length).includes("/") &&
+          IMAGE_FILE.test(e.path),
+      )
+      .map((e) => e.path as string);
+    const files: [string, Buffer][] = [];
+    for (const path of paths) {
+      const res = await fetchImpl(
+        `https://api.github.com/repos/${repo}/contents/${path
+          .split("/")
+          .map(encodeURIComponent)
+          .join("/")}?ref=${encodeURIComponent(ref)}`,
+        {
+          headers: { ...headers, accept: "application/vnd.github.raw" },
+          signal,
+        },
+      );
+      if (!res.ok) throw new Error(`a picture answered ${res.status}`);
+      files.push([path, Buffer.from(await res.arrayBuffer())]);
+    }
+    // Replace the old pictures only once every one has arrived.
+    await rm(join(dir, IMAGES), { recursive: true, force: true });
+    for (const [path, bytes] of files) {
+      const to = join(dir, path);
+      await mkdir(dirname(to), { recursive: true });
+      await writeFile(to, bytes);
+    }
+    log(`GojiSim: the private card set: ${files.length} pictures pulled.`);
+    return files.length;
+  } catch (err) {
+    const why = signal.aborted
+      ? `no answer within ${timeoutMs / 1000} s`
+      : err instanceof Error
+        ? err.message
+        : "unknown error";
+    log(
+      `GojiSim: the private card set's pictures couldn't be pulled (${why.replaceAll(token, "[token]")}); its cards keep their text faces.`,
     );
     return null;
   }
