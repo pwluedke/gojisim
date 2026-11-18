@@ -335,7 +335,7 @@ export type Condition =
   | { monsterRank: PlayerRef; op: Op; value: number }
   | { playedVia: "evolution" | "burst" | "effect" | "hand" }
   | {
-      thisTurn: "invaded" | "opponentBattleDestroyed";
+      thisTurn: "invaded" | "opponentBattleDestroyed" | "thisEntered";
       whose?: PlayerRef | undefined;
     }
   | { amount: Amount; op: Op; value: number }
@@ -371,7 +371,8 @@ export const ConditionSchema: z.ZodType<Condition> = z.lazy(() =>
     }),
     /** C2: something happened this turn (8.6, 5.12). `whose` defaults to "you". */
     z.strictObject({
-      thisTurn: z.enum(["invaded", "opponentBattleDestroyed"]),
+      /** `thisEntered`: this card entered its master's zones this turn (it was played, 12.2). */
+      thisTurn: z.enum(["invaded", "opponentBattleDestroyed", "thisEntered"]),
       whose: PlayerRefSchema.optional(),
     }),
     /** An amount compared with a number (EBP02-079: zones advanced by invasion this turn). */
@@ -645,7 +646,7 @@ export type Effect =
     }
   | {
       effect: "grant";
-      duration: "endOfTurn";
+      duration: "endOfTurn" | "nextEndPhase";
       modifier: Modifier;
       as?: string | undefined;
     }
@@ -998,7 +999,11 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
      */
     z.strictObject({
       effect: z.literal("grant"),
-      duration: z.literal("endOfTurn"),
+      /**
+       * `endOfTurn` ends at 7.5.6. `nextEndPhase` ends after the end phase advance step (7.5.2)
+       * of the picked cards' master's next end phase, one that starts after the grant.
+       */
+      duration: z.enum(["endOfTurn", "nextEndPhase"]),
       modifier: z.lazy(() => ModifierSchema),
       ...asField,
     }),
@@ -1045,6 +1050,11 @@ export const ModifierSchema = z.union([
   /** M1: the target monster cannot advance (5.13.1) or invade (8.6). */
   z.strictObject({ flag: z.literal("cannotAdvance"), target: SelectorSchema }),
   z.strictObject({ flag: z.literal("cannotInvade"), target: SelectorSchema }),
+  /** The target monster doesn't make its end phase advance (7.5.2); other advances happen. */
+  z.strictObject({
+    flag: z.literal("cannotEndPhaseAdvance"),
+    target: SelectorSchema,
+  }),
   /**
    * The end phase advance (7.5.2) of its master's own invading monster (with one of `traits`,
    * when given) into the target battle card's zone doesn't happen: the monster retreats 1 zone

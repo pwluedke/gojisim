@@ -414,8 +414,12 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
     const player = turnPlayer(state);
     if (player.monsterPosition !== null && player.monsterPosition <= 7) {
       const from = player.monsterPosition;
+      const top = topOf(player.invadingMonsterZone);
       const repel = repellerAt(state, player, (from + 1) as ZoneNumber);
-      if (repel) {
+      // "Can't advance during the end phase": only this advance is skipped (nothing to repel).
+      if (top && hasFlag(state, top, "cannotEndPhaseAdvance"))
+        appendLog(state, "noAdvance", player.id, { rule: "7.5.2", zone: from });
+      else if (repel) {
         // A battle card repels the advance into its zone: a retreat instead (5.13.2), and a
         // token in the zone left when the monster did move.
         const retreated = retreatMonster(state, player, "7.5.2");
@@ -430,6 +434,20 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
         if (retreated && repel.token)
           playToken(state, player, repel.token, from);
       } else advanceMonster(state, player, { invasion: false, rule: "7.5.2" });
+    }
+    // Effects lasting until this player's next end phase advance end now.
+    const ended = state.continuousEffects.filter(
+      (e) =>
+        e.duration === "untilEndPhaseAdvance" && e.endPhaseOf === player.id,
+    );
+    if (ended.length > 0) {
+      state.continuousEffects = state.continuousEffects.filter(
+        (e) => !ended.includes(e),
+      );
+      appendLog(state, "expireEffects", null, {
+        rule: "7.5.2",
+        effectIds: ended.map((e) => e.effectId),
+      });
     }
     goTo(state, "end", "7.5.3");
   },

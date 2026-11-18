@@ -731,6 +731,11 @@ export function conditionHolds(ctx: Context, condition: Condition): boolean {
       if (e.player === null) return false;
       if (condition.thisTurn === "invaded")
         return e.type === "invade" && isPlayer(whose, e.player, ctx.master);
+      // This card was played into its master's zones this turn (12.2).
+      if (condition.thisTurn === "thisEntered")
+        return (
+          e.type === "place" && e.payload["instanceId"] === ctx.sourceInstanceId
+        );
       // An opponent's battle card destroyed (5.12, 11.3, 11.5), from `whose` point of view.
       if (e.type !== "destroy" || isPlayer(whose, e.player, ctx.master))
         return false;
@@ -3162,7 +3167,8 @@ function perform(state: GameState, effect: Effect): Outcome {
       return "done";
     }
     case "grant": {
-      // E19: a flag for the rest of the turn on the cards the target picks now; it ends at 7.5.6.
+      // E19: a flag on the cards the target picks now, for the rest of the turn (it ends at
+      // 7.5.6) or until their master's next end phase advance step (7.5.2).
       const { modifier } = effect;
       if (!("flag" in modifier) || !("target" in modifier))
         throw new Error("not implemented: grant without a target");
@@ -3171,10 +3177,16 @@ function perform(state: GameState, effect: Effect): Outcome {
         instanceId: l.card.instanceId,
         modifier,
       }));
+      const holder = flags[0] && locate(state, flags[0].instanceId)?.player.id;
       state.continuousEffects.push({
         effectId: `grant:${abilityId}:${timestamp}`,
         timestamp,
-        duration: "untilEndOfTurn",
+        ...(effect.duration === "nextEndPhase"
+          ? {
+              duration: "untilEndPhaseAdvance" as const,
+              endPhaseOf: holder ?? ctx.master,
+            }
+          : { duration: "untilEndOfTurn" as const }),
         flags,
       });
       appendLog(state, "grant", ctx.master, {
