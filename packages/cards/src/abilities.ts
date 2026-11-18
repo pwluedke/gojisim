@@ -251,6 +251,14 @@ export const TriggerSchema = z.discriminatedUnion("on", [
     /** T7: binds the played card. */
     as: z.string().min(1).optional(),
   }),
+  /** A battle card's `repelsEndPhaseAdvance` made a player's monster retreat (7.5.2). */
+  z.strictObject({
+    on: z.literal("repelled"),
+    /** Whose monster retreated because a battle card repelled its end phase advance. */
+    whose: PlayerRefSchema,
+    /** Binds the repelling battle card. */
+    as: z.string().min(1).optional(),
+  }),
   /** An invading monster is countered (5.15): `this` card, or a player's monster. */
   z.strictObject({
     on: z.literal("countered"),

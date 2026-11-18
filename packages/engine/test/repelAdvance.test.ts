@@ -141,6 +141,70 @@ describe("shieldsFromRepel (7.5.2)", () => {
   });
 });
 
+describe("repelled: a trigger when a repel made your monster retreat", () => {
+  it("binds the repelling card: destroy their battle card of equal or lower rank, then the repeller", () => {
+    const state = at(newGame(), "7.5.2");
+    const me = turnPlayer(state);
+    const opp = state.players.find((p) => p.id !== me.id)!;
+    me.monsterPosition = 4;
+    monsterWith(state, me, ["Minilla"]);
+    const bully = battleCard({ id: 970004, rank: 3 });
+    abilities(bully.deckCardNumber, [
+      {
+        kind: "continuous",
+        id: "repel",
+        modifiers: [
+          {
+            flag: "repelsEndPhaseAdvance",
+            target: { owner: "you", area: "zones", this: true },
+          },
+        ],
+      },
+    ]);
+    const repeller = place(state, me, bully, 5);
+    const watcher = battleCard({ id: 970005 });
+    abilities(watcher.deckCardNumber, [
+      {
+        kind: "triggered",
+        id: "repelled",
+        optional: true,
+        trigger: { on: "repelled", whose: "you", as: "bully" },
+        effects: [
+          {
+            effect: "destroy",
+            target: {
+              select: {
+                owner: "opponent",
+                area: "zones",
+                type: "Battle",
+                rank: { op: "<=", value: { ref: "bully", field: "rank" } },
+              },
+              count: { exact: 1 },
+              chooser: "you",
+            },
+          },
+          {
+            effect: "destroy",
+            target: {
+              select: { owner: "any", area: "bound", bind: "bully" },
+              count: "all",
+              chooser: "you",
+            },
+          },
+        ],
+      },
+    ]);
+    place(state, me, watcher, 1);
+    const low = place(state, opp, battleCard({ rank: 2 }), 3);
+    const high = place(state, opp, battleCard({ rank: 5 }), 4);
+    const after = settle(advance(state));
+    expect(self(after, me).monsterPosition).toBe(3);
+    expect(holds(after, me, 5, repeller.instanceId)).toBe(false);
+    expect(holds(after, opp, 3, low.instanceId)).toBe(false);
+    expect(holds(after, opp, 4, high.instanceId)).toBe(true);
+  });
+});
+
 describe("oneLowerThan: the zone numbered 1 lower on your field", () => {
   const run = (monsterAt: ZoneNumber) => {
     const { state, me } = setup(monsterAt);

@@ -113,7 +113,7 @@ function repellerAt(
   state: GameState,
   player: PlayerState,
   zone: ZoneNumber,
-): { token?: string } | null {
+): { instanceId: string; token?: string } | null {
   const monster = topOf(player.invadingMonsterZone);
   const traits = monster ? getCardTraits(cardOf(state, monster)) : [];
   const applies = (m: { traits?: string[] | undefined }) =>
@@ -138,7 +138,10 @@ function repellerAt(
     if (!top) continue;
     for (const m of flagsOn(state, top))
       if (m.flag === "repelsEndPhaseAdvance" && applies(m))
-        return m.token ? { token: m.token } : {};
+        return {
+          instanceId: top.instanceId,
+          ...(m.token ? { token: m.token } : {}),
+        };
   }
   return null;
 }
@@ -415,12 +418,16 @@ const STEP_RUNNERS: Record<Step, (state: GameState) => void> = {
       if (repel) {
         // A battle card repels the advance into its zone: a retreat instead (5.13.2), and a
         // token in the zone left when the monster did move.
+        const retreated = retreatMonster(state, player, "7.5.2");
+        // `by`: the repelling card, for a trigger on being repelled.
         appendLog(state, "advanceRepelled", player.id, {
           rule: "7.5.2",
           from,
           zone: from + 1,
+          by: repel.instanceId,
+          retreated,
         });
-        if (retreatMonster(state, player, "7.5.2") && repel.token)
+        if (retreated && repel.token)
           playToken(state, player, repel.token, from);
       } else advanceMonster(state, player, { invasion: false, rule: "7.5.2" });
     }

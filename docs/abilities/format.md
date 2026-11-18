@@ -653,3 +653,12 @@ type Modifier = ...
       // (with one of traits) is in this card's zone, repelsEndPhaseAdvance can't make it retreat: the 7.5.2
       // advance happens as usual
 ```
+
+### Repelled (Nov 18)
+
+```typescript
+type Trigger = ...
+  | { on: "repelled"; whose: PlayerRef; as?: string }  // a repelsEndPhaseAdvance made that player's monster
+      // retreat (7.5.2); `as` binds the repelling battle card. The advanceRepelled log entry carries it as
+      // `by`, and whether the monster moved as `retreated`
+```

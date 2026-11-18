@@ -901,6 +901,14 @@ function triggerMatches(
         (l) => l.card.instanceId === event.payload["instanceId"],
       );
     }
+    case "repelled":
+      // A repel that made the monster retreat (7.5.2).
+      return (
+        event.type === "advanceRepelled" &&
+        event.player !== null &&
+        event.payload["retreated"] === true &&
+        isPlayer(trigger.whose, event.player, master)
+      );
     case "countered": {
       if (event.type !== "counter" || event.player === null) return false;
       if (trigger.whose === "this") {
@@ -1602,6 +1610,12 @@ function bindTriggerCard(
   const name = ("as" in trigger && trigger.as) || "";
   const ctx = contextOf(state);
   // T7: the played card, where it landed.
+  // The battle card that repelled the advance, where it is now.
+  if (trigger.on === "repelled") {
+    const found = locate(state, String(event.payload["by"]));
+    bindCards(ctx, name, found ? [found.card] : []);
+    return;
+  }
   if (trigger.on === "cardPlayed") {
     const found = locate(state, String(event.payload["instanceId"]));
     bindCards(ctx, name, found ? [found.card] : []);
