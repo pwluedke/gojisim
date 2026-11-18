@@ -347,6 +347,13 @@ export function resolveZoneSet(
         player: anchor.player,
         zone: (anchor.zone + (monster > anchor.zone ? 1 : -1)) as ZoneNumber,
       });
+  } else if (set.relation === "oneLowerThan") {
+    // The zone numbered 1 lower on the anchor's field (zone 5 -> 4); none below zone 1.
+    if (anchor.zone > 1)
+      refs.push({
+        player: anchor.player,
+        zone: (anchor.zone - 1) as ZoneNumber,
+      });
   } else if (set.relation === "atOrBefore")
     // C3: zones numbered at most the anchor's, on each field (4.4.5.3.1, EBP02-018).
     refs.push(...allZones(ctx.state).filter((r) => r.zone <= anchor.zone));
@@ -909,6 +916,14 @@ function triggerMatches(
         (l) => l.card.instanceId === event.payload["instanceId"],
       );
     }
+    case "repelled":
+      // A repel that made the monster retreat (7.5.2).
+      return (
+        event.type === "advanceRepelled" &&
+        event.player !== null &&
+        event.payload["retreated"] === true &&
+        isPlayer(trigger.whose, event.player, master)
+      );
     case "countered": {
       if (event.type !== "counter" || event.player === null) return false;
       if (trigger.whose === "this") {
@@ -1654,6 +1669,12 @@ function bindTriggerCard(
   const name = ("as" in trigger && trigger.as) || "";
   const ctx = contextOf(state);
   // T7: the played card, where it landed.
+  // The battle card that repelled the advance, where it is now.
+  if (trigger.on === "repelled") {
+    const found = locate(state, String(event.payload["by"]));
+    bindCards(ctx, name, found ? [found.card] : []);
+    return;
+  }
   if (trigger.on === "cardPlayed") {
     const found = locate(state, String(event.payload["instanceId"]));
     bindCards(ctx, name, found ? [found.card] : []);

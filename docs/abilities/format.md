@@ -818,6 +818,41 @@ type ZoneSet = ...
       // monster's zone (Q5)
 ```
 
+### Repelling the end phase advance; the zone 1 lower (Nov 18)
+
+General pieces (no card in the public data uses them yet):
+
+```typescript
+type Modifier = ...
+  | { flag: "repelsEndPhaseAdvance"; target: Selector; traits?: string[]; token?: string }  // the end
+      // phase advance (7.5.2) of its master's own invading monster (with one of `traits`) into the target
+      // battle card's zone doesn't happen: the monster retreats 1 zone instead (5.13.2; nothing from
+      // zone 1, 5.13.2.1), and when it moved, its master plays `token` in the zone it left (5.11.4).
+      // Only the 7.5.2 advance: an invasion or an effect's advance into the zone crushes it as usual (11.3).
+
+type ZoneSet = ...
+  | { relation: "oneLowerThan"; of: Anchor }  // the zone numbered 1 lower on the anchor's own field
+      // (zone 5 -> 4; none below 1), not 4.4.5.1's "behind"
+```
+
+### Shielded from repelling (Nov 18)
+
+```typescript
+type Modifier = ...
+  | { flag: "shieldsFromRepel"; target: Selector; traits?: string[] }  // while its master's own monster
+      // (with one of traits) is in this card's zone, repelsEndPhaseAdvance can't make it retreat: the 7.5.2
+      // advance happens as usual
+```
+
+### Repelled (Nov 18)
+
+```typescript
+type Trigger = ...
+  | { on: "repelled"; whose: PlayerRef; as?: string }  // a repelsEndPhaseAdvance made that player's monster
+      // retreat (7.5.2); `as` binds the repelling battle card. The advanceRepelled log entry carries it as
+      // `by`, and whether the monster moved as `retreated`
+```
+
 ### Sharing a zone with your monster, entering a zone (Nov 18)
 
 General pieces (no card in the public data uses them yet):
