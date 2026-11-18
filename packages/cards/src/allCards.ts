@@ -1,5 +1,6 @@
 import cardsJson from "../data/cards.json";
 import { type Card, CardListSchema } from "./schema";
+import { registerTokens } from "./tokens";
 
 let allCards: Card[] | null = null;
 let version = 0;
@@ -25,6 +26,8 @@ export function registerCards(cards: unknown): number {
   const fresh = parsed.filter((c) => !known.has(c.id));
   if (fresh.length === 0) return 0;
   allCards = [...getAllCards(), ...fresh];
+  // Its tokens too, so effects can create them (9.1).
+  registerTokens(fresh);
   version++;
   return fresh.length;
 }

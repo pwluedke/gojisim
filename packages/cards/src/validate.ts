@@ -151,8 +151,33 @@ export function validateDeck(deck: Deck, asOf: Date): DeckValidation {
         unique(offColor).map((c) => `${named(c)} isn't white and ${which}`),
       );
     }
-    if (resonance?.rule === "resonance")
-      for (const condition of resonance.conditions) {
+    // A rank I monster's deck rules with conditions: Resonance (12.8.2) or a plain deck
+    // restriction (6.1.2), checked the same way.
+    const restriction = getCardAbilities(
+      rankOne.deckCardNumber,
+    ).deckRules?.find((r) => r.rule === "restriction");
+    const ruled = [
+      ...(resonance?.rule === "resonance"
+        ? [
+            {
+              rule: "12.8.2",
+              what: "Resonance",
+              conditions: resonance.conditions,
+            },
+          ]
+        : []),
+      ...(restriction?.rule === "restriction"
+        ? [
+            {
+              rule: "6.1.2",
+              what: "Deck restriction",
+              conditions: restriction.conditions,
+            },
+          ]
+        : []),
+    ];
+    for (const { rule, what, conditions } of ruled)
+      for (const condition of conditions) {
         if ("every" in condition) {
           const breaking = all.filter((c) => {
             if (c.type !== condition.every) return false;
@@ -166,22 +191,20 @@ export function validateDeck(deck: Deck, asOf: Date): DeckValidation {
           });
           if (breaking.length > 0)
             fail(
-              "12.8.2",
-              `Resonance (${rankOne.cardNumber}): ${condition.text}: ${[...new Set(breaking.map(label))].join(", ")}`,
+              rule,
+              `${what} (${rankOne.cardNumber}): ${condition.text}: ${[...new Set(breaking.map(label))].join(", ")}`,
               unique(breaking).map(
                 (c) =>
-                  `${named(c)} breaks ${named(rankOne)}'s Resonance: ${condition.text}`,
+                  `${named(c)} breaks ${named(rankOne)}'s ${what}: ${condition.text}`,
               ),
             );
         } else {
           const count = all.filter((c) => c.type === condition.cards).length;
           if (count < condition.atLeast)
             fail(
-              "12.8.2",
-              `Resonance (${rankOne.cardNumber}): ${condition.text} (has ${count})`,
-              [
-                `${named(rankOne)}'s Resonance: ${condition.text} (has ${count})`,
-              ],
+              rule,
+              `${what} (${rankOne.cardNumber}): ${condition.text} (has ${count})`,
+              [`${named(rankOne)}'s ${what}: ${condition.text} (has ${count})`],
             );
         }
       }
