@@ -33,6 +33,7 @@ import {
   rescuedPlays,
 } from "./cardRules";
 import { type FestOptions, festVerdict } from "./festPlan";
+import { type SpaceGOptions, spacegVerdict } from "./spacegPlan";
 import { type TanglerOptions, tanglerVerdict } from "./tanglerPlan";
 import { wranglerVerdict } from "./wranglerPlan";
 import { type WranglerOptions, wranglerV2Verdict } from "./wranglerPlanV2";
@@ -526,6 +527,24 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         me,
         input.knowledge.decks[me],
         groupOptions(settings, "tangler") as TanglerOptions,
+      );
+      if (against.size > 0)
+        for (const a of input.legalActions)
+          if (a.type !== "concede" && !against.has(a))
+            favored.set(
+              actionKey(first, a),
+              Math.max(favored.get(actionKey(first, a)) ?? 0, MX_PLAN_BIAS),
+            );
+    }
+    // Paul's SpaceG plan (#408), a preference like the Wrangler plan.
+    if (iterations === 1 && settings.rules > 0 && settings.spacegPlan > 0) {
+      const first = state;
+      const { against } = spacegVerdict(
+        first,
+        input.legalActions,
+        me,
+        input.knowledge.decks[me],
+        groupOptions(settings, "spaceg") as SpaceGOptions,
       );
       if (against.size > 0)
         for (const a of input.legalActions)
