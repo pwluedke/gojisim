@@ -253,6 +253,8 @@ export const TriggerSchema = z.discriminatedUnion("on", [
   z.strictObject({
     on: z.literal("countered"),
     whose: z.union([z.literal("this"), PlayerRefSchema]),
+    /** Binds the zone the monster was in when countered (6, 7 or 8, before it moves, 5.15.1.1). */
+    zoneAs: z.string().min(1).optional(),
   }),
   /** An invading monster advances (5.13.1), whatever caused it; one match per zone advanced. */
   z.strictObject({
@@ -1217,6 +1219,21 @@ export const AbilitySchema = z.discriminatedUnion("kind", [
 ]);
 export type Ability = z.infer<typeof AbilitySchema>;
 
+/** A deck condition: every card of a type meets traits/rank, or the deck holds enough of a type. */
+const DeckConditionSchema = z.union([
+  z.strictObject({
+    every: z.enum(["Monster", "Battle", "Strategy"]),
+    anyTraits: z.array(z.string().min(1)).min(1).optional(),
+    minRank: z.number().int().positive().optional(),
+    text: z.string().min(1),
+  }),
+  z.strictObject({
+    atLeast: z.number().int().positive(),
+    cards: z.enum(["Monster", "Battle", "Strategy"]),
+    text: z.string().min(1),
+  }),
+]);
+
 /** Deck construction rules on a card (Q13, Resonance 12.8). */
 export const DeckRuleSchema = z.discriminatedUnion("rule", [
   z.strictObject({ rule: z.literal("anyNumber") }),
@@ -1228,23 +1245,15 @@ export const DeckRuleSchema = z.discriminatedUnion("rule", [
   z.strictObject({
     rule: z.literal("resonance"),
     colors: z.array(z.enum(["Red", "Blue", "Green", "White"])).min(2),
-    conditions: z
-      .array(
-        z.union([
-          z.strictObject({
-            every: z.enum(["Monster", "Battle", "Strategy"]),
-            anyTraits: z.array(z.string().min(1)).min(1).optional(),
-            minRank: z.number().int().positive().optional(),
-            text: z.string().min(1),
-          }),
-          z.strictObject({
-            atLeast: z.number().int().positive(),
-            cards: z.enum(["Monster", "Battle", "Strategy"]),
-            text: z.string().min(1),
-          }),
-        ]),
-      )
-      .min(1),
+    conditions: z.array(DeckConditionSchema).min(1),
+  }),
+  /**
+   * A deck restriction on a rank I monster without Resonance's colors (6.1.2): every condition
+   * must hold, as Resonance's do, and the deck keeps the rank I monster's own colors (6.1.1.3).
+   */
+  z.strictObject({
+    rule: z.literal("restriction"),
+    conditions: z.array(DeckConditionSchema).min(1),
   }),
 ]);
 export type DeckRule = z.infer<typeof DeckRuleSchema>;

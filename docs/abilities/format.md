@@ -639,4 +639,12 @@ type Effect = ...
       // after the end phase advance step (7.5.2) of the picked cards' master's next end phase
 type Condition = ...
   | { thisTurn: "thisEntered" }  // this card was played into its master's zones this turn (12.2)
+
+### The zone a monster was countered in (Nov 18)
+
+```typescript
+type Trigger = ...
+  | { on: "countered"; whose: "this" | PlayerRef; zoneAs?: string }  // zoneAs binds the zone the monster
+      // was in when countered (6, 7 or 8, before it moves behind, 5.15.1.1) as a zone, for an anchor
+      // { bound: zoneAs }; the `counter` log entry carries it as `zone`
 ```
