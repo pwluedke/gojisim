@@ -627,3 +627,20 @@ type Amount = ... | { boundCount: string };                // cards bound with `
 - A destroy's `as` now binds the cards actually destroyed, not those a replacement (10.9) or protection (1.3.3) kept. No card bound a destroy before this one.
 - "If 3 cards are [destroy] this way" is `if` with `{ amount: { boundCount: "destroyed" }, op: ">=", value: 3 }`. `boundCount` counts a destroyed Crystals token too, though it is banished (9.1.4.2) and no longer anywhere a selector looks.
 - "Play 1 battle card with the highest rank from your discard pile" is a normal effect play (5.11.1): its [enter] triggers and the player picks the zone. Highest is the printed rank (Mecha-King Ghidorah, rank 23), ties to the player.
+
+### Sharing a zone with your monster, entering a zone (Nov 18)
+
+General pieces (no card in the public data uses them yet):
+
+```typescript
+type Modifier = ...
+  | { flag: "hostsMonster"; target: Selector; traits?: string[] }  // an exception to crush and destroy
+      // (11.3): its master's own invading monster (with one of `traits`, when given) can occupy the target
+      // battle card's zone without destroying it; another monster still crushes it
+
+type Trigger = ...
+  | { on: "monsterEntered"; whose: PlayerRef; into?: ZoneSet; traits?: string[] }  // a monster moves into
+      // a zone: once per zone, whatever moved it (an invasion's every step, an advance, a retreat, a counter's
+      // move behind, a vertical move); `into` relative to this card, on the mover's own field
+      // ("this card's zone" is { relation: "sameNumberAs", of: "this" })
+```
