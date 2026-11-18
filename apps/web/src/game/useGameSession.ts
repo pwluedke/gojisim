@@ -2,7 +2,7 @@ import { botInput, decklistsOf } from "@gojisim/bot";
 import type { Action, GameState } from "@gojisim/engine";
 import { useEffect, useRef, useState } from "react";
 import { type BotRequest, type BotResponse, botLabel } from "./bots";
-import { privateAbilities } from "./privateSet";
+import { privateBotSet } from "./privateSet";
 import { answerFailed, recordAnswer, recordError } from "./errors";
 import { actionLabel } from "./labels";
 import {
@@ -228,7 +228,7 @@ export function useGameSession(options: GameSessionOptions = {}) {
         input,
         seed: `${session.botSeed}-${key}`,
         difficulty: seat.difficulty,
-        ...(privateAbilities() ? { abilities: privateAbilities()! } : {}),
+        ...(privateBotSet() ? { privateSet: privateBotSet()! } : {}),
       };
       workerRef.current?.postMessage(request);
     }, delay);
