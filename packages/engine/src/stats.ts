@@ -1,4 +1,4 @@
-import type { Modifier } from "@gojisim/cards";
+import type { Ability, Modifier } from "@gojisim/cards";
 import { activeCards } from "./abilities";
 import {
   abilitiesOf,
@@ -79,14 +79,16 @@ function activeModifiers(state: GameState): ActiveModifier[] {
       const data = abilitiesOf(state, card);
       if (data.status === "manual") continue;
       for (const ability of data.abilities) {
-        if (ability.kind !== "continuous") continue;
-        if (!gatesOpen(state, master, ability.gates)) continue;
         const context: Context = {
           state,
           master,
           sourceInstanceId: card.instanceId,
           bindings: {},
         };
+        for (const modifier of keywordModifiers(ability))
+          found.push({ modifier, context });
+        if (ability.kind !== "continuous") continue;
+        if (!gatesOpen(state, master, ability.gates)) continue;
         if (ability.condition && !conditionHolds(context, ability.condition))
           continue;
         for (const modifier of ability.modifiers)
@@ -99,6 +101,27 @@ function activeModifiers(state: GameState): ActiveModifier[] {
   } finally {
     collecting = false;
   }
+}
+
+/** [bully] and [buddy] stand for a flag on the card itself. */
+function keywordModifiers(ability: Ability): Modifier[] {
+  if (ability.kind !== "keyword") return [];
+  const keyword = ability.keyword;
+  const target = { owner: "you", area: "zones", this: true } as const;
+  const traits =
+    "traits" in keyword && keyword.traits ? { traits: keyword.traits } : {};
+  if (keyword.name === "bully")
+    return [
+      {
+        flag: "repelsEndPhaseAdvance",
+        target,
+        ...traits,
+        ...(keyword.token ? { token: keyword.token } : {}),
+      },
+    ];
+  if (keyword.name === "buddy")
+    return [{ flag: "hostsMonster", target, ...traits }];
+  return [];
 }
 
 /** A flag modifier (M1, E13) on a card. */
@@ -119,7 +142,10 @@ function anyModifier(
     const data = abilitiesOf(state, card);
     if (data.status === "manual") continue;
     for (const ability of data.abilities)
-      if (ability.kind === "continuous" && ability.modifiers.some(kind))
+      if (
+        (ability.kind === "continuous" && ability.modifiers.some(kind)) ||
+        keywordModifiers(ability).some(kind)
+      )
         return true;
   }
   return false;
@@ -503,6 +529,26 @@ function FLAG_CHANGES(flag: FlagModifier): Omit<CardChange, "kind"> {
       return { label: "Can't advance", detail: "Cannot advance (5.13.1)" };
     case "cannotInvade":
       return { label: "Can't invade", detail: "Cannot invade (8.6)" };
+    case "cannotEndPhaseAdvance":
+      return {
+        label: "No end phase advance",
+        detail: "Doesn't advance in the end phase (7.5.2)",
+      };
+    case "shieldsFromRepel":
+      return {
+        label: "Shields",
+        detail: `While your ${flag.traits ? `${flag.traits.join(" or ")} ` : ""}monster card is in its zone, its end phase advance can't be repelled (7.5.2)`,
+      };
+    case "repelsEndPhaseAdvance":
+      return {
+        label: "Repels",
+        detail: `Your ${flag.traits ? `${flag.traits.join(" or ")} ` : ""}monster card's end phase advance into its zone becomes a retreat${flag.token ? `, and you play 1 ${flag.token} in the zone it left` : ""} (7.5.2)`,
+      };
+    case "hostsMonster":
+      return {
+        label: "Hosts",
+        detail: `Your ${flag.traits ? `${flag.traits.join(" or ")} ` : ""}monster card can occupy its zone without destroying it (11.3)`,
+      };
     case "rageCannotBeReducedByOpponent":
       return {
         label: "Rage protected",

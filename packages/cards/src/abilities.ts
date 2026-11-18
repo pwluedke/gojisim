@@ -73,9 +73,18 @@ export const ZoneSetSchema = z.union([
       "atOrBefore",
       /** C3: the zones beside it in its row (4.4.5.2, 4.4.5.5), not in front or behind. */
       "horizontallyAdjacentTo",
+      /**
+       * The zone on the anchor's field numbered 1 toward its owner's monster (+1 when the monster
+       * is in a higher zone, -1 when lower); none when the monster is in the anchor's zone.
+       */
+      "oneTowardMonster",
+      /** The anchor's own field's zone numbered 1 lower (none below zone 1); not 4.4.5.1's behind. */
+      "oneLowerThan",
     ]),
     of: ZoneAnchorSchema,
     includeSelf: z.boolean().optional(),
+    /** Only the zones without a card that aren't their owner's monster's zone (Q5). */
+    unoccupied: z.boolean().optional(),
   }),
   z.enum(["unoccupied", "any"]),
   /** C3: the zones numbered like the ranks of the cards bound with `as` (EBP03-073). */
@@ -249,10 +258,20 @@ export const TriggerSchema = z.discriminatedUnion("on", [
     /** T7: binds the played card. */
     as: z.string().min(1).optional(),
   }),
+  /** A battle card's `repelsEndPhaseAdvance` made a player's monster retreat (7.5.2). */
+  z.strictObject({
+    on: z.literal("repelled"),
+    /** Whose monster retreated because a battle card repelled its end phase advance. */
+    whose: PlayerRefSchema,
+    /** Binds the repelling battle card. */
+    as: z.string().min(1).optional(),
+  }),
   /** An invading monster is countered (5.15): `this` card, or a player's monster. */
   z.strictObject({
     on: z.literal("countered"),
     whose: z.union([z.literal("this"), PlayerRefSchema]),
+    /** Binds the zone the monster was in when countered (6, 7 or 8, before it moves, 5.15.1.1). */
+    zoneAs: z.string().min(1).optional(),
   }),
   /** An invading monster advances (5.13.1), whatever caused it; one match per zone advanced. */
   z.strictObject({
@@ -264,6 +283,18 @@ export const TriggerSchema = z.discriminatedUnion("on", [
     during: PhaseSchema.optional(),
     /** What moved it: the 7.5.2 end phase advance, an invasion (8.6), or an effect (E15). */
     cause: z.enum(["endPhase", "invasion", "effect"]).optional(),
+  }),
+  /**
+   * A monster enters a zone (5.13.1, 5.13.2, 5.15.1.1, 4.4.5.1): once per zone it moves into,
+   * whatever moved it (an invasion's every step, an advance, a retreat, a counter's move behind,
+   * a vertical move). `into` keeps the zones (relative to this card; on the mover's own field),
+   * `traits` the moves of a monster with one of them.
+   */
+  z.strictObject({
+    on: z.literal("monsterEntered"),
+    whose: PlayerRefSchema,
+    into: ZoneSetSchema.optional(),
+    traits: z.array(z.string().min(1)).min(1).optional(),
   }),
   /** A player performs an invasion (5.14.1, 8.6): once per invasion action, unlike [invading]. */
   z.strictObject({
@@ -304,7 +335,7 @@ export type Condition =
   | { monsterRank: PlayerRef; op: Op; value: number }
   | { playedVia: "evolution" | "burst" | "effect" | "hand" }
   | {
-      thisTurn: "invaded" | "opponentBattleDestroyed";
+      thisTurn: "invaded" | "opponentBattleDestroyed" | "thisEntered";
       whose?: PlayerRef | undefined;
     }
   | { amount: Amount; op: Op; value: number }
@@ -340,7 +371,8 @@ export const ConditionSchema: z.ZodType<Condition> = z.lazy(() =>
     }),
     /** C2: something happened this turn (8.6, 5.12). `whose` defaults to "you". */
     z.strictObject({
-      thisTurn: z.enum(["invaded", "opponentBattleDestroyed"]),
+      /** `thisEntered`: this card entered its master's zones this turn (it was played, 12.2). */
+      thisTurn: z.enum(["invaded", "opponentBattleDestroyed", "thisEntered"]),
       whose: PlayerRefSchema.optional(),
     }),
     /** An amount compared with a number (EBP02-079: zones advanced by invasion this turn). */
@@ -614,7 +646,7 @@ export type Effect =
     }
   | {
       effect: "grant";
-      duration: "endOfTurn";
+      duration: "endOfTurn" | "nextEndPhase";
       modifier: Modifier;
       as?: string | undefined;
     }
@@ -967,7 +999,11 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
      */
     z.strictObject({
       effect: z.literal("grant"),
-      duration: z.literal("endOfTurn"),
+      /**
+       * `endOfTurn` ends at 7.5.6. `nextEndPhase` ends after the end phase advance step (7.5.2)
+       * of the picked cards' master's next end phase, one that starts after the grant.
+       */
+      duration: z.enum(["endOfTurn", "nextEndPhase"]),
       modifier: z.lazy(() => ModifierSchema),
       ...asField,
     }),
@@ -1014,6 +1050,40 @@ export const ModifierSchema = z.union([
   /** M1: the target monster cannot advance (5.13.1) or invade (8.6). */
   z.strictObject({ flag: z.literal("cannotAdvance"), target: SelectorSchema }),
   z.strictObject({ flag: z.literal("cannotInvade"), target: SelectorSchema }),
+  /** The target monster doesn't make its end phase advance (7.5.2); other advances happen. */
+  z.strictObject({
+    flag: z.literal("cannotEndPhaseAdvance"),
+    target: SelectorSchema,
+  }),
+  /**
+   * The end phase advance (7.5.2) of its master's own invading monster (with one of `traits`,
+   * when given) into the target battle card's zone doesn't happen: the monster retreats 1 zone
+   * instead (5.13.2), and when it did, its master plays a `token` in the zone it left (5.11.4).
+   */
+  z.strictObject({
+    flag: z.literal("repelsEndPhaseAdvance"),
+    target: SelectorSchema,
+    traits: z.array(z.string().min(1)).min(1).optional(),
+    token: z.string().min(1).optional(),
+  }),
+  /**
+   * While its master's own invading monster (with one of `traits`) is in the target battle card's
+   * zone, `repelsEndPhaseAdvance` can't make it retreat: its 7.5.2 advance happens as usual.
+   */
+  z.strictObject({
+    flag: z.literal("shieldsFromRepel"),
+    target: SelectorSchema,
+    traits: z.array(z.string().min(1)).min(1).optional(),
+  }),
+  /**
+   * An exception to crush and destroy (11.3): its master's own invading monster (with one of
+   * `traits`, when given) can occupy the target battle card's zone without destroying it.
+   */
+  z.strictObject({
+    flag: z.literal("hostsMonster"),
+    target: SelectorSchema,
+    traits: z.array(z.string().min(1)).min(1).optional(),
+  }),
   /** M1: `player` cannot play cards `what` picks (8.2, 8.3, Q32), or only not into `zones`. */
   z.strictObject({
     flag: z.literal("cannotPlay"),
@@ -1115,6 +1185,20 @@ export const KeywordAbilitySchema = z.discriminatedUnion("name", [
     condition: ConditionSchema.optional(),
     cost: CostSchema.optional(),
   }),
+  /**
+   * [bully]: this battle card has `repelsEndPhaseAdvance` (its master's monster with one of
+   * `traits` is repelled from its zone at 7.5.2, leaving `token` in the zone it left).
+   */
+  z.strictObject({
+    name: z.literal("bully"),
+    traits: z.array(z.string().min(1)).min(1).optional(),
+    token: z.string().min(1).optional(),
+  }),
+  /** [buddy]: this battle card has `hostsMonster` (its master's monster with one of `traits`). */
+  z.strictObject({
+    name: z.literal("buddy"),
+    traits: z.array(z.string().min(1)).min(1).optional(),
+  }),
   z.strictObject({
     name: z.literal("resonance"),
     colors: z.array(z.enum(["Red", "Blue", "Green", "White"])).min(2),
@@ -1207,6 +1291,21 @@ export const AbilitySchema = z.discriminatedUnion("kind", [
 ]);
 export type Ability = z.infer<typeof AbilitySchema>;
 
+/** A deck condition: every card of a type meets traits/rank, or the deck holds enough of a type. */
+const DeckConditionSchema = z.union([
+  z.strictObject({
+    every: z.enum(["Monster", "Battle", "Strategy"]),
+    anyTraits: z.array(z.string().min(1)).min(1).optional(),
+    minRank: z.number().int().positive().optional(),
+    text: z.string().min(1),
+  }),
+  z.strictObject({
+    atLeast: z.number().int().positive(),
+    cards: z.enum(["Monster", "Battle", "Strategy"]),
+    text: z.string().min(1),
+  }),
+]);
+
 /** Deck construction rules on a card (Q13, Resonance 12.8). */
 export const DeckRuleSchema = z.discriminatedUnion("rule", [
   z.strictObject({ rule: z.literal("anyNumber") }),
@@ -1218,23 +1317,15 @@ export const DeckRuleSchema = z.discriminatedUnion("rule", [
   z.strictObject({
     rule: z.literal("resonance"),
     colors: z.array(z.enum(["Red", "Blue", "Green", "White"])).min(2),
-    conditions: z
-      .array(
-        z.union([
-          z.strictObject({
-            every: z.enum(["Monster", "Battle", "Strategy"]),
-            anyTraits: z.array(z.string().min(1)).min(1).optional(),
-            minRank: z.number().int().positive().optional(),
-            text: z.string().min(1),
-          }),
-          z.strictObject({
-            atLeast: z.number().int().positive(),
-            cards: z.enum(["Monster", "Battle", "Strategy"]),
-            text: z.string().min(1),
-          }),
-        ]),
-      )
-      .min(1),
+    conditions: z.array(DeckConditionSchema).min(1),
+  }),
+  /**
+   * A deck restriction on a rank I monster without Resonance's colors (6.1.2): every condition
+   * must hold, as Resonance's do, and the deck keeps the rank I monster's own colors (6.1.1.3).
+   */
+  z.strictObject({
+    rule: z.literal("restriction"),
+    conditions: z.array(DeckConditionSchema).min(1),
   }),
 ]);
 export type DeckRule = z.infer<typeof DeckRuleSchema>;
@@ -1304,6 +1395,26 @@ export function loadAbilities(): Map<string, CardAbilities> {
   }
   loaded = map;
   return map;
+}
+
+/**
+ * Adds a set's ability file at runtime (the cards from `registerCards`), validated like the
+ * bundled files. Entries for card numbers already known are skipped. Returns how many were added.
+ */
+export function registerAbilities(raw: unknown): number {
+  const result = AbilityFileSchema.safeParse(raw);
+  if (!result.success)
+    throw new Error(
+      `registered abilities are invalid: ${result.error.message}`,
+    );
+  const map = loadAbilities();
+  let added = 0;
+  for (const [number, card] of Object.entries(result.data))
+    if (!map.has(number)) {
+      map.set(number, card);
+      added++;
+    }
+  return added;
 }
 
 /** A card's abilities by `deckCardNumber`. A card with no entry is `manual` with no abilities. */

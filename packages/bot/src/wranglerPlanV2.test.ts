@@ -501,6 +501,43 @@ describe("the Wrangler plan v2", () => {
       expect(d).toBe(true);
   });
 
+  it("#442 (Ian's record 962de209 move 18): at 1 rage with the rank II Godzilla (2023) on top, an invasion whose fetches bring the rage to 2 for Despair goes first; Despair now (it would do nothing) waits", () => {
+    const judge = (fetchDespair: boolean) => {
+      const { state, p1, p2 } = position([DESPAIR, KING], 4, 4, 7);
+      p1.invadingMonsterZone = ["EBP01-001", "ESD01-002"].map((n) =>
+        add(state, real(n), "P1"),
+      );
+      p1.deck.unshift(
+        ...Array.from({ length: 3 }, () => add(state, real("ESD01-006"), "P1")),
+      );
+      p1.rage = 1;
+      // Their GAM in zone 2, at or before your monster's zone: Despair's target.
+      p2.zones[2] = [[add(state, real(GAM), "P2")]];
+      const legal = getLegalActions(state, "P1");
+      const v = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
+        fetchDespair,
+      });
+      const of = (pick: (a: Action) => boolean) =>
+        legal.filter(pick).map((a) => v.against.has(a));
+      return {
+        despair: of(
+          (a) =>
+            a.type === "activateStrategy" && ofCard(state, p1, a) === DESPAIR,
+        ),
+        payKing: of(
+          (a) => a.type === "invade" && ofCard(state, p1, a) === KING,
+        ),
+      };
+    };
+    const on = judge(true);
+    expect(on.despair.length).toBeGreaterThan(0);
+    expect(on.payKing.length).toBeGreaterThan(0);
+    for (const d of on.despair) expect(d).toBe(true);
+    for (const d of on.payKing) expect(d).toBe(false);
+    // `wranglerFetchDespair: false` (the control).
+    for (const d of judge(false).despair) expect(d).toBe(false);
+  });
+
   it("v2.2 (Ian, point 10): Godzilla Against Mechagodzilla's rage reset is saved when it doesn't make the counter", () => {
     const { state, p1 } = position([LANDING], 3, 2);
     p1.zones[1] = [[add(state, real(GAM), "P1")]];
@@ -735,6 +772,26 @@ describe("the Wrangler plan v2", () => {
     for (const d of judge({ at: 2 }).rage) expect(d).toBe(false);
     // `wranglerTagOut: false` (the paired check's control).
     for (const d of judge({ tagOut: false }).rage) expect(d).toBe(false);
+  });
+
+  it("#428 (Ian's record 3e4c0913 move 30): with a King to protect and the rage short of 3, no burst over the rank I Godzilla (1954) EBP01-001 (its counter-phase mill is a rage)", () => {
+    const judge = (rage: number, keepRankOne = true) => {
+      const { state, p1 } = position([KING, "EBP01-002"], 5, 6, 9);
+      p1.invadingMonsterZone = [add(state, real("EBP01-001"), "P1")];
+      p1.rage = rage;
+      const legal = getLegalActions(state, "P1");
+      const v = wranglerV2Verdict(state, legal, "P1", WRANGLER, undefined, {
+        keepRankOne,
+      });
+      const bursts = legal.filter((a) => a.type === "playMonster");
+      expect(bursts.length).toBeGreaterThan(0);
+      return bursts.map((a) => v.against.has(a));
+    };
+    for (const d of judge(0)) expect(d).toBe(true);
+    // At 3 rage the King is covered: the burst may go.
+    for (const d of judge(3)) expect(d).toBe(false);
+    // `wranglerKeepRankOne: false` (the paired check's control).
+    for (const d of judge(0, false)) expect(d).toBe(false);
   });
 
   it("v2.3 (Ian): against Monster X, with fewer than 2 battle cards in hand, dig (Despair over passing)", () => {

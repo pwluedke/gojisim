@@ -31,3 +31,6 @@ bot-reports/
 
 # Discrub exports and the notes made from them (#84): players' messages, never committed
 /discord-exports/
+
+# The private card set's checkout (a private repo; never committed here).
+/private/

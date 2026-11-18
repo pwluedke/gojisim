@@ -1,9 +1,11 @@
 import { type Card, getCardText, getCardTraits } from "@gojisim/cards";
 import { createContext, useContext } from "react";
+import { CardText } from "../game/CardText";
 import type { CardInstance, PlayerAreasView } from "@gojisim/engine";
 import { printedWithCurrent } from "../game/printed";
 import styles from "./Board.module.css";
 import type { BoardModel } from "./model";
+import { cardImage } from "../game/cardImage";
 
 /** Every card the bottom player can see, by instance id (opponent hidden cards are never here). */
 export function visibleCards(model: BoardModel): Map<string, CardInstance> {
@@ -65,7 +67,7 @@ export function Preview({
     >
       <img
         className={styles.previewImage}
-        src={`/cards/${data.id}-full.webp`}
+        src={cardImage(data.id, "full")}
         alt={data.name}
         onError={(e) => {
           e.currentTarget.style.display = "none";
@@ -118,7 +120,9 @@ export function Preview({
           Errata: the text below is the corrected wording.
         </div>
       )}
-      <div className={styles.previewText}>{text.text}</div>
+      <div className={styles.previewText}>
+        <CardText text={text.text} />
+      </div>
     </aside>
   );
 }

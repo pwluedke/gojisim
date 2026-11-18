@@ -53,6 +53,9 @@ import {
   rows,
   slotOrder,
 } from "./deckDraft";
+import { cardImage } from "../game/cardImage";
+import { usePrivateSet } from "../game/privateSet";
+import { CardText } from "../game/CardText";
 
 /** #165: the card grid has 5 or 6 columns (6 once each card gets this wide, px). */
 const SIX_COLUMNS_FROM = 120;
@@ -93,7 +96,9 @@ const OVERSCAN = 2;
  */
 export function Deckbuilder() {
   useEffect(() => applyTheme(loadSettings().theme), []);
-  const pool = useMemo(() => buildPool(getAllCards()), []);
+  // The private set's cards join once they're registered (`privateSet.ts`).
+  const privateSet = usePrivateSet();
+  const pool = useMemo(() => buildPool(getAllCards()), [privateSet]);
   const values = useMemo(() => facets(pool), [pool]);
   const [filter, setFilter] = useState<CardFilter>(() =>
     filterFromQuery(window.location.search),
@@ -582,7 +587,7 @@ function CardImage({
     <div className={styles.thumb}>
       <span className={styles.fallback}>{name}</span>
       <img
-        src={`/cards/${card.id}-${size}.webp`}
+        src={cardImage(card.id, size)}
         alt={name}
         loading="lazy"
         onError={(e) => {
@@ -854,7 +859,9 @@ function DetailPanel({
       {text.hasErrata && (
         <div className={styles.detailMeta}>Errata: the corrected wording.</div>
       )}
-      <p className={styles.detailText}>{text.text}</p>
+      <p className={styles.detailText}>
+        <CardText text={text.text} />
+      </p>
       <CardInsights
         deckCardNumber={entry.deckCardNumber}
         saved={saved}
@@ -898,7 +905,7 @@ function CardDetail({ card, base }: { card: Card; base: Card }) {
     <div data-testid="db-preview">
       <img
         className={styles.full}
-        src={`/cards/${card.id}-full.webp`}
+        src={cardImage(card.id, "full")}
         alt={base.name}
       />
       <h2 className={styles.detailName}>{base.name}</h2>
@@ -913,7 +920,9 @@ function CardDetail({ card, base }: { card: Card; base: Card }) {
       {text.hasErrata && (
         <div className={styles.detailMeta}>Errata: the corrected wording.</div>
       )}
-      <p className={styles.detailText}>{text.text}</p>
+      <p className={styles.detailText}>
+        <CardText text={text.text} />
+      </p>
     </div>
   );
 }

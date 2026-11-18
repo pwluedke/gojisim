@@ -5,7 +5,9 @@ import {
   nextTag,
   notesSection,
   prFromSubject,
+  PRIVATE_LABEL,
   prsInLog,
+  publicPrs,
   releaseBody,
 } from "../src/release";
 
@@ -116,5 +118,38 @@ describe("GitHub Releases from PR descriptions (#89)", () => {
       ),
     ).toBe(120);
     expect(newestArchivedPr("# Release notes\n")).toBeNull();
+  });
+});
+
+describe("private PRs stay out of the release notes (Paul, Nov 18)", () => {
+  it("a PR labeled private-set is left out of the text, title and all; the others stay", () => {
+    const prs = [
+      {
+        number: 12,
+        title: "A secret thing",
+        body: withNotes("Secret notes."),
+        labels: [PRIVATE_LABEL],
+      },
+      {
+        number: 11,
+        title: "Card sounds",
+        body: withNotes("Cards make a sound."),
+        labels: ["bot"],
+      },
+      { number: 10, title: "No labels read", body: withNotes("Older.") },
+    ];
+    const shown = publicPrs(prs);
+    expect(shown.map((p) => p.number)).toEqual([11, 10]);
+    const body = releaseBody(shown);
+    expect(body).toContain("Cards make a sound.");
+    expect(body).not.toContain("secret");
+    expect(body).not.toContain("Secret");
+    expect(body).not.toContain("#12");
+  });
+
+  it("a release of private PRs only has none to show", () => {
+    expect(
+      publicPrs([{ number: 1, title: "x", body: "", labels: [PRIVATE_LABEL] }]),
+    ).toEqual([]);
   });
 });

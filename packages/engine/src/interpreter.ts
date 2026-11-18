@@ -339,7 +339,22 @@ export function resolveZoneSet(
             leftRightPosition(anchor, anchor.player),
       ),
     );
-  else if (set.relation === "atOrBefore")
+  else if (set.relation === "oneTowardMonster") {
+    // One zone number toward its owner's monster (+1 or -1), on the anchor's field.
+    const monster = getPlayer(ctx.state, anchor.player).monsterPosition;
+    if (monster !== null && monster !== anchor.zone)
+      refs.push({
+        player: anchor.player,
+        zone: (anchor.zone + (monster > anchor.zone ? 1 : -1)) as ZoneNumber,
+      });
+  } else if (set.relation === "oneLowerThan") {
+    // The zone numbered 1 lower on the anchor's field (zone 5 -> 4); none below zone 1.
+    if (anchor.zone > 1)
+      refs.push({
+        player: anchor.player,
+        zone: (anchor.zone - 1) as ZoneNumber,
+      });
+  } else if (set.relation === "atOrBefore")
     // C3: zones numbered at most the anchor's, on each field (4.4.5.3.1, EBP02-018).
     refs.push(...allZones(ctx.state).filter((r) => r.zone <= anchor.zone));
   else {
@@ -350,6 +365,13 @@ export function resolveZoneSet(
     if (zone !== null) refs.push({ player: anchor.player, zone });
   }
   if (set.includeSelf) refs.push(anchor);
+  if (set.unoccupied)
+    return refs.filter((r) => {
+      const owner = getPlayer(ctx.state, r.player);
+      return (
+        owner.zones[r.zone].length === 0 && r.zone !== owner.monsterPosition
+      );
+    });
   return refs;
 }
 
@@ -709,6 +731,11 @@ export function conditionHolds(ctx: Context, condition: Condition): boolean {
       if (e.player === null) return false;
       if (condition.thisTurn === "invaded")
         return e.type === "invade" && isPlayer(whose, e.player, ctx.master);
+      // This card was played into its master's zones this turn (12.2).
+      if (condition.thisTurn === "thisEntered")
+        return (
+          e.type === "place" && e.payload["instanceId"] === ctx.sourceInstanceId
+        );
       // An opponent's battle card destroyed (5.12, 11.3, 11.5), from `whose` point of view.
       if (e.type !== "destroy" || isPlayer(whose, e.player, ctx.master))
         return false;
@@ -894,6 +921,14 @@ function triggerMatches(
         (l) => l.card.instanceId === event.payload["instanceId"],
       );
     }
+    case "repelled":
+      // A repel that made the monster retreat (7.5.2).
+      return (
+        event.type === "advanceRepelled" &&
+        event.player !== null &&
+        event.payload["retreated"] === true &&
+        isPlayer(trigger.whose, event.player, master)
+      );
     case "countered": {
       if (event.type !== "counter" || event.player === null) return false;
       if (trigger.whose === "this") {
@@ -931,6 +966,39 @@ function triggerMatches(
           !sameColumn(
             { player: mover.id, zone: to },
             { player: other.id, zone: other.monsterPosition },
+          )
+        )
+          return false;
+      }
+      return true;
+    }
+    case "monsterEntered": {
+      // A monster moves into a zone: every step of every move (5.13.1, 5.13.2, 5.15.1.1, 4.4.5.1).
+      if (
+        !["advance", "retreat", "moveBehind", "moveVertically"].includes(
+          event.type,
+        ) ||
+        event.player === null
+      )
+        return false;
+      if (!isPlayer(trigger.whose, event.player, master)) return false;
+      const mover = getPlayer(state, event.player);
+      if (trigger.traits) {
+        const top = topOf(mover.invadingMonsterZone);
+        const traits = top ? getCardTraits(cardOf(state, top)) : [];
+        if (!trigger.traits.some((t) => traits.includes(t))) return false;
+      }
+      if (trigger.into) {
+        const to = Number(event.payload["to"]) as ZoneNumber;
+        const ctx: Context = {
+          state,
+          master,
+          sourceInstanceId: source.instanceId,
+          bindings: {},
+        };
+        if (
+          !resolveZoneSet(ctx, trigger.into, [mover]).some(
+            (r) => r.player === mover.id && r.zone === to,
           )
         )
           return false;
@@ -1584,6 +1652,17 @@ function bindTriggerCard(
   event: LogEntry,
 ): void {
   const r = state.resolution;
+  // The zone a countered monster was in (5.15.1.1), bound as a zone.
+  if (r && trigger.on === "countered" && trigger.zoneAs) {
+    const zone = Number(event.payload["zone"]);
+    if (event.player !== null && zone >= 1 && zone <= 8)
+      r.bindings[trigger.zoneAs] = {
+        kind: "zone",
+        player: event.player,
+        zone: zone as ZoneNumber,
+      };
+    return;
+  }
   if (
     !r ||
     !(
@@ -1595,6 +1674,12 @@ function bindTriggerCard(
   const name = ("as" in trigger && trigger.as) || "";
   const ctx = contextOf(state);
   // T7: the played card, where it landed.
+  // The battle card that repelled the advance, where it is now.
+  if (trigger.on === "repelled") {
+    const found = locate(state, String(event.payload["by"]));
+    bindCards(ctx, name, found ? [found.card] : []);
+    return;
+  }
   if (trigger.on === "cardPlayed") {
     const found = locate(state, String(event.payload["instanceId"]));
     bindCards(ctx, name, found ? [found.card] : []);
@@ -3082,7 +3167,8 @@ function perform(state: GameState, effect: Effect): Outcome {
       return "done";
     }
     case "grant": {
-      // E19: a flag for the rest of the turn on the cards the target picks now; it ends at 7.5.6.
+      // E19: a flag on the cards the target picks now, for the rest of the turn (it ends at
+      // 7.5.6) or until their master's next end phase advance step (7.5.2).
       const { modifier } = effect;
       if (!("flag" in modifier) || !("target" in modifier))
         throw new Error("not implemented: grant without a target");
@@ -3091,10 +3177,16 @@ function perform(state: GameState, effect: Effect): Outcome {
         instanceId: l.card.instanceId,
         modifier,
       }));
+      const holder = flags[0] && locate(state, flags[0].instanceId)?.player.id;
       state.continuousEffects.push({
         effectId: `grant:${abilityId}:${timestamp}`,
         timestamp,
-        duration: "untilEndOfTurn",
+        ...(effect.duration === "nextEndPhase"
+          ? {
+              duration: "untilEndPhaseAdvance" as const,
+              endPhaseOf: holder ?? ctx.master,
+            }
+          : { duration: "untilEndOfTurn" as const }),
         flags,
       });
       appendLog(state, "grant", ctx.master, {

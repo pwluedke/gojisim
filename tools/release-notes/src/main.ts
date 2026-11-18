@@ -5,10 +5,12 @@ import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { postRelease } from "./announce";
 import {
+  NOTHING_PUBLIC,
   newestArchivedPr,
   nextTag,
   prFromSubject,
   prsInLog,
+  publicPrs,
   type PullRequest,
   releaseBody,
 } from "./release";
@@ -19,7 +21,9 @@ import {
  * `gh` signed in). The release covers the PRs merged into main after the previous `release-*` tag
  * (before the first one: after the newest PR in `docs/release-notes.md`, the archive), or after
  * PR N with `--since-pr`. After the release, it posts it to Slack and Discord when their webhook
- * secrets are set (#134, `announce.ts`).
+ * secrets are set (#134, `announce.ts`). PRs labeled `private-set` are left out of the text and the
+ * posts; a release of only those still gets its tag (the next release and rollbacks count from it)
+ * but posts nothing.
  */
 const { values } = parseArgs({
   options: {
@@ -77,16 +81,22 @@ const numbers = prsInLog(
 );
 const prs: PullRequest[] = numbers.map((n) => {
   const pr = JSON.parse(
-    run("gh", ["pr", "view", String(n), "--json", "number,title,body"]),
-  ) as PullRequest;
-  return { number: pr.number, title: pr.title, body: pr.body ?? "" };
+    run("gh", ["pr", "view", String(n), "--json", "number,title,body,labels"]),
+  ) as Omit<PullRequest, "labels"> & { labels?: { name: string }[] };
+  return {
+    number: pr.number,
+    title: pr.title,
+    body: pr.body ?? "",
+    labels: (pr.labels ?? []).map((l) => l.name),
+  };
 });
+const shown = publicPrs(prs);
 // Paul's date (decision 568), whatever the runner's time zone.
 const date = new Intl.DateTimeFormat("en-CA", {
   timeZone: "America/Chicago",
 }).format(new Date());
 const tag = nextTag(date, tags);
-const body = releaseBody(prs);
+const body = shown.length > 0 ? releaseBody(shown) : NOTHING_PUBLIC;
 const title = `Release ${date}${tag.endsWith("-1") ? "" : ` (${tag.split("-").at(-1)})`}`;
 
 if (prs.length === 0) {
@@ -94,7 +104,9 @@ if (prs.length === 0) {
   process.exit(0);
 }
 if (values["dry-run"]) {
-  console.log(`${tag}: ${title}, ${prs.length} PR(s) ${from}\n\n${body}`);
+  console.log(
+    `${tag}: ${title}, ${prs.length} PR(s) ${from} (${prs.length - shown.length} private)\n\n${body}`,
+  );
   process.exit(0);
 }
 const file = join(mkdtempSync(join(tmpdir(), "release-")), "notes.md");
@@ -113,6 +125,11 @@ const url = run("gh", [
   file,
 ]);
 console.log(url);
-// #134: Slack #gojisim-release-notes and the Discord server; a failed post only warns.
+// #134: Slack #gojisim-release-notes and the Discord server; a failed post only warns. A release
+// of private PRs only isn't posted anywhere.
+if (shown.length === 0) {
+  console.log("Only private PRs: not posted.");
+  process.exit(0);
+}
 const posted = await postRelease({ title, url, notes: body }, process.env);
 if (posted.length > 0) console.log(`Posted to ${posted.join(" and ")}.`);
