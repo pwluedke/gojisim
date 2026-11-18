@@ -25,6 +25,7 @@ import {
 } from "../game/decks";
 import { deckOf } from "../game/deckStore";
 import { PLAYER_IDS, type PlayerId, randomSeed } from "../game/session";
+import { usePrivateSet } from "../game/privateSet";
 import { useTestDecks } from "../game/testDecks";
 import { useMyDecks } from "../game/useMyDecks";
 import styles from "./NewGame.module.css";
@@ -114,7 +115,13 @@ export function NewGame({
   // #161: the starters, then (#359) the server's test decks, then My decks (synced when signed
   // in); nothing else.
   const my = useMyDecks();
-  const tests = useTestDecks();
+  // The private card set's decks, for the accounts that have one, after the test decks.
+  const testDecks = useTestDecks();
+  const privateSet = usePrivateSet();
+  const tests = useMemo(
+    () => [...testDecks, ...(privateSet?.decks ?? [])],
+    [testDecks, privateSet],
+  );
   const options = useMemo(() => {
     const mine = my.decks.flatMap((saved) => {
       const deck = deckOf(saved);

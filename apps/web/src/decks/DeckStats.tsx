@@ -10,6 +10,7 @@ import {
 } from "./deckDraft";
 import { FloatingWindow } from "../play/FloatingWindow";
 import styles from "./DeckStats.module.css";
+import { cardImage } from "../game/cardImage";
 
 /**
  * #159: the deck panel's stats, folded to today's counts line, and a sample opening hand. Open
@@ -244,7 +245,7 @@ function SampleHand({
           >
             <span className={styles.fallback}>{card.name}</span>
             <img
-              src={`/cards/${card.id}-thumb.webp`}
+              src={cardImage(card.id, "thumb")}
               alt={card.name}
               onError={(e) => {
                 e.currentTarget.style.visibility = "hidden";

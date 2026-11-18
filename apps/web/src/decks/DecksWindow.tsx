@@ -12,6 +12,7 @@ import {
 import { checkDeck, deckOptions, testDeckOptions } from "../game/decks";
 import { deckName } from "../game/importDeck";
 import { downloadText } from "../game/session";
+import { usePrivateSet } from "../game/privateSet";
 import { useTestDecks } from "../game/testDecks";
 import type { useMyDecks } from "../game/useMyDecks";
 import { copyName } from "./deckDraft";
@@ -49,7 +50,12 @@ export function DecksWindow({
   // #359: the server's test decks, after the starters: Load opens a copy, and saving makes it
   // yours (the server's list changes only through the upload).
   const testDecks = useTestDecks();
-  const tests = useMemo(() => testDeckOptions(testDecks), [testDecks]);
+  // The private card set's decks, for the accounts that have one, after the test decks.
+  const privateSet = usePrivateSet();
+  const tests = useMemo(
+    () => testDeckOptions([...testDecks, ...(privateSet?.decks ?? [])]),
+    [testDecks, privateSet],
+  );
   const [query, setQuery] = useState("");
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [menu, setMenu] = useState<string | null>(null);

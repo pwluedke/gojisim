@@ -170,7 +170,13 @@ async function toMyNextTurn(page: Page) {
   await expect
     .poll(
       async () => {
-        for (const id of ["choice-yes", "choice-option", "search-confirm"]) {
+        // A combo the bot makes holds it until its modal is closed (M5g).
+        for (const id of [
+          "choice-yes",
+          "choice-option",
+          "search-confirm",
+          "combo-close",
+        ]) {
           const button = page.getByTestId(id).first();
           if (await button.isVisible()) await button.click();
         }
@@ -222,7 +228,7 @@ test.describe("the bot hand's count badge", () => {
   test("the badge equals the bot's hand size through a few turns", async ({
     page,
   }) => {
-    // Three bot turns: slower than the 30 s default on a CI runner.
+    // Bot turns: slower than the 30 s default on a CI runner.
     test.setTimeout(120_000);
     // hand-count-five: early in the game, so passing a few turns doesn't lose it. The bot plays at
     // difficulty 0, the lightest search: the badge doesn't depend on how well it plays, and
@@ -239,7 +245,9 @@ test.describe("the bot hand's count badge", () => {
       Number(
         /(\d+) card/.exec((await hand.getAttribute("aria-label")) ?? "")?.[1],
       );
-    for (let turn = 0; turn < 3; turn++) {
+    // Two of the bot's turns: by a third, the bot can win by invasion while P1 only passes (#450:
+    // its guessed decklist draws from the whole card pool, so card data changes its play).
+    for (let turn = 0; turn < 2; turn++) {
       await toMyNextTurn(page);
       // Read together: the badge and the hand size agree, with one badge.
       await expect

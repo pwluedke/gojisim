@@ -335,9 +335,10 @@ test.describe("moving cards stay on top (M5g fix)", () => {
     await normal(page, { botDelay: 0 });
     await sampleLayers(page);
     await page.goto("/play?mode=bot");
-    // Seed 1: the Easy bot plays a monster onto its stack early. (Seed 3 stopped doing so once
-    // the bot guessed the opponent's decklist instead of reading it, Q42.)
-    await page.getByTestId("seed-input").fill("1");
+    // Seed 5: the Easy bot plays a monster onto its stack early. (Seed 3 stopped doing so once
+    // the bot guessed the opponent's decklist instead of reading it, Q42; seed 1 once the card
+    // data gained two invasion icons, #450: the guess draws from the whole card pool.)
+    await page.getByTestId("seed-input").fill("5");
     // The Easy bot plays monsters readily.
     await page.getByTestId("preset-P2-easy").click();
     const { startGame } = await import("./helpers");
@@ -345,6 +346,9 @@ test.describe("moving cards stay on top (M5g fix)", () => {
     await expect
       .poll(
         async () => {
+          // A combo holds the bot until its modal is closed.
+          const close = page.getByTestId("combo-close");
+          if (await close.isVisible()) await close.click();
           const pass = page.getByTestId("pass");
           if (await pass.isVisible()) {
             await pass.click();

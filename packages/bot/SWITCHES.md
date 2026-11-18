@@ -116,6 +116,12 @@ Default 1 · built · from #373
 
 The Monster X plan's #373 (Paul's R-5): no Entangling Fear (which holds your monster in place) while a strategy in hand is one rank past your monster's zone (8.3.1, e.g. Godzilla vs. Megaguirus at rank 5 from zone 4) and this turn's counter is made.
 
+### `mxFillBoard`
+
+Default 1 · built · from #377
+
+The Monster X plan's fill the board (Paul, Nov 16): every playable battle card is played this turn, big ones included, rather than held: no passing while one the plan's other rules leave standing can be played into a zone out of reach of their monster's destroy (not the column of their monster's zone or its next one). Needs `mxPlan` 2.
+
 ### `mxLanding`
 
 Default 1 · built · from #335
@@ -289,6 +295,12 @@ The Wrangler plan's push line (Ian): an invasion that reaches a push strategy's 
 Default 1 · built · from #388
 
 The Wrangler plan's reset line (Ian): an invasion that triggers Godzilla Against Mechagodzilla EBP01-073's rage reset (the opponent's rage to 0, so a King's protection is gone), after which a rage gain (Godzilla (2023) EBP01-010's column destroy) and up to 3 battle card plays make the counter this turn, is taken over raging or passing, ahead of v2.1's rage to 3 for a King. Needs `wranglerPlan` 2.
+
+### `wranglerSpareCost`
+
+Default 1 · built · from #418
+
+The Wrangler plan's spare cost (Ian; Paul's option a, Nov 16): early (your monster at rank I or II), an invasion paid with a spare strategy (The Slithering Disaster, or a Despair beyond the one the plan keeps) is freed from "don't race", to clear the dead card out of the hand; monster cards still go for rage, and Godzilla Landing is never a spare (card rule 31). Needs `wranglerPlan` 2.
 
 ### `wranglerTagOut`
 
