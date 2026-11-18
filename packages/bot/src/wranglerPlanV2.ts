@@ -58,6 +58,8 @@ import {
  *   plays make the counter this turn is taken over raging or passing, ahead of v2.1's rage to 3.
  *   #417 (Ian): when the reset alone makes the counter (the invasion settles with their rage 0
  *   and the counter made), that invasion is taken over every other move.
+ * - Keep the rank I (#428, Ian, `wranglerKeepRankOne`): with a King to protect and the rage short
+ *   of 3, no burst over the rank I Godzilla (1954) EBP01-001 (its counter-phase mill is a rage).
  * - Tag out against a reset (#384, Ian, `wranglerTagOut`): with the opponent's GAM up and unused,
  *   a tag-out to Godzilla (2001) EBP03-004 (rage the opponent can't reduce from zone 4) goes
  *   before raging or passing.
@@ -85,6 +87,8 @@ const PATH = 2;
 const COLUMN_CLEAR = "EBP01-010";
 /** #384: Godzilla (2001), whose rage the opponent's effects can't reduce from zone 4 (awakening-4). */
 const RAGE_LOCK = "EBP03-004";
+/** #428: the rank I Godzilla (1954), whose counter-phase mill adds a rage on a monster card. */
+const RANK_ONE_MILL = "EBP01-001";
 /** #384: the zone its awakening needs. */
 const RAGE_LOCK_ZONE = 4;
 /** `wranglerBioHard` (Paul, Nov 15): a counter over this beats Biollante's rank III anyway. */
@@ -276,6 +280,7 @@ export function wranglerV2Verdict(
     pushLine = true,
     resetLine = true,
     tagOut = true,
+    keepRankOne = true,
     fetchRage = true,
     spareCost = true,
   } = options;
@@ -747,6 +752,23 @@ export function wranglerV2Verdict(
       rescued.add(a);
     }
   }
+
+  // #428 (Ian): the rank I Godzilla (1954) EBP01-001's counter-phase mill is a rage source. With a
+  // King to protect (in play or in hand) and the rage short of 3, a burst over it (it covers the
+  // rank I through this turn's counter phase) waits, unless it wins now.
+  const topNow = player.invadingMonsterZone.at(-1);
+  const kingInHand = player.hand.some(
+    (c) => state.cards[c.cardId]?.deckCardNumber === KING,
+  );
+  if (
+    keepRankOne &&
+    topNow &&
+    state.cards[topNow.cardId]?.deckCardNumber === RANK_ONE_MILL &&
+    (kingIn([1, 2, 3, 4, 5, 6, 7, 8]) || kingInHand) &&
+    player.rage < kingRage
+  )
+    for (const a of actions)
+      if (a.type === "playMonster" && !winsNow(state, a, me)) against.add(a);
 
   // #381: with a push line on, raging and passing wait (rage first would spend the turn); #388:
   // so with a reset line (rage first would spend the destroy on a protected King).
