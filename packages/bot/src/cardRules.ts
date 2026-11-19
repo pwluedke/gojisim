@@ -20,6 +20,7 @@ import {
   counterOnly,
   counters,
 } from "./rules";
+import type { TraceSink } from "./trace";
 import type { Decklist } from "./types";
 
 /**
@@ -1758,8 +1759,16 @@ export function cardRulesDead(
   /** The bot's own decklist (rule 6), when known. */
   own?: Decklist,
   options: CardRulesOptions = {},
+  /** #478: where each rule reports the moves it removes (it changes nothing). */
+  trace?: TraceSink,
 ): Set<Action> {
   const dead = new Set<Action>();
+  const add = (id: string, found: Iterable<Action>) => {
+    const list = [...found];
+    for (const action of list) dead.add(action);
+    trace?.rule(id, "removed", list);
+  };
+  const rule1: Action[] = [];
   for (const action of actions) {
     if (action.type !== "playMonster") continue;
     const card = state.players
@@ -1777,68 +1786,68 @@ export function cardRulesDead(
       continue;
     }
     if (after.result) {
-      if (after.result.winner !== me) dead.add(action);
+      if (after.result.winner !== me) rule1.push(action);
       continue;
     }
     // The opponent answers something first: not judged.
     if (after.pendingChoice) continue;
-    if (!strategyCovered(after, me)) dead.add(action);
+    if (!strategyCovered(after, me)) rule1.push(action);
   }
-  for (const action of invadeIntoBlocker(state, actions, me)) dead.add(action);
-  for (const action of columnPlays(state, actions, me)) dead.add(action);
-  for (const action of recurringPlays(state, actions, me)) dead.add(action);
-  for (const action of spentCounters(state, actions, me)) dead.add(action);
-  for (const action of slowInvasions(state, actions, me, own)) dead.add(action);
+  add("card rule 1", rule1);
+  add("card rule 2", invadeIntoBlocker(state, actions, me));
+  add("card rule 3", columnPlays(state, actions, me));
+  add("card rule 4", recurringPlays(state, actions, me));
+  add("card rule 5", spentCounters(state, actions, me));
+  add("card rule 6", slowInvasions(state, actions, me, own));
   if (options.tanglerEarly !== false)
-    for (const action of slowInvasions(state, actions, me, own, true))
-      dead.add(action);
-  for (const action of zoneLimitedPlays(state, actions, me)) dead.add(action);
-  for (const action of unsafeAdvances(state, actions, me)) dead.add(action);
-  for (const action of weakEvolutions(state, actions, me)) dead.add(action);
-  for (const action of earlyAwakenings(state, actions, me)) dead.add(action);
-  for (const action of earlyRage(state, actions, me)) dead.add(action);
-  for (const action of heldMonsters(state, actions, me)) dead.add(action);
-  for (const action of idleModes(state, actions, me)) dead.add(action);
-  for (const action of millModes(state, actions, me)) dead.add(action);
-  for (const action of revengePlays(
-    state,
-    actions,
-    me,
-    options.revengeStep !== false,
-  ))
-    dead.add(action);
-  for (const action of redundantStrategies(state, actions, me))
-    dead.add(action);
+    add("card rule 29", slowInvasions(state, actions, me, own, true));
+  add("card rule 8", zoneLimitedPlays(state, actions, me));
+  add("card rule 10", unsafeAdvances(state, actions, me));
+  add("card rule 12", weakEvolutions(state, actions, me));
+  add("card rule 13", earlyAwakenings(state, actions, me));
+  add("card rule 14", earlyRage(state, actions, me));
+  add("card rule 15", heldMonsters(state, actions, me));
+  add("card rule 16", idleModes(state, actions, me));
+  add("card rule 18", millModes(state, actions, me));
+  add(
+    "card rule 17",
+    revengePlays(state, actions, me, options.revengeStep !== false),
+  );
+  add("card rule 19", redundantStrategies(state, actions, me));
   if (options.counterAlways !== false)
-    for (const action of droppedCounters(state, actions, me))
-      if (!winsNow(state, action, me)) dead.add(action);
+    add(
+      "card rule 20",
+      [...droppedCounters(state, actions, me)].filter(
+        (action) => !winsNow(state, action, me),
+      ),
+    );
   if (options.recurDiscard !== false)
-    for (const action of recurringDiscards(state, actions, me))
-      if (!winsNow(state, action, me)) dead.add(action);
+    add(
+      "card rule 24",
+      [...recurringDiscards(state, actions, me)].filter(
+        (action) => !winsNow(state, action, me),
+      ),
+    );
   if (options.ownPath !== false)
-    for (const action of ownPathPlays(state, actions, me)) dead.add(action);
+    add("card rule 21", ownPathPlays(state, actions, me));
   if (options.keepLowRank !== false)
-    for (const action of lowRankDiscards(state, actions, me)) dead.add(action);
+    add("card rule 28", lowRankDiscards(state, actions, me));
   if (options.keepStrategy !== false)
-    for (const action of strategyDiscards(state, actions, me)) dead.add(action);
+    add("card rule 27", strategyDiscards(state, actions, me));
   if (options.activeInvading !== false)
-    for (const action of buriedInvadingPlays(state, actions, me))
-      dead.add(action);
+    add("card rule 26", buriedInvadingPlays(state, actions, me));
   if (options.ownBehind !== false)
-    for (const action of ownPathPlays(state, actions, me, true))
-      dead.add(action);
+    add("card rule 25", ownPathPlays(state, actions, me, true));
   if (options.ownCover !== false)
-    for (const action of ownCoverPlays(state, actions, me)) dead.add(action);
+    add("card rule 23", ownCoverPlays(state, actions, me));
   if (options.modeBest !== false)
-    for (const action of weakerModes(state, actions, me)) dead.add(action);
+    add("card rule 30", weakerModes(state, actions, me));
   if (options.targetAll !== false)
-    for (const action of idleStrategies(state, actions, me)) dead.add(action);
+    add("card rule 22b", idleStrategies(state, actions, me));
   if (options.targetCheck !== false)
-    for (const action of fizzlingStrategies(state, actions, me))
-      dead.add(action);
+    add("card rule 22", fizzlingStrategies(state, actions, me));
   if (options.coverToken !== false)
-    for (const action of ownCoverPlays(state, actions, me, true))
-      dead.add(action);
+    add("card rule 23b", ownCoverPlays(state, actions, me, true));
   // Rule 7: a way to make the counter (#305), else to block zone 8, is taken: every other move
   // waits (but an invasion that wins now), and it outranks the others' holds. (Rule 9 alone only
   // frees holds, in `rescuedPlays`.)
@@ -1850,6 +1859,7 @@ export function cardRulesDead(
     for (const a of actions)
       if (!taken.has(a) && !winsNow(state, a, me)) dead.add(a);
     for (const a of taken) dead.delete(a);
+    trace?.rule("card rule 7", "forced", taken);
   }
   return dead;
 }

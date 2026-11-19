@@ -1,3 +1,4 @@
+import { mark } from "./trace";
 import type {
   Action,
   CardInstance,
@@ -171,7 +172,7 @@ export function tanglerVerdict(
         picked(a) ??
         (a.type === "invade" ? inHand(a.cardInstanceId) : undefined);
       if (cardData(state, card)?.deckCardNumber === ENTANGLING_FEAR)
-        against.add(a);
+        mark(against, a, "Tangler plan 1", "against");
     }
 
   // Rule 6a at a discard pick: that copy waits while another card can go.
@@ -179,7 +180,8 @@ export function tanglerVerdict(
     const picks = actions.filter((a) => picked(a) !== undefined);
     if (picks.some((a) => picked(a)?.instanceId !== keep[0]))
       for (const a of picks)
-        if (picked(a)?.instanceId === keep[0]) against.add(a);
+        if (picked(a)?.instanceId === keep[0])
+          mark(against, a, "Tangler plan 6a", "against");
   }
 
   // Rule 3 at a discard pick: a cheap battle card goes before any other card; at a "you may
@@ -197,7 +199,7 @@ export function tanglerVerdict(
         RAGE_REDUCERS.has(source ?? "") &&
         player.hand.some((c) => cheap(c))
       )
-        against.add(no);
+        mark(against, no, "Tangler plan 3", "against");
     } else if (lowers) {
       const picks = actions.filter((a) => picked(a) !== undefined);
       // (Rule 6a's kept Destoroyah copy isn't one.)
@@ -206,8 +208,8 @@ export function tanglerVerdict(
       );
       if (good.length > 0)
         for (const a of picks)
-          if (good.includes(a)) rescued.add(a);
-          else against.add(a);
+          if (good.includes(a)) mark(rescued, a, "Tangler plan 3", "freed");
+          else mark(against, a, "Tangler plan 3", "against");
     } else if (highRank && top?.deckCardNumber === RANK_ONE_2002) {
       // Rule 7a: the highest-rank battle card goes.
       const rankOf = (a: Action) => {
@@ -218,8 +220,9 @@ export function tanglerVerdict(
       const highest = Math.max(...picks.map(rankOf));
       if (picks.length > 0)
         for (const a of picks)
-          if (rankOf(a) === highest) rescued.add(a);
-          else against.add(a);
+          if (rankOf(a) === highest)
+            mark(rescued, a, "Tangler plan 7a", "freed");
+          else mark(against, a, "Tangler plan 7a", "against");
     }
     return { against, rescued };
   }
@@ -256,7 +259,7 @@ export function tanglerVerdict(
           a.type === "invade" &&
           (cardData(state, inHand(a.cardInstanceId))?.invadeZones ?? 0) >= 2
         )
-          against.add(a);
+          mark(against, a, "Tangler plan 7b", "against");
   }
 
   // Rule 5: with the counter made, the hand stays (but rule 1's Fear and low evolution cards).
@@ -267,17 +270,17 @@ export function tanglerVerdict(
         !fearPlays.includes(a) &&
         !evolutions.includes(a)
       )
-        against.add(a);
+        mark(against, a, "Tangler plan 5", "against");
 
   // Rule 6a: the last rank 4 or 6 Destoroyah battle card in hand stays (with none on the field),
   // unless playing it makes this turn's counter.
   if (save && keep.length > 0)
     for (const a of actions) {
       if (a.type === "invade" && keep.includes(a.cardInstanceId))
-        against.add(a);
+        mark(against, a, "Tangler plan 6a", "against");
       if (a.type !== "playBattle" || !keep.includes(a.cardInstanceId)) continue;
       if (counters(state, me) || !counterPlays(state, actions, me).has(a))
-        against.add(a);
+        mark(against, a, "Tangler plan 6a", "against");
     }
   // Rule 6b: Godzilla vs. Destoroyah waits unless it makes the counter that's the last one (their
   // monster deck is empty) or that stops a losing invasion (their monster in reach of your zone 8).
@@ -293,18 +296,18 @@ export function tanglerVerdict(
       const losing = (opponent.monsterPosition ?? 0) >= LOSING_ZONE;
       for (const a of vs)
         if (counters(state, me) || !makes.has(a) || !(last || losing))
-          against.add(a);
+          mark(against, a, "Tangler plan 6b", "against");
     }
   }
 
   // Rule 1: Entangling Fear every turn it can be played (#369); the low evolution cards early.
   if (fear && !feared && fearPlays.length > 0) {
-    for (const a of fearPlays) rescued.add(a);
-    for (const a of passes) against.add(a);
+    for (const a of fearPlays) mark(rescued, a, "Tangler plan 1", "freed");
+    for (const a of passes) mark(against, a, "Tangler plan 1", "against");
   }
   if (build && evolutions.length > 0) {
-    for (const a of evolutions) rescued.add(a);
-    for (const a of passes) against.add(a);
+    for (const a of evolutions) mark(rescued, a, "Tangler plan 1", "freed");
+    for (const a of passes) mark(against, a, "Tangler plan 1", "against");
   }
 
   // Rule 7c: against Gigan (2004) with Entangling Fear unplayable, the turn goes into the counter.
@@ -315,9 +318,10 @@ export function tanglerVerdict(
     fearPlays.length === 0
   ) {
     for (const a of actions)
-      if (a.type === "invade" && !winsNow(state, a, me)) against.add(a);
+      if (a.type === "invade" && !winsNow(state, a, me))
+        mark(against, a, "Tangler plan 7c", "against");
     if (!counters(state, me) && actions.some((a) => a.type === "playBattle"))
-      for (const a of passes) against.add(a);
+      for (const a of passes) mark(against, a, "Tangler plan 7c", "against");
   }
 
   // Never argue against everything.

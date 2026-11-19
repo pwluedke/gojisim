@@ -1,3 +1,4 @@
+import { mark } from "./trace";
 import { getCardTraits } from "@gojisim/cards";
 import {
   type Action,
@@ -186,7 +187,8 @@ export function wranglerVerdict(
     );
     if (targets.size === 0) return { against, rescued };
     for (const a of actions)
-      if (a.type === "choose" && !targets.has(a.optionId)) against.add(a);
+      if (a.type === "choose" && !targets.has(a.optionId))
+        mark(against, a, "Wrangler plan v1", "against");
     return { against, rescued };
   }
   if (choice) return { against, rescued };
@@ -207,7 +209,8 @@ export function wranglerVerdict(
     for (const a of actions) {
       if (a.type !== "invade") continue;
       const n = handCard(state, me, a.cardInstanceId)?.deckCardNumber;
-      if (n === GAM || n === DESPAIR) against.add(a);
+      if (n === GAM || n === DESPAIR)
+        mark(against, a, "Wrangler plan v1", "against");
     }
   }
   if (
@@ -219,8 +222,10 @@ export function wranglerVerdict(
     if (player.rage < DESPAIR_RAGE) {
       // To 2 rage first: the rage discards, freed from Paul's rule 2 holds.
       for (const a of actions) {
-        if (a.type === "gainRage") rescued.add(a);
-        else if (a.type !== "concede") against.add(a);
+        if (a.type === "gainRage")
+          mark(rescued, a, "Wrangler plan v1", "freed");
+        else if (a.type !== "concede")
+          mark(against, a, "Wrangler plan v1", "against");
       }
     } else
       for (const a of actions)
@@ -231,7 +236,7 @@ export function wranglerVerdict(
             handCard(state, me, a.cardInstanceId)?.deckCardNumber === DESPAIR
           )
         )
-          against.add(a);
+          mark(against, a, "Wrangler plan v1", "against");
     if (onlyLine1) {
       if (actions.every((a) => a.type === "concede" || against.has(a)))
         against.clear();
@@ -251,7 +256,7 @@ export function wranglerVerdict(
           handCard(state, me, a.cardInstanceId)?.deckCardNumber ===
             GODZILLA_2004)
       )
-        against.add(a);
+        mark(against, a, "Wrangler plan v1 3", "against");
   } else if (state.turn >= CHURN_FROM_TURN) {
     // Line 2: churn. The rage discards but the held key cards are freed and favored over passing.
     const churn = actions.filter(
@@ -260,10 +265,10 @@ export function wranglerVerdict(
         !HELD.has(handCard(state, me, a.cardInstanceId)?.deckCardNumber ?? ""),
     );
     if (churn.length > 0) {
-      for (const a of churn) rescued.add(a);
+      for (const a of churn) mark(rescued, a, "Wrangler plan v1 2", "freed");
       for (const a of actions)
         if (a.type === "pass" || (a.type === "gainRage" && !churn.includes(a)))
-          against.add(a);
+          mark(against, a, "Wrangler plan v1 2", "against");
     }
   }
   // Never argue against everything.

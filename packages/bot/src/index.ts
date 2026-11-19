@@ -36,6 +36,7 @@ export * from "./greedy";
 export * from "./input";
 export * from "./ismcts";
 export * from "./prune";
+export * from "./trace";
 export * from "./recognizer";
 export * from "./types";
 

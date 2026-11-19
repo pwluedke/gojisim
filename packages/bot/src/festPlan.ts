@@ -1,3 +1,4 @@
+import { mark } from "./trace";
 import {
   type Action,
   counterPowerOf,
@@ -155,7 +156,8 @@ export function festVerdict(
         (c) => state.cards[c.cardId]?.deckCardNumber === SPACE_BEAM,
       ) &&
       canClearZone8(state, actions, me);
-    if (!early) for (const a of invades) against.add(a);
+    if (!early)
+      for (const a of invades) mark(against, a, "Red Fest plan 2", "against");
   }
 
   // Line 2, rank I (#400, Slick): invade only for the same-column push with a counter to follow.
@@ -170,8 +172,8 @@ export function festVerdict(
           theirAt;
       if (pushed && s && counterWithin(s, me)) {
         against.delete(a);
-        rescued.add(a);
-      } else against.add(a);
+        mark(rescued, a, "Red Fest plan 2", "freed");
+      } else mark(against, a, "Red Fest plan 2", "against");
     }
   }
 
@@ -184,7 +186,7 @@ export function festVerdict(
     if (theirAt < 8 && theirAt + 1 >= COUNTERED_FROM)
       for (const a of invades) {
         against.delete(a);
-        rescued.add(a);
+        mark(rescued, a, "Red Fest plan 2", "freed");
       }
   }
   // (b) Godzilla Emerges ESD01-014 (rank 6, so from zone 6, 8.3.1; it needs 2 rage): an invasion
@@ -207,7 +209,7 @@ export function festVerdict(
       const at = s?.players.find((p) => p.id === me)?.monsterPosition ?? 0;
       if (s && s.turnPlayer === me && at >= EMERGES_ZONE) {
         against.delete(a);
-        rescued.add(a);
+        mark(rescued, a, "Red Fest plan 2", "freed");
       }
     }
 
@@ -219,12 +221,13 @@ export function festVerdict(
     (player.monsterPosition ?? 0) >= COUNTERED_FROM &&
     counterPowerOf(state, opponent) >= getThreat(state, me);
   if (rankThreeSave && rank === 3 && countered) {
-    for (const a of rages) against.add(a);
+    for (const a of rages) mark(against, a, "Red Fest plan 2", "against");
     const playOuts = actions.filter(
       (a) => a.type === "playBattle" || a.type === "activateStrategy",
     );
     if (playOuts.length > 0)
-      for (const a of actions) if (a.type === "pass") against.add(a);
+      for (const a of actions)
+        if (a.type === "pass") mark(against, a, "Red Fest plan 2", "against");
   }
 
   // Line 3: Anguirus (2004) in zone 1 or 2, unless the counter needs it in zone 3 or 8 now.
@@ -242,7 +245,7 @@ export function festVerdict(
           a.zone !== 2 &&
           !((a.zone === 3 || a.zone === 8) && needed.has(a))
         )
-          against.add(a);
+          mark(against, a, "Red Fest plan 3", "against");
     }
   }
 
@@ -261,7 +264,9 @@ export function festVerdict(
         a.costCardInstanceId !== undefined,
     );
     if (g1954.some((a) => isRide(a.costCardInstanceId)))
-      for (const a of g1954) if (!isRide(a.costCardInstanceId)) against.add(a);
+      for (const a of g1954)
+        if (!isRide(a.costCardInstanceId))
+          mark(against, a, "Red Fest plan 4", "against");
     // A Ride goes on your own Ride when it can.
     const ridePlays = actions.filter(
       (a): a is Extract<Action, { type: "playBattle" }> =>
@@ -275,7 +280,8 @@ export function festVerdict(
         );
       });
     if (ridePlays.some(onRide))
-      for (const a of ridePlays) if (!onRide(a)) against.add(a);
+      for (const a of ridePlays)
+        if (!onRide(a)) mark(against, a, "Red Fest plan 4", "against");
   }
 
   // Line 5: against Monster X, the rank IV Fest behind 2 battle cards, rage, invade from rank IV.
@@ -292,13 +298,15 @@ export function festVerdict(
           (a.type === "gainRage" &&
             card(a.cardInstanceId)?.deckCardNumber === FEST_RANK_FOUR)
         )
-          against.add(a);
+          mark(against, a, "Red Fest plan 5", "against");
     // Rage heavily: a rage discard over passing.
     if (rages.length > 0)
-      for (const a of actions) if (a.type === "pass") against.add(a);
+      for (const a of actions)
+        if (a.type === "pass") mark(against, a, "Red Fest plan 5", "against");
     // From rank IV, the invasion over passing.
     if (rank >= INVADE_FROM_RANK && invades.length > 0)
-      for (const a of actions) if (a.type === "pass") against.add(a);
+      for (const a of actions)
+        if (a.type === "pass") mark(against, a, "Red Fest plan 5", "against");
   }
 
   // Line 5, wall up (#400, Slick): against Monster X and losing the counter race, which Slick
@@ -314,7 +322,9 @@ export function festVerdict(
   if (wall && vsMonsterX && losingRace) {
     // Below rank IV: no invasion but one that wins now (from rank IV, line 5 goes for it).
     if (rank < INVADE_FROM_RANK)
-      for (const a of invades) if (!winsNow(state, a, me)) against.add(a);
+      for (const a of invades)
+        if (!winsNow(state, a, me))
+          mark(against, a, "Red Fest plan 5", "against");
     for (const a of actions) {
       const n =
         "cardInstanceId" in a
@@ -325,7 +335,7 @@ export function festVerdict(
         (a.type === "gainRage" || a.type === "invade") &&
         n === GODZILLA_2023_IV
       )
-        against.add(a);
+        mark(against, a, "Red Fest plan 5", "against");
       // Heat Ray waits for the invasion win: only when an invasion after it wins.
       if (a.type === "activateStrategy" && n === HEAT_RAY) {
         const s = playOut(state, a, me);
@@ -335,7 +345,7 @@ export function festVerdict(
           getLegalActions(s, me).some(
             (b) => b.type === "invade" && winsNow(s, b, me),
           );
-        if (!wins) against.add(a);
+        if (!wins) mark(against, a, "Red Fest plan 5", "against");
       }
     }
   }

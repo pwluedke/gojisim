@@ -1,3 +1,4 @@
+import { mark } from "./trace";
 import {
   type Action,
   advanceToDecision,
@@ -92,7 +93,9 @@ export function noPlanVerdict(
         a.type === "playBattle" ||
         (a.type === "gainRage" && !held.has(a.cardInstanceId)),
     );
-    if (usable) for (const a of actions) if (a.type === "pass") against.add(a);
+    if (usable)
+      for (const a of actions)
+        if (a.type === "pass") mark(against, a, "No-plan play 1", "against");
   }
 
   // Rule 2: an invasion that doesn't win now needs an [invading] ability or a counter it makes.
@@ -115,7 +118,7 @@ export function noPlanVerdict(
             (s.turnPlayer === me &&
               !s.pendingChoice &&
               counterPlays(s, getLegalActions(s, me), me).size > 0));
-        if (!sets) against.add(a);
+        if (!sets) mark(against, a, "No-plan play 2", "against");
       }
   }
 
