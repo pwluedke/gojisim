@@ -43,11 +43,11 @@ import {
 } from "./cardRules";
 import { type FestOptions, festVerdict } from "./festPlan";
 import { noPlanVerdict } from "./noPlan";
-import { type SpaceGOptions, spacegVerdict } from "./spacegPlan";
+import { isSpaceGDeck, type SpaceGOptions, spacegVerdict } from "./spacegPlan";
 import { type TanglerOptions, tanglerVerdict } from "./tanglerPlan";
 import { wranglerVerdict } from "./wranglerPlan";
 import { type WranglerOptions, wranglerV2Verdict } from "./wranglerPlanV2";
-import { applyRules } from "./rules";
+import { applyRules, holdsOnePerRank } from "./rules";
 import type { Bot, BotInput, BotSettings, Decklist } from "./types";
 
 /**
@@ -127,6 +127,18 @@ export function ismctsSettings(settings: BotSettings): IsmctsSettings {
  * The plans' kills at the root (Constructed Future, the Final Wars ruling), kept apart from the
  * general rules' so they can win a conflict (`combineDead`).
  */
+/** Play rule 2 for this deck (`holdFewMonsters`, Nov 18): few monster cards, or SpaceG's plan. */
+function ruleTwoHolds(
+  settings: IsmctsSettings,
+  own: Decklist | undefined,
+): boolean {
+  return holdsOnePerRank(
+    own,
+    settings.holdFewMonsters,
+    settings.spacegPlan > 0 && isSpaceGDeck(own),
+  );
+}
+
 function planDead(
   state: GameState,
   actions: readonly Action[],
@@ -404,6 +416,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
           (a) => actionKey(first, a),
           settings.collectorRage > 0,
           input.trace,
+          ruleTwoHolds(settings, input.knowledge.decks[me]),
         );
         const plans = withTrace(input.trace, () =>
           planDead(first, input.legalActions, me, settings),
@@ -839,7 +852,15 @@ export function blunderAllowed(
     legalActions,
     keyOf,
     new Set(),
-    applyRules(state, legalActions, me, keyOf, settings.collectorRage > 0),
+    applyRules(
+      state,
+      legalActions,
+      me,
+      keyOf,
+      settings.collectorRage > 0,
+      undefined,
+      ruleTwoHolds(settings, own),
+    ),
     planDead(state, legalActions, me, settings),
   );
   const kept = keep

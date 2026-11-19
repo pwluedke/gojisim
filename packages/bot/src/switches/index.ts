@@ -14,6 +14,7 @@ import festRankOne from "./festRankOne";
 import festRankThreeSave from "./festRankThreeSave";
 import festRankTwoPush from "./festRankTwoPush";
 import festWall from "./festWall";
+import holdFewMonsters from "./holdFewMonsters";
 import keepLowRank from "./keepLowRank";
 import keepStrategy from "./keepStrategy";
 import modeBest from "./modeBest";
@@ -81,6 +82,7 @@ export const SWITCHES = [
   festRankThreeSave,
   festRankTwoPush,
   festWall,
+  holdFewMonsters,
   keepLowRank,
   keepStrategy,
   modeBest,

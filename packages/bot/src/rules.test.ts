@@ -28,6 +28,7 @@ import {
   columnCard,
   counterOnly,
   heldCards,
+  holdsOnePerRank,
   statBoostZones,
   RULE_BONUS,
   stackWants,
@@ -531,5 +532,56 @@ describe("#195: counter Gigan (2004) out of rank 1", () => {
     expect(dead.has(key(option("done")))).toBe(true);
     expect(dead.has(key(option(mothra.instanceId)))).toBe(false);
     expect(dead.has(key(option(gorosaurus.instanceId)))).toBe(true);
+  });
+});
+
+describe("play rule 2 only for decks with few monster cards (Nov 18 decision, `holdFewMonsters`)", () => {
+  const deckWith = (monsters: number) => {
+    const monster = real("EBP02-054");
+    const battle = real("EBP01-044");
+    return {
+      monsterDeck: [],
+      mainDeck: [
+        ...Array.from({ length: monsters }, () => monster),
+        ...Array.from({ length: 50 - monsters }, () => battle),
+      ],
+    };
+  };
+
+  it("holds with at most the cutoff's monster cards, or a SpaceG list with its plan; a cutoff of 0 holds for every deck", () => {
+    expect(holdsOnePerRank(deckWith(4), 12, false)).toBe(true);
+    expect(holdsOnePerRank(deckWith(12), 12, false)).toBe(true);
+    expect(holdsOnePerRank(deckWith(24), 12, false)).toBe(false);
+    expect(holdsOnePerRank(deckWith(24), 12, true)).toBe(true);
+    expect(holdsOnePerRank(deckWith(24), 0, false)).toBe(true);
+  });
+
+  it("when the deck doesn't hold, the SpaceGodzilla card goes to rage and pass is ruled out (rule 3)", () => {
+    const { state, p1 } = base();
+    monster(state, p1, "EBP02-052");
+    const r3 = add(state, real("EBP02-054"), "P1");
+    p1.hand.push(r3);
+    const actions = getLegalActions(state, "P1").filter(
+      (a) => a.type !== "concede",
+    );
+    const key = (a: Action) => actionKey(state, a);
+    const rage = actions.find(
+      (a) => a.type === "gainRage" && a.cardInstanceId === r3.instanceId,
+    ) as Action;
+    const pass = actions.find((a) => a.type === "pass") as Action;
+    const holding = applyRules(state, actions, "P1", key);
+    expect(holding.killed.has(rage)).toBe(true);
+    expect(holding.dead.has(key(pass))).toBe(false);
+    const raging = applyRules(
+      state,
+      actions,
+      "P1",
+      key,
+      true,
+      undefined,
+      false,
+    );
+    expect(raging.killed.has(rage)).toBe(false);
+    expect(raging.dead.has(key(pass))).toBe(true);
   });
 });

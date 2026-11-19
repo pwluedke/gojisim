@@ -1,4 +1,5 @@
 import type { TraceSink } from "./trace";
+import type { Decklist } from "./types";
 import { getCardAbilities, getCardTraits } from "@gojisim/cards";
 import { evaluate } from "./evaluate";
 import {
@@ -28,7 +29,8 @@ import {
  *
  * 1. Stack a same-rank monster card (8.5.1) when a card wants a stack size it doesn't have yet.
  * 2. Hold one monster card per rank that can still be played on top for its ability (#189: also
- *    when a cost is paid by discarding from hand, 5.7.1).
+ *    when a cost is paid by discarding from hand, 5.7.1). Nov 18 decision (`holdFewMonsters`):
+ *    only in a deck with few monster cards, or a SpaceG list with its plan; the others rage them.
  * 3. Discard every other monster card for rage (8.4.1): no pass while one can go.
  * 4. Counter-only strategies: held until the counter is made (with the others still playable),
  *    then preferred (a prior: one if one makes it, both if it takes two).
@@ -37,6 +39,20 @@ import {
  *    while the opponent can invade next turn; a plain stat boost in a zone (#189) is a prune
  *    while your zone 8 isn't exposed.
  */
+
+/**
+ * Rule 2's deck test (Nov 18, `holdFewMonsters`): a deck with at most `cutoff` monster cards in
+ * its main deck holds them (the guard set's counter decks run 2 to 4, the rest 17 or more), and so
+ * does a SpaceG list when its plan is on. A cutoff of 0 holds for every deck, as before.
+ */
+export function holdsOnePerRank(
+  own: Decklist | undefined,
+  cutoff: number,
+  spaceg: boolean,
+): boolean {
+  if (cutoff <= 0 || spaceg || !own) return true;
+  return own.mainDeck.filter((c) => c.type === "Monster").length <= cutoff;
+}
 
 /** The prior bonus a rule-preferred root action gets, in evaluation units. */
 export const RULE_BONUS = 0.15;
@@ -323,6 +339,8 @@ export function applyRules(
   collector = true,
   /** #478: where each rule reports the moves it removed or favored (it changes nothing). */
   trace?: TraceSink,
+  /** Rule 2 for this deck (`holdFewMonsters`, Nov 18); `false`: nothing is held. */
+  hold = true,
 ): RuleVerdict {
   const killed = new Set<Action>();
   // #478: each kill and bonus remembers its rule, reported once the verdict stands.
@@ -396,14 +414,14 @@ export function applyRules(
     }
     if (choice.rule !== "5.7.1") return verdict();
     const [me] = players(state, player);
-    const held = heldCards(state, me, collector);
+    const held = hold ? heldCards(state, me, collector) : new Set<string>();
     for (const a of actions)
       if (a.type === "choose" && held.has(a.optionId)) kill(a, "play rule 2");
     return verdict();
   }
   if (state.turnPlayer !== player) return verdict();
   const [me, opponent] = players(state, player);
-  const held = heldCards(state, me, collector);
+  const held = hold ? heldCards(state, me, collector) : new Set<string>();
   const monster = (a: Action) => cardOf(state, handCard(me, actionCard(a)));
   const add = (a: Action, id: string) => {
     bonus.set(keyOf(a), RULE_BONUS);
