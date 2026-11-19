@@ -243,6 +243,37 @@ describe("the Tangler plan (#403)", () => {
     for (const d of [...zero.perfect, ...zero.bond]) expect(d).toBe(false);
   });
 
+  it("rule 7c (#444 point 3, stevilkiwina): against Gigan (2004), Entangling Fear unplayable (+3 rank): no invading toward it, and no passing while a battle card can go into the counter", () => {
+    const judge = (gigan: boolean, theirs = "EBP04-028") => {
+      const { state, p1, p2 } = position([ENTANGLING_FEAR, EGG], 3, 2);
+      p2.invadingMonsterZone = [add(state, real(theirs), "P2")];
+      // Rule 1's "low evolution cards early" also argues against passing with Mothra (Egg): off.
+      const v = verdict(state, { gigan, build: false });
+      const of = (t: Action["type"]) =>
+        v.legal.filter((a) => a.type === t).map((a) => v.against.has(a));
+      // Fear is rank 6 on this turn, so it can't be played.
+      expect(
+        v.legal.some(
+          (a) =>
+            a.type === "activateStrategy" && a.cardInstanceId !== undefined,
+        ),
+      ).toBe(false);
+      // (Rule 1 also keeps a spare Fear out of an invasion's cost: only the Egg-paid one counts.)
+      const invade = v.legal
+        .filter((a) => a.type === "invade" && ofCard(state, p1, a) === EGG)
+        .map((a) => v.against.has(a));
+      return { invade, pass: of("pass"), play: of("playBattle") };
+    };
+    const on = judge(true);
+    expect(on.invade.length).toBeGreaterThan(0);
+    for (const d of on.invade) expect(d).toBe(true);
+    for (const d of on.pass) expect(d).toBe(true);
+    for (const d of on.play) expect(d).toBe(false);
+    // `tanglerGigan: false` (the control).
+    const off = judge(false);
+    for (const d of [...off.invade, ...off.pass]) expect(d).toBe(false);
+  });
+
   it("rule 7a (#444, stevilkiwina): at a discard pick with the rank I Godzilla (2002) EBP03-014 on top, the highest-rank battle card goes", () => {
     const pick = (highRank: boolean) => {
       const { state, p1 } = position(

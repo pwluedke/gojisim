@@ -7,6 +7,7 @@ import type {
 import { counterPowerOf, getThreat, RAGE_THREAT } from "@gojisim/engine";
 import { counterPlays } from "./cardRules";
 import { cardData, ENTANGLING_FEAR } from "./mxPlan";
+import { winsNow } from "./cardRules";
 import { counters } from "./rules";
 import type { GroupOptions } from "./switches/settings";
 import type { Decklist } from "./types";
@@ -47,6 +48,11 @@ import type { Decklist } from "./types";
  *       of 2 or more zones waits when their monster's rank is lower than yours, or the same with
  *       no counter this turn, unless they can counter you next turn wherever you end (their
  *       board's counter power reaches your threat already).
+ *    c. Against Gigan (2004) (`tanglerGigan`, #444 point 3): its [opponents-turn] gives the
+ *       strategy cards in your hand +3 rank, so Entangling Fear (rank 3) can't be played until
+ *       zone 6. With their Gigan (2004) EBP04-028 on top and Fear unplayable: don't invade toward
+ *       it (an invasion that doesn't win waits), skip Fear that turn, and put everything into the
+ *       counter (no passing while a battle card can be played and the counter isn't made).
  */
 
 /** The Tangler's monsters that lower the opponent's rage when a battle card is discarded. */
@@ -63,6 +69,8 @@ const LOSING_ZONE = 6;
 
 /** Rule 1: Entangling Fear copies in hand that make one a spare to discard. */
 const FEAR_SPARES = 3;
+/** Rule 7c: Gigan (2004), whose [opponents-turn] lifts your strategy cards' rank by 3. */
+const GIGAN_2004 = "EBP04-028";
 /** Rule 1: the highest rank of a low evolution card. */
 const LOW_EVOLUTION_RANK = 4;
 /** Rule 7a: the rank I Godzilla (2002), whose end-phase discard is the early one. */
@@ -107,6 +115,7 @@ export function tanglerVerdict(
     save = true,
     highRank = true,
     zoneFive = true,
+    gigan = true,
   } = options;
   const against = new Set<Action>();
   const rescued = new Set<Action>();
@@ -296,6 +305,19 @@ export function tanglerVerdict(
   if (build && evolutions.length > 0) {
     for (const a of evolutions) rescued.add(a);
     for (const a of passes) against.add(a);
+  }
+
+  // Rule 7c: against Gigan (2004) with Entangling Fear unplayable, the turn goes into the counter.
+  const theirTop = cardData(state, opponent.invadingMonsterZone.at(-1));
+  if (
+    gigan &&
+    theirTop?.deckCardNumber === GIGAN_2004 &&
+    fearPlays.length === 0
+  ) {
+    for (const a of actions)
+      if (a.type === "invade" && !winsNow(state, a, me)) against.add(a);
+    if (!counters(state, me) && actions.some((a) => a.type === "playBattle"))
+      for (const a of passes) against.add(a);
   }
 
   // Never argue against everything.

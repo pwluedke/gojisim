@@ -43,6 +43,7 @@ import tanglerBuild from "./tanglerBuild";
 import tanglerDiscard from "./tanglerDiscard";
 import tanglerEarly from "./tanglerEarly";
 import tanglerFear from "./tanglerFear";
+import tanglerGigan from "./tanglerGigan";
 import tanglerHighRank from "./tanglerHighRank";
 import tanglerPlan from "./tanglerPlan";
 import tanglerSave from "./tanglerSave";
@@ -109,6 +110,7 @@ export const SWITCHES = [
   tanglerDiscard,
   tanglerEarly,
   tanglerFear,
+  tanglerGigan,
   tanglerHighRank,
   tanglerPlan,
   tanglerSave,
