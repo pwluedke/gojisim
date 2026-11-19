@@ -51,7 +51,9 @@ import {
 import { type TanglerOptions, tanglerVerdict } from "./tanglerPlan";
 import { wranglerVerdict } from "./wranglerPlan";
 import { type WranglerOptions, wranglerV2Verdict } from "./wranglerPlanV2";
-import { applyRules } from "./rules";
+import { applyRules, type RageOrStack } from "./rules";
+import { counterWithin, playOut } from "./counterReach";
+import { seededRng } from "./input";
 import type { Bot, BotInput, BotSettings, Decklist } from "./types";
 
 /**
@@ -131,6 +133,62 @@ export function ismctsSettings(settings: BotSettings): IsmctsSettings {
  * The plans' kills at the root (Constructed Future, the Final Wars ruling), kept apart from the
  * general rules' so they can win a conflict (`combineDead`).
  */
+/** How many guesses of the opponent's hand play rule 3's rage test reads (the first is the search's own). */
+export const RULE3_GUESSES = 8;
+
+/**
+ * Play rule 3's rage test (Nov 19): across guesses of the opponent's hidden cards, whether
+ * discarding `rage` for rage stops the opponent's counter next turn (7.4.2) in at least half of
+ * them: with the turn ended as it is they make it (their board, or up to 3 battle card plays,
+ * `counterWithin`), with the rage first they don't.
+ */
+export function rageStopsCounter(
+  guesses: readonly GameState[],
+  rage: Action,
+  me: PlayerId,
+): boolean {
+  const pass: Action = { type: "pass", player: me };
+  let flips = 0;
+  for (const g of guesses) {
+    const opponent = g.players.find((p) => p.id !== me)?.id;
+    if (!opponent) continue;
+    const without = playOut(g, pass, me);
+    const raged = playOut(g, rage, me);
+    const withRage = raged && playOut(raged, pass, me);
+    if (!without || !withRage) continue;
+    if (counterWithin(without, opponent) && !counterWithin(withRage, opponent))
+      flips++;
+  }
+  return guesses.length > 0 && flips * 2 >= guesses.length;
+}
+
+/** Play rule 3's new form for the search's root: the first guess and `RULE3_GUESSES - 1` more. */
+function rageOrStack(
+  first: GameState,
+  input: BotInput,
+  settings: IsmctsSettings,
+  me: PlayerId,
+): RageOrStack {
+  let guesses: GameState[] | null = null;
+  return {
+    rageStopsCounter: (a) => {
+      // Drawn only when a card one rank up is in hand, on their own seed (the search's stays put).
+      if (!guesses) {
+        const rng = seededRng(`rule3-${input.view.turn}`);
+        guesses = [
+          first,
+          ...Array.from({ length: RULE3_GUESSES - 1 }, () =>
+            determinize(input.view, input.knowledge, rng, {
+              recognizer: settings.recognizer > 0,
+            }),
+          ),
+        ];
+      }
+      return rageStopsCounter(guesses, a, me);
+    },
+  };
+}
+
 function planDead(
   state: GameState,
   actions: readonly Action[],
@@ -417,6 +475,9 @@ export function search(input: BotInput, settings: IsmctsSettings) {
           (a) => actionKey(first, a),
           settings.collectorRage > 0,
           input.trace,
+          settings.rageOrStack > 0
+            ? rageOrStack(first, input, settings, me)
+            : undefined,
         );
         const plans = withTrace(input.trace, () =>
           planDead(
@@ -858,7 +919,17 @@ export function blunderAllowed(
     legalActions,
     keyOf,
     new Set(),
-    applyRules(state, legalActions, me, keyOf, settings.collectorRage > 0),
+    applyRules(
+      state,
+      legalActions,
+      me,
+      keyOf,
+      settings.collectorRage > 0,
+      undefined,
+      settings.rageOrStack > 0
+        ? { rageStopsCounter: (a) => rageStopsCounter([state], a, me) }
+        : undefined,
+    ),
     planDead(state, legalActions, me, settings, own),
   );
   const kept = keep
