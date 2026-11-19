@@ -1,0 +1,34 @@
+/* #478: the Classroom advisor, in the left column under the prompt (the banner's frame). */
+.panel {
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 1.5px solid var(--btn-primary-fill, var(--color-panel-border));
+  border-radius: 6px;
+}
+
+.title {
+  margin: 0 0 var(--space-1);
+  font-size: 1em;
+}
+
+.muted {
+  color: var(--color-muted);
+}
+
+.list {
+  margin: var(--space-1) 0;
+  padding-left: var(--space-4);
+}
+
+.buttons,
+.refute {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+  margin-top: var(--space-1);
+}
+
+.summary {
+  margin-top: var(--space-1);
+}

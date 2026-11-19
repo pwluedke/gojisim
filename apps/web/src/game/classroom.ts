@@ -3,6 +3,7 @@ import {
   type Action,
   advanceToDecision,
   applyAction,
+  type ClassroomAdvice,
   type ClassroomRating,
   classroomPosition,
   type ClassroomTurn,
@@ -237,4 +238,21 @@ export function differenceName(path: string): string {
   return field === "zones"
     ? `${whose} zone ${zone}`
     : `${whose} ${names[field ?? ""] ?? field}`;
+}
+
+/**
+ * #478: the player's answer to the bot's advice at one of their decisions, kept in the record
+ * (information only). A second answer at the same decision replaces the first.
+ */
+export function withClassroomAdvice(
+  session: Session,
+  entry: ClassroomAdvice,
+): Session {
+  const advice = (session.record.classroomAdvice ?? []).filter(
+    (a) => a.actionIndex !== entry.actionIndex,
+  );
+  return {
+    ...session,
+    record: { ...session.record, classroomAdvice: [...advice, entry] },
+  };
 }

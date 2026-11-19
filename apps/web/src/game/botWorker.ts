@@ -1,4 +1,10 @@
-import { difficultyBot, seededRng } from "@gojisim/bot";
+import {
+  decide,
+  difficultyBot,
+  difficultySettings,
+  seededRng,
+  traceSink,
+} from "@gojisim/bot";
 import type { BotRequest, BotResponse } from "./bots";
 import { registerPrivateSet } from "./privateSetData";
 
@@ -13,12 +19,33 @@ const worker = self as unknown as {
 };
 
 worker.onmessage = (event) => {
-  const { id, input, seed, difficulty, privateSet } = event.data;
+  const { id, input, seed, difficulty, privateSet, trace } = event.data;
   const started = performance.now();
   try {
     // The private set's cards (with its tokens) and abilities; known ones are skipped, so every
     // request may carry them.
     if (privateSet) registerPrivateSet(privateSet);
+    if (trace) {
+      // #478: the same search as `difficultyBot` (its settings, then the request's), traced.
+      const decision = decide({
+        ...input,
+        settings: {
+          ...difficultySettings(
+            Number(input.settings["difficulty"] ?? difficulty),
+          ),
+          ...input.settings,
+        },
+        rng: seededRng(seed),
+        trace: traceSink(),
+      });
+      worker.postMessage({
+        id,
+        action: decision.action,
+        ms: performance.now() - started,
+        ...(decision.trace ? { trace: decision.trace } : {}),
+      });
+      return;
+    }
     const bot = difficultyBot("seat", difficulty);
     const action = bot.chooseAction({ ...input, rng: seededRng(seed) });
     worker.postMessage({ id, action, ms: performance.now() - started });
