@@ -36,7 +36,7 @@ import {
   turnsToInvade,
 } from "./mxPlan";
 
-// Paul's Monster X plan (`mxPlan=1`, Nov 7, 2026) and his Final Wars ruling (Nov 7): every
+// The Monster X plan (`mxPlan=1`, Nov 7, 2026) and the Final Wars ruling (Nov 7): every
 // position below is made up, on the starter decks with the cards each rule needs.
 
 function official(file: string): Omit<PlayerSetup, "id"> {
@@ -130,7 +130,7 @@ const numberOf = (state: GameState, p1: PlayerState, a: Action) => {
 const live = (legal: Action[], dead: Set<Action>) =>
   legal.filter((a) => !dead.has(a));
 
-describe("Paul's Monster X plan (mxPlan=1)", () => {
+describe("The Monster X plan (mxPlan=1)", () => {
   it("defaults to on; mxPlan=0 turns it off", () => {
     // v2 (Nov 9) is the default; v1 stays as mxPlan=1.
     expect(ismctsSettings({}).mxPlan).toBe(2);
@@ -532,7 +532,7 @@ describe("Paul's Monster X plan (mxPlan=1)", () => {
   });
 });
 
-describe("Godzilla Final Wars placement (Paul's ruling, Nov 7, 2026)", () => {
+describe("Godzilla Final Wars placement (the ruling, Nov 7, 2026)", () => {
   /** P1 activates Final Wars with the given zones and deck top; returns the first zone pick. */
   const reveal = (zones: Setup["zones"], deck: string[]) => {
     const s = position({ hand: ["EBP04-079"], zones, deck });

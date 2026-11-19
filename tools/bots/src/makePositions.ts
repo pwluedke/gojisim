@@ -80,7 +80,7 @@ function deadActivations(s: GameState, cardNumber: string): Action[] {
 }
 
 /**
- * Whether the dead activations are P2's only plays besides passing (as at BFW182 game 1's
+ * Whether the dead activations are P2's only plays besides passing (as at a tester's game 1's
  * decision 9), so nothing else can draw the search's visits.
  */
 const onlyDeadOrPass = (s: GameState, cardNumber: string) => {
@@ -142,7 +142,7 @@ const MISS_SEEDS = ["miss-0", "miss-1", "miss-2"];
 
 /**
  * The level plays one of the `avoid` keys (or none of the `prefer` keys), from P2's own view, in
- * at least 2 of the 3 seeds. #175: with Paul's rules off, as the level played before them.
+ * at least 2 of the 3 seeds. #175: with the play rules off, as the level played before them.
  */
 function hardMisses(
   s: GameState,
@@ -241,7 +241,7 @@ const keysOf = (s: GameState, actions: Action[]) => [
   ...new Set(actions.map((a) => actionKey(s, a))),
 ];
 
-/** #175: P2's root actions, with Paul's rules' verdict on them. */
+/** #175: P2's root actions, with the play rules' verdict on them. */
 function rulesAt(s: GameState) {
   const legal = getLegalActions(s, P2).filter((a) => a.type !== "concede");
   const key = (a: Action) => actionKey(s, a);
@@ -389,7 +389,7 @@ const RULE_SPECS: Spec[] = [
   },
   {
     name: "rule2-king-ghidorah-extra-copy-to-rage",
-    note: "#175 rule 2 (Monarch): hold at most one copy per rank; with two same-rank King Ghidorah cards in hand the extra one goes to rage (8.4.1), so no pass. Made-up King Ghidorah deck (a tester's ghidorat list can't be committed); kept only where Hard without the rules passes.",
+    note: "#175 rule 2: hold at most one copy per rank; with two same-rank King Ghidorah cards in hand the extra one goes to rage (8.4.1), so no pass. Made-up King Ghidorah deck (a tester's ghidorat list can't be committed); kept only where Hard without the rules passes.",
     p1: "ESD02",
     p2File: KING_GHIDORAH,
     match: (s) => extraCopy(s) && passWithRage(s).length > 0,
@@ -424,7 +424,7 @@ const RULE_SPECS: Spec[] = [
   },
   {
     name: "rule4-double-counter-only",
-    note: "#175 rule 4 (Monarch): two God of Destruction's Counterattack (EBP02-072) make the counter together where one wouldn't, and they and pass are the only plays: play them. Made-up SpaceGodzilla deck; kept only where Hard without the rules doesn't.",
+    note: "#175 rule 4: two God of Destruction's Counterattack (EBP02-072) make the counter together where one wouldn't, and they and pass are the only plays: play them. Made-up SpaceGodzilla deck; kept only where Hard without the rules doesn't.",
     p1: "ESD01",
     p1Files: [KING_GHIDORAH, "made-up-destoroyah.txt"],
     hardPlay: true,
@@ -456,7 +456,7 @@ const RULE_SPECS: Spec[] = [
 const SPECS: Spec[] = [
   {
     name: "scale-attack-at-4-rage",
-    note: "Scale Attack (EBP01-061) in hand with the opponent at 4 rage: it needs 5 or more, so activating it does nothing (BFW182 game 1).",
+    note: "Scale Attack (EBP01-061) in hand with the opponent at 4 rage: it needs 5 or more, so activating it does nothing (a tester's game 1).",
     p1: "ESD01",
     match: (s) =>
       atPlayTiming(s) &&
@@ -477,14 +477,14 @@ const SPECS: Spec[] = [
   },
   {
     name: "destoroyah-bonus-counter-made",
-    note: "Godzilla vs. Destoroyah (EBP01-062, +10,000 total counter power) when the counter is already made without it (BFW182 game 1).",
+    note: "Godzilla vs. Destoroyah (EBP01-062, +10,000 total counter power) when the counter is already made without it (a tester's game 1).",
     p1: "ESD01",
     match: (s) => atPlayTiming(s) && onlyDeadOrPass(s, "EBP01-062"),
     avoid: avoidActivations("EBP01-062"),
   },
   {
     name: "flying-form-evolves-to-perfect-form",
-    note: "Destoroyah Flying Form's (EBP01-054) Evolution search with a Destoroyah Perfect Form (ESD02-013 or EBP01-060) and another Flying Form both in the deck: take Perfect Form, not the copy (BFW182 game 1, decision 44; Monarch's #64 review). Kept only where today's Hard takes the copy (M13c, #75).",
+    note: "Destoroyah Flying Form's (EBP01-054) Evolution search with a Destoroyah Perfect Form (ESD02-013 or EBP01-060) and another Flying Form both in the deck: take Perfect Form, not the copy (a tester's game 1, decision 44; the #64 review). Kept only where today's Hard takes the copy (M13c, #75).",
     p1: "ESD01",
     // Either Perfect Form: in the tester game the copy beat EBP01-060.
     match: (s) =>
@@ -498,7 +498,7 @@ const SPECS: Spec[] = [
   },
   {
     name: "battra-larva-evolves-to-copy",
-    note: "Battra (Larva)'s (ESD02-008) Evolution from zone 8 with only Battra (Larva) copies to take: decline rather than replace it with the same card (Tuscancow, #130; the tester named it Mothra Larva over Imago). Kept only where today's Medium takes the copy.",
+    note: "Battra (Larva)'s (ESD02-008) Evolution from zone 8 with only Battra (Larva) copies to take: decline rather than replace it with the same card (#130; the tester named it Mothra Larva over Imago). Kept only where today's Medium takes the copy.",
     p1: "ESD01",
     p2: "ESD02",
     level: PRESETS.medium,
@@ -508,7 +508,7 @@ const SPECS: Spec[] = [
   },
   {
     name: "super-x-after-invade",
-    note: "Super-X (ESD02-009) in hand with its monster at 3 and an invade open: invade to 4 first, so Super-X's [enter] takes the opponent's rage (Awakening 4; Cadmium Barrage ordering, combos.md #7; Tuscancow, #131). Kept only where today's Medium plays Super-X first.",
+    note: "Super-X (ESD02-009) in hand with its monster at 3 and an invade open: invade to 4 first, so Super-X's [enter] takes the opponent's rage (Awakening 4; Cadmium Barrage ordering, combos.md #7; #131). Kept only where today's Medium plays Super-X first.",
     p1: "ESD01",
     p2: "ESD02",
     level: PRESETS.medium,

@@ -108,7 +108,7 @@ describe("the Wrangler plan (#276)", () => {
     ).toBe(false);
   });
 
-  it("Paul's card gating: line 1 needs Despair and Godzilla Against Mechagodzilla in the bot's own list (the Despangler has both; 15AHV has no Despair)", () => {
+  it("The card gating: line 1 needs Despair and Godzilla Against Mechagodzilla in the bot's own list (the Despangler has both; 15AHV has no Despair)", () => {
     expect(wranglerLines(wrangler(true)).despair).toBe(true);
     expect(wranglerLines(wrangler(false)).despair).toBe(false);
     // Without the cards, the plan says nothing.
@@ -212,7 +212,7 @@ describe("the Wrangler plan (#276)", () => {
         expect(against.has(a)).toBe(!despair.includes(a));
   });
 
-  it("#319 (Ian): at Despair's target pick, the Mecha-King in your monster's column goes first (the one stopping your invasion), not another one in reach", () => {
+  it("#319: at Despair's target pick, the Mecha-King in your monster's column goes first (the one stopping your invasion), not another one in reach", () => {
     const state = position(2);
     const p2 = state.players[1] as PlayerState;
     // Your monster in zone 3: their zone 3 is in its column; their zone 1 isn't.
@@ -286,7 +286,7 @@ describe("the Wrangler plan (#276)", () => {
       if (a.type === "pass") expect(against.has(a)).toBe(true);
   });
 
-  it("line 3 (Ian, Nov 12): with Godzilla (2023) ESD01-002 the top monster card, invade paying with Godzilla (2004); no pass, stack or rage for it until then; off without ESD01-002 on top", () => {
+  it("line 3 (Nov 12): with Godzilla (2023) ESD01-002 the top monster card, invade paying with Godzilla (2004); no pass, stack or rage for it until then; off without ESD01-002 on top", () => {
     const verdict = (fetcherOnTop: boolean) => {
       const state = position(0);
       state.turn = 5;

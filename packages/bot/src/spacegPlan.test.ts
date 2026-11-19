@@ -27,7 +27,7 @@ import {
 import type { Decklist } from "./types";
 
 /**
- * Paul's SpaceG plan (#408), on made-up positions: a starter game with P1's monster set to a
+ * The SpaceG plan (#408), on made-up positions: a starter game with P1's monster set to a
  * SpaceGodzilla and P1's hand and zones set by hand.
  */ function official(file: string): Omit<PlayerSetup, "id"> {
   const url = new URL(`../../cards/data/decks/${file}`, import.meta.url);
@@ -139,7 +139,7 @@ describe("the SpaceG plan (#408)", () => {
     for (const d of judge(true, false)) expect(d).toBe(false);
   });
 
-  it("rule 3: a rank 3 in hand covers the rank 3 in play before passing, but after this turn's invasion (Paul's addendum)", () => {
+  it("rule 3: a rank 3 in hand covers the rank 3 in play before passing, but after this turn's invasion (the addendum)", () => {
     const { state, p1 } = position(
       SPACEG_THREE,
       [SPACEG_THREE, KING_1991],
@@ -164,7 +164,7 @@ describe("the SpaceG plan (#408)", () => {
     const off = verdict(state, { invade: false, rage: false, cover: false });
     for (const a of covers) expect(off.against.has(a)).toBe(false);
   });
-  it("rule 4 (Paul): the turn ends in zone 7 by default (an invasion that ends it in zone 8 waits) unless SpaceG survives their next counter there", () => {
+  it("rule 4: the turn ends in zone 7 by default (an invasion that ends it in zone 8 waits) unless SpaceG survives their next counter there", () => {
     const judge = (theirCounter: boolean, zone = true) => {
       // A King (icon 2) pays a 2-zone invasion, a King Ghidorah (1991) monster card a 1-zone one.
       const { state, p1, p2 } = position(

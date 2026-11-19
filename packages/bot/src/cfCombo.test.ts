@@ -18,7 +18,7 @@ import { describe, expect, it } from "vitest";
 import { decide } from "./ismcts";
 import { botInput, decklistsOf, seededRng } from "./input";
 
-// Paul's combo (Nov 5, 2026): Constructed Future (SD05-005) brings back King Ghidorah (2024)
+// The combo (Nov 5, 2026): Constructed Future (SD05-005) brings back King Ghidorah (2024)
 // (EBP01-074), which lets Gravity Beam (EPR-019) be played at rank 4; with Gravity Beam in play
 // King Ghidorah (2024) has 28,000 counter power, enough to counter (7.4.3) where nothing else is.
 
@@ -133,7 +133,7 @@ const play = (state: GameState, number: string): GameState => {
   return s;
 };
 
-describe("Paul's combo: Constructed Future → King Ghidorah (2024) → Gravity Beam (Nov 5, 2026)", () => {
+describe("The combo: Constructed Future → King Ghidorah (2024) → Gravity Beam (Nov 5, 2026)", () => {
   it("7.4.3: the combo makes the counter (28,000 against 18,000); without it, 6,000 doesn't", () => {
     const { state } = position();
     const p1 = state.players[0] as PlayerState;
@@ -199,7 +199,7 @@ describe("Paul's combo: Constructed Future → King Ghidorah (2024) → Gravity 
     expect(picks).toEqual(Array(5).fill("EPR-019"));
   }, 120000);
 
-  it("Paul's rule: with a target to bring back, Hard activates Constructed Future before its turn ends", () => {
+  it("The play rule: with a target to bring back, Hard activates Constructed Future before its turn ends", () => {
     const { setups } = position();
     const lists = decklistsOf(setups);
     for (let seed = 0; seed < 3; seed++) {

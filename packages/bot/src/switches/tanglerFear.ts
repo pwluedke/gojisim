@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "tangler",
   option: "fear",
-  what: "The Tangler plan's rule 1 (BFW182, #369): one Entangling Fear EBP04-081 every turn it can be played and none is in force (no passing before it); spare copies kept (none discarded, raged or paid with while fewer than 3 are in hand). Needs `tanglerPlan`.",
+  what: "The Tangler plan's rule 1 (#369): play one Entangling Fear EBP04-081 every turn it can be played and none is in force, and don't end the turn before it. Keep the spare copies: while you have fewer than 3 in hand, don't discard them, discard them for rage, or pay a cost with them. This needs the Tangler plan (`tanglerPlan`).",
   from: "#403",
   status: "built",
 });

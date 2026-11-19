@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "mxPlan",
   option: "landing",
-  what: "The Monster X plan's #335: no Landing on a monster already in zone 8, or when the counter is made without it.",
+  what: "The Monster X plan's rule from #335: don't play Godzilla Landing when the opponent's monster is already in zone 8, or when you already have enough counter power to counter the opponent's monster without it.",
   from: "#335",
   status: "built",
 });

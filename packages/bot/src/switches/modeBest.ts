@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "cardRules",
   option: "modeBest",
-  what: "Card rule 30: at a choice in a destroy-only strategy's resolution (Godzilla vs. Megaguirus EBP01-064's mode, then its zone), an answer that can destroy fewer of the opponent's cards than another isn't picked.",
+  what: "Card rule 30: when you make a choice while resolving a strategy card that only destroys (such as the mode and then the zone of Godzilla vs. Megaguirus EBP01-064), don't pick an answer that can destroy fewer of the opponent's cards than another answer.",
   from: "#386",
   status: "built",
 });

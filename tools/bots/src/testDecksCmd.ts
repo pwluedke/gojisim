@@ -4,7 +4,7 @@ import { parseArgs } from "node:util";
 import { summary, testDeckSetOf, uploadTestDecks } from "./testDeckUpload";
 
 /*
- * #359: `pnpm test-decks check --file <path>` checks Paul's local test deck file and lists its
+ * #359: `pnpm test-decks check --file <path>` checks the local test deck file and lists its
  * decks; `pnpm test-decks upload --file <path>` also sends it to the server, replacing the test
  * decks there (`testDeckUpload.ts`). The token comes from `TEST_DECKS_UPLOAD_TOKEN` and is never
  * printed.

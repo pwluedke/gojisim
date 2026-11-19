@@ -19,7 +19,7 @@ import {
 } from "@gojisim/engine";
 
 /**
- * Paul's play rules for Hard (#175, Nov 2), from the #170 study. Read from card
+ * The play rules for Hard (#175, Nov 2), from the #170 study. Read from card
  * conditions, never card names, so they apply to every deck. They act only at the search root,
  * like M13a's pruning: judged once per decision on the first determinization from public
  * information (the bot's own hand, both boards). Hard rules leave actions out (`dead`); soft ones
@@ -153,7 +153,7 @@ export function boostedZones(card: Card | undefined): ZoneNumber[] {
 }
 
 /**
- * Rule 6's prune (#189, Paul): the zones a card's plain stat boost needs, or none. A plain boost
+ * Rule 6's prune (#189): the zones a card's plain stat boost needs, or none. A plain boost
  * is a continuous ability whose own condition is `zoneOf this in [zones]` and whose modifiers
  * all change counter power or threat (Godzilla (1972) EBP02-061: +3000 in zone 8). Other zone
  * conditions (triggers, protection, replacements) keep the prior.
@@ -189,7 +189,7 @@ export function counters(state: GameState, player: PlayerId): boolean {
 /**
  * Rule 2: the monster cards in hand to hold: each has its own ability, shares a trait with the
  * invading monster and has a rank at or above it, so it can still be played on top (8.5.1). At
- * most one per rank (Monarch): extra copies go to rage. #346 (`collectorRage`): a card whose
+ * most one per rank: extra copies go to rage. #346 (`collectorRage`): a card whose
  * [enter] puts its same-name cards from your discard pile under it (King Ghidorah (1965)
  * EBP02-046) isn't held while another copy is in your monster deck, hand or monster stack: raging
  * it powers that copy.
@@ -313,7 +313,7 @@ export interface RuleVerdict {
   bonus: Map<string, number>;
 }
 
-/** Paul's rules on the root's actions for `player` (#175). */
+/** The play rules on the root's actions for `player` (#175). */
 export function applyRules(
   state: GameState,
   actions: readonly Action[],
@@ -370,7 +370,7 @@ export function applyRules(
   // while another option stays (another card, or declining the cost).
   if (choice) {
     if (choice.player !== player) return verdict();
-    // #195 (Paul: counter Gigan out of rank 1 as quickly as possible): the opponent's card offers
+    // #195 (counter Gigan out of rank 1 as quickly as possible): the opponent's card offers
     // to counter its own monster if we discard a card for it (Gigan (2004) EBP04-027 rank 1).
     // Declining is pruned while a card can pay, and only the cheapest card stays: one with no
     // legal play now (8.2.1), then the one whose loss leaves our evaluation highest.
@@ -439,7 +439,7 @@ export function applyRules(
     for (const a of actions) if (a.type === "pass") kill(a, "play rule 3");
   // Rule 4: a counter-only strategy is held while the counter isn't made, even with the others
   // still playable (a prune); when it is made, playing it is preferred (a prior: early on, the
-  // search may still build the board first, Paul). #189: while the turn's invasion is still
+  // search may still build the board first). #189: while the turn's invasion is still
   // legal, it waits for it (the invasion can crush the cards that make the counter), and the
   // prior goes to the invasion instead.
   const invasions = actions.filter(
@@ -480,7 +480,7 @@ export function applyRules(
         kill(a, "play rule 5");
     }
   // Rule 6: zone-boosted cards go in their zone, a prior that never steers away from an open
-  // zone 8 (#176). #189 (Paul): a card with a plain stat boost (`statBoostZones`) is pruned
+  // zone 8 (#176). #189: a card with a plain stat boost (`statBoostZones`) is pruned
   // outside its zones while your zone 8 isn't exposed and a play in one is legal.
   const exposed = zone8Exposed(state, me, opponent);
   for (const a of actions) {

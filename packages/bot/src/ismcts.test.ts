@@ -151,11 +151,11 @@ describe("ismcts (M6c)", { timeout: 60_000 }, () => {
     ).not.toBe(actionKey(state, monster));
   });
 
-  it("#358 (Ian): a target pick among copies of one card in different zones keys each copy by its zone (public), so the card rules' choice of the zone 8 copy isn't merged with the others", () => {
+  it("#358: a target pick among copies of one card in different zones keys each copy by its zone (public), so the card rules' choice of the zone 8 copy isn't merged with the others", () => {
     const state = start();
     const [, p2] = state.players;
     const card = p2.hand[0]!;
-    // Three copies of one card on their field, in zones 2, 3 and 8 (as Ian's Godzilla (2023)s).
+    // Three copies of one card on their field, in zones 2, 3 and 8 (as a tester's Godzilla (2023)s).
     const copies = ([2, 3, 8] as const).map((zone, i) => {
       const c = { ...card, instanceId: `t${i}` };
       p2.zones[zone] = [[c]];
@@ -334,7 +334,7 @@ describe("ismcts (M6c)", { timeout: 60_000 }, () => {
       });
   });
 
-  it("M13c (#75): priorVisits is 20 from Hard (90) up and 0 below, as Monarch decided; the m12 bots keep none", () => {
+  it("M13c (#75): priorVisits is 20 from Hard (90) up and 0 below, as the project manager decided; the m12 bots keep none", () => {
     expect(HARD_PRIOR_VISITS).toBe(20);
     for (const level of [0, PRESETS.easy, PRESETS.medium, 89])
       expect(difficultySettings(level).priorVisits).toBe(0);

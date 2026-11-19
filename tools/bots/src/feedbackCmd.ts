@@ -15,7 +15,7 @@ import { runDecision } from "./decision";
 import { buildSummary, type RecordFile } from "./feedbackSummary";
 
 /**
- * `pnpm feedback [--all] [--mark-reviewed] [--no-download]` (Paul, Oct 28, 2026), run from the
+ * `pnpm feedback [--all] [--mark-reviewed] [--no-download]` (Oct 28, 2026), run from the
  * repo root: downloads every uploaded record from Railway's `/data/records` into the gitignored
  * `records/`, then writes `records/feedback-<YYYY-MM-DD>.md`: totals, the human's win rate by bot
  * level, and each report not yet reviewed (the bot's search for Bad Bot! / Good Bot!, the last

@@ -25,7 +25,7 @@ import {
 import type { Decklist } from "./types";
 
 /**
- * BFW182's Tangler plan (#403) and Ian's #369, on made-up positions: a starter game with P1's
+ * The Tangler plan (#403) and #369, on made-up positions: a starter game with P1's
  * monster set to Godzilla (2003) EPR-020 (it lowers the opponent's rage when a battle card is
  * discarded) and P1's hand and zones set by hand.
  */
@@ -119,7 +119,7 @@ describe("the Tangler plan (#403)", () => {
     ).toBe(false);
   });
 
-  it("rule 1, #369 (Ian's record cededac5 move 67): Entangling Fear every turn it can be played, none in force: no passing before it", () => {
+  it("rule 1, #369 (a tester's record cededac5 move 67): Entangling Fear every turn it can be played, none in force: no passing before it", () => {
     const { state, p1 } = position([ENTANGLING_FEAR, PERFECT_FORM], 3, 2);
     const v = verdict(state);
     const fear = v.legal.filter(
@@ -243,7 +243,7 @@ describe("the Tangler plan (#403)", () => {
     for (const d of [...zero.perfect, ...zero.bond]) expect(d).toBe(false);
   });
 
-  it("rule 7c (#444 point 3, stevilkiwina): against Gigan (2004), Entangling Fear unplayable (+3 rank): no invading toward it, and no passing while a battle card can go into the counter", () => {
+  it("rule 7c (#444 point 3): against Gigan (2004), Entangling Fear unplayable (+3 rank): no invading toward it, and no passing while a battle card can go into the counter", () => {
     const judge = (gigan: boolean, theirs = "EBP04-028") => {
       const { state, p1, p2 } = position([ENTANGLING_FEAR, EGG], 3, 2);
       p2.invadingMonsterZone = [add(state, real(theirs), "P2")];
@@ -274,7 +274,7 @@ describe("the Tangler plan (#403)", () => {
     for (const d of [...off.invade, ...off.pass]) expect(d).toBe(false);
   });
 
-  it("rule 7a (#444, stevilkiwina): at a discard pick with the rank I Godzilla (2002) EBP03-014 on top, the highest-rank battle card goes", () => {
+  it("rule 7a (#444): at a discard pick with the rank I Godzilla (2002) EBP03-014 on top, the highest-rank battle card goes", () => {
     const pick = (highRank: boolean) => {
       const { state, p1 } = position(
         [EGG, ORGA, PERFECT_FORM, PERFECT_FORM],
@@ -316,7 +316,7 @@ describe("the Tangler plan (#403)", () => {
       expect(d).toBe(false);
   });
 
-  it("rule 7b (#444, stevilkiwina): in zone 5 their monster's rank decides the invasion of 2: it waits when theirs is lower, or the same with no counter this turn, unless their board already counters you", () => {
+  it("rule 7b (#444): in zone 5 their monster's rank decides the invasion of 2: it waits when theirs is lower, or the same with no counter this turn, unless their board already counters you", () => {
     // P1's Godzilla (2003) EPR-020 is rank 3; Mothra (Imago) pays 2 zones, Orga 1.
     const judge = (
       theirs: string,
@@ -379,7 +379,7 @@ describe("the Tangler plan (#403)", () => {
   });
 });
 
-describe("the Tangler plan's rule 6 (#403; BFW182 and Paul, Nov 16)", () => {
+describe("The Tangler plan's rule 6 (#403, Nov 16)", () => {
   const AGGREGATE = "EBP01-049";
   const VS = "EBP01-062";
 

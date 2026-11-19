@@ -20,7 +20,7 @@ import {
   constructedFuturePlays,
 } from "./cfPlay";
 
-// Paul's Constructed Future play rule (Nov 5, 2026): play it only for Mecha-King Ghidorah or a
+// The Constructed Future play rule (Nov 5, 2026): play it only for Mecha-King Ghidorah or a
 // GAM whose own condition is met (8.2, M2: 8+ monster cards in the discard pile).
 
 function official(file: string): Omit<PlayerSetup, "id"> {
@@ -85,7 +85,7 @@ function base(discard: string[], crystals = 3, hand: string[] = []) {
 }
 const monsters = (n: number) => Array<string>(n).fill("EBP02-045");
 
-describe("Constructed Future: Paul's play rule (Hard rules layer)", () => {
+describe("Constructed Future: the play rule (Hard rules layer)", () => {
   it("Mecha-King Ghidorah in the discard pile: the play is kept", () => {
     const { state, activate } = base(["EBP02-068", "EBP02-061"]);
     expect(constructedFuturePlays(state, activate)).toBe("EBP02-068");
@@ -122,7 +122,7 @@ describe("Constructed Future: Paul's play rule (Hard rules layer)", () => {
     expect(constructedFutureDead(state, [activate], "P1").size).toBe(0);
   });
 
-  it("Paul's order follows rank: Mecha-King Ghidorah over King Ghidorah (2024) over GAM", () => {
+  it("The play rule's order follows rank: Mecha-King Ghidorah over King Ghidorah (2024) over GAM", () => {
     const all = base(["EBP01-073", "EBP01-074", "EBP02-068", ...monsters(8)]);
     expect(constructedFuturePlays(all.state, all.activate)).toBe("EBP02-068");
     const two = base(["EBP01-073", "EBP01-074", ...monsters(8)]);

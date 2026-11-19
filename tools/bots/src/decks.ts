@@ -13,7 +13,7 @@ import { buildTestDeck } from "@gojisim/cards/test-decks";
 export const STOP_FILE = "bot-reports/STOP";
 
 /**
- * The one deck list (Paul, Nov 9): every deck, flat names, tags in place of folders. The top-tier
+ * The one deck list (Nov 9): every deck, flat names, tags in place of folders. The top-tier
  * set is its decks tagged Meta (replacing meta.txt), and a deck a run plan names by its old
  * `<file>#<name>` is found by its `# was:` line.
  */
@@ -36,7 +36,7 @@ const tagged = (deck: NamedDeck, tag: string) =>
  * must parse cleanly and pass `validateDeck` on the day every card is tournament-legal.
  */
 /**
- * The `--decks meta` list (Paul's guard rule): the top-tier decks in a local deck-list file, each
+ * The `--decks meta` list (the guard rule): the top-tier decks in a local deck-list file, each
  * parsed and checked as `loadDeck` does. In a file with tags (the one deck list, `DECKS_FILE`)
  * they are the decks tagged Meta; an older file without tags (meta.txt) gives all its decks.
  */

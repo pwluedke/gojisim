@@ -5,7 +5,7 @@ export default defineSwitch({
   name: "noPlanUse",
   default: 1,
   group: "search",
-  what: "The no-plan play's rule 1 (Ian, R-43): for a deck with no plan of its own (not Wrangler, Tangler, Monster X, or Fest with `festPlan`), no passing while a battle card can be played or a spare monster card raged (one Paul's rules don't hold for a rank-up). With `rules`.",
+  what: "Rule 1 for a deck with no plan of its own (not Wrangler, Tangler, Monster X, or Fest with the Red Fest plan on) (report R-43): don't end the turn while a battle card can be played or a spare monster card can be discarded for rage (one the play rules don't keep in hand to play on top later). Used with the play rules (`rules`).",
   from: "#460",
   status: "built",
 });

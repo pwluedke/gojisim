@@ -16,7 +16,7 @@ import {
 } from "./cfPlay";
 
 /**
- * Paul's Constructed Future plan (`cfPlan=1`, Nov 5, 2026), part of the Hard rules layer. Every
+ * The Constructed Future plan (`cfPlan=1`, Nov 5, 2026), part of the Hard rules layer. Every
  * card fact is read from ability data or the engine's resolution; every prune keeps one move.
  * - Play it when it brings back a target: the main phase doesn't end (`pass`) while it could.
  * - Order: play it before the Crystals that rebuild after it: before rage discards while the
@@ -185,7 +185,7 @@ export function makesCounter(
   }
 }
 
-/** The actions Paul's Constructed Future plan rules out. */
+/** The actions the Constructed Future plan rules out. */
 export function cfPlanDead(
   state: GameState,
   actions: readonly Action[],
