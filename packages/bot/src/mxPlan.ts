@@ -18,7 +18,7 @@ import {
 import { makesCounter } from "./cfPlan";
 
 /**
- * Paul's Monster X plan (`mxPlan=1`, Nov 7, 2026), part of the Hard rules layer, active only when
+ * The Monster X plan (`mxPlan=1`, Nov 7, 2026), part of the Hard rules layer, active only when
  * the bot's monster deck is Monster X. Every prune keeps one move; numbers are the plan's rules.
  * - 1: on turn 1, a battle card into your zones comes before any other play.
  * - 2: battle cards: one that adds a new color in your zones over higher counter power, to 4.
@@ -37,7 +37,7 @@ import { makesCounter } from "./cfPlan";
  *   battle card in your zones.
  * - 13: Godzilla and its son on Monster Island only when zones 1-5 all hold battle cards.
  * - 14: vs King Ghidorah, keep the last removal that can hit Mecha-King Ghidorah until it lands.
- * Final Wars placement (Paul's ruling, Nov 7) is `finalWarsDead`, for every deck.
+ * Final Wars placement (the ruling, Nov 7) is `finalWarsDead`, for every deck.
  */
 const MONSTER_X = "Monster X";
 export const MONSTER_X_BATTLE = "EBP04-047";
@@ -118,7 +118,7 @@ export function playOut(state: GameState, action: Action): GameState | null {
 }
 
 /**
- * Godzilla Final Wars' zone picks (Paul's ruling, Nov 7): the revealed cards go where the total
+ * Godzilla Final Wars' zone picks (the ruling, Nov 7): the revealed cards go where the total
  * counter power is highest once all are played. Each option of the pick is played out with the
  * later picks on the weakest zone left (empty first); ties keep the most battle cards in zones.
  */
@@ -298,7 +298,7 @@ export function invadeReason(
   return null;
 }
 
-/** The actions Paul's Monster X plan rules out. */
+/** The actions the Monster X plan rules out. */
 export function mxPlanDead(
   state: GameState,
   actions: readonly Action[],
@@ -308,7 +308,7 @@ export function mxPlanDead(
 }
 
 /**
- * The actions Paul's Monster X plan argues against, each with the first rule that does. The
+ * The actions the Monster X plan argues against, each with the first rule that does. The
  * search favors the others (a preference, not a prune: `ismcts.ts`).
  */
 export function mxPlanVerdict(

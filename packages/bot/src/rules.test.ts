@@ -34,7 +34,7 @@ import {
 } from "./rules";
 
 /**
- * Paul's play rules for Hard (#175): the card-condition readers, and each rule on a built
+ * The play rules for Hard (#175): the card-condition readers, and each rule on a built
  * position (real cards put into a starter game at P1's main phase play timing, 7.3.2).
  */
 
@@ -113,8 +113,8 @@ describe("card conditions (#175), read from ability data", () => {
   });
 });
 
-describe("Paul's play rules for Hard (#175)", () => {
-  it("rule 2, #346 (Keldroc): King Ghidorah (1965) EBP02-046, whose [enter] puts its same-name cards from the discard pile under it, isn't held while another copy is in the monster deck; raging it powers that copy", () => {
+describe("The play rules for Hard (#175)", () => {
+  it("rule 2, #346: King Ghidorah (1965) EBP02-046, whose [enter] puts its same-name cards from the discard pile under it, isn't held while another copy is in the monster deck; raging it powers that copy", () => {
     const { state, p1 } = base();
     monster(state, p1, "EBP02-045");
     const kg65 = add(state, real("EBP02-046"), "P1");
@@ -142,7 +142,7 @@ describe("Paul's play rules for Hard (#175)", () => {
       actions.find(
         (a) => a.type === "gainRage" && a.cardInstanceId === c.instanceId,
       );
-    // #189 (Paul: extra copies go to rage): copies share an action key, so the key stays for
+    // #189 (extra copies go to rage): copies share an action key, so the key stays for
     // the spare; only the held copy's action is ruled out. The King Ghidorah card's stays too.
     expect(verdict.dead.has(key(rage(r3a) as Action))).toBe(false);
     expect(verdict.killed.has(rage(r3a) as Action)).toBe(true);
@@ -191,7 +191,7 @@ describe("Paul's play rules for Hard (#175)", () => {
     expect(god(state).some((a) => !two.verdict.dead.has(two.key(a)))).toBe(
       true,
     );
-    // Paul: when the counter is made, playing it is preferred, but only as a prior.
+    // When the counter is made, playing it is preferred, but only as a prior.
     expect(
       god(state).every((a) => two.verdict.bonus.get(two.key(a)) === RULE_BONUS),
     ).toBe(true);
@@ -241,7 +241,7 @@ describe("Paul's play rules for Hard (#175)", () => {
         { type: "playBattle" }
       >[];
     // 8.2.1: a battle card's rank at most the opponent's monster zone. At 5 the opponent can't
-    // reach your zone 8 next turn: the plays outside zone 8 are pruned (Paul, #189).
+    // reach your zone 8 next turn: the plays outside zone 8 are pruned (#189).
     p2.monsterPosition = 5;
     const safe = rulesFor(state);
     const plays = playsOf(safe);
@@ -270,7 +270,7 @@ describe("Paul's play rules for Hard (#175)", () => {
   });
 });
 
-describe("#189 gaps in Paul's rules", () => {
+describe("#189 gaps in the play rules", () => {
   it("rule 2 in a cost choice (5.7.1): a held card is left out while another option stays", () => {
     const { state, p1 } = base();
     monster(state, p1, "EBP02-052");
@@ -333,7 +333,7 @@ describe("#189 gaps in Paul's rules", () => {
   }, 30_000);
 });
 
-describe("#189 rule 6: the prune only for a plain stat boost (Paul)", () => {
+describe("#189 rule 6: the prune only for a plain stat boost", () => {
   it("reads plain stat boosts from ability data: counter power in a fixed zone", () => {
     expect(statBoostZones(real("EBP02-061"))).toEqual([8]);
     expect(statBoostZones(real("ESD01-012"))).toEqual([8]);
@@ -480,7 +480,7 @@ describe("#189 copies and the concede guard", () => {
   });
 });
 
-describe("#195: counter Gigan (2004) out of rank 1 (Paul)", () => {
+describe("#195: counter Gigan (2004) out of rank 1", () => {
   it("reads the counter offer from ability data: only Gigan (2004) EBP04-027's opponent-counter", () => {
     expect(counterOffer("EBP04-027#opponent-counter")).toBe(true);
     expect(counterOffer("EBP04-027#main-counter")).toBe(false);
@@ -489,7 +489,7 @@ describe("#195: counter Gigan (2004) out of rank 1 (Paul)", () => {
 
   it("at the start of our main phase, Gigan's offer is taken (no decline), paid with the card that has no legal play", () => {
     const { state: start, p1, p2 } = base();
-    // The opponent's rank 1 Gigan (2004) in zone 3, as in BFW182's game (decisions 8 and 47).
+    // The opponent's rank 1 Gigan (2004) in zone 3, as in a tester's game (decisions 8 and 47).
     p2.invadingMonsterZone = [add(start, real("EBP04-027"), "P2")];
     p2.monsterPosition = 3;
     // Two invasion icon 2 cards: Mothra (Imago) (1992), rank 5, can't be played with their monster

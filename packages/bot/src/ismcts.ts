@@ -139,14 +139,14 @@ function planDead(
   /** The bot's own decklist (the SpaceG plan's rule 5 reads it). */
   own: Decklist | undefined,
 ): Set<Action> {
-  // Paul's Constructed Future rules (all cfTarget modes): play it only for a target; with
-  // cfPlan on (the default), his plan (cfPlan.ts).
+  // The Constructed Future rules (all cfTarget modes): play it only for a target; with
+  // cfPlan on (the default), the plan (cfPlan.ts).
   const cf = [
     ...constructedFutureDead(state, actions, me),
     ...(settings.cfPlan > 0 ? cfPlanDead(state, actions, me) : []),
     ...cfTargetDead(state, actions, me, settings.cfTarget),
   ];
-  // Paul's Final Wars ruling (Nov 7): its picks for the highest total counter power.
+  // The Final Wars ruling (Nov 7): its picks for the highest total counter power.
   const finalWars = [...finalWarsDead(state, actions, me)];
   // The SpaceG plan's rule 5: God of Destruction's Counterattack stays out of costs.
   const keepGod =
@@ -191,7 +191,7 @@ export function mxPlanFavored(
 }
 
 /**
- * The root's dead actions from the prune (`prune.ts`), Paul's general rules (`rules.ts`) and his
+ * The root's dead actions from the prune (`prune.ts`), the general play rules (`rules.ts`) and the
  * plans (Constructed Future, the Final Wars ruling): all of them while they leave an action that
  * isn't conceding (#189, the search never concedes). When the general rules and a plan together
  * leave none, the plan wins: its kills stay and the general rules' go. `null` keeps only the prune.
@@ -388,9 +388,9 @@ export function search(input: BotInput, settings: IsmctsSettings) {
   // M13a: root actions whose only effect is moving a card out of the hand (`prune.ts`), judged
   // once on the first determinization from public information (the bot's own hand, both boards).
   let dead = new Set<string>();
-  // #175: Paul's rules' prior bonuses for root actions, by key.
+  // #175: the play rules' prior bonuses for root actions, by key.
   let bonus = new Map<string, number>();
-  // Paul's Monster X plan (mxPlan.ts, #223): the root actions it favors, by key, with a lasting
+  // The Monster X plan (mxPlan.ts, #223): the root actions it favors, by key, with a lasting
   // bias on their value (`MX_PLAN_BIAS`).
   let favored = new Map<string, number>();
   let iterations = 0;
@@ -445,7 +445,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         }
       }
     }
-    // Paul, Nov 12: the card-play rules (Medium and Hard), while they leave a move that isn't
+    // Nov 12: the card-play rules (Medium and Hard), while they leave a move that isn't
     // conceding.
     // `cardRules` (on from Medium up) alone switches them, so a check can turn them off at Hard.
     if (iterations === 1 && settings.cardRules > 0) {
@@ -464,7 +464,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         ...[...unsafe].map((a) => actionKey(first, a)),
       ]);
       // Rules 7 and 9 (#265, #274): a way to block zone 8, else to make the counter, outranks
-      // Paul's rules' holds too.
+      // the play rules' holds too.
       const blocks = rescuedPlays(
         first,
         input.legalActions,
@@ -509,9 +509,9 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         input.legalActions.filter((a) => favored.has(actionKey(state, a))),
       );
     // #276: the Wrangler plan, a preference like the Monster X plan, that frees what its line
-    // needs from Paul's rules' holds.
-    // Paul, Nov 13: v2 (`wranglerPlan=2`, the default) with the card rules (Medium and Hard); v1
-    // (`wranglerPlan=1`) with Paul's rules (Hard).
+    // needs from the play rules' holds.
+    // Nov 13: v2 (`wranglerPlan=2`, the default) with the card rules (Medium and Hard); v1
+    // (`wranglerPlan=1`) with the play rules (Hard).
     const wranglerV2 = settings.wranglerPlan >= 2;
     if (
       iterations === 1 &&
@@ -565,7 +565,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
               Math.max(favored.get(actionKey(first, a)) ?? 0, MX_PLAN_BIAS),
             );
     }
-    // BFW182's Tangler plan (#403), a preference like the Wrangler plan.
+    // The Tangler plan (#403), a preference like the Wrangler plan.
     if (iterations === 1 && settings.rules > 0 && settings.tanglerPlan > 0) {
       const first = state;
       const { against } = withTrace(input.trace, () =>
@@ -585,7 +585,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
               Math.max(favored.get(actionKey(first, a)) ?? 0, MX_PLAN_BIAS),
             );
     }
-    // Paul's SpaceG plan (#408), a preference like the Wrangler plan.
+    // The SpaceG plan (#408), a preference like the Wrangler plan.
     if (iterations === 1 && settings.rules > 0 && settings.spacegPlan > 0) {
       const first = state;
       const { against } = withTrace(input.trace, () =>
@@ -605,7 +605,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
               Math.max(favored.get(actionKey(first, a)) ?? 0, MX_PLAN_BIAS),
             );
     }
-    // Slick's Red Fest plan, a preference like the Wrangler plan.
+    // The Red Fest plan, a preference like the Wrangler plan.
     if (iterations === 1 && settings.rules > 0 && settings.festPlan > 0) {
       const first = state;
       const { against } = withTrace(input.trace, () =>
@@ -817,7 +817,7 @@ function cardRulesSafe(
 }
 
 /**
- * `wranglerBioHard`: adds the plan's prunes to the root's dead keys. Paul's prunes outrank the
+ * `wranglerBioHard`: adds the plan's prunes to the root's dead keys. The plan's prunes outrank the
  * softer rules, so when they'd leave no move, pass (never one of them) comes back first; with no
  * pass either, nothing is pruned. Returns the revived pass, if any.
  */
@@ -841,7 +841,7 @@ export function withPrunes(
 }
 
 /**
- * The moves a blunder pick (#132, no search) chooses among with Paul's rules on (#189): what the
+ * The moves a blunder pick (#132, no search) chooses among with the play rules on (#189): what the
  * general rules and the plans leave, as at the search root (#223), and of those the Monster X
  * plan's moves when it has any.
  */
@@ -886,7 +886,7 @@ export function blunderAllowed(
         ).pruned
       : undefined;
   const unpruned = pruned ? sure.filter((a) => !pruned.has(a)) : sure;
-  // Paul's prunes outrank the softer rules: with nothing else left, the bot passes.
+  // The plan's prunes outrank the softer rules: with nothing else left, the bot passes.
   const pass = legalActions.find((a) => a.type === "pass" && !pruned?.has(a));
   const allowed = unpruned.some((a) => a.type !== "concede")
     ? unpruned
@@ -921,7 +921,7 @@ function decideUntraced(input: BotInput): Decision {
     };
   const settings = ismctsSettings(input.settings);
   if (settings.blunder > 0 && rng() < settings.blunder) {
-    // #189: with Paul's rules on, a blunder picks only among the moves the rules allow; with
+    // #189: with the play rules on, a blunder picks only among the moves the rules allow; with
     // the card-play rules (Medium), never a move they leave out.
     const allowed =
       settings.rules > 0

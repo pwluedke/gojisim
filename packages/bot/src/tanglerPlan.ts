@@ -14,7 +14,7 @@ import type { GroupOptions } from "./switches/settings";
 import type { Decklist } from "./types";
 
 /**
- * BFW182's Tangler plan (#403, Discord #tangler; Paul's R-20), with #369 (Ian: passing with an
+ * The Tangler plan (#403, Discord #tangler; report R-20), with #369 (passing with an
  * Entangling Fear in hand). A preference like the Wrangler plan: the moves it argues against, and
  * the ones it frees.
  *
@@ -35,13 +35,13 @@ import type { Decklist } from "./types";
  * 5. With the counter made, stop playing out the hand (`tanglerStop`): battle card plays and
  *    strategies wait (passing is fine; the hand refills to 5), but Entangling Fear and the low
  *    evolution cards of rule 1.
- * 6. Save the finishers (`tanglerSave`; BFW182 and Paul, Nov 16): any Destoroyah battle card
+ * 6. Save the finishers (`tanglerSave`, Nov 16): any Destoroyah battle card
  *    (Aggregate Form EBP01-049, Flying Form EBP01-054, Perfect Form EBP02-037) turns on Godzilla
  *    vs. Destoroyah EBP01-062. (a) With none on your field, the last rank 4 or 6 copy in hand stays:
  *    it isn't discarded or paid with, nor played unless the play makes this turn's counter. (b)
  *    Godzilla vs. Destoroyah is held for the final counter (their monster deck empty) or the one
  *    that stops a losing invasion (their monster in zone 6 or beyond): otherwise it waits.
- * 7. stevilkiwina's play guide (#444, R-32, BFW182 agrees):
+ * 7. A tester's play guide (#444, R-32; the Tangler plan's author agrees):
  *    a. Early, the highest rank goes (`tanglerHighRank`): at a discard pick with the rank I Godzilla
  *       (2002) EBP03-014 on top (its end-phase discard), the highest-rank battle card goes, the
  *       card least likely to be playable soon.
@@ -59,7 +59,7 @@ import type { Decklist } from "./types";
 /** The Tangler's monsters that lower the opponent's rage when a battle card is discarded. */
 export const RAGE_REDUCERS = new Set(["EBP03-015", "EPR-020", "EBP03-017"]);
 
-/** Rule 6 (BFW182): the Destoroyah battle cards, any of which turns on Godzilla vs. Destoroyah. */
+/** Rule 6: the Destoroyah battle cards, any of which turns on Godzilla vs. Destoroyah. */
 export const DESTOROYAH = new Set(["EBP01-049", "EBP01-054", "EBP02-037"]);
 /** Rule 6: the rank 4 (Aggregate Form) and rank 6 (Flying Form) copies, one of which stays. */
 const DESTOROYAH_KEPT = new Set(["EBP01-049", "EBP01-054"]);

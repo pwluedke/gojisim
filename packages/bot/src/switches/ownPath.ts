@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "cardRules",
   option: "ownPath",
-  what: "Card rule 21: no battle card into your own monster's next two zones (its advance or invasion crushes it there) while it has a legal play into an empty zone off them; [revenge] cards excepted.",
+  what: "Card rule 21: don't play a battle card into the next two zones your own monster will move into (its advance or invasion would crush the card there) while it can legally be played into an empty zone outside them. [revenge] cards are the exception.",
   from: "#304",
   status: "built",
 });

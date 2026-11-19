@@ -12,7 +12,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { cfTargetDead } from "./cfTarget";
 
-// Paul's Constructed Future test setting (Nov 4, 2026): which card cost discards aim SD05-005 at.
+// The Constructed Future test setting (Nov 4, 2026): which card cost discards aim SD05-005 at.
 
 function official(file: string): Omit<PlayerSetup, "id"> {
   const url = new URL(`../../cards/data/decks/${file}`, import.meta.url);

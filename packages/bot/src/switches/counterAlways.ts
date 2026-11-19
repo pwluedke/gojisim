@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "cardRules",
   option: "counterAlways",
-  what: "Card rule 20: wherever the opponent's monster is and with rule 7 not involved, a way to make the counter this turn is taken; with the counter made, a play that drops it is left out.",
+  what: "Card rule 20: wherever the opponent's monster is, and when card rule 7 doesn't apply, take a play that gives you enough counter power to counter the opponent's monster this turn. Once you have that counter power, leave out any play that would lose it.",
   from: "#324, #327",
   status: "built",
 });

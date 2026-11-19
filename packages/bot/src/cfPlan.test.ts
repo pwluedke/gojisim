@@ -16,7 +16,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { cfPlanDead, crystalBonus, crystalsOn } from "./cfPlan";
 
-// Paul's Constructed Future plan (`cfPlan=1`, Nov 5, 2026): play it for a target, before the
+// The Constructed Future plan (`cfPlan=1`, Nov 5, 2026): play it for a target, before the
 // Crystals rebuild, unless it breaks the GoD counter; first KG (2024) / MKG pay invade costs;
 // Gravity Beam only for the counter or as disruption.
 
@@ -102,7 +102,7 @@ const of = (state: GameState, p1: PlayerState, a: Action) => {
 };
 const types = (s: Set<Action>) => [...s].map((a) => a.type).sort();
 
-describe("Paul's Constructed Future plan (cfPlan=1)", () => {
+describe("The Constructed Future plan (cfPlan=1)", () => {
   it("ability data: Flying Form IV makes 2 Crystals per rage increase, EBP04-026 3 on invading; GoD +20,000 with 3", () => {
     expect(crystalsOn("EBP02-057", "rageChanged")).toBe(2);
     expect(crystalsOn("EBP04-026", "invading")).toBe(3);

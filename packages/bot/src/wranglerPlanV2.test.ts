@@ -28,7 +28,7 @@ import {
   wranglerV2Verdict,
 } from "./wranglerPlanV2";
 
-/** The Wrangler plan v2 (Paul, Nov 13): its lines on built positions. */
+/** The Wrangler plan v2 (Nov 13): its lines on built positions. */
 
 function official(file: string): Omit<PlayerSetup, "id"> {
   const url = new URL(`../../cards/data/decks/${file}`, import.meta.url);
@@ -156,7 +156,7 @@ describe("the Wrangler plan v2", () => {
     // (8.2.1). Without the King in hand, the same push is argued against.
     const king = position([LANDING, KING], 4, 7);
     for (const a of landings(king.state, king.p1)) expect(a).toBe(false);
-    // v2.3 (Ian): a rank 7-8 play after the push isn't a follow-up any more, only the counter.
+    // v2.3: a rank 7-8 play after the push isn't a follow-up any more, only the counter.
     for (const a of landings(king.state, king.p1, true)) expect(a).toBe(true);
     const noKing = position([LANDING], 4, 7);
     for (const a of landings(noKing.state, noKing.p1)) expect(a).toBe(true);
@@ -178,7 +178,7 @@ describe("the Wrangler plan v2", () => {
         expect(v2.against.has(a)).toBe(false);
   });
 
-  it("#381 (Ian's record e09f7ade move 14): an invasion that reaches The Slithering Disaster's zone, then the push and two battle cards make the counter this turn, is taken over raging; paid with the card the counter needs, or with no counter after, it isn't", () => {
+  it("#381 (a tester's record e09f7ade move 14): an invasion that reaches The Slithering Disaster's zone, then the push and two battle cards make the counter this turn, is taken over raging; paid with the card the counter needs, or with no counter after, it isn't", () => {
     const setUp = (gams: number) => {
       const pos = position(
         [SLITHERING, GODZILLA_1954_WIPE, ...Array(gams).fill(GAM)],
@@ -253,7 +253,7 @@ describe("the Wrangler plan v2", () => {
       undefined,
       { v23: false },
     );
-    // v2.3 (Ian): every monster card but Godzilla (2004) is pitched, Godzilla (1954) EBP01-004 too.
+    // v2.3: every monster card but Godzilla (2004) is pitched, Godzilla (1954) EBP01-004 too.
     const v23 = wranglerV2Verdict(state, legal, "P1", WRANGLER);
     for (const a of legal)
       if (a.type === "gainRage") expect(v23.rescued.has(a)).toBe(true);
@@ -357,7 +357,7 @@ describe("the Wrangler plan v2", () => {
       if (a.type === "pass") expect(answer.against.has(a)).toBe(false);
   });
 
-  it("v2.2 (Ian's notes, point 7): at Despair's target pick, a battle card in your monster's column goes before others in reach", () => {
+  it("v2.2 (a tester's notes, point 7): at Despair's target pick, a battle card in your monster's column goes before others in reach", () => {
     const { state, p1, p2 } = position([DESPAIR], 3, 2);
     p1.rage = 2;
     // Your monster in zone 3: their zone 3 is in its column, their zone 1 isn't (no Mecha-King).
@@ -385,7 +385,7 @@ describe("the Wrangler plan v2", () => {
     expect(v21.against.has(option(other.instanceId))).toBe(false);
   });
 
-  it("v2.2 (Ian, point 2): with Godzilla (2023) ESD01-002 on top and a King short of 3 rage, an invasion for its fetch, paying with a strategy it doesn't need, isn't argued against; paying with a key card still is", () => {
+  it("v2.2 (point 2): with Godzilla (2023) ESD01-002 on top and a King short of 3 rage, an invasion for its fetch, paying with a strategy it doesn't need, isn't argued against; paying with a key card still is", () => {
     const { state, p1 } = position([SLITHERING, LANDING], 3, 2);
     p1.invadingMonsterZone = [add(state, real("ESD01-002"), "P1")];
     p1.zones[1] = [[add(state, real(KING), "P1")]];
@@ -406,7 +406,7 @@ describe("the Wrangler plan v2", () => {
     for (const a of invade(SLITHERING)) expect(v21.against.has(a)).toBe(true);
   });
 
-  it("#425 (Ian's record 9a35a4c6 move 37): Kings to be played count for v2.2's fetch invasion; the one that reaches 3 rage (two zones, two fetches) is taken over tagging out", () => {
+  it("#425 (a tester's record 9a35a4c6 move 37): Kings to be played count for v2.2's fetch invasion; the one that reaches 3 rage (two zones, two fetches) is taken over tagging out", () => {
     const judge = (fetchRage: boolean) => {
       const { state, p1 } = position(
         [KING, KING, KING, DESPAIR, "EBP01-008"],
@@ -452,7 +452,7 @@ describe("the Wrangler plan v2", () => {
     for (const d of off.tagOut) expect(d).toBe(false);
   });
 
-  it("#418 (Ian; Paul's option a): early, an invasion paid with a spare strategy (The Slithering Disaster, a second Despair) is freed from don't race; one Despair, a monster card or a later rank isn't", () => {
+  it("#418 (option a): early, an invasion paid with a spare strategy (The Slithering Disaster, a second Despair) is freed from don't race; one Despair, a monster card or a later rank isn't", () => {
     const judge = (
       hand: string[],
       top = "EBP01-001",
@@ -501,7 +501,7 @@ describe("the Wrangler plan v2", () => {
       expect(d).toBe(true);
   });
 
-  it("#442 (Ian's record 962de209 move 18): at 1 rage with the rank II Godzilla (2023) on top, an invasion whose fetches bring the rage to 2 for Despair goes first; Despair now (it would do nothing) waits", () => {
+  it("#442 (a tester's record 962de209 move 18): at 1 rage with the rank II Godzilla (2023) on top, an invasion whose fetches bring the rage to 2 for Despair goes first; Despair now (it would do nothing) waits", () => {
     const judge = (fetchDespair: boolean) => {
       const { state, p1, p2 } = position([DESPAIR, KING], 4, 4, 7);
       p1.invadingMonsterZone = ["EBP01-001", "ESD01-002"].map((n) =>
@@ -538,7 +538,7 @@ describe("the Wrangler plan v2", () => {
     for (const d of judge(false).despair) expect(d).toBe(false);
   });
 
-  it("v2.2 (Ian, point 10): Godzilla Against Mechagodzilla's rage reset is saved when it doesn't make the counter", () => {
+  it("v2.2 (point 10): Godzilla Against Mechagodzilla's rage reset is saved when it doesn't make the counter", () => {
     const { state, p1 } = position([LANDING], 3, 2);
     p1.zones[1] = [[add(state, real(GAM), "P1")]];
     for (let i = 0; i < 8; i++)
@@ -560,7 +560,7 @@ describe("the Wrangler plan v2", () => {
     expect(against.has(yes)).toBe(true);
   });
 
-  it("#388 (Ian's record e63fd137 move 97): with GAM up and their King protected by their rage, the invasion whose reset (10.5.4's optional cost, yes) and then a rage destroy make the counter goes before raging", () => {
+  it("#388 (a tester's record e63fd137 move 97): with GAM up and their King protected by their rage, the invasion whose reset (10.5.4's optional cost, yes) and then a rage destroy make the counter goes before raging", () => {
     const setUp = (theirRage: number) => {
       const pos = position(
         [
@@ -660,7 +660,7 @@ describe("the Wrangler plan v2", () => {
     expect(prompt(true)).toBe(false);
   });
 
-  it("#417 (Ian's record 4fac1b21 move 46): when GAM's reset alone makes the counter, that invasion is taken (every other move pruned, the monster play too), and at the reset's prompt no is pruned", () => {
+  it("#417 (a tester's record 4fac1b21 move 46): when GAM's reset alone makes the counter, that invasion is taken (every other move pruned, the monster play too), and at the reset's prompt no is pruned", () => {
     const setUp = () => {
       const pos = position([LANDING, "EBP01-009", "EBP01-002"], 5, 7, 10);
       const { state, p1, p2 } = pos;
@@ -729,7 +729,7 @@ describe("the Wrangler plan v2", () => {
     expect(second.v.pruned?.has(second.no)).toBe(true);
   });
 
-  it("#384 (Ian's record e09f7ade move 74): with their GAM up and nothing under it, a tag-out to Godzilla (2001) EBP03-004 (its rage can't be reduced from zone 4) goes before raging", () => {
+  it("#384 (a tester's record e09f7ade move 74): with their GAM up and nothing under it, a tag-out to Godzilla (2001) EBP03-004 (its rage can't be reduced from zone 4) goes before raging", () => {
     const judge = (opts: {
       under?: boolean;
       at?: ZoneNumber;
@@ -774,7 +774,7 @@ describe("the Wrangler plan v2", () => {
     for (const d of judge({ tagOut: false }).rage) expect(d).toBe(false);
   });
 
-  it("#428 (Ian's record 3e4c0913 move 30): with a King to protect and the rage short of 3, no burst over the rank I Godzilla (1954) EBP01-001 (its counter-phase mill is a rage)", () => {
+  it("#428 (a tester's record 3e4c0913 move 30): with a King to protect and the rage short of 3, no burst over the rank I Godzilla (1954) EBP01-001 (its counter-phase mill is a rage)", () => {
     const judge = (rage: number, keepRankOne = true) => {
       const { state, p1 } = position([KING, "EBP01-002"], 5, 6, 9);
       p1.invadingMonsterZone = [add(state, real("EBP01-001"), "P1")];
@@ -794,7 +794,7 @@ describe("the Wrangler plan v2", () => {
     for (const d of judge(0, false)) expect(d).toBe(false);
   });
 
-  it("v2.3 (Ian): against Monster X, with fewer than 2 battle cards in hand, dig (Despair over passing)", () => {
+  it("v2.3: against Monster X, with fewer than 2 battle cards in hand, dig (Despair over passing)", () => {
     const { state, p1, p2 } = position([KING, DESPAIR], 3, 2);
     p2.invadingMonsterZone = [add(state, real("EBP04-032"), "P2")];
     const legal = getLegalActions(state, "P1");
@@ -822,7 +822,7 @@ describe("the Wrangler plan v2", () => {
   const verdict = (state: GameState, legal: Action[], bio: boolean) =>
     wranglerV2Verdict(state, legal, "P1", WRANGLER, BIOLLANTE, { bio: bio });
 
-  it("wranglerBio (Ian): Biollante stays at rank I: no King play that makes the counter on its Rose Form", () => {
+  it("wranglerBio: Biollante stays at rank I: no King play that makes the counter on its Rose Form", () => {
     const { state, p1, p2 } = position([], 3, 5);
     // Rank 1, so it can be played with their monster in zone 5 (8.2.1).
     p1.hand = [add(state, { ...real(KING), rank: 1 }, "P1")];
@@ -842,7 +842,7 @@ describe("the Wrangler plan v2", () => {
       expect(verdict(state, legal, false).against.has(a)).toBe(false);
   });
 
-  it("wranglerBio (Ian): Kings spread, never next to each other, where one Godzilla vs. Megaguirus takes both", () => {
+  it("wranglerBio: Kings spread, never next to each other, where one Godzilla vs. Megaguirus takes both", () => {
     const { state, p1, p2 } = position([], 3, 5);
     // The King in zone 1 first: cards are stored by id, so the rank 1 copy in hand goes last.
     p1.zones[1] = [[add(state, real(KING), "P1")]];
@@ -866,7 +866,7 @@ describe("the Wrangler plan v2", () => {
       expect(verdict(state, legal, false).against.has(a)).toBe(false);
   });
 
-  it("wranglerBio (Ian): no strategy played against its rank III EBP02-027 in zone 5 or beyond (awakening 6: counter-proof while you have one)", () => {
+  it("wranglerBio: no strategy played against its rank III EBP02-027 in zone 5 or beyond (awakening 6: counter-proof while you have one)", () => {
     const { state, p1, p2 } = position([DESPAIR], 3, 5);
     p2.invadingMonsterZone = [add(state, real("EBP02-027"), "P2")];
     p1.rage = 2;
@@ -881,7 +881,7 @@ describe("the Wrangler plan v2", () => {
       expect(verdict(state, legal, false).against.has(a)).toBe(false);
   });
 
-  it("wranglerBioHard (Paul): the Rose Form counter and the strategy vs rank III EBP02-027 are prunes, the search's and a blunder's; the Kings spread stays an argument", () => {
+  it("wranglerBioHard: the Rose Form counter and the strategy vs rank III EBP02-027 are prunes, the search's and a blunder's; the Kings spread stays an argument", () => {
     const hardVerdict = (state: GameState, legal: Action[], bioHard: boolean) =>
       wranglerV2Verdict(state, legal, "P1", WRANGLER, BIOLLANTE, {
         bioHard: bioHard,

@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { botInput, decklistsOf, seededRng } from "./input";
 import { decide, ismctsSettings } from "./ismcts";
 
-// Paul's full-turn position for the Constructed Future plan (Nov 5, 2026): Flying Form IV, 3
+// The full-turn position for the Constructed Future plan (Nov 5, 2026): Flying Form IV, 3
 // Crystals; Constructed Future, 2 monster cards and GoD in hand; King Ghidorah (2024) in the
 // discard pile. The plan: Constructed Future (the 3 Crystals go, KG (2024) comes back), then 2
 // rage discards (8.4; Flying Form IV makes 2 Crystals each: 4), then the counter with GoD (7.4.3).
@@ -146,7 +146,7 @@ function position() {
   return { state, setups };
 }
 
-describe("Paul's Constructed Future plan: the full turn", () => {
+describe("The Constructed Future plan: the full turn", () => {
   it("cfPlan defaults to 1 and cfPlan=0 turns it off", () => {
     expect(ismctsSettings({}).cfPlan).toBe(1);
     expect(ismctsSettings({ cfPlan: "0" }).cfPlan).toBe(0);

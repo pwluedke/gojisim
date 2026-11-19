@@ -108,7 +108,7 @@ export interface MatchOptions {
   /** Each game's record goes here as `game-<n>.json` (`pnpm bot-explain` reads it). */
   recordDir?: string;
   /**
-   * The `meta` source's decks (the top-tier list, Paul's guard rule): each pair of games plays one
+   * The `meta` source's decks (the top-tier list, the guard rule): each pair of games plays one
    * ordered pairing with the seats swapped, cycling through every ordered pair.
    */
   meta?: NamedDeck[];

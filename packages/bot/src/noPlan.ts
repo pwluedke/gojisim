@@ -17,13 +17,13 @@ import type { Decklist } from "./types";
 import { isWranglerDeck } from "./wranglerPlan";
 
 /**
- * #460 (Ian, Nov 17, from Keldroc's Ghidorat reports; Paul's R-43): the play of a deck with no
+ * #460 (Nov 17, from a tester's Ghidorat reports; report R-43): the play of a deck with no
  * plan of its own (not Wrangler, Tangler, Monster X, SpaceG while `spacegPlan` is on, or Fest while
  * `festPlan` is on). A preference
  * like the plans: the moves it argues against.
  *
  * 1. Use the cards (`noPlanUse`): no passing while a battle card can be played or a spare monster
- *    card raged (one Paul's rules don't hold for a rank-up, `heldCards`). "A card left in hand is
+ *    card raged (one the play rules don't hold for a rank-up, `heldCards`). "A card left in hand is
  *    wasted unless it has a reason to wait."
  * 2. Invade with a reason (`noPlanInvade`): an invasion that doesn't win now waits unless it gains
  *    something concrete: the invading monster's [invading] ability, or a counter it sets up (the

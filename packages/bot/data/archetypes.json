@@ -1,5 +1,5 @@
 {
-  "note": "Public meta archetypes for the deck recognizer (#191), approved by Paul on 2026-11-03. Each line is cards by deck card number (or a trait for every monster card with it) and its usual count in a deck; core lines without a count are 2-3, common ones 1-2.",
+  "note": "Public meta archetypes for the deck recognizer (#191), approved by the owner on 2026-11-03. Each line is cards by deck card number (or a trait for every monster card with it) and its usual count in a deck; core lines without a count are 2-3, common ones 1-2.",
   "archetypes": [
     {
       "name": "Tangler",

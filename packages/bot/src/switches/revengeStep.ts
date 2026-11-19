@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "cardRules",
   option: "revengeStep",
-  what: "A [revenge] card goes in zone 8 only when an invasion this turn takes your own monster there.",
+  what: "Play a [revenge] card into zone 8 only when an invasion this turn takes your own monster there.",
   from: "#339",
   status: "built",
 });

@@ -8,7 +8,7 @@ import type { GroupOptions } from "./switches/settings";
 import type { Decklist } from "./types";
 
 /**
- * Paul's SpaceG plan (#408, Discord #space-godzilla), with his addendum. A preference like the
+ * The SpaceG plan (#408, Discord #space-godzilla), with its addendum. A preference like the
  * Wrangler plan: the moves it argues against, and the ones it frees. "SpaceG's engine is invading
  * and raging every turn; Crystals come from invading or covering, not from waiting."
  *
@@ -24,7 +24,7 @@ import type { Decklist } from "./types";
  *    on the one in play makes 2 more Crystals: no passing while it can be played; and while this
  *    turn's invasion can still be made, it waits for it (the addendum: invade, then cover, so the
  *    Crystals land behind SpaceG).
- * 4. Positioning (`spacegZone`, Paul, Nov 16): the choice is how far to invade; the end-of-turn
+ * 4. Positioning (`spacegZone`, Nov 16): the choice is how far to invade; the end-of-turn
  *    advance adds one zone either way. End the turn in zone 7 by default; an invasion that would
  *    end it in zone 8 waits (while one that ends it in zone 7 or short of it can be made) unless
  *    SpaceG survives their next counter there: their best counter power next turn (their board's,
