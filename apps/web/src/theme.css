@@ -594,7 +594,8 @@ body {
   --hand-scale: 1.4;
   /* Issue 163: a raised hand card is this many times the board card, never taller than the window. */
   --raised-scale: 2.75;
-  --left-column-width: 260px;
+  /* Issue 478: as wide as the battle log column (its width when shown). */
+  --left-column-width: calc(var(--side-column-width) + 2 * var(--space-4));
   /* Paul, Nov 10: no header bar over the board (Showa's header is a block over the left column). */
   /*
    * Issue 292 (Paul, Nov 13): the official playmat's layout, 7 portrait columns wide (7w + 6 gaps, so

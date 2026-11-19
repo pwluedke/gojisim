@@ -32,6 +32,7 @@ import {
   type SwitchSettings,
 } from "./switches/settings";
 import { determinize } from "./determinize";
+import { seededRng } from "./input";
 import { finalWarsDead, mxPlanVerdict } from "./mxPlan";
 import { type MxPlanOptions, mxPlanV2Verdict } from "./mxPlanV2";
 import { DEFAULT_WEIGHTS, evaluate, type Weights } from "./evaluate";
@@ -962,6 +963,60 @@ function decideUntraced(input: BotInput): Decision {
     blundered: false,
     search: result,
   };
+}
+
+/**
+ * #478 (Bot Advisor): the search's most-visited line from the root through the rest of the
+ * decider's turn: the pick, then at each next decision the move the search tried most. A choice
+ * the other player makes during the turn is followed too (the search's guess at it), but only the
+ * decider's own moves are listed.
+ * It's walked on one sampled position (the other side's hidden cards and the deck's order are
+ * guesses), so it's a plan, which can change as cards are drawn or revealed. Each step comes with
+ * the state it's made in, for its label. Walking it changes nothing.
+ */
+export function plannedLine(
+  input: BotInput,
+  decision: Decision,
+  maxSteps = 12,
+): { action: Action; state: GameState }[] {
+  const result = decision.search;
+  const settings = ismctsSettings(input.settings);
+  const me = input.view.viewer as PlayerId;
+  const key = (state: GameState, action: Action) =>
+    keyAction(state, action, settings.targetKey > 0);
+  let state = determinize(input.view, input.knowledge, seededRng("plan"), {
+    recognizer: settings.recognizer > 0,
+  });
+  const line: { action: Action; state: GameState }[] = [];
+  let node = result?.root;
+  let action: Action | undefined = decision.action;
+  let mine = true;
+  for (let steps = 0; action && line.length < maxSteps && steps < 40; steps++) {
+    if (mine) line.push({ action, state });
+    node = node?.children.get(key(state, action));
+    try {
+      state = advanceToDecision(applyAction(state, action));
+    } catch {
+      break;
+    }
+    // The turn ends when it passes to the other player.
+    if (!node || state.result || state.turnPlayer !== me) break;
+    const decider = (state.pendingChoice?.player ??
+      state.turnPlayer) as PlayerId;
+    mine = decider === me;
+    let best: Action | undefined;
+    let most = 0;
+    for (const a of getLegalActions(state, decider)) {
+      if (a.type === "concede") continue;
+      const visits = node.children.get(key(state, a))?.visits ?? 0;
+      if (visits > most) {
+        most = visits;
+        best = a;
+      }
+    }
+    action = best;
+  }
+  return line;
 }
 
 export const ismctsBot: Bot = {

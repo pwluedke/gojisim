@@ -8,6 +8,13 @@ import type { PlayerId, Session } from "./session";
 /** #478: the level the advisor plays at (the bot's best). */
 export const ADVISOR_LEVEL = 100;
 
+/** #478: the bot's plan for the player's whole turn, made at its first decision. */
+export interface TurnPlan {
+  turn: number;
+  player: PlayerId;
+  steps: string[];
+}
+
 /** The bot's advice at one of the player's decisions. */
 export interface Advice {
   /** The decision: the state after this many actions. */
@@ -15,6 +22,8 @@ export interface Advice {
   player: PlayerId;
   turn: number;
   trace: NonNullable<Extract<BotResponse, { action: unknown }>["trace"]>;
+  /** The search's planned line from this decision through the turn, as the log words it. */
+  plan: string[];
 }
 
 /**
@@ -29,12 +38,13 @@ export function useAdvisor(
   state: GameState | null,
   /** A Classroom game at its live end, the player to decide (not the bot, not a sandbox). */
   enabled: boolean,
-): { advice: Advice | null; thinking: boolean } {
+): { advice: Advice | null; thinking: boolean; turnPlan: TurnPlan | null } {
   const workerRef = useRef<Worker | null>(null);
   const latest = useRef<{ id: number; actionIndex: number } | null>(null);
   const nextId = useRef(1);
   const [advice, setAdvice] = useState<Advice | null>(null);
   const [thinking, setThinking] = useState(false);
+  const [turnPlan, setTurnPlan] = useState<TurnPlan | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
@@ -65,8 +75,22 @@ export function useAdvisor(
       const reply = event.data;
       if (latest.current?.id !== reply.id) return;
       setThinking(false);
-      if ("action" in reply && reply.trace)
-        setAdvice({ actionIndex, player, turn, trace: reply.trace });
+      if ("action" in reply && reply.trace) {
+        const next = {
+          actionIndex,
+          player,
+          turn,
+          trace: reply.trace,
+          plan: reply.plan ?? [],
+        };
+        setAdvice(next);
+        // The turn's plan is the one made at its first advised decision (it can change).
+        setTurnPlan((p) =>
+          p && p.turn === turn && p.player === player
+            ? p
+            : { turn, player, steps: next.plan },
+        );
+      }
     };
     const { rng: _rng, ...input } = botInput(
       state,
@@ -90,5 +114,13 @@ export function useAdvisor(
 
   // Advice for an earlier decision isn't shown once the game has moved on.
   const current = advice?.actionIndex === actionIndex ? advice : null;
-  return { advice: enabled ? current : null, thinking: enabled && thinking };
+  const plan =
+    enabled && turnPlan && state && turnPlan.turn === state.turn
+      ? turnPlan
+      : null;
+  return {
+    advice: enabled ? current : null,
+    thinking: enabled && thinking,
+    turnPlan: plan,
+  };
 }

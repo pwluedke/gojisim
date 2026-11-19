@@ -186,7 +186,7 @@ describe("Kaiju Classroom (#365)", () => {
 });
 
 describe("Classroom advice answers (#478)", () => {
-  const entry = (actionIndex: number, answer: "agree" | "refute") => ({
+  const entry = (actionIndex: number, answer: "agree" | "disagree") => ({
     actionIndex,
     player: "P1" as const,
     turn: 1,
@@ -203,12 +203,15 @@ describe("Classroom advice answers (#478)", () => {
     const actions = s.record.actions.length;
     s = withClassroomAdvice(s, entry(3, "agree"));
     s = withClassroomAdvice(s, entry(5, "agree"));
-    s = withClassroomAdvice(s, { ...entry(3, "refute"), reason: "wrongZone" });
+    s = withClassroomAdvice(s, {
+      ...entry(3, "disagree"),
+      reason: "wrongZone",
+    });
     expect(
       s.record.classroomAdvice?.map((a) => [a.actionIndex, a.answer]),
     ).toEqual([
       [5, "agree"],
-      [3, "refute"],
+      [3, "disagree"],
     ]);
     // Replay never reads it: the game's actions are unchanged.
     expect(s.record.actions).toHaveLength(actions);

@@ -5,7 +5,7 @@ test.use({ viewport: { width: 1440, height: 900 } });
 /**
  * #478 (Bot Advisor, phase 2a): in a Kaiju Classroom game, at the player's own decision, the
  * Advisor panel shows the move the bot would make in the player's seat, the moves it weighed and
- * the rules behind it; Agree or Refute (a reason from the list, "Other" with the player's words)
+ * the rules behind it; Agree or Disagree (a reason from the list, "Other" with the player's words)
  * is kept, and the turn's answers are summed up. Nothing is played for the player. The seed gives
  * the player the first turn, so the advice comes at once. Explicit timeouts: a Level 100 search
  * can be slow while other work shares the machine.
@@ -41,6 +41,12 @@ test("Classroom advisor: the bot's move in your seat, with Agree kept in the tur
 }) => {
   test.setTimeout(180_000);
   const panel = await classroomFirstTurn(page);
+  await expect(page.getByTestId("advisor-turn-plan")).toContainText(
+    "Turn plan",
+  );
+  await expect(page.getByTestId("advisor-why")).not.toBeEmpty();
+  await page.getByTestId("advisor-win-tip").first().hover();
+  await expect(page.getByTestId("advisor-win-tip").first()).toBeVisible();
   // Nothing has been played for the player: it's still their decision.
   await expect(page.getByTestId("prompt-step")).toContainText("your turn");
   await page.getByTestId("advisor-agree").click();
@@ -48,16 +54,16 @@ test("Classroom advisor: the bot's move in your seat, with Agree kept in the tur
   await expect(page.getByTestId("advisor-agree")).toHaveCount(0);
   const summary = panel.getByTestId("advisor-summary");
   await expect(summary).toContainText(
-    "This turn: 1 answered (1 agreed, 0 refuted)",
+    "This turn: 1 answered (1 agreed, 0 disagreed)",
   );
 });
 
-test("Classroom advisor: Refute takes a reason; Other needs your words", async ({
+test("Classroom advisor: Disagree takes a reason; Other needs your words", async ({
   page,
 }) => {
   test.setTimeout(180_000);
   await classroomFirstTurn(page);
-  await page.getByTestId("advisor-refute").click();
+  await page.getByTestId("advisor-disagree").click();
   const reason = page.getByTestId("advisor-reason");
   await expect(reason.locator("option")).toHaveText([
     "Wrong card",
@@ -65,16 +71,19 @@ test("Classroom advisor: Refute takes a reason; Other needs your words", async (
     "Wrong timing",
     "Other",
   ]);
-  await reason.selectOption("other");
+  // Each reason has its own text box; it's needed only for Other.
   const send = page.getByTestId("advisor-send");
+  await expect(page.getByTestId("advisor-note")).toBeVisible();
+  await expect(send).toBeEnabled();
+  await reason.selectOption("other");
   await expect(send).toBeDisabled();
   await page.getByTestId("advisor-note").fill("hold it for the counter");
   await send.click();
   await expect(page.getByTestId("advisor-answered")).toHaveText(
-    "You refuted it (other: hold it for the counter).",
+    "You disagreed (other: hold it for the counter).",
   );
   await expect(page.getByTestId("advisor-summary")).toContainText(
-    "1 answered (0 agreed, 1 refuted)",
+    "1 answered (0 agreed, 1 disagreed)",
   );
 });
 

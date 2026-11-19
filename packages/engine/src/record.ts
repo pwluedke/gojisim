@@ -135,13 +135,13 @@ export interface GameRecord {
   classroomAdvice?: ClassroomAdvice[];
 }
 
-/** #478: why the player refuted the bot's advice (`other` comes with a note). */
+/** #478: why the player disagreed with the bot's advice (`other` comes with a note). */
 export type AdviceReason = "wrongCard" | "wrongZone" | "wrongTiming" | "other";
 
 /**
  * #478: one piece of Classroom advice and the player's answer: at the position after
  * `actionIndex` actions, the bot (in the player's seat, with only what the player knows) would
- * have played `pick`, for the rules listed; the player agreed or refuted it.
+ * have played `pick`, for the rules listed; the player agreed or disagreed.
  */
 export interface ClassroomAdvice {
   actionIndex: number;
@@ -153,7 +153,7 @@ export interface ClassroomAdvice {
   alternatives: { label: string; visits: number; winRate: number | null }[];
   /** The rules that touched the decision: the play guides' ids, what they did, their sentences. */
   rules: { id: string; effect: string; text: string }[];
-  answer: "agree" | "refute";
+  answer: "agree" | "disagree";
   reason?: AdviceReason;
   /** The player's words, with `reason: "other"`. */
   note?: string;

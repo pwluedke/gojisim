@@ -92,7 +92,9 @@ for (const [width, height] of [
       expect(
         fromPrompt(showa, id) - fromPrompt(grey, id),
         `${id} below the prompt: showa ${fromPrompt(showa, id)}, grey ${fromPrompt(grey, id)}`,
-      ).toBeLessThanOrEqual(12);
+        // Issue 478: in the wider left column nothing in Settings wraps, so Showa's taller form
+        // controls (the two selects and the file button) add up to a little over 12 px.
+      ).toBeLessThanOrEqual(14);
       notPast(id, "height", 12);
     }
     // Showa's Prompt panel sits right under its header block.

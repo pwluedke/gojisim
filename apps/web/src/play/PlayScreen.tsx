@@ -433,14 +433,14 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
     advisorState?.result === null &&
     advisorPlayer !== null &&
     advisorSession.seats[advisorPlayer]?.kind === "human";
-  const { advice, thinking: advising } = useAdvisor(
-    advisorSession,
-    advisorState,
-    advisorOn,
-  );
+  const {
+    advice,
+    thinking: advising,
+    turnPlan,
+  } = useAdvisor(advisorSession, advisorState, advisorOn);
   const adviceAnswers = advisorSession?.record.classroomAdvice ?? [];
   const answerAdvice = (
-    answer: "agree" | "refute",
+    answer: "agree" | "disagree",
     reason?: AdviceReason,
     note?: string,
   ) => {
@@ -1241,22 +1241,6 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
       </div>
     ) : (
       <div className={styles.promptBody}>
-        {advisorOn && advisorState && (
-          <AdvisorPanel
-            advice={advice}
-            thinking={advising}
-            labelOf={(a) => actionLabel(advisorState, a)}
-            answered={
-              adviceAnswers.find(
-                (a) => a.actionIndex === advice?.actionIndex,
-              ) ?? null
-            }
-            turnAnswers={adviceAnswers.filter(
-              (a) => a.turn === advisorState.turn && a.player === advisorPlayer,
-            )}
-            onAnswer={answerAdvice}
-          />
-        )}
         {inSandbox && (
           <div
             className={styles.classroomBanner}
@@ -1859,6 +1843,26 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
           }
           model={model}
           prompt={prompt}
+          advisor={
+            advisorOn && advisorState ? (
+              <AdvisorPanel
+                advice={advice}
+                thinking={advising}
+                labelOf={(a) => actionLabel(advisorState, a)}
+                answered={
+                  adviceAnswers.find(
+                    (a) => a.actionIndex === advice?.actionIndex,
+                  ) ?? null
+                }
+                turnAnswers={adviceAnswers.filter(
+                  (a) =>
+                    a.turn === advisorState.turn && a.player === advisorPlayer,
+                )}
+                turnPlan={turnPlan?.steps ?? null}
+                onAnswer={answerAdvice}
+              />
+            ) : null
+          }
           matBanner={
             xilien ? (
               <div

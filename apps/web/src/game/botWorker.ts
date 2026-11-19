@@ -2,9 +2,11 @@ import {
   decide,
   difficultyBot,
   difficultySettings,
+  plannedLine,
   seededRng,
   traceSink,
 } from "@gojisim/bot";
+import { actionLabel } from "./labels";
 import type { BotRequest, BotResponse } from "./bots";
 import { registerPrivateSet } from "./privateSetData";
 
@@ -27,7 +29,7 @@ worker.onmessage = (event) => {
     if (privateSet) registerPrivateSet(privateSet);
     if (trace) {
       // #478: the same search as `difficultyBot` (its settings, then the request's), traced.
-      const decision = decide({
+      const traced = {
         ...input,
         settings: {
           ...difficultySettings(
@@ -37,12 +39,18 @@ worker.onmessage = (event) => {
         },
         rng: seededRng(seed),
         trace: traceSink(),
-      });
+      };
+      const decision = decide(traced);
+      // The turn's plan: the search's most-visited line, labeled where each move is made.
+      const plan = plannedLine(traced, decision).map(({ action, state }) =>
+        actionLabel(state, action),
+      );
       worker.postMessage({
         id,
         action: decision.action,
         ms: performance.now() - started,
         ...(decision.trace ? { trace: decision.trace } : {}),
+        plan,
       });
       return;
     }

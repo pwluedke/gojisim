@@ -118,7 +118,14 @@ export interface BotRequest {
 }
 
 export type BotResponse =
-  | { id: number; action: Action; ms: number; trace?: DecisionTrace }
+  | {
+      id: number;
+      action: Action;
+      ms: number;
+      trace?: DecisionTrace;
+      /** #478: with `trace`, the search's planned line through the turn, as the log words it. */
+      plan?: string[];
+    }
   | { id: number; error: string };
 
 /**

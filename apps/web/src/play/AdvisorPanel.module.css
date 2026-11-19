@@ -1,9 +1,27 @@
 /* #478: the Classroom advisor, in the left column under the prompt (the banner's frame). */
+/* #478: the reasoning scrolls inside; the answer buttons stay in view under it. */
 .panel {
-  margin-top: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  border: 1.5px solid var(--btn-primary-fill, var(--color-panel-border));
-  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.footer {
+  flex: none;
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--color-border);
+}
+
+.footer textarea {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .title {
@@ -21,7 +39,7 @@
 }
 
 .buttons,
-.refute {
+.disagree {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
@@ -31,4 +49,10 @@
 
 .summary {
   margin-top: var(--space-1);
+}
+
+.plan {
+  margin-bottom: var(--space-1);
+  padding-bottom: var(--space-1);
+  border-bottom: 1px dashed var(--color-border);
 }
