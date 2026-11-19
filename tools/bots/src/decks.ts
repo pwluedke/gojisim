@@ -13,6 +13,18 @@ import { buildTestDeck } from "@gojisim/cards/test-decks";
 export const STOP_FILE = "bot-reports/STOP";
 
 /**
+ * Why a run stopped, for its log: the stop file's own words (`bots-pause` writes when and who
+ * paused), or, with no stop file, that the matchup ended without its report, which is not a pause.
+ */
+export function stopReason(out: string): string {
+  const file = resolve(out, STOP_FILE);
+  if (!existsSync(file))
+    return `no ${STOP_FILE}: the matchup ended without its report, which is not a pause`;
+  const words = readFileSync(file, "utf8").trim();
+  return words ? `${STOP_FILE}: ${words}` : STOP_FILE;
+}
+
+/**
  * The one deck list (Nov 9): every deck, flat names, tags in place of folders. The top-tier
  * set is its decks tagged Meta (replacing meta.txt), and a deck a run plan names by its old
  * `<file>#<name>` is found by its `# was:` line.
