@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { MAILBOX_NAME } from "../game/collection";
 import type { Settings } from "./settings";
 import styles from "./Board.module.css";
@@ -74,138 +75,169 @@ export function TestSitePanel({
   showHand,
   onShowHand,
 }: TestSitePanelProps) {
+  // #478 (Nov 19): it folds like Settings, closed each time the page opens.
+  const [open, setOpen] = useState(false);
   return (
-    <section className={styles.testSite} data-testid="test-site">
-      <h2 className={styles.testSiteTitle}>
-        <Trefoil />
-        <span>Test Site</span>
-        <Trefoil />
-      </h2>
-      <div className={styles.testSiteButtons}>
-        <button
-          type="button"
-          className={`${styles.button} ${styles.testSiteWide}`}
-          data-testid="report-bug"
-          disabled={!reportReady}
-          onClick={onReportBug}
-        >
-          Report bug
-        </button>
-        {botButtons && (
-          <>
-            <button
-              type="button"
-              className={styles.button}
-              data-testid="good-bot"
-              disabled={!badBotReady}
-              title={
-                badBotReady
-                  ? "Tell us what the bot's last move got right"
-                  : "Live once the bot has made a move"
-              }
-              onClick={onGoodBot}
-            >
-              Good Bot!
-            </button>
-            <button
-              type="button"
-              className={styles.button}
-              data-testid="bad-bot"
-              disabled={!badBotReady}
-              title={
-                badBotReady
-                  ? "Tell us what the bot's last move got wrong"
-                  : "Live once the bot has made a move"
-              }
-              onClick={onBadBot}
-            >
-              Bad Bot!
-            </button>
-          </>
-        )}
-        <button
-          type="button"
-          className={`${styles.button} ${styles.testSiteWide}`}
-          data-testid="idea"
-          title="Send us an idea or an improvement"
-          onClick={onIdea}
-        >
-          {MAILBOX_NAME}
-        </button>
-      </div>
-      {note && (
-        <div className={styles.muted} data-testid="test-site-note">
-          {note}
-        </div>
-      )}
-      {/* Open and closed are saved on the click itself: a `toggle` event comes a task later. */}
-      <details className={styles.testSettings} open={settings.testSettingsOpen}>
+    <section
+      className={styles.testSite}
+      data-testid="test-site"
+      data-open={open}
+    >
+      <details open={open}>
         <summary
-          data-testid="test-settings"
+          className={styles.testSiteSummary}
+          data-testid="test-site-toggle"
           onClick={(e) => {
             e.preventDefault();
-            updateSettings({ testSettingsOpen: !settings.testSettingsOpen });
+            setOpen(!open);
           }}
         >
-          Test settings
+          <h2 className={styles.testSiteTitle}>
+            <Trefoil />
+            <span>Test Site</span>
+            <Trefoil />
+          </h2>
         </summary>
-        <div className={styles.testSettingsBody}>
-          <label>
-            <input
-              type="checkbox"
-              data-testid="setting-share-games"
-              checked={settings.shareGames}
-              onChange={(e) => updateSettings({ shareGames: e.target.checked })}
-            />{" "}
-            Share finished games to improve GojiSim
-          </label>
-          <div className={styles.muted}>
-            Sends the game record, including both decks, to the GojiSim server.
+        <div className={styles.testSiteBody}>
+          <div className={styles.testSiteButtons}>
+            <button
+              type="button"
+              className={`${styles.button} ${styles.testSiteWide}`}
+              data-testid="report-bug"
+              disabled={!reportReady}
+              onClick={onReportBug}
+            >
+              Report bug
+            </button>
+            {botButtons && (
+              <>
+                <button
+                  type="button"
+                  className={styles.button}
+                  data-testid="good-bot"
+                  disabled={!badBotReady}
+                  title={
+                    badBotReady
+                      ? "Tell us what the bot's last move got right"
+                      : "Live once the bot has made a move"
+                  }
+                  onClick={onGoodBot}
+                >
+                  Good Bot!
+                </button>
+                <button
+                  type="button"
+                  className={styles.button}
+                  data-testid="bad-bot"
+                  disabled={!badBotReady}
+                  title={
+                    badBotReady
+                      ? "Tell us what the bot's last move got wrong"
+                      : "Live once the bot has made a move"
+                  }
+                  onClick={onBadBot}
+                >
+                  Bad Bot!
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              className={`${styles.button} ${styles.testSiteWide}`}
+              data-testid="idea"
+              title="Send us an idea or an improvement"
+              onClick={onIdea}
+            >
+              {MAILBOX_NAME}
+            </button>
           </div>
-          {canShowHand && (
-            <label>
-              <input
-                type="checkbox"
-                data-testid="show-opponent-hand"
-                checked={showHand}
-                onChange={(e) => onShowHand(e.target.checked)}
-              />{" "}
-              Show opponent&apos;s hand{" "}
-              <span className={styles.muted}>(practice: no statistics)</span>
-            </label>
+          {note && (
+            <div className={styles.muted} data-testid="test-site-note">
+              {note}
+            </div>
           )}
+          {/* Open and closed are saved on the click itself: a `toggle` event comes a task later. */}
           <details
-            className={styles.whichButton}
-            open={settings.whichButtonOpen}
+            className={styles.testSettings}
+            open={settings.testSettingsOpen}
           >
             <summary
-              data-testid="which-button"
+              data-testid="test-settings"
               onClick={(e) => {
                 e.preventDefault();
-                updateSettings({ whichButtonOpen: !settings.whichButtonOpen });
+                updateSettings({
+                  testSettingsOpen: !settings.testSettingsOpen,
+                });
               }}
             >
-              Which button?
+              Test settings
             </summary>
-            <p data-testid="which-button-report-bug">
-              <strong>Report bug:</strong> something in the game itself is
-              wrong: a rule, a card doing the wrong thing, or the screen. Your
-              note and the game are sent to us.
-            </p>
-            <p data-testid="which-button-good-bot">
-              <strong>Good Bot!:</strong> the bot made a good play. Tell us what
-              it did right, so later changes don&apos;t break it.
-            </p>
-            <p data-testid="which-button-bad-bot">
-              <strong>Bad Bot!</strong> The bot made a bad move. Tell us what it
-              did wrong and what you&apos;d have done. Your note and the game
-              are sent to us so the bot can learn from it.
-            </p>
-            <p data-testid="which-button-idea">
-              <strong>{MAILBOX_NAME}:</strong> an idea or an improvement for
-              GojiSim, anything that isn&apos;t a bug. Your note is sent to us
-              with the game.
-            </p>
+            <div className={styles.testSettingsBody}>
+              <label>
+                <input
+                  type="checkbox"
+                  data-testid="setting-share-games"
+                  checked={settings.shareGames}
+                  onChange={(e) =>
+                    updateSettings({ shareGames: e.target.checked })
+                  }
+                />{" "}
+                Share finished games to improve GojiSim
+              </label>
+              <div className={styles.muted}>
+                Sends the game record, including both decks, to the GojiSim
+                server.
+              </div>
+              {canShowHand && (
+                <label>
+                  <input
+                    type="checkbox"
+                    data-testid="show-opponent-hand"
+                    checked={showHand}
+                    onChange={(e) => onShowHand(e.target.checked)}
+                  />{" "}
+                  Show opponent&apos;s hand{" "}
+                  <span className={styles.muted}>
+                    (practice: no statistics)
+                  </span>
+                </label>
+              )}
+              <details
+                className={styles.whichButton}
+                open={settings.whichButtonOpen}
+              >
+                <summary
+                  data-testid="which-button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    updateSettings({
+                      whichButtonOpen: !settings.whichButtonOpen,
+                    });
+                  }}
+                >
+                  Which button?
+                </summary>
+                <p data-testid="which-button-report-bug">
+                  <strong>Report bug:</strong> something in the game itself is
+                  wrong: a rule, a card doing the wrong thing, or the screen.
+                  Your note and the game are sent to us.
+                </p>
+                <p data-testid="which-button-good-bot">
+                  <strong>Good Bot!:</strong> the bot made a good play. Tell us
+                  what it did right, so later changes don&apos;t break it.
+                </p>
+                <p data-testid="which-button-bad-bot">
+                  <strong>Bad Bot!</strong> The bot made a bad move. Tell us
+                  what it did wrong and what you&apos;d have done. Your note and
+                  the game are sent to us so the bot can learn from it.
+                </p>
+                <p data-testid="which-button-idea">
+                  <strong>{MAILBOX_NAME}:</strong> an idea or an improvement for
+                  GojiSim, anything that isn&apos;t a bug. Your note is sent to
+                  us with the game.
+                </p>
+              </details>
+            </div>
           </details>
         </div>
       </details>

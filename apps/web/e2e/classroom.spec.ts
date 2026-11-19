@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { dragWindowAndHover } from "./helpers";
+import { dragWindowAndHover, testSite } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -174,7 +174,9 @@ test("one Classroom bot turn: played in the sandbox, submitted, compared and rat
     ),
     page.getByTestId("report-submit").click(),
   ]);
-  await expect(page.getByTestId("test-site-note")).toHaveText("Thanks, sent.");
+  await expect((await testSite(page)).getByTestId("test-site-note")).toHaveText(
+    "Thanks, sent.",
+  );
   await expect(compare).toHaveCount(0);
   const record = JSON.parse(request.postData() ?? "{}") as {
     classroom?: boolean;

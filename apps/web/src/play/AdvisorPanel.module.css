@@ -24,9 +24,22 @@
   box-sizing: border-box;
 }
 
-.title {
+/* Nov 19: the title, with "Copy text" at the top right. */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
   margin: 0 0 var(--space-1);
+}
+
+.title {
+  margin: 0;
   font-size: 1em;
+}
+
+.copy {
+  font-size: var(--font-size-sm);
 }
 
 .muted {

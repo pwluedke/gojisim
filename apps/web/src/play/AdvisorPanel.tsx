@@ -111,6 +111,42 @@ export function whySentence(advice: Advice): string {
   return `${reason}${line}`.trim();
 }
 
+/**
+ * #478 (Nov 19): the whole panel as plain text, for "Copy text": the turn plan, the bot's move,
+ * the why sentence, the moves it weighed with their numbers, and the rules with ids and effects.
+ */
+export function adviceText(
+  advice: Advice | null,
+  turnPlan: string[] | null,
+  labelOf: (action: Action) => string,
+): string {
+  const lines: string[] = [];
+  if (turnPlan && turnPlan.length > 0) {
+    lines.push("Turn plan (it can change as cards are drawn or revealed):");
+    turnPlan.forEach((step, i) => lines.push(`${i + 1}. ${step}`));
+    lines.push("");
+  }
+  if (advice) {
+    lines.push(`The bot would: ${labelOf(advice.trace.pick)}`);
+    const why = whySentence(advice);
+    if (why) lines.push(why);
+    if (advice.trace.alternatives.length > 1) {
+      lines.push("", "Moves it weighed:");
+      advice.trace.alternatives.forEach((a, i) =>
+        lines.push(
+          `${i + 1}. ${labelOf(a.action)} (${percent(a.winRate)} to win, ${a.visits} looks)`,
+        ),
+      );
+    }
+    if (advice.trace.rules.length > 0) {
+      lines.push("", "Rules:");
+      for (const r of advice.trace.rules)
+        lines.push(`- ${r.id} (${EFFECT[r.effect] ?? r.effect}): ${r.text}`);
+    }
+  }
+  return lines.join("\n").trim();
+}
+
 const reasonLabel = (reason: AdviceReason | undefined) =>
   REASONS.find((r) => r.value === reason)?.label.toLowerCase();
 
@@ -150,10 +186,34 @@ export function AdvisorPanel({
   const [refuting, setRefuting] = useState(false);
   const [reason, setReason] = useState<AdviceReason>("wrongCard");
   const [note, setNote] = useState("");
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        adviceText(advice, turnPlan, labelOf),
+      );
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
   const agreed = turnAnswers.filter((a) => a.answer === "agree").length;
   return (
     <div className={styles.panel} data-testid="advisor">
-      <h3 className={styles.title}>Advisor</h3>
+      <div className={styles.header}>
+        <h3 className={styles.title}>Advisor</h3>
+        {(advice || (turnPlan && turnPlan.length > 0)) && (
+          <button
+            type="button"
+            className={styles.copy}
+            onClick={() => void copy()}
+            data-testid="advisor-copy"
+          >
+            {copied ? "Copied" : "Copy text"}
+          </button>
+        )}
+      </div>
       <div className={styles.body} data-testid="advisor-body">
         {turnPlan && turnPlan.length > 0 && (
           <div className={styles.plan} data-testid="advisor-turn-plan">

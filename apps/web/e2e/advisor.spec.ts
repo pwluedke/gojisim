@@ -47,6 +47,13 @@ test("Classroom advisor: the bot's move in your seat, with Agree kept in the tur
   await expect(page.getByTestId("advisor-why")).not.toBeEmpty();
   await page.getByTestId("advisor-win-tip").first().hover();
   await expect(page.getByTestId("advisor-win-tip").first()).toBeVisible();
+  // Nov 19: "Copy text" puts the whole panel on the clipboard as plain text.
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.getByTestId("advisor-copy").click();
+  await expect(page.getByTestId("advisor-copy")).toHaveText("Copied");
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toContain("Turn plan");
+  expect(copied).toContain("The bot would:");
   // Nothing has been played for the player: it's still their decision.
   await expect(page.getByTestId("prompt-step")).toContainText("your turn");
   await page.getByTestId("advisor-agree").click();
@@ -95,4 +102,12 @@ test("a normal game has no advisor", async ({ page }) => {
   await page.getByTestId("first-pick-continue").click();
   await expect(page.getByTestId("board")).toBeVisible();
   await expect(page.getByTestId("advisor")).toHaveCount(0);
+  // Nov 19: the Test Site starts folded, like Settings; its title opens it.
+  await expect(page.getByTestId("test-site")).toHaveAttribute(
+    "data-open",
+    "false",
+  );
+  await expect(page.getByTestId("report-bug")).toBeHidden();
+  await page.getByTestId("test-site-toggle").click();
+  await expect(page.getByTestId("report-bug")).toBeVisible();
 });

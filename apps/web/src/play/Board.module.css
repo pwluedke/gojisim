@@ -53,7 +53,8 @@
 /* #478: the advisor takes the column's spare height and scrolls inside (`AdvisorPanel`). */
 .leftColumn > .advisorSlot {
   flex: 1 1 0;
-  min-height: 12rem;
+  /* Nov 19: twice the first height (12rem), Agree and Disagree still pinned under it. */
+  min-height: 24rem;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2261,6 +2262,23 @@
     var(--color-hazard) 0 8px,
     var(--color-hazard-dark) 8px 16px
   );
+}
+
+/* #478 (Nov 19): the title is the fold's handle, like Settings' bar. */
+.testSiteSummary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.testSiteSummary::-webkit-details-marker {
+  display: none;
+}
+
+.testSiteBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
 }
 
 .testSiteTitle {
