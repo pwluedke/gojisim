@@ -533,3 +533,40 @@ describe("#195: counter Gigan (2004) out of rank 1", () => {
     expect(dead.has(key(option(gorosaurus.instanceId)))).toBe(true);
   });
 });
+
+describe("play rule 1, every turn (Nov 18 decision, `stackEveryTurn`)", () => {
+  // A rank 1 Godzilla (2023) ESD01-001 with no text on top, a second copy in hand.
+  const PLAIN = "ESD01-001";
+  const setup = () => {
+    const { state, p1 } = base();
+    p1.monsterDeck = [];
+    p1.invadingMonsterZone = [];
+    monster(state, p1, PLAIN);
+    p1.hand.push(add(state, real(PLAIN), "P1"));
+    const actions = getLegalActions(state, "P1").filter(
+      (a) => a.type !== "concede",
+    );
+    const key = (a: Action) => actionKey(state, a);
+    const stack = actions.find((a) => a.type === "playMonster") as Action;
+    return { state, actions, key, stack };
+  };
+
+  it("a same-rank stack is favored every turn, even when no card wants a bigger stack (8.5.1)", () => {
+    const { state, actions, key, stack } = setup();
+    expect(stack).toBeDefined();
+    const on = applyRules(state, actions, "P1", key);
+    expect(on.bonus.get(key(stack))).toBe(RULE_BONUS);
+    const off = applyRules(state, actions, "P1", key, true, undefined, {
+      stackEveryTurn: false,
+    });
+    expect(off.bonus.has(key(stack))).toBe(false);
+  });
+
+  it("not in a deck with GAM EBP01-073: it discards toward GAM's 8 or more instead", () => {
+    const { state, actions, key, stack } = setup();
+    const gam = applyRules(state, actions, "P1", key, true, undefined, {
+      gam: true,
+    });
+    expect(gam.bonus.has(key(stack))).toBe(false);
+  });
+});
