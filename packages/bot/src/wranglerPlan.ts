@@ -10,15 +10,15 @@ import {
 import type { Decklist } from "./types";
 
 /**
- * The Wrangler plan (#276, Paul, Nov 12), for a "Red Counter (Wrangler)" deck: red Godzilla
+ * The Wrangler plan (#276, Nov 12), for a "Red Counter (Wrangler)" deck: red Godzilla
  * monster cards, Godzilla Against Mechagodzilla, Godzilla, King of the Monsters, Godzilla (2023)
  * battle and Godzilla Landing (the catalog's archetype, `data/archetypes.json`). It applies to the
  * bot's own deck by archetype, never one exact list, and each line is on only when the bot's own
- * decklist has the cards it names (Paul's rule for every deck plan). Like the Monster X plan, a
+ * decklist has the cards it names (the play rule for every deck plan). Like the Monster X plan, a
  * preference: it argues against moves (`wranglerVerdict`), the search favors the others; it
- * frees moves Paul's rules hold (`rescued`) when its line needs them. With Paul's rules (Hard).
+ * frees moves the play rules hold (`rescued`) when its line needs them. With the play rules (Hard).
  *
- * Line 1 (#276, Ian; needs Despair EBP02-018 and Godzilla Against Mechagodzilla EBP01-073, as in
+ * Line 1 (#276; needs Despair EBP02-018 and Godzilla Against Mechagodzilla EBP01-073, as in
  * the Despangler): against a Mecha-King Ghidorah EBP02-068 in the opponent's zones, with Despair
  * in hand, discard for rage to 2 (Despair works from 2 rage), then Despair on Mecha-King; and keep
  * Godzilla Against Mechagodzilla (a battle card) for its rage reset and Despair, neither paid for an
@@ -26,12 +26,12 @@ import type { Decklist } from "./types";
  * The line waits until Despair can hit Mecha-King: its rank 3 needs your monster in zone 3 or
  * later (8.3.1), and it reaches only zones at or before your monster's.
  *
- * Line 2 (#274 point 1, Ian; the archetype alone): churn through the deck by raging a lot. From
- * game turn 3 (card rule 14 decides turns 1-2), the rage discards are freed from Paul's rules'
+ * Line 2 (#274 point 1; the archetype alone): churn through the deck by raging a lot. From
+ * game turn 3 (card rule 14 decides turns 1-2), the rage discards are freed from the play rules'
  * holds and favored over passing, but for the held key cards (`HELD`), which stay. Line 1 goes
  * first when it's on.
  *
- * Line 3 (Ian's report of Nov 12; needs Godzilla (2023) ESD01-002 and Godzilla (2004)): with
+ * Line 3 (a tester's report of Nov 12; needs Godzilla (2023) ESD01-002 and Godzilla (2004)): with
  * ESD01-002 the top monster card, invade paying with Godzilla (2004). The invasion's two zones
  * fire ESD01-002's [invading] search twice, so one card becomes two monster cards for rage. Until
  * then no pass, no stack (it would cover ESD01-002) and no rage for Godzilla (2004). It goes
@@ -60,7 +60,7 @@ const DESPAIR_RANK = 3;
 /** Line 2: the first game turn it churns on (card rule 14 decides turns 1-2). */
 export const CHURN_FROM_TURN = 3;
 /**
- * Line 2: monster cards held, not discarded for rage. Godzilla (2004) EBP01-008 (Ian's example:
+ * Line 2: monster cards held, not discarded for rage. Godzilla (2004) EBP01-008 (a tester's example:
  * its [enter] advances the opponent's monster) and Godzilla (1954) EBP01-004 (its zone 8 wipe,
  * card rule 15).
  */
@@ -126,7 +126,7 @@ function fetchLine(
   );
 }
 
-/** The moves the plan argues against, and the ones it frees from Paul's rules' holds. */
+/** The moves the plan argues against, and the ones it frees from the play rules' holds. */
 export function wranglerVerdict(
   state: GameState,
   actions: readonly Action[],
@@ -166,7 +166,7 @@ export function wranglerVerdict(
       ? state.cards[state.resolution.standby.sourceCardId]
       : undefined;
     if (source?.deckCardNumber !== DESPAIR) return { against, rescued };
-    // #319 (Ian): the Mecha-King in your monster's column first (it stops your invasion).
+    // #319: the Mecha-King in your monster's column first (it stops your invasion).
     const aligned = mechaKings.filter((c) => {
       const zone = Object.entries(opponent.zones).find(([, stacks]) =>
         stacks.some((stack) => stack.at(-1)?.instanceId === c.instanceId),
@@ -220,7 +220,7 @@ export function wranglerVerdict(
     at >= DESPAIR_RANK
   ) {
     if (player.rage < DESPAIR_RAGE) {
-      // To 2 rage first: the rage discards, freed from Paul's rule 2 holds.
+      // To 2 rage first: the rage discards, freed from play rule 2's holds.
       for (const a of actions) {
         if (a.type === "gainRage")
           mark(rescued, a, "Wrangler plan v1", "freed");

@@ -37,7 +37,7 @@ import {
 } from "./mxPlan";
 
 /**
- * Paul's Monster X plan, v2 (`mxPlan=2`, Nov 9, 2026: the play guide's edit), in place of v1
+ * The Monster X plan, v2 (`mxPlan=2`, Nov 9, 2026: the play guide's edit), in place of v1
  * where they differ. As v1, a preference, never a prune: each rule argues against moves, and the
  * search favors the others (`mxPlanFavored`). "Early" is the player's own turns 1-4.
  * - 1: early, play your hand: no pass while a battle card can be played; a battle card that adds
@@ -45,7 +45,7 @@ import {
  * - 2: don't destroy your own battle cards (a play onto an occupied zone), unless the covered card
  *   is weaker and its color is missing from your discard pile, or the new card's from your zones.
  * - 3: invading, pay with a battle card of a color not yet in your discard pile, up to 4, and not
- *   with a key card (the plan's strategy cards). #338 (Paul, Nov 15): Manda (2004) EBP04-045's
+ *   with a key card (the plan's strategy cards). #338 (Nov 15): Manda (2004) EBP04-045's
  *   discount (discard a non-blue battle card, rank -2) is a setup play, only (a) to cheat out the
  *   white Monster X EBP03-067 with 2+ colors among your zones' battle cards (its ability plays it
  *   from the discard pile), or (b) for a discard that adds a color your discard pile's battle
@@ -70,10 +70,10 @@ import {
  *   Thousand-Year Dragon King Ghidorah's wipe.
  * - 14: invade only when (a) it wins this turn, (b) from your turn 5 it reaches the zone a
  *   strategy card in hand needs, or (c) it wins in fewer of your turns than countering.
- * - 16 (#352, Tuscancow): choosing one of the opponent's zones or battle cards (to destroy), one
+ * - 16 (#352): choosing one of the opponent's zones or battle cards (to destroy), one
  *   holding their Monster X (EBP04-047, EBP03-067) or Kaizer Ghidorah EBP04-068 goes first, the
  *   most of them first. (15 is v3's, not built.)
- * - 17 (#371, Paul, `mxProtectZones`): with Godzilla and its son on Monster Island EBP01-080 in
+ * - 17 (#371, `mxProtectZones`): with Godzilla and its son on Monster Island EBP01-080 in
  *   your cards (it protects your rank 5 or lower battle cards in zones 1-5), such a card goes to
  *   zones 1-5 off your monster's path, not 6-8, while it can; but the blue Monster X EBP04-047 may
  *   go to zone 8 with Kaizer Ghidorah EBP04-068 to evolve into there (a rank 8 wall).
@@ -87,7 +87,7 @@ const KAIZER_BATTLE_ZONES = [1, 2, 3, 8];
 export const WHITE_MONSTER_X = "EBP03-067";
 
 /**
- * #338 (Paul's ruling): Manda (2004)'s discount discard is a setup play: (a) the white Monster X
+ * #338 (the ruling): Manda (2004)'s discount discard is a setup play: (a) the white Monster X
  * with 2+ colors among your zones' battle cards, or (b) a battle card of a color your discard
  * pile's battle cards lack (the colors Kaizer Ghidorah EBP04-034/035/036 count).
  */
@@ -96,7 +96,7 @@ export function mandaSetup(
   zoneColors: ReadonlySet<string>,
   discardColors: ReadonlySet<string>,
   /**
-   * `mxWhiteKeep` (#370, Paul's R-3): the white Monster X is never a (b) discard; it goes only
+   * `mxWhiteKeep` (#370, report R-3): the white Monster X is never a (b) discard; it goes only
    * for (a). (The plan also lets it go for this turn's counter.) `false` is #338 alone.
    */
   whiteKeep = true,
@@ -187,7 +187,7 @@ function printedPower(
   return cp < 0 ? 3000 * colors : cp;
 }
 
-/** The actions Paul's Monster X plan v2 argues against, each with the first rule that does. */
+/** The actions the Monster X plan v2 argues against, each with the first rule that does. */
 /** The Monster X plan's switches (#402): one key per `mxPlan` switch file, each on by default. */
 export type MxPlanOptions = GroupOptions<"mxPlan">;
 
@@ -364,10 +364,10 @@ export function mxPlanV2Verdict(
     if (left.some(adds)) for (const a of left) if (!adds(a)) kill(a, 3);
   }
   const invading = invades.some((a) => !dead.has(a));
-  // Rule 3 (#338, Paul's ruling): Manda (2004) EBP04-045's discount is a setup play. Its discard
+  // Rule 3 (#338, the ruling): Manda (2004) EBP04-045's discount is a setup play. Its discard
   // goes only (a) for the white Monster X with 2+ colors among your zones' battle cards, or (b)
   // for a battle card of a color your discard pile's battle cards lack; else full rank, or none.
-  // #370 (Paul's R-3): the white Monster X goes only for (a), or for this turn's counter.
+  // #370 (report R-3): the white Monster X goes only for (a), or for this turn's counter.
   for (const a of manda ? actions : []) {
     if (a.type !== "playBattle" || !a.costCardInstanceId) continue;
     const cost = cardData(state, handCard(a.costCardInstanceId));
@@ -422,7 +422,7 @@ export function mxPlanV2Verdict(
       if (a.zone <= 5) continue;
       const card = cardData(state, handCard(a.cardInstanceId));
       if (!isBattle(card) || (card?.rank ?? 0) > PROTECTED_RANK) continue;
-      // Paul: the blue Monster X in zone 8 evolves into a rank 8 Kaizer Ghidorah there.
+      // The blue Monster X in zone 8 evolves into a rank 8 Kaizer Ghidorah there.
       if (a.zone === 8 && card?.deckCardNumber === MONSTER_X_BATTLE && kaizer)
         continue;
       if (
@@ -451,7 +451,7 @@ export function mxPlanV2Verdict(
   const feared = me.strategyZones
     .flat()
     .some((x) => cardData(state, x.card)?.deckCardNumber === ENTANGLING_FEAR);
-  // #373 (Paul's R-5): Fear holds your own monster in place. A strategy in hand one rank past
+  // #373 (report R-5): Fear holds your own monster in place. A strategy in hand one rank past
   // your monster's zone (8.3.1: a strategy's rank is at most its zone) needs next turn's advance;
   // with this turn's counter made (the threat allows it), Fear is skipped to keep it in reach.
   const myZone = me.monsterPosition ?? 0;
@@ -560,7 +560,7 @@ export function mxPlanV2Verdict(
         kill(a, 13);
   }
 
-  // #377 (Paul, Nov 16): fill the board. Every playable battle card is played this turn, big ones
+  // #377 (Nov 16): fill the board. Every playable battle card is played this turn, big ones
   // included, rather than held: no passing while one the other rules leave standing can be
   // played. The only reason to hold one is that it would be easily destroyed: a play into the
   // column of their monster's zone or its next one (its destroy) doesn't count.

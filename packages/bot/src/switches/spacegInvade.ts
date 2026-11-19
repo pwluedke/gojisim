@@ -10,7 +10,7 @@ export default defineSwitch({
   defaultNote: "0 (measured worse against Despangler, Nov 18)",
   group: "spaceg",
   option: "invade",
-  what: "The SpaceG plan's rule 1 (Paul): at ranks 1 and 2 (SpaceGodzilla Flying Form EBP02-052, SpaceGodzilla EBP02-053, whose [invading] makes Crystals) and at rank 4, no passing while an invasion can be made. Needs `spacegPlan`.",
+  what: "The SpaceGodzilla plan's rule 1: at ranks 1 and 2 (SpaceGodzilla Flying Form EBP02-052 and SpaceGodzilla EBP02-053, whose [invading] ability makes Crystals) and at rank 4, don't end the turn while an invasion can be made. This needs the SpaceGodzilla plan (`spacegPlan`).",
   from: "#408",
   status: "measured",
 });

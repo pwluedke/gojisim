@@ -5,7 +5,7 @@ export default defineSwitch({
   name: "noPlanInvade",
   default: 1,
   group: "search",
-  what: "The no-plan play's rule 2 (Ian, R-43): for a deck with no plan of its own, an invasion that doesn't win now waits unless the invading monster has an [invading] ability or the invasion makes the counter (made after it, not before). With `rules`.",
+  what: "Rule 2 for a deck with no plan of its own (report R-43): an invasion that doesn't win the game now waits, unless the invading monster has an [invading] ability or the invasion is what gives you enough counter power to counter the opponent's monster (you have it after the invasion, not before). Used with the play rules (`rules`).",
   from: "#460",
   status: "built",
 });

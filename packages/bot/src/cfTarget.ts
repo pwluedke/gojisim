@@ -1,7 +1,7 @@
 import type { Action, GameState, PlayerId } from "@gojisim/engine";
 
 /**
- * Paul's Constructed Future test (Nov 4, 2026), a tools-only setting of the Hard rules layer.
+ * The Constructed Future test (Nov 4, 2026), a tools-only setting of the Hard rules layer.
  * SD05-005 plays the highest-rank battle card in the discard pile, so which card goes there for a
  * cost aims it:
  * - `23`: a cost discard with Mecha-King Ghidorah (EBP02-068) as an option discards it, and GAM

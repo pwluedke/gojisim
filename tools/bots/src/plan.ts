@@ -32,7 +32,7 @@ interface Run {
   turnCap?: number;
   /**
    * #175: the deck source for a matchup without fixed decks (`official`, `random`, `mixed`, or
-   * `meta`: the top-tier list in `metaDecks`, Paul's guard rule).
+   * `meta`: the top-tier list in `metaDecks`, the guard rule).
    */
   decks?: string;
   /** The `meta` source's deck-list file (default `local-decks/meta.txt`). */

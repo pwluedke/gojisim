@@ -33,7 +33,7 @@ import {
  * the games in progress, keeping the journal: delete it and run the same command to resume.
  *
  * `--decks meta` plays the top-tier decks in `--meta-decks <file>`: by default the decks tagged Meta
- * in the one deck list `local-decks/decks.txt` (Paul, Nov 9), or `local-decks/meta.txt` while it
+ * in the one deck list `local-decks/decks.txt` (Nov 9), or `local-decks/meta.txt` while it
  * isn't there (both
  * gitignored): every ordered pairing, two games each with the seats swapped. Bot guards run on it.
  */

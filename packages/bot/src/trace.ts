@@ -8,7 +8,7 @@ import { SWITCHES } from "./switches";
  *
  * Rule ids are the ones the play guides use: `card rule N` (the guides' "Rules for every deck",
  * numbered as in `cardRules.ts`), `<deck> plan <N>` (each plan's own list; the guides list them as
- * bullets, so their sentences name the bullet), and `play rule N` for Paul's play rules
+ * bullets, so their sentences name the bullet), and `play rule N` for the play rules
  * (`rules.ts`), whose numbers would collide with the card rules'.
  */
 
@@ -138,24 +138,27 @@ const RULE_SWITCH: Record<string, string> = {
 const PLAN_TEXT: [prefix: string, text: string][] = [
   [
     "Red Fest plan",
-    "A line of Slick's Red Fest plan (`festPlan`), as in the Red Fest guide.",
+    "A rule of the Red Fest plan (`festPlan`), as written in the Red Fest play guide.",
   ],
-  ["Wrangler plan v1", "A line of the first Wrangler plan (`wranglerV2` off)."],
+  [
+    "Wrangler plan v1",
+    "A rule of the first Wrangler plan (used when `wranglerV2` is off).",
+  ],
   [
     "Wrangler plan",
-    "A line of the Wrangler plan (v2), as in the Wrangler guide.",
+    "A rule of the Wrangler plan (version 2), as written in the Wrangler play guide.",
   ],
   [
     "Monster X plan",
-    "Paul's Monster X plan (`mxPlan`): the moves its line wants get a head start.",
+    "The Monster X plan (`mxPlan`): the moves its rules want get a head start in the search.",
   ],
   [
     "Constructed Future plan",
-    "Paul's Constructed Future rules (`cfPlan`, `cfTarget`): it's played only for a target.",
+    "The Constructed Future rules (`cfPlan`, `cfTarget`): Constructed Future is played only when it has a target to bring back.",
   ],
   [
     "Final Wars ruling",
-    "Paul's Final Wars ruling: its picks go for the highest total counter power.",
+    "The Final Wars ruling: Godzilla Final Wars puts the revealed cards where they give the highest total counter power.",
   ],
 ];
 
@@ -171,55 +174,55 @@ export function report(
 /** Sentences for the rules without a switch (the others use their switch's `what`). */
 const RULE_TEXT: Record<string, string> = {
   "play rule 1":
-    "Stack a same-rank monster card when a card wants a stack size it doesn't have yet.",
+    "Play a same-rank monster card on top of your monster when one of your cards wants a bigger stack than it has now (8.5.1).",
   "play rule 2":
-    "Hold one monster card per rank that can still be played on top for its ability: it isn't paid for rage, an invasion or a discard cost while another card can pay.",
+    "Keep in your hand one monster card of each rank that can still be played on top of your monster for its ability: don't discard it for rage, pay for an invasion with it, or pay a discard cost with it while another card can pay.",
   "play rule 3":
-    "Discard every other monster card for rage: no pass while one can go.",
+    "Discard for rage every monster card that play rule 2 doesn't keep, and don't end the turn while a monster card in your hand can still be discarded for rage.",
   "play rule 4":
-    "A counter-only strategy is held until the counter is made, then preferred; while the turn's invasion is legal, it waits for it.",
+    "Hold a strategy card that only adds counter power until it gives you enough counter power to counter the opponent's monster, then prefer playing it. While this turn's invasion can still be made, wait for the invasion first.",
   "play rule 5":
-    "A same-column battle card goes in the opponent's monster's column.",
+    "Play a battle card that works in the same column as the opponent's monster into that monster's column.",
   "play rule 6":
-    "A zone-boosted battle card goes in its zone, never away from an open zone 8 the opponent can reach next turn.",
+    "Play a battle card that gets a boost in a certain zone into that zone, but never away from an empty zone 8 of yours that the opponent's monster can reach next turn.",
   "play rule #195":
-    "When the opponent's card offers to counter its own monster for a discard, pay with the cheapest card (one with no play now) rather than decline.",
+    "When the opponent's card offers to counter its own monster in exchange for a discard, pay with your cheapest card (one you can't play now) instead of declining.",
   "card rule 1":
-    "A monster card that loses with no card in your strategy zones is played only when you'll have a strategy card in play.",
+    "Play a monster card that loses the game when your strategy zones are empty only when you will have a strategy card in play.",
   "card rule 2":
-    "In your zone 8 (or 6 or 7) with their zone 8 blocked, when a play this turn can clear it for a winning invasion, clear it first: no invading into the blocker, no passing.",
+    "When your monster is in zone 8 (or in zone 6 or 7), the opponent's zone 8 is blocked, and a play this turn can clear the blocker so that an invasion wins, clear it first: don't invade into the blocker and don't end the turn.",
   "card rule 3":
-    "A card that works in the opponent's monster's column goes in that column when it can, else in zone 1 or 2.",
+    "Play a card that works in the column of the opponent's monster into that column when you can, otherwise into zone 1 or 2.",
   "card rule 4":
-    "A card that plays itself back from the discard pile comes back whenever there's an empty zone, and a destroy leaves their recurring cards for last.",
+    "A card that plays itself back from the discard pile always comes back when there is an empty zone, and when you destroy the opponent's cards, leave their cards that come back like that for last.",
   "card rule 5":
-    "A counter-only strategy is played only when it's needed: not while the counter is made without it, and not when even with it the counter isn't made.",
+    "Play a strategy card that only adds counter power only when it's needed: not while you already have enough counter power to counter the opponent's monster without it, and not when you still don't have enough even with it.",
   "card rule 6":
-    "A slow counter deck doesn't invade unless the invasion wins the game now.",
+    "A slow counter deck (one with few monster cards in its main deck) doesn't invade unless the invasion wins the game now.",
   "card rule 7":
-    "With your zone 8 open and their monster in reach, a play that puts a battle card in your zone 8 is taken; a way to make the counter outranks it.",
+    "When your zone 8 is empty and the opponent's monster can reach it, take a play that puts a battle card in your zone 8 to block their invasion; a play that gives you enough counter power to counter the opponent's monster this turn comes before it.",
   "card rule 8":
-    "A battle card whose ability works only in some zones is played in one of them when it can be.",
+    "Play a battle card whose ability works only in some zones into one of those zones when you can.",
   "card rule 9":
-    "With their monster in reach of your zone 8 and the counter not made, the plays that start a way to make it this turn are freed from Paul's holds.",
+    "When the opponent's monster can reach your zone 8 and you don't yet have enough counter power to counter the opponent's monster, the plays that start a way to get it this turn are freed from play rule 2, which keeps monster cards in hand.",
   "card rule 10":
-    "A play that advances the opponent's monster is made only when you can still make the counter this turn or have your zone 8 blocked.",
+    "Make a play that moves the opponent's monster forward only when you can still counter it this turn or your zone 8 is blocked.",
   "card rule 12":
-    "An Evolution doesn't pick a card no stronger than the one it stacks on while a stronger one is there.",
+    "An Evolution doesn't pick a card that is no stronger than the card it stacks on while a stronger one is there.",
   "card rule 13":
-    "A battle card whose [enter] needs Awakening waits while an invasion this turn can take your monster there: invade first.",
+    "A battle card whose [enter] ability needs Awakening waits while an invasion this turn can take your monster to the zone it needs: invade first, then play it.",
   "card rule 14":
-    "No rage discards on turns 1-2 unless the rage is on a way to the counter or a zone 8 block.",
+    "Don't discard for rage on turns 1 and 2 unless that rage is part of a way to counter the opponent's monster or to block your zone 8.",
   "card rule 15":
-    "A monster card whose ability fires on reaching a zone isn't stacked on a turn your monster can't reach that zone.",
+    "Don't play a monster card on top of your monster when its ability fires on reaching a zone that your monster can't reach this turn.",
   "card rule 16":
-    "At a choose one, a mode that changes nothing isn't picked while another mode does something.",
+    "When a card says to choose one, don't pick a mode that changes nothing while another mode does something.",
   "card rule 17":
-    "A [revenge] card goes where it gets destroyed (ahead of your own monster, never zone 8), and isn't paid for an invasion while another card can pay.",
+    "Play a [revenge] card where it will get destroyed (ahead of your own monster, but never in zone 8), and don't pay for an invasion with it while another card can pay.",
   "card rule 18":
-    "At a choose one, a mode that makes the opponent discard beats one that only mills your own deck.",
+    "When a card says to choose one, a mode that makes the opponent discard beats one that only mills your own deck (sends its top cards to the discard pile).",
   "card rule 19":
-    "A strategy whose only abilities are statuses on a monster isn't activated while each is already in force.",
+    "Don't activate a strategy card whose only abilities are statuses on a monster while each of those statuses is already in force.",
 };
 
 /** A rule's sentence and switch. */

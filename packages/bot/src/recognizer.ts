@@ -6,7 +6,7 @@ import { candidatePool } from "./deckGuess";
 /**
  * The deck recognizer (#191, bot learning plan step 4), on from Hard up (`recognizer=1`). The
  * opponent's public cards weight the archetypes in `data/archetypes.json` (public meta archetypes,
- * approved by Paul), and each determinization draws the hidden cards toward one archetype's core
+ * approved by the owner), and each determinization draws the hidden cards toward one archetype's core
  * and common cards before `guessHidden`'s legal fill. A deck that matches none keeps the uniform
  * guess. The weights are worked out again at every determinization from what is public then, so
  * an early misread corrects itself as more cards are played.
@@ -54,7 +54,7 @@ export const R_RANK_ONE_MISS = 0.2;
 export const PRIOR_NONE = 0.3;
 /** The chance a common entry goes in a drawn deck. */
 export const COMMON_IN = 0.5;
-/** Core entries without a count in the catalog (Monarch: x2-3); common ones x1-2. */
+/** Core entries without a count in the catalog (x2-3); common ones x1-2. */
 const CORE_COUNT: [number, number] = [2, 3];
 const COMMON_COUNT: [number, number] = [1, 2];
 
