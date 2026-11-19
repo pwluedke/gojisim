@@ -12,7 +12,9 @@ import {
   type DecisionTrace,
   type RuleNote,
   ruleInfo,
+  report,
   type TraceSink,
+  withTrace,
 } from "./trace";
 import {
   pickWith,
@@ -131,15 +133,18 @@ function planDead(
   me: PlayerId,
   settings: IsmctsSettings,
 ): Set<Action> {
-  return new Set<Action>([
-    // Paul's Constructed Future rules (all cfTarget modes): play it only for a target; with
-    // cfPlan on (the default), his plan (cfPlan.ts).
+  // Paul's Constructed Future rules (all cfTarget modes): play it only for a target; with
+  // cfPlan on (the default), his plan (cfPlan.ts).
+  const cf = [
     ...constructedFutureDead(state, actions, me),
     ...(settings.cfPlan > 0 ? cfPlanDead(state, actions, me) : []),
-    // Paul's Final Wars ruling (Nov 7): its picks for the highest total counter power.
-    ...finalWarsDead(state, actions, me),
     ...cfTargetDead(state, actions, me, settings.cfTarget),
-  ]);
+  ];
+  // Paul's Final Wars ruling (Nov 7): its picks for the highest total counter power.
+  const finalWars = [...finalWarsDead(state, actions, me)];
+  report("Constructed Future plan", "removed", cf);
+  report("Final Wars ruling", "removed", finalWars);
+  return new Set<Action>([...cf, ...finalWars]);
 }
 
 /**
@@ -398,8 +403,11 @@ export function search(input: BotInput, settings: IsmctsSettings) {
           me,
           (a) => actionKey(first, a),
           settings.collectorRage > 0,
+          input.trace,
         );
-        const plans = planDead(first, input.legalActions, me, settings);
+        const plans = withTrace(input.trace, () =>
+          planDead(first, input.legalActions, me, settings),
+        );
         bonus = verdict.bonus;
         const keep = combineDead(
           input.legalActions,
@@ -475,6 +483,12 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         settings.mxPlan,
         groupOptions(settings, "mxPlan") as MxPlanOptions,
       );
+    if (iterations === 1 && favored.size > 0)
+      input.trace?.rule(
+        "Monster X plan",
+        "favored",
+        input.legalActions.filter((a) => favored.has(actionKey(state, a))),
+      );
     // #276: the Wrangler plan, a preference like the Monster X plan, that frees what its line
     // needs from Paul's rules' holds.
     // Paul, Nov 13: v2 (`wranglerPlan=2`, the default) with the card rules (Medium and Hard); v1
@@ -489,20 +503,24 @@ export function search(input: BotInput, settings: IsmctsSettings) {
       const theirs =
         input.knowledge.decks[first.players.find((p) => p.id !== me)?.id ?? ""];
       const verdict = wranglerV2
-        ? wranglerV2Verdict(
-            first,
-            input.legalActions,
-            me,
-            input.knowledge.decks[me],
-            theirs,
-            groupOptions(settings, "wrangler") as WranglerOptions,
+        ? withTrace(input.trace, () =>
+            wranglerV2Verdict(
+              first,
+              input.legalActions,
+              me,
+              input.knowledge.decks[me],
+              theirs,
+              groupOptions(settings, "wrangler") as WranglerOptions,
+            ),
           )
-        : wranglerVerdict(
-            first,
-            input.legalActions,
-            me,
-            input.knowledge.decks[me],
-            theirs,
+        : withTrace(input.trace, () =>
+            wranglerVerdict(
+              first,
+              input.legalActions,
+              me,
+              input.knowledge.decks[me],
+              theirs,
+            ),
           );
       const { against, rescued } = verdict;
       for (const a of rescued) dead.delete(actionKey(first, a));
@@ -531,12 +549,14 @@ export function search(input: BotInput, settings: IsmctsSettings) {
     // BFW182's Tangler plan (#403), a preference like the Wrangler plan.
     if (iterations === 1 && settings.rules > 0 && settings.tanglerPlan > 0) {
       const first = state;
-      const { against } = tanglerVerdict(
-        first,
-        input.legalActions,
-        me,
-        input.knowledge.decks[me],
-        groupOptions(settings, "tangler") as TanglerOptions,
+      const { against } = withTrace(input.trace, () =>
+        tanglerVerdict(
+          first,
+          input.legalActions,
+          me,
+          input.knowledge.decks[me],
+          groupOptions(settings, "tangler") as TanglerOptions,
+        ),
       );
       if (against.size > 0)
         for (const a of input.legalActions)
@@ -549,12 +569,14 @@ export function search(input: BotInput, settings: IsmctsSettings) {
     // Paul's SpaceG plan (#408), a preference like the Wrangler plan.
     if (iterations === 1 && settings.rules > 0 && settings.spacegPlan > 0) {
       const first = state;
-      const { against } = spacegVerdict(
-        first,
-        input.legalActions,
-        me,
-        input.knowledge.decks[me],
-        groupOptions(settings, "spaceg") as SpaceGOptions,
+      const { against } = withTrace(input.trace, () =>
+        spacegVerdict(
+          first,
+          input.legalActions,
+          me,
+          input.knowledge.decks[me],
+          groupOptions(settings, "spaceg") as SpaceGOptions,
+        ),
       );
       if (against.size > 0)
         for (const a of input.legalActions)
@@ -567,13 +589,17 @@ export function search(input: BotInput, settings: IsmctsSettings) {
     // Slick's Red Fest plan, a preference like the Wrangler plan.
     if (iterations === 1 && settings.rules > 0 && settings.festPlan > 0) {
       const first = state;
-      const { against } = festVerdict(
-        first,
-        input.legalActions,
-        me,
-        input.knowledge.decks[me],
-        input.knowledge.decks[first.players.find((p) => p.id !== me)?.id ?? ""],
-        groupOptions(settings, "fest") as FestOptions,
+      const { against } = withTrace(input.trace, () =>
+        festVerdict(
+          first,
+          input.legalActions,
+          me,
+          input.knowledge.decks[me],
+          input.knowledge.decks[
+            first.players.find((p) => p.id !== me)?.id ?? ""
+          ],
+          groupOptions(settings, "fest") as FestOptions,
+        ),
       );
       if (against.size > 0)
         for (const a of input.legalActions)
@@ -590,17 +616,19 @@ export function search(input: BotInput, settings: IsmctsSettings) {
       (settings.noPlanUse > 0 || settings.noPlanInvade > 0)
     ) {
       const first = state;
-      const against = noPlanVerdict(
-        first,
-        input.legalActions,
-        me,
-        input.knowledge.decks[me],
-        {
-          use: settings.noPlanUse > 0,
-          invade: settings.noPlanInvade > 0,
-          festPlan: settings.festPlan > 0,
-          spacegPlan: settings.spacegPlan > 0,
-        },
+      const against = withTrace(input.trace, () =>
+        noPlanVerdict(
+          first,
+          input.legalActions,
+          me,
+          input.knowledge.decks[me],
+          {
+            use: settings.noPlanUse > 0,
+            invade: settings.noPlanInvade > 0,
+            festPlan: settings.festPlan > 0,
+            spacegPlan: settings.spacegPlan > 0,
+          },
+        ),
       );
       if (against.size > 0)
         for (const a of input.legalActions)
@@ -695,6 +723,20 @@ export interface Decision {
   trace?: DecisionTrace;
 }
 
+/** Notes with the same rule and effect, merged into one (their moves once each). */
+function merged(notes: readonly RuleNote[]): IterableIterator<RuleNote> {
+  const byRule = new Map<string, RuleNote>();
+  for (const note of notes) {
+    const key = `${note.effect} ${note.id}`;
+    const seen = byRule.get(key);
+    if (!seen) byRule.set(key, { ...note, actions: [...note.actions] });
+    else
+      for (const a of note.actions)
+        if (!seen.actions.includes(a)) seen.actions.push(a);
+  }
+  return byRule.values();
+}
+
 /** #478: how many alternatives a trace lists. */
 const TRACE_ALTERNATIVES = 3;
 
@@ -727,7 +769,8 @@ function explain(input: BotInput, decision: Omit<Decision, "trace">): Decision {
       pick: decision.action,
       blundered: decision.blundered,
       alternatives: alternatives.slice(0, TRACE_ALTERNATIVES),
-      rules: (sink.notes ?? []).map((note) => ({
+      // One note per rule and effect (a plan reports its moves one by one), in first-seen order.
+      rules: [...merged(sink.notes ?? [])].map((note) => ({
         ...note,
         ...ruleInfo(note.id),
       })),

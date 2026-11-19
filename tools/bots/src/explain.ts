@@ -91,4 +91,13 @@ if (values.list) {
     console.log(
       `${row.chosen ? "→" : " "} ${String(row.visits).padStart(5)}  ${row.mean === null ? "     –" : row.mean.toFixed(3).padStart(6)}  ${row.label}   [${row.key}]`,
     );
+  // #478: the rules that touched this decision, with the play guides' ids.
+  const rules = decision.trace?.rules ?? [];
+  if (rules.length > 0) {
+    console.log("Rules:");
+    for (const r of rules)
+      console.log(
+        `  ${r.id} (${r.effect}${r.switch ? `, \`${r.switch}\`` : ""}): ${r.actions.map((a) => actionText(state, a)).join("; ")}\n      ${r.text}`,
+      );
+  }
 }

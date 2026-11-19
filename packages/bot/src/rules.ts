@@ -1,3 +1,4 @@
+import type { TraceSink } from "./trace";
 import { getCardAbilities, getCardTraits } from "@gojisim/cards";
 import { evaluate } from "./evaluate";
 import {
@@ -320,9 +321,20 @@ export function applyRules(
   keyOf: (action: Action) => string,
   /** `collectorRage` (#346): rule 2's exception for a same-name collector; `false` is off. */
   collector = true,
+  /** #478: where each rule reports the moves it removed or favored (it changes nothing). */
+  trace?: TraceSink,
 ): RuleVerdict {
   const killed = new Set<Action>();
-  const kill = (a: Action) => killed.add(a);
+  // #478: each kill and bonus remembers its rule, reported once the verdict stands.
+  const byRule: {
+    id: string;
+    effect: "removed" | "favored";
+    action: Action;
+  }[] = [];
+  const kill = (a: Action, id: string) => {
+    killed.add(a);
+    byRule.push({ id, effect: "removed", action: a });
+  };
   const bonus = new Map<string, number>();
   // Every hard rule leaves at least one action that isn't conceding (#189: conceding counted, so
   // a turn with every real action ruled out kept the prunes and fell back to a random pick).
@@ -334,6 +346,21 @@ export function applyRules(
     const alive = actions.some(
       (a) => a.type !== "concede" && !dead.has(keyOf(a)),
     );
+    if (trace) {
+      const groups = new Map<string, Action[]>();
+      for (const n of byRule)
+        if (alive || n.effect === "favored") {
+          const k = `${n.effect}\u0000${n.id}`;
+          groups.set(k, [...(groups.get(k) ?? []), n.action]);
+        }
+      for (const [k, list] of groups) {
+        const [effect, id] = k.split("\u0000") as [
+          "removed" | "favored",
+          string,
+        ];
+        trace.rule(id, effect, list);
+      }
+    }
     return alive
       ? { dead, killed, bonus }
       : { dead: new Set(), killed: new Set(), bonus };
@@ -353,7 +380,8 @@ export function applyRules(
       );
       if (pays.length === 0) return verdict();
       for (const a of actions)
-        if (a.type === "choose" && a.optionId === "done") kill(a);
+        if (a.type === "choose" && a.optionId === "done")
+          kill(a, "play rule #195");
       const unplayable = pays.filter(
         (a) =>
           a.type === "choose" &&
@@ -363,39 +391,42 @@ export function applyRules(
       const value = (a: Action) =>
         evaluate(advanceToDecision(applyAction(state, a)), player);
       const best = from.reduce((x, y) => (value(y) > value(x) ? y : x));
-      for (const a of pays) if (a !== best) kill(a);
+      for (const a of pays) if (a !== best) kill(a, "play rule #195");
       return verdict();
     }
     if (choice.rule !== "5.7.1") return verdict();
     const [me] = players(state, player);
     const held = heldCards(state, me, collector);
     for (const a of actions)
-      if (a.type === "choose" && held.has(a.optionId)) kill(a);
+      if (a.type === "choose" && held.has(a.optionId)) kill(a, "play rule 2");
     return verdict();
   }
   if (state.turnPlayer !== player) return verdict();
   const [me, opponent] = players(state, player);
   const held = heldCards(state, me, collector);
   const monster = (a: Action) => cardOf(state, handCard(me, actionCard(a)));
-  const add = (a: Action) => bonus.set(keyOf(a), RULE_BONUS);
+  const add = (a: Action, id: string) => {
+    bonus.set(keyOf(a), RULE_BONUS);
+    byRule.push({ id, effect: "favored", action: a });
+  };
 
   // Rule 2: a held card isn't paid for rage, nor for an invasion while another card can pay.
   const invades = actions.filter((a) => a.type === "invade");
   for (const a of actions) {
     const id = actionCard(a);
     if (!id || !held.has(id)) continue;
-    if (a.type === "gainRage") kill(a);
+    if (a.type === "gainRage") kill(a, "play rule 2");
     if (
       a.type === "invade" &&
       invades.some((b) => !held.has(actionCard(b) ?? ""))
     )
-      kill(a);
+      kill(a, "play rule 2");
   }
   // Rules 1 and 2: stacking, when a card wants the stack size or the card is held for its ability.
   const wanted = stackWanted(state, me);
   for (const a of actions)
     if (a.type === "playMonster" && (wanted || held.has(a.cardInstanceId)))
-      add(a);
+      add(a, "play rule 1");
   // Rule 3: no pass while a monster card that isn't held can go to rage.
   if (
     actions.some(
@@ -405,7 +436,7 @@ export function applyRules(
         !held.has(a.cardInstanceId),
     )
   )
-    for (const a of actions) if (a.type === "pass") kill(a);
+    for (const a of actions) if (a.type === "pass") kill(a, "play rule 3");
   // Rule 4: a counter-only strategy is held while the counter isn't made, even with the others
   // still playable (a prune); when it is made, playing it is preferred (a prior: early on, the
   // search may still build the board first, Paul). #189: while the turn's invasion is still
@@ -416,11 +447,11 @@ export function applyRules(
   );
   for (const a of actions) {
     if (a.type !== "activateStrategy" || !counterOnly(monster(a))) continue;
-    if (!counterMadeWith(state, a, player)) kill(a);
-    else if (invasions.length === 0) add(a);
+    if (!counterMadeWith(state, a, player)) kill(a, "play rule 4");
+    else if (invasions.length === 0) add(a, "play rule 4");
     else {
-      kill(a);
-      for (const i of invasions) add(i);
+      kill(a, "play rule 4");
+      for (const i of invasions) add(i, "play rule 4");
     }
   }
   // Rule 5: same-column cards in the opponent's monster column (the next one if a copy holds it).
@@ -446,7 +477,7 @@ export function applyRules(
         plays.some((b) => inColumn(b.zone, target)) &&
         !inColumn(a.zone, target)
       )
-        kill(a);
+        kill(a, "play rule 5");
     }
   // Rule 6: zone-boosted cards go in their zone, a prior that never steers away from an open
   // zone 8 (#176). #189 (Paul): a card with a plain stat boost (`statBoostZones`) is pruned
@@ -463,13 +494,13 @@ export function applyRules(
           b.cardInstanceId === a.cardInstanceId &&
           stat.includes(b.zone),
       );
-      if (boostedPlay) kill(a);
+      if (boostedPlay) kill(a, "play rule 6");
       continue;
     }
     const zones = boostedZones(card);
     if (zones.length === 0 || !zones.includes(a.zone)) continue;
     if (exposed && a.zone !== 8) continue;
-    add(a);
+    add(a, "play rule 6");
   }
   return verdict();
 }

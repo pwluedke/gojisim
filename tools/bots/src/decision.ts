@@ -9,6 +9,7 @@ import {
   evaluate,
   features,
   seededRng,
+  traceSink,
 } from "@gojisim/bot";
 import {
   type Action,
@@ -119,7 +120,8 @@ export function runDecision(
     settings,
     record.deckLegality?.[0]?.asOf,
   );
-  const decision = decide(input);
+  // #478: always traced (a trace never changes the decision), so `bot-explain` shows the rules.
+  const decision = decide({ ...input, trace: traceSink() });
   const chosenKey = actionKey(state, decision.action);
   const rows = input.legalActions.map((action) => {
     const key = actionKey(state, action);

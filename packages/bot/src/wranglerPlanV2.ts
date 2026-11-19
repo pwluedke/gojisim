@@ -1,3 +1,4 @@
+import { mark } from "./trace";
 import {
   type Action,
   advanceToDecision,
@@ -322,11 +323,11 @@ export function wranglerV2Verdict(
             counterPlays(s, getLegalActions(s, me), me).size > 0));
       const makes =
         reaches(after(state, yes, me)) && !reaches(after(state, no, me));
-      if (!makes) against.add(yes);
+      if (!makes) mark(against, yes, "Wrangler plan v2.2", "against");
       // #417: the reset that alone makes the counter this turn is taken (the search answered no
       // to it otherwise).
       else if (resetLine) {
-        against.add(no);
+        mark(against, no, "Wrangler plan v2.2", "against");
         return { against, rescued, pruned: new Set([no]) };
       }
     }
@@ -373,7 +374,9 @@ export function wranglerV2Verdict(
     });
     const best = aligned.length > 0 ? aligned : front;
     if (best.length > 0)
-      for (const a of picks) if (!best.includes(a)) against.add(a);
+      for (const a of picks)
+        if (!best.includes(a))
+          mark(against, a, "Wrangler plan Line 1", "against");
     return { against, rescued };
   }
   if (v21 && choice?.player === me && choice.rule === "5.7.2") {
@@ -391,7 +394,8 @@ export function wranglerV2Verdict(
     if (spare.length > 0)
       for (const a of picks) {
         const n = cardOf(a.optionId)?.deckCardNumber;
-        if (n !== undefined && KEY_CARDS.has(n)) against.add(a);
+        if (n !== undefined && KEY_CARDS.has(n))
+          mark(against, a, "Wrangler plan Line 1", "against");
       }
     return { against, rescued };
   }
@@ -426,7 +430,8 @@ export function wranglerV2Verdict(
 
   // Don't race: an invasion only when it wins this turn; never paid with a push card.
   for (const a of actions)
-    if (a.type === "invade" && !winsNow(state, a, me)) against.add(a);
+    if (a.type === "invade" && !winsNow(state, a, me))
+      mark(against, a, "Wrangler plan Line 1", "against");
   const top0 = player.invadingMonsterZone.at(-1);
   // #418 (Ian): early (your monster at rank I or II), a dead strategy clogs the hand: an
   // invasion paid with a spare one is freed from "don't race" (monster cards still go for rage).
@@ -450,7 +455,7 @@ export function wranglerV2Verdict(
       const n = card(a.cardInstanceId)?.deckCardNumber;
       if (n === SLITHERING || (n === DESPAIR && despairs >= 2)) {
         against.delete(a);
-        rescued.add(a);
+        mark(rescued, a, "Wrangler plan Line 1", "freed");
       }
     }
   }
@@ -513,7 +518,8 @@ export function wranglerV2Verdict(
     // ESD01-002) and passing wait.
     if (fetchRage && fetching)
       for (const a of actions)
-        if (a.type === "playMonster" || a.type === "pass") against.add(a);
+        if (a.type === "playMonster" || a.type === "pass")
+          mark(against, a, "Wrangler plan v2.2", "against");
   }
 
   // #442 (Ian): Despair needs 2 rage ("If your monster card has 2 or more rage"). With Godzilla
@@ -551,7 +557,7 @@ export function wranglerV2Verdict(
         );
         if (mine.rage + monsters >= DESPAIR_RAGE && target) {
           against.delete(a);
-          rescued.add(a);
+          mark(rescued, a, "Wrangler plan v2.2", "freed");
           opens = true;
         }
       }
@@ -562,7 +568,7 @@ export function wranglerV2Verdict(
             a.type === "pass" ||
             despairs.includes(a)
           )
-            against.add(a);
+            mark(against, a, "Wrangler plan v2.2", "against");
     }
   }
 
@@ -595,7 +601,7 @@ export function wranglerV2Verdict(
       ) {
         pushLines.add(a);
         against.delete(a);
-        rescued.add(a);
+        mark(rescued, a, "Wrangler plan v2.2", "freed");
       }
     }
 
@@ -637,7 +643,7 @@ export function wranglerV2Verdict(
       ) {
         resetLines.add(a);
         against.delete(a);
-        rescued.add(a);
+        mark(rescued, a, "Wrangler plan v2.2", "freed");
       }
     }
 
@@ -672,14 +678,14 @@ export function wranglerV2Verdict(
     const ok = v21
       ? followUp(s)
       : counters(s, me) || battleCards(s, opponent.id) < theirCards;
-    if (!ok) against.add(a);
+    if (!ok) mark(against, a, "Wrangler plan v2.3", "against");
   }
 
   // Godzilla (1954) EBP01-004 isn't stacked with your Kings on the board.
   if (kingsOut)
     for (const a of actions)
       if (a.type === "playMonster" && number(a) === GODZILLA_1954_WIPE)
-        against.add(a);
+        mark(against, a, "Wrangler plan v2.3", "against");
 
   // Kings and GAM in zones 1, 2 or 8 (1 or 5 against Godzilla (1994)), off your monster's path.
   const vs1994 =
@@ -696,7 +702,9 @@ export function wranglerV2Verdict(
     );
     const good = plays.filter((a) => zones.has(a.zone) && offPath(a.zone));
     if (good.length > 0)
-      for (const a of plays) if (!good.includes(a)) against.add(a);
+      for (const a of plays)
+        if (!good.includes(a))
+          mark(against, a, "Wrangler plan v2.3", "against");
   }
 
   // Churn from turn 1: rage discards over passing, freed from the holds; the held cards stay
@@ -712,13 +720,14 @@ export function wranglerV2Verdict(
     (a) => a.type === "gainRage" && !held(number(a)),
   );
   if (churn.length > 0) {
-    for (const a of churn) rescued.add(a);
+    for (const a of churn) mark(rescued, a, "Wrangler plan v2.3", "freed");
     for (const a of actions)
       if (a.type === "pass" || (a.type === "gainRage" && !churn.includes(a)))
-        against.add(a);
+        mark(against, a, "Wrangler plan v2.3", "against");
     if (kingIn([1, 2, 3, 4, 5]) && player.rage < kingRage)
       for (const a of actions)
-        if (a.type !== "gainRage" && a.type !== "concede") against.add(a);
+        if (a.type !== "gainRage" && a.type !== "concede")
+          mark(against, a, "Wrangler plan v2.3", "against");
   }
   // v2.1 (#316): with a King in zones 1-5 under 3 rage, no passing while any rage discard can
   // still be made, the held cards' too: the King's protection comes first. (Godzilla (1954)
@@ -727,10 +736,12 @@ export function wranglerV2Verdict(
     const rage = actions.filter((a) => a.type === "gainRage");
     if (rage.length > 0) {
       for (const a of rage) {
-        rescued.add(a);
+        mark(rescued, a, "Wrangler plan v2.1", "freed");
         against.delete(a);
       }
-      for (const a of actions) if (a.type === "pass") against.add(a);
+      for (const a of actions)
+        if (a.type === "pass")
+          mark(against, a, "Wrangler plan v2.1", "against");
     }
   }
   // v2.2 (#318, Ian): with no battle card in hand (no answer to the next invasion), dig: the end
@@ -757,10 +768,12 @@ export function wranglerV2Verdict(
     );
     if (out.length > 0) {
       for (const a of out) {
-        rescued.add(a);
+        mark(rescued, a, "Wrangler plan v2.3", "freed");
         against.delete(a);
       }
-      for (const a of actions) if (a.type === "pass") against.add(a);
+      for (const a of actions)
+        if (a.type === "pass")
+          mark(against, a, "Wrangler plan v2.3", "against");
     }
   }
 
@@ -775,7 +788,9 @@ export function wranglerV2Verdict(
           needed.has(a),
       )
     )
-      for (const a of actions) if (a.type === "pass") against.add(a);
+      for (const a of actions)
+        if (a.type === "pass")
+          mark(against, a, "Wrangler plan v2.3", "against");
   }
 
   // #384 (Ian): against a rage reset on their board (their GAM up with nothing under it: their next
@@ -800,12 +815,12 @@ export function wranglerV2Verdict(
   ) {
     for (const a of actions)
       if (a.type === "pass" || a.type === "gainRage") {
-        against.add(a);
+        mark(against, a, "Wrangler plan v2.3", "against");
         rescued.delete(a);
       }
     for (const a of tagOuts) {
       against.delete(a);
-      rescued.add(a);
+      mark(rescued, a, "Wrangler plan v2.3", "freed");
     }
   }
 
@@ -824,14 +839,15 @@ export function wranglerV2Verdict(
     player.rage < kingRage
   )
     for (const a of actions)
-      if (a.type === "playMonster" && !winsNow(state, a, me)) against.add(a);
+      if (a.type === "playMonster" && !winsNow(state, a, me))
+        mark(against, a, "Wrangler plan v2.3", "against");
 
   // #381: with a push line on, raging and passing wait (rage first would spend the turn); #388:
   // so with a reset line (rage first would spend the destroy on a protected King).
   if (pushLines.size > 0 || resetLines.size > 0)
     for (const a of actions)
       if (a.type === "pass" || a.type === "gainRage") {
-        against.add(a);
+        mark(against, a, "Wrangler plan v2.3", "against");
         rescued.delete(a);
       }
   // #388: the reset line goes ahead of v2.1's rage to 3 for a King in zones 1-5 (its rage gains
@@ -843,7 +859,7 @@ export function wranglerV2Verdict(
   // arguments (the search can't override them).
   const pruned = new Set<Action>();
   const hard = (a: Action) => {
-    against.add(a);
+    mark(against, a, "Wrangler plan v2.1", "against");
     if (bioHard) pruned.add(a);
   };
   if (vsBio) {
@@ -892,17 +908,22 @@ export function wranglerV2Verdict(
         a.type === "playBattle" && number(a) === KING,
     );
     if (kingPlays.some((a) => !nextToKing(a.zone)))
-      for (const a of kingPlays) if (nextToKing(a.zone)) against.add(a);
+      for (const a of kingPlays)
+        if (nextToKing(a.zone))
+          mark(against, a, "Wrangler plan v2.1", "against");
     // GAM down before Bio7 (EBP02-035) returns your discard pile to your deck.
     if (actions.some((a) => a.type === "playBattle" && number(a) === GAM))
-      for (const a of actions) if (a.type === "pass") against.add(a);
+      for (const a of actions)
+        if (a.type === "pass")
+          mark(against, a, "Wrangler plan v2.1", "against");
     // No strategy in play against its rank III EBP02-027 in zone 5+ (its awakening 6 makes it
     // counter-proof while you have one).
     // Hard: unless your counter beats 40,000 (Paul), when an advance takes it to zone 6+.
     if (theirCard?.deckCardNumber === "EBP02-027" && theirAt >= 5)
       for (const a of actions)
         if (a.type === "activateStrategy")
-          if (counterPowerOf(state, player) > BIO_III_COUNTER) against.add(a);
+          if (counterPowerOf(state, player) > BIO_III_COUNTER)
+            mark(against, a, "Wrangler plan v2.1", "against");
           else hard(a);
   }
 
@@ -916,7 +937,7 @@ export function wranglerV2Verdict(
         !resetCounters.has(a) &&
         !(a.type === "invade" && winsNow(state, a, me))
       ) {
-        against.add(a);
+        mark(against, a, "Wrangler plan v2.1", "against");
         rescued.delete(a);
         pruned.add(a);
       }

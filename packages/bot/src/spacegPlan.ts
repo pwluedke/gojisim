@@ -1,3 +1,4 @@
+import { mark } from "./trace";
 import type { Action, GameState, PlayerId } from "@gojisim/engine";
 import { counterPowerOf, getThreat } from "@gojisim/engine";
 import { playOut } from "./counterReach";
@@ -103,8 +104,8 @@ export function spacegVerdict(
 
   // Rule 1: invade every turn at ranks 1, 2 and 4.
   if (invade && spaceg && (rank <= 2 || rank === 4) && invades.length > 0) {
-    for (const a of invades) rescued.add(a);
-    for (const a of passes) against.add(a);
+    for (const a of invades) mark(rescued, a, "SpaceG plan 1", "freed");
+    for (const a of passes) mark(against, a, "SpaceG plan 1", "against");
   }
 
   // Rule 4: end the turn in zone 7, unless SpaceG survives their next counter in zone 8.
@@ -130,7 +131,8 @@ export function spacegVerdict(
         .reduce((n, v) => n + v, 0);
       const survives =
         counterPowerOf(state, opponent) + best < getThreat(state, me);
-      if (!survives) for (const x of over) against.add(x.a);
+      if (!survives)
+        for (const x of over) mark(against, x.a, "SpaceG plan 4", "against");
     }
   }
 
@@ -140,11 +142,11 @@ export function spacegVerdict(
       (a) => handNumber(a) === SPACEG_THREE,
     );
     if (covers.length > 0) {
-      for (const a of passes) against.add(a);
+      for (const a of passes) mark(against, a, "SpaceG plan 3", "against");
       if (invades.length > 0) {
-        for (const a of covers) against.add(a);
-        for (const a of invades) rescued.add(a);
-      } else for (const a of covers) rescued.add(a);
+        for (const a of covers) mark(against, a, "SpaceG plan 3", "against");
+        for (const a of invades) mark(rescued, a, "SpaceG plan 3", "freed");
+      } else for (const a of covers) mark(rescued, a, "SpaceG plan 3", "freed");
     }
   }
 
@@ -158,8 +160,8 @@ export function spacegVerdict(
     );
     const destroys = number === SPACEG_THREE && crystals > 0 && targets;
     if (destroys || number === SPACEG_FOUR) {
-      for (const a of rages) rescued.add(a);
-      for (const a of passes) against.add(a);
+      for (const a of rages) mark(rescued, a, "SpaceG plan 2", "freed");
+      for (const a of passes) mark(against, a, "SpaceG plan 2", "against");
     }
   }
 

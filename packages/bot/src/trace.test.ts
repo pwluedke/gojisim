@@ -98,7 +98,9 @@ describe("the decision trace (#478)", () => {
       const rules = traces.flatMap((t) => t.rules);
       expect(rules.length).toBeGreaterThan(0);
       for (const r of rules) {
-        expect(r.id).toMatch(/^(card rule|play rule|[A-Za-z ]+ plan) \S+/);
+        expect(r.id).toMatch(
+          /^(card rule \S+|play rule \S+|No-plan play \d|Final Wars ruling|[A-Za-z ]+ plan\b)/,
+        );
         expect(r.text).not.toBe(r.id);
         expect(r.actions.length).toBeGreaterThan(0);
       }

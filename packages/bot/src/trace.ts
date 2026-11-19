@@ -12,6 +12,9 @@ import { SWITCHES } from "./switches";
  * (`rules.ts`), whose numbers would collide with the card rules'.
  */
 
+/** The sink the plans report into while one runs at a traced decision's root (`withTrace`). */
+let active: TraceSink | undefined;
+
 /** What a rule did to the moves it names. */
 export type RuleEffect =
   /** Left out: the search never picks them while another move remains. */
@@ -21,7 +24,9 @@ export type RuleEffect =
   /** Given a head start in the search (a plan's preference, or a play rule's bonus). */
   | "favored"
   /** Freed from another rule's hold. */
-  | "freed";
+  | "freed"
+  /** A plan argues against it: the plan's other moves get a head start in the search. */
+  | "against";
 
 export interface RuleNote {
   id: string;
@@ -44,6 +49,28 @@ export function traceSink(): TraceSink & { notes: RuleNote[] } {
       if (list.length > 0) notes.push({ id, effect, actions: list });
     },
   };
+}
+
+/** Runs `fn` (a plan's verdict) with `sink` active, so its `mark` calls report. */
+export function withTrace<T>(sink: TraceSink | undefined, fn: () => T): T {
+  const before = active;
+  active = sink;
+  try {
+    return fn();
+  } finally {
+    active = before;
+  }
+}
+
+/** A plan's `set.add(action)`, reported under its rule's id while a trace is active. */
+export function mark(
+  set: Set<Action>,
+  action: Action,
+  id: string,
+  effect: RuleEffect,
+): void {
+  set.add(action);
+  active?.rule(id, effect, [action]);
 }
 
 /**
@@ -88,10 +115,75 @@ const RULE_SWITCH: Record<string, string> = {
   "card rule 28": "keepLowRank",
   "card rule 29": "tanglerEarly",
   "card rule 30": "modeBest",
+  "Tangler plan 1": "tanglerFear",
+  "Tangler plan 3": "tanglerDiscard",
+  "Tangler plan 5": "tanglerStop",
+  "Tangler plan 6a": "tanglerSave",
+  "Tangler plan 6b": "tanglerSave",
+  "Tangler plan 7a": "tanglerHighRank",
+  "Tangler plan 7b": "tanglerZoneFive",
+  "Tangler plan 7c": "tanglerGigan",
+  "SpaceG plan 1": "spacegInvade",
+  "SpaceG plan 2": "spacegRage",
+  "SpaceG plan 3": "spacegCover",
+  "SpaceG plan 4": "spacegZone",
+  "No-plan play 1": "noPlanUse",
+  "No-plan play 2": "noPlanInvade",
+  "Wrangler plan v2.1": "wranglerV21",
+  "Wrangler plan v2.2": "wranglerV22",
+  "Wrangler plan v2.3": "wranglerV23",
 };
+
+/** A plan's own sentence for ids without a switch of their own, by id prefix. */
+const PLAN_TEXT: [prefix: string, text: string][] = [
+  [
+    "Red Fest plan",
+    "A line of Slick's Red Fest plan (`festPlan`), as in the Red Fest guide.",
+  ],
+  ["Wrangler plan v1", "A line of the first Wrangler plan (`wranglerV2` off)."],
+  [
+    "Wrangler plan",
+    "A line of the Wrangler plan (v2), as in the Wrangler guide.",
+  ],
+  [
+    "Monster X plan",
+    "Paul's Monster X plan (`mxPlan`): the moves its line wants get a head start.",
+  ],
+  [
+    "Constructed Future plan",
+    "Paul's Constructed Future rules (`cfPlan`, `cfTarget`): it's played only for a target.",
+  ],
+  [
+    "Final Wars ruling",
+    "Paul's Final Wars ruling: its picks go for the highest total counter power.",
+  ],
+];
+
+/** Reports straight into the active sink (for a plan whose moves aren't added one by one). */
+export function report(
+  id: string,
+  effect: RuleEffect,
+  actions: Iterable<Action>,
+): void {
+  active?.rule(id, effect, actions);
+}
 
 /** Sentences for the rules without a switch (the others use their switch's `what`). */
 const RULE_TEXT: Record<string, string> = {
+  "play rule 1":
+    "Stack a same-rank monster card when a card wants a stack size it doesn't have yet.",
+  "play rule 2":
+    "Hold one monster card per rank that can still be played on top for its ability: it isn't paid for rage, an invasion or a discard cost while another card can pay.",
+  "play rule 3":
+    "Discard every other monster card for rage: no pass while one can go.",
+  "play rule 4":
+    "A counter-only strategy is held until the counter is made, then preferred; while the turn's invasion is legal, it waits for it.",
+  "play rule 5":
+    "A same-column battle card goes in the opponent's monster's column.",
+  "play rule 6":
+    "A zone-boosted battle card goes in its zone, never away from an open zone 8 the opponent can reach next turn.",
+  "play rule #195":
+    "When the opponent's card offers to counter its own monster for a discard, pay with the cheapest card (one with no play now) rather than decline.",
   "card rule 1":
     "A monster card that loses with no card in your strategy zones is played only when you'll have a strategy card in play.",
   "card rule 2":
@@ -134,6 +226,10 @@ const RULE_TEXT: Record<string, string> = {
 export function ruleInfo(id: string): RuleInfo {
   const name = RULE_SWITCH[id];
   const sw = name ? SWITCHES.find((s) => s.name === name) : undefined;
-  const text = sw?.what ?? RULE_TEXT[id] ?? id;
+  const text =
+    sw?.what ??
+    RULE_TEXT[id] ??
+    PLAN_TEXT.find(([prefix]) => id.startsWith(prefix))?.[1] ??
+    id;
   return { text, ...(name ? { switch: name } : {}) };
 }
