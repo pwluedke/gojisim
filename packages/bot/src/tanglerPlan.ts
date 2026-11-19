@@ -114,6 +114,7 @@ export function tanglerVerdict(
     discard = true,
     stop = true,
     save = true,
+    saveLast = true,
     highRank = true,
     zoneFive = true,
     gigan = true,
@@ -163,7 +164,15 @@ export function tanglerVerdict(
   const kept = player.hand.filter((c) =>
     DESTOROYAH_KEPT.has(cardData(state, c)?.deckCardNumber ?? ""),
   );
-  const keep = !onField && kept.length === 1 ? [kept[0]!.instanceId] : [];
+  // #483 (Ian, R-52): only the last copy left to draw is held, none of them still in the deck
+  // (its contents are known, never its order); with `saveLast` off, any lone copy in hand.
+  const inDeck = player.deck.filter((c) =>
+    DESTOROYAH_KEPT.has(cardData(state, c)?.deckCardNumber ?? ""),
+  ).length;
+  const keep =
+    !onField && kept.length === 1 && (!saveLast || inDeck === 0)
+      ? [kept[0]!.instanceId]
+      : [];
 
   // Rule 1: spare Entangling Fears are kept (fewer than 3 in hand: none goes).
   if (fear && fears < FEAR_SPARES)

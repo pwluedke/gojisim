@@ -416,6 +416,41 @@ describe("the Tangler plan's rule 6 (#403; BFW182 and Paul, Nov 16)", () => {
     for (const d of plays([AGGREGATE], { save: false })) expect(d).toBe(false);
   });
 
+  it("6a, the last copy (#483, Ian): a lone copy in hand is held only when none is left in the deck; with another still to draw it may go, and `tanglerSaveLast: false` (the control) holds it anyway", () => {
+    const plays = (inDeck: number, saveLast: boolean) => {
+      const { state, p1, p2 } = position([AGGREGATE], 3, 4);
+      p2.rage = 2;
+      p1.deck = [
+        ...p1.deck.filter(
+          (c) => state.cards[c.cardId]?.deckCardNumber !== AGGREGATE,
+        ),
+        ...Array.from({ length: inDeck }, () =>
+          add(state, real(AGGREGATE), "P1"),
+        ),
+      ];
+      const v = verdict(state, {
+        fear: false,
+        build: false,
+        discard: false,
+        stop: false,
+        save: true,
+        saveLast,
+      });
+      return v.legal
+        .filter(
+          (a) => a.type === "playBattle" && ofCard(state, p1, a) === AGGREGATE,
+        )
+        .map((a) => v.against.has(a));
+    };
+    // The last copy left to draw: held.
+    expect(plays(0, true).length).toBeGreaterThan(0);
+    for (const d of plays(0, true)) expect(d).toBe(true);
+    // Another copy still in the deck: it may be played.
+    for (const d of plays(2, true)) expect(d).toBe(false);
+    // The control: any lone copy in hand is held.
+    for (const d of plays(2, false)) expect(d).toBe(true);
+  });
+
   it("6b: Godzilla vs. Destoroyah EBP01-062 waits unless it makes the counter that's the final one or stops a losing invasion", () => {
     const judge = (oppAt: ZoneNumber, lastMonster: boolean) => {
       const { state, p1, p2 } = position([VS], 3, oppAt);

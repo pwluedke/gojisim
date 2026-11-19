@@ -290,6 +290,12 @@ Default 1 · built · from #403
 
 The Tangler plan's rule 6 (BFW182; Monarch, Nov 16): any Destoroyah battle card (EBP01-049, EBP01-054, EBP02-037) turns on Godzilla vs. Destoroyah; with none on your field the last rank 4 or 6 copy in hand stays (not discarded or paid with, nor played unless the play makes this turn's counter); Godzilla vs. Destoroyah is held for the final counter (their monster deck empty) or the one that stops a losing invasion (their monster in zone 6 or beyond). Needs `tanglerPlan`.
 
+### `tanglerSaveLast`
+
+Default 1 · built · from #483
+
+The Tangler plan's rule 6a, the last copy (Ian, #483): the rank 4 or 6 Destoroyah in hand is held only when it's the last copy left to draw (none left in the deck, whose contents you know but not their order); while another copy is still in the deck it's played or discarded like any card. Needs `tanglerSave`.
+
 ### `tanglerStop`
 
 Default 1 · built · from #403

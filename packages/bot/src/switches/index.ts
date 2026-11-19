@@ -47,6 +47,7 @@ import tanglerGigan from "./tanglerGigan";
 import tanglerHighRank from "./tanglerHighRank";
 import tanglerPlan from "./tanglerPlan";
 import tanglerSave from "./tanglerSave";
+import tanglerSaveLast from "./tanglerSaveLast";
 import tanglerStop from "./tanglerStop";
 import tanglerZoneFive from "./tanglerZoneFive";
 import targetAll from "./targetAll";
@@ -114,6 +115,7 @@ export const SWITCHES = [
   tanglerHighRank,
   tanglerPlan,
   tanglerSave,
+  tanglerSaveLast,
   tanglerStop,
   tanglerZoneFive,
   targetAll,
