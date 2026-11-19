@@ -416,7 +416,7 @@ describe("the Tangler plan's rule 6 (#403; BFW182 and Paul, Nov 16)", () => {
     for (const d of plays([AGGREGATE], { save: false })) expect(d).toBe(false);
   });
 
-  it("6a, the last copy (#483, Ian): a lone copy in hand is held only when none is left in the deck; with another still to draw it may go, and `tanglerSaveLast: false` (the control) holds it anyway", () => {
+  it("6a, the last copy (#483): a lone copy in hand is held only when none is left in the deck; with another still to draw it may go, and `tanglerSaveLast: false` (the control) holds it anyway", () => {
     const plays = (inDeck: number, saveLast: boolean) => {
       const { state, p1, p2 } = position([AGGREGATE], 3, 4);
       p2.rage = 2;

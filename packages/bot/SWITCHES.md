@@ -294,7 +294,7 @@ The Tangler plan's rule 6 (BFW182; Monarch, Nov 16): any Destoroyah battle card 
 
 Default 1 · built · from #483
 
-The Tangler plan's rule 6a, the last copy (Ian, #483): the rank 4 or 6 Destoroyah in hand is held only when it's the last copy left to draw (none left in the deck, whose contents you know but not their order); while another copy is still in the deck it's played or discarded like any card. Needs `tanglerSave`.
+The Tangler plan's rule 6a, the last copy (#483): the rank 4 or 6 Destoroyah in hand is held only when it's the last copy left to draw (none left in the deck, whose contents you know but not their order); while another copy is still in the deck it's played or discarded like any card. Needs `tanglerSave`.
 
 ### `tanglerStop`
 

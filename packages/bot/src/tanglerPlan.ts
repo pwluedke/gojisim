@@ -164,7 +164,7 @@ export function tanglerVerdict(
   const kept = player.hand.filter((c) =>
     DESTOROYAH_KEPT.has(cardData(state, c)?.deckCardNumber ?? ""),
   );
-  // #483 (Ian, R-52): only the last copy left to draw is held, none of them still in the deck
+  // #483 (R-52): only the last copy left to draw is held, none of them still in the deck
   // (its contents are known, never its order); with `saveLast` off, any lone copy in hand.
   const inDeck = player.deck.filter((c) =>
     DESTOROYAH_KEPT.has(cardData(state, c)?.deckCardNumber ?? ""),
