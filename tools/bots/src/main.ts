@@ -5,7 +5,13 @@ import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { BOTS, type BotSettings } from "@gojisim/bot";
 import { formatDeckList } from "@gojisim/cards/deck-lists";
-import { defaultMetaDecks, loadDeck, loadMetaDecks, STOP_FILE } from "./decks";
+import {
+  defaultMetaDecks,
+  loadDeck,
+  loadMetaDecks,
+  STOP_FILE,
+  stopReason,
+} from "./decks";
 import {
   appendJournal,
   clearJournal,
@@ -238,7 +244,7 @@ if (workers > 1 && !shard) {
 if (results.length < games) {
   // Stopped by the stop file: no report yet, and the journal stays for the resume.
   console.log(
-    `  stopped (${STOP_FILE}): ${results.length} / ${games} games played; delete it and run the same command to resume`,
+    `  stopped (${stopReason(values.out)}): ${results.length} / ${games} games played; delete ${STOP_FILE} and run the same command to resume`,
   );
   process.exit(0);
 }
