@@ -224,6 +224,12 @@ Default 0 (measured worse against Despangler, Nov 18) · measured · from #408
 
 The SpaceG plan's rule 1 (Paul): at ranks 1 and 2 (SpaceGodzilla Flying Form EBP02-052, SpaceGodzilla EBP02-053, whose [invading] makes Crystals) and at rank 4, no passing while an invasion can be made. Needs `spacegPlan`.
 
+### `spacegKeepGod`
+
+Default 1 · built · from #478
+
+The SpaceG plan's rule 5: never discard God of Destruction's Counterattack EBP02-072 to pay for an invasion or to gain rage, unless that invasion wins the game. Needs `spacegPlan`.
+
 ### `spacegPlan`
 
 Default 1 · built · from #408

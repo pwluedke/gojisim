@@ -21,7 +21,9 @@ import {
   SPACEG_FOUR,
   SPACEG_ONE,
   SPACEG_THREE,
+  GOD_OF_DESTRUCTION,
   type SpaceGOptions,
+  spacegKeepGodDead,
   spacegVerdict,
 } from "./spacegPlan";
 import type { Decklist } from "./types";
@@ -205,5 +207,47 @@ describe("the SpaceG plan (#408)", () => {
     for (const d of judge(false).two) expect(d).toBe(false);
     // `spacegZone: false` (the control).
     for (const d of judge(true, false).two) expect(d).toBe(false);
+  });
+});
+
+describe("the SpaceG plan's rule 5: God of Destruction's Counterattack stays out of costs (Nov 18 decision)", () => {
+  it("with a SpaceG list it isn't paid for an invasion that doesn't win, nor discarded for rage; other cards are", () => {
+    const { state, p1 } = position(
+      SPACEG_ONE,
+      [GOD_OF_DESTRUCTION, "EBP01-075"],
+      2,
+      2,
+    );
+    const legal = getLegalActions(state, "P1");
+    const god = (a: Action) =>
+      "cardInstanceId" in a &&
+      state.cards[
+        p1.hand.find((h) => h.instanceId === a.cardInstanceId)?.cardId ?? -1
+      ]?.deckCardNumber === GOD_OF_DESTRUCTION;
+    const dead = spacegKeepGodDead(state, legal, "P1", SPACEG);
+    const godCosts = legal.filter(
+      (a) => (a.type === "invade" || a.type === "gainRage") && god(a),
+    );
+    expect(godCosts.length).toBeGreaterThan(0);
+    for (const a of godCosts) expect(dead).toContain(a);
+    // The other card can still pay.
+    expect(
+      dead.some(
+        (a) => (a.type === "invade" || a.type === "gainRage") && !god(a),
+      ),
+    ).toBe(false);
+    // Not a SpaceG list: nothing.
+    expect(spacegKeepGodDead(state, legal, "P1", undefined)).toEqual([]);
+  });
+
+  it("an invasion paid with it that wins the game now stays", () => {
+    const { state, p1, p2 } = position(SPACEG_ONE, [GOD_OF_DESTRUCTION], 8, 2);
+    p2.zones[8] = [];
+    const legal = getLegalActions(state, "P1");
+    const wins = legal.filter((a) => a.type === "invade");
+    expect(wins.length).toBeGreaterThan(0);
+    const dead = spacegKeepGodDead(state, legal, "P1", SPACEG);
+    for (const a of wins) expect(dead).not.toContain(a);
+    expect(p1.monsterPosition).toBe(8);
   });
 });
