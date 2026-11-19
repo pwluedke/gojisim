@@ -37,7 +37,7 @@ import { botInput, decklistsOf, seededRng } from "./input";
 import { decide } from "./ismcts";
 import { counters } from "./rules";
 
-/** Paul's card-play rules for Medium and Hard (Nov 12), on built positions at P1's play timing. */
+/** The card-play rules for Medium and Hard (Nov 12), on built positions at P1's play timing. */
 
 function official(file: string): Omit<PlayerSetup, "id"> {
   const url = new URL(`../../cards/data/decks/${file}`, import.meta.url);
@@ -160,7 +160,7 @@ function withGodzilla1995() {
 
 // Some tests run the search (24 decisions), which takes seconds on a slow CI runner.
 describe(
-  "Paul's card-play rules (Nov 12), Medium and Hard",
+  "the card-play rules (Nov 12), Medium and Hard",
   { timeout: 60_000 },
   () => {
     it("#255: Godzilla (1995) EBP03-013 loses the game with empty strategy zones, read from its ability data", () => {
@@ -516,7 +516,7 @@ describe(
         ).toBe(false);
     });
 
-    it("rule 29 (#314, Tuscancow's record 14874e56, move 2): a Tangler deck (Godzilla (2002) EBP03-014 and EBP03-015, Entangling Fear EBP04-081) doesn't invade before its own turn 4; from turn 4 it may", () => {
+    it("rule 29 (#314, a tester's record 14874e56, move 2): a Tangler deck (Godzilla (2002) EBP03-014 and EBP03-015, Entangling Fear EBP04-081) doesn't invade before its own turn 4; from turn 4 it may", () => {
       const tangler: Decklist = {
         monsterDeck: ["EBP03-014", "EBP03-015", "EPR-020", "EBP03-013"].map(
           real,
@@ -585,7 +585,7 @@ describe(
       for (const a of blocks) expect(dead.has(a)).toBe(false);
     });
 
-    it("#265: Hard takes a block even when Paul's rule 2 holds those monster cards (Level 100 passed in the report)", () => {
+    it("#265: Hard takes a block even when play rule 2 keeps those monster cards (Level 100 passed in the report)", () => {
       const { state } = exposed();
       const action = decide(
         botInput(state, "P1", LISTS_265, seededRng("block"), {
@@ -631,7 +631,7 @@ describe(
       );
     });
 
-    it("#274: under threat, with Godzilla, King of the Monsters (+3000 per rage) on the board, the rage discards that make the counter are freed from Paul's rule 2 holds", () => {
+    it("#274: under threat, with Godzilla, King of the Monsters (+3000 per rage) on the board, the rage discards that make the counter are freed from play rule 2's holds", () => {
       const { state, p1 } = exposed();
       // Zone 8 already blocked, so it's the counter that matters, not rule 7.
       p1.zones[8] = [
@@ -705,7 +705,7 @@ describe(
     });
 
     /**
-     * Paul, Nov 12 (Ian): the opponent's King Ghidorah (1991) EBP02-047 monster in their zone 6; your
+     * Nov 12: the opponent's King Ghidorah (1991) EBP02-047 monster in their zone 6; your
      * zone 8 held by a rank 4 battle card; Mechagodzilla (1993) ESD02-012 (rank 7) in hand.
      */
     function versusKingGhidorah(trait: "King Ghidorah" | "Godzilla") {
@@ -724,7 +724,7 @@ describe(
       return state;
     }
 
-    it("rule 11 (Paul, Nov 12): against a green opponent (it can run Godzilla vs. King Ghidorah) in reach of zone 7, a rank 4 zone 8 blocker doesn't count: a rank 7+ one is looked for", () => {
+    it("rule 11 (Nov 12): against a green opponent (it can run Godzilla vs. King Ghidorah) in reach of zone 7, a rank 4 zone 8 blocker doesn't count: a rank 7+ one is looked for", () => {
       const kg = versusKingGhidorah("King Ghidorah");
       expect(
         blockingPlays(kg, getLegalActions(kg, "P1"), "P1").size,
@@ -777,7 +777,7 @@ describe(
     });
 
     /**
-     * #305 (Ian, bfddc4d4 at 47): the opponent's King Ghidorah (1991) EBP02-047 monster in their
+     * #305 (bfddc4d4 at 47): the opponent's King Ghidorah (1991) EBP02-047 monster in their
      * zone 8; your zone 8 held only by Godzilla (2023) ESC01-004 (under rank 7, so rule 11
      * doesn't count it); Godzilla, King of the Monsters EBP01-075 in hand and 4 rage (+3,000 counter
      * power per rage). The opponent's rage sets their threat between the two totals.
@@ -875,7 +875,7 @@ describe(
     });
 
     /**
-     * #305 (Ian: "I do not believe the bot possesses the ability to calculate counterpower as a
+     * #305 ("I do not believe the bot possesses the ability to calculate counterpower as a
      * result of rage-related boosts correctly"): the bot's counter check (`counters`, used by rules
      * 7, 9 and 10) reads the same total as the engine's counter check (7.4.2, 7.4.3), for each card
      * whose counter power scales with rage. The engine's check is read from its log after a pass.
@@ -1041,7 +1041,7 @@ describe(
         if (a.type === "pass") expect(off.has(a)).toBe(false);
     });
 
-    it("rule 20 (Monarch, Nov 14): wherever their monster is (zone 3 here), a way to make the counter this turn is taken: passing is left out (7.4.3)", () => {
+    it("rule 20 (Nov 14): wherever their monster is (zone 3 here), a way to make the counter this turn is taken: passing is left out (7.4.3)", () => {
       const { state, king } = counterNoBlock(3);
       const legal = getLegalActions(state, "P1");
       const dead = cardRulesDead(state, legal, "P1");
@@ -1112,7 +1112,7 @@ describe(
       for (const a of plays) expect(off.has(a)).toBe(false);
     });
 
-    it("rule 25 (#337, Tuscancow's record 4b49a66b, move 57): with your monster in zone 6, a battle card isn't played into zone 5, where a counter moves it back and crushes it (5.15.1.1), while zone 1 is open", () => {
+    it("rule 25 (#337, a tester's record 4b49a66b, move 57): with your monster in zone 6, a battle card isn't played into zone 5, where a counter moves it back and crushes it (5.15.1.1), while zone 1 is open", () => {
       const { state, p1 } = withGodzilla1995();
       // Your monster in zone 6 (behind it is zone 5; its path is 7 and 8). Rank 1 Monster X.
       p1.monsterPosition = 6;
@@ -1147,7 +1147,7 @@ describe(
         if (a.type === "playBattle") expect(at4.has(a)).toBe(false);
     });
 
-    it("rule 26 (#328, Keldroc's record 815bc729, move 83): with Thousand-Year Dragon King Ghidorah EBP03-029's [invading] modes active (7 cards under it) and an invasion legal, Mecha-King Ghidorah EBP02-051 isn't stacked on it; a second EBP03-029 may be", () => {
+    it("rule 26 (#328, a tester's record 815bc729, move 83): with Thousand-Year Dragon King Ghidorah EBP03-029's [invading] modes active (7 cards under it) and an invasion legal, Mecha-King Ghidorah EBP02-051 isn't stacked on it; a second EBP03-029 may be", () => {
       const { state, p1 } = withGodzilla1995();
       // Your monster: EBP03-029 on top of 7 King Ghidorah cards (its 7-card condition met).
       p1.monsterPosition = 3;
@@ -1184,7 +1184,7 @@ describe(
       expect(stack6 && dead6.has(stack6)).toBe(false);
     });
 
-    it("rule 27 (#353, BFW182's record 457786fa, move 84): drawing then discarding (5.7.1), Godzilla vs. Megaguirus EBP01-064 isn't discarded while a rank 8 battle card (out of reach: their monster in zone 3, 8.2.1) can go", () => {
+    it("rule 27 (#353, a tester's record 457786fa, move 84): drawing then discarding (5.7.1), Godzilla vs. Megaguirus EBP01-064 isn't discarded while a rank 8 battle card (out of reach: their monster in zone 3, 8.2.1) can go", () => {
       const { state, p1 } = withGodzilla1995();
       const opp = state.players[1] as PlayerState;
       const strategy = add(state, real("EBP01-064"), "P1");
@@ -1228,7 +1228,7 @@ describe(
       );
     });
 
-    it("rule 28 (#326, Keldroc's record a3d7cf37, move 6): forced to discard one (5.7.1), the only Rank II King Ghidorah (1964) EBP02-045 stays and the Rank IV Mecha-King Ghidorah EBP02-051 goes", () => {
+    it("rule 28 (#326, a tester's record a3d7cf37, move 6): forced to discard one (5.7.1), the only Rank II King Ghidorah (1964) EBP02-045 stays and the Rank IV Mecha-King Ghidorah EBP02-051 goes", () => {
       const { state, p1 } = withGodzilla1995();
       const r2 = add(state, real("EBP02-045"), "P1");
       const r4 = add(state, real("EBP02-051"), "P1");
@@ -1255,7 +1255,7 @@ describe(
         keepLowRank: false,
       });
       expect(off.has(pick(r2.instanceId))).toBe(false);
-      // Two Rank II copies (Keldroc's 0f5bcddb move 4): a spare copy may go.
+      // Two Rank II copies (a tester's 0f5bcddb move 4): a spare copy may go.
       const spare = add(state, real("EBP02-045"), "P1");
       p1.hand = [r2, spare];
       state.pendingChoice = {
@@ -1289,7 +1289,7 @@ describe(
       for (const a of onPath) expect(dead.has(a)).toBe(false);
     });
 
-    it("#339 (Keldroc): a [revenge] card (Dorat EBP02-058) goes in zone 8 only when an invasion this turn takes your own monster there", () => {
+    it("#339: a [revenge] card (Dorat EBP02-058) goes in zone 8 only when an invasion this turn takes your own monster there", () => {
       const judge = (pay: string) => {
         const { state, p1 } = withGodzilla1995();
         // Your monster in zone 6; your own Dorat in zone 7: zone 8 is the only zone ahead.
@@ -1322,7 +1322,7 @@ describe(
       for (const d of judge("EBP01-073").on) expect(d).toBe(false);
     });
 
-    it("rule 24 (#325, Keldroc): paying for an invasion, the Orange (King Ghidorah (1998) EBP03-063, which comes back from the discard pile) goes, not Mecha-King Ghidorah EBP02-068", () => {
+    it("rule 24 (#325): paying for an invasion, the Orange (King Ghidorah (1998) EBP03-063, which comes back from the discard pile) goes, not Mecha-King Ghidorah EBP02-068", () => {
       const { state, p1 } = withGodzilla1995();
       const orange = add(state, real("EBP03-063"), "P1");
       const mechaKing = add(state, real("EBP02-068"), "P1");
@@ -1343,7 +1343,7 @@ describe(
       expect(off.has(pay(mechaKing.instanceId)!)).toBe(false);
     });
 
-    it("rule 22b (#378, Paul's record 1dfdd328 move 88): The Slithering Disaster EBP04-078 isn't activated while it can move nothing (their monster outside zones 3-5); in zone 4 it is; a spare copy may go as hand cycling", () => {
+    it("rule 22b (#378, the owner's record 1dfdd328 move 88): The Slithering Disaster EBP04-078 isn't activated while it can move nothing (their monster outside zones 3-5); in zone 4 it is; a spare copy may go as hand cycling", () => {
       const { state, p1 } = withGodzilla1995();
       const opp = state.players[1] as PlayerState;
       const sd = () => add(state, { ...real("EBP04-078"), rank: 1 }, "P1");
@@ -1374,7 +1374,7 @@ describe(
       // Their monster in zone 4: it moves it, so 22b says nothing (other rules may still judge it).
       const near = idle(4, 1);
       expect(near.on).toEqual(near.off);
-      // Two copies in hand: Paul's exception, a spare may go as the turn's hand cycling.
+      // Two copies in hand: the exception, a spare may go as the turn's hand cycling.
       for (const d of idle(7, 2).on) expect(d).toBe(false);
     });
 
@@ -1395,7 +1395,7 @@ describe(
       for (const a of plays) expect(on.has(a)).toBe(off.has(a));
     });
 
-    it("rule 23 (#345, Slick): a King isn't played over your own Kings in zones 1 and 2 while zones 3 and 4 are open", () => {
+    it("rule 23 (#345): a King isn't played over your own Kings in zones 1 and 2 while zones 3 and 4 are open", () => {
       const { state, p1 } = withGodzilla1995();
       // Your monster in zone 6 (its path is 7 and 8). Rank 1 Kings, playable anywhere (8.2.1).
       p1.zones[1] = [[add(state, { ...real("EBP01-075"), rank: 1 }, "P1")]];
@@ -1461,7 +1461,7 @@ describe(
       for (const d of judge()) expect(d).toBe(false);
     });
 
-    it("rule 30 (#386, Paul's record b0724213 move 67): Godzilla vs. Megaguirus EBP01-064 with 4+ of your battle cards takes the zone wipe over one destroy, then the zone that destroys the most", () => {
+    it("rule 30 (#386, the owner's record b0724213 move 67): Godzilla vs. Megaguirus EBP01-064 with 4+ of your battle cards takes the zone wipe over one destroy, then the zone that destroys the most", () => {
       const { state, p1 } = withGodzilla1995();
       const opp = state.players[1] as PlayerState;
       opp.monsterPosition = 6;
@@ -1501,7 +1501,7 @@ describe(
       ]);
     });
 
-    it("rule 23 (#345, BFW182's record 68a648ca, move 14): Biollante Rose Form EBP01-048 isn't played over its own Rose Form in zone 6 while zone 7 is open off the path", () => {
+    it("rule 23 (#345, a tester's record 68a648ca, move 14): Biollante Rose Form EBP01-048 isn't played over its own Rose Form in zone 6 while zone 7 is open off the path", () => {
       const { state, p1 } = withGodzilla1995();
       const opp = state.players[1] as PlayerState;
       // The record's board: your monster in zone 3 (its path is 4 and 5), zones 4, 5 and 7 empty.
@@ -1531,7 +1531,7 @@ describe(
       expect(dead.has(play(7)!)).toBe(false);
     });
 
-    it("rule 23b (#345, BFW182's record 68a648ca, move 48): with no empty zone, Destoroyah Aggregate Form EBP01-049 goes over a Tentacles token, not over its own Aggregate in zone 8", () => {
+    it("rule 23b (#345, a tester's record 68a648ca, move 48): with no empty zone, Destoroyah Aggregate Form EBP01-049 goes over a Tentacles token, not over its own Aggregate in zone 8", () => {
       const { state, p1 } = withGodzilla1995();
       const opp = state.players[1] as PlayerState;
       // The record's board: your monster in zone 4, every other zone full, Tentacles in 5 and 7.
@@ -1570,7 +1570,7 @@ describe(
       expect(off.has(play(8)!)).toBe(false);
     });
 
-    it("rule 23b (#345, BFW182): with no empty zone off your path, a battle card goes over your own token (Tentacles, 9.1.2.2), not over your own battle card", () => {
+    it("rule 23b (#345): with no empty zone off your path, a battle card goes over your own token (Tentacles, 9.1.2.2), not over your own battle card", () => {
       const { state, p1 } = withGodzilla1995();
       // Your monster in zone 6 (its path is 7 and 8); zones 1-5 full, your Tentacles token in 1.
       p1.zones[1] = [[add(state, getTokenCard("Tentacles"), "P1")]];
@@ -1599,7 +1599,7 @@ describe(
       for (const z of [2, 3, 4, 5]) expect(off.has(play(z)!)).toBe(false);
     });
 
-    it("rule 2 (Paul, Nov 12): from zone 7, Godzilla vs. King Ghidorah EBP02-071 (awakening 6: destroy rank 6 or lower) clears the zone 8 blocker before the winning invasion", () => {
+    it("rule 2 (Nov 12): from zone 7, Godzilla vs. King Ghidorah EBP02-071 (awakening 6: destroy rank 6 or lower) clears the zone 8 blocker before the winning invasion", () => {
       const { state, p1 } = withGodzilla1995();
       const opp = state.players[1] as PlayerState;
       p1.monsterPosition = 7;
@@ -1848,7 +1848,7 @@ describe(
       expect(plays.some((a) => a.zone > 3 && a.zone < 8)).toBe(true);
       const dead = cardRulesDead(state, legal, "P1");
       for (const a of plays)
-        // The nearest two ahead: Keldroc's zones 4-5 landmine, with the monster in zone 3.
+        // The nearest two ahead: a tester's zones 4-5 landmine, with the monster in zone 3.
         expect(dead.has(a)).toBe(!(a.zone === 4 || a.zone === 5));
       // Not paid for an invasion while another card can pay.
       p1.hand = [
@@ -1873,7 +1873,7 @@ describe(
           expect(dead2.has(a)).toBe(true);
     });
 
-    it("#289 (Keldroc's record): Mecha-King Ghidorah EBP02-068 still goes in the opponent monster's column when your own Dorat (rule 17's [revenge]) is there, and not to zone 8", () => {
+    it("#289 (a tester's record): Mecha-King Ghidorah EBP02-068 still goes in the opponent monster's column when your own Dorat (rule 17's [revenge]) is there, and not to zone 8", () => {
       const { state, p1 } = withGodzilla1995();
       const opponent = state.players[1] as PlayerState;
       opponent.monsterPosition = 6;

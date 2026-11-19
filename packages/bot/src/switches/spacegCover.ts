@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "spaceg",
   option: "cover",
-  what: "The SpaceG plan's rule 3 (Paul and his addendum): another rank 3 SpaceGodzilla EBP02-054 from your hand covers the one in play (2 more Crystals) before passing, and waits for this turn's invasion while it can still be made (invade, then cover, so the Crystals land behind SpaceG). Needs `spacegPlan`.",
+  what: "The SpaceGodzilla plan's rule 3 (with its addendum): before ending the turn, play another rank 3 SpaceGodzilla EBP02-054 from your hand on top of the one in play (for 2 more Crystals), but wait for this turn's invasion while it can still be made (invade first, then play on top, so the Crystals land behind SpaceGodzilla). This needs the SpaceGodzilla plan (`spacegPlan`).",
   from: "#408",
   status: "built",
 });

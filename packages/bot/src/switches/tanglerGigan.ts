@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "tangler",
   option: "gigan",
-  what: "The Tangler plan's rule 7 (stevilkiwina): against Gigan (2004) EBP04-028 on their monster, whose [opponents-turn] gives your strategy cards +3 rank (Entangling Fear unplayable until zone 6), with Fear unplayable: an invasion that doesn't win waits (no pushing toward zone 6 for Fear), and no passing while a battle card can be played and the counter isn't made. Needs `tanglerPlan`.",
+  what: "The Tangler plan's rule 7: when the opponent's monster has Gigan (2004) EBP04-028, whose [opponents-turn] ability gives your strategy cards +3 rank (so Entangling Fear can't be played until your monster is in zone 6), and you can't play Entangling Fear: an invasion that doesn't win waits (don't push toward zone 6 for Entangling Fear), and don't end the turn while a battle card can be played and you don't yet have enough counter power to counter the opponent's monster. This needs the Tangler plan (`tanglerPlan`).",
   from: "#444",
   status: "built",
 });

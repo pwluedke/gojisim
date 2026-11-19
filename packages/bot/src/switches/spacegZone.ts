@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "spaceg",
   option: "zone",
-  what: "The SpaceG plan's positioning (Paul, Nov 16): end the turn in zone 7 (the end-of-turn advance adds one zone); an invasion that would end it in zone 8 waits, while one ending it in zone 7 or short of it can be made, unless SpaceG survives their next counter there: their board's counter power plus their best battle cards in hand up to rank 8 (one per empty zone; the discard pile doesn't count) stays below SpaceG's threat. Needs `spacegPlan`.",
+  what: "The SpaceGodzilla plan's positioning rule (Nov 16): aim to end the turn in zone 7, counting the one-zone advance at the end of the turn. An invasion that would leave your monster in zone 8 at the end of the turn waits, while one that leaves it in zone 7 or earlier can be made, unless SpaceGodzilla survives the opponent's next counter there: their board's counter power plus their best battle cards in hand up to rank 8 (one for each of their empty zones; the discard pile doesn't count) stays below SpaceGodzilla's threat. This needs the SpaceGodzilla plan (`spacegPlan`).",
   from: "#408",
   status: "built",
 });

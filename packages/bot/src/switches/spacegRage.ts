@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "spaceg",
   option: "rage",
-  what: "The SpaceG plan's rule 2 (Paul): at rank 3 (SpaceGodzilla EBP02-054: each rage destroys a rank 5 or lower battle card of theirs per Crystals) with Crystals and a target, and with the rank 4 Flying Form EBP02-057 (each rage makes 2 Crystals), no passing while a rage discard can be made. Needs `spacegPlan`.",
+  what: "The SpaceGodzilla plan's rule 2: at rank 3 (SpaceGodzilla EBP02-054, where each rage discard destroys one of the opponent's battle cards of rank 5 or lower for each Crystals token) when you have Crystals and a target, and with the rank 4 Flying Form EBP02-057 (where each rage discard makes 2 Crystals), don't end the turn while a monster card can be discarded for rage. This needs the SpaceGodzilla plan (`spacegPlan`).",
   from: "#408",
   status: "built",
 });

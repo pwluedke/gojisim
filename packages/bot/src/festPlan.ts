@@ -13,11 +13,11 @@ import type { GroupOptions } from "./switches/settings";
 import type { Decklist } from "./types";
 
 /**
- * The Red Fest plan (Slick's answers to the Red Fest guide, Nov 13, via Monarch), for a "Red
+ * The Red Fest plan (a tester's answers to the Red Fest guide, Nov 13), for a "Red
  * Counter (Fest)" deck: the Fest Godzilla monster deck (EBP01-011, EBP01-012) with the Fest rank
  * III and IV (EBP01-013, EBP01-014) in the main deck (the catalog's archetype). Like the Wrangler
- * plan, a preference: it argues against moves and the search favors the others, with Paul's
- * rules (Hard); each line only when the bot's own decklist has the cards it names. (Slick's line
+ * plan, a preference: it argues against moves and the search favors the others, with the play
+ * rules (Hard); each line only when the bot's own decklist has the cards it names. (Line
  * 1, "go second", has nothing to steer: the first player is random, 6.3.1.4.)
  *
  * Line 2: invade only from rank IV; before that push (Godzilla Landing, the Fest monsters,
@@ -28,19 +28,19 @@ import type { Decklist } from "./types";
  * Line 4 (needs Godzilla the Ride EPR-015): get a Ride into the discard pile (it turns on the
  * others' +5000): Godzilla (1954) ESC01-001 pays with a Ride when one can pay, and a Ride goes on
  * a Ride (11.5 sends the first to the discard pile) when one can.
- * Line 2, rank I (#400, Slick, `festRankOne`): the rank I Fest EBP01-011 invades only to line up
+ * Line 2, rank I (#400, `festRankOne`): the rank I Fest EBP01-011 invades only to line up
  * its same-column push (advancing into the column of their monster pushes it forward) with a
  * counter to follow this turn (up to 3 battle card plays); then it isn't argued against, and no
  * other invasion at rank I is allowed (the early exception included).
- * Line 2's exceptions (#406, Slick): (`festRankTwoPush`) the rank II Fest EBP01-012 invades when
+ * Line 2's exceptions (#406): (`festRankTwoPush`) the rank II Fest EBP01-012 invades when
  * its end-phase push takes their monster to zone 6 or beyond, lining up the counter next turn;
  * (`festEmerges`) an invasion that takes your monster to zone 6 or beyond fires Godzilla Emerges
  * ESD01-014 (in hand, 2 rage there or to be raged) for the rank 8 Godzilla (2023) EBP03-041;
  * (`festRankThreeSave`) at rank III in reach of their counter, the rage goes to the rank IV as
  * monster cards kept in hand (no rage discards), and the battle cards and strategies are played
  * out before passing, to make room for the end-of-turn draw.
- * Line 5, wall up (#400, Slick, `festWall`): against Monster X, once losing the counter race
- * (Slick: about to be two ranks ahead of them, a countered monster going up a rank: 2 ranks
+ * Line 5, wall up (#400, `festWall`): against Monster X, once losing the counter race
+ * (about to be two ranks ahead of them, a countered monster going up a rank: 2 ranks
  * above their monster, or 1 with your monster in zones 6-8), stop racing: below rank IV no invasion but one
  * that wins this turn; Heat Ray ESD01-016 is held for the invasion win (only when an invasion after it wins);
  * the rank IV Godzilla (2023) EBP01-010 isn't raged away or paid with. Hoard and rage toward the
@@ -71,7 +71,7 @@ const EMERGES_RAGE = 2;
 const INVADE_FROM_RANK = 4;
 /** Line 2's exception: monster cards in hand to rage. */
 const RAGE_CARDS = 3;
-/** Line 5, wall up (Slick): ranks ahead of their monster that mean the counter race is lost. */
+/** Line 5, wall up: ranks ahead of their monster that mean the counter race is lost. */
 const WALL_RANKS = 2;
 /** A monster in this zone or beyond can be countered (5.15.1.1). */
 const COUNTERED_FROM = 6;
@@ -160,7 +160,7 @@ export function festVerdict(
       for (const a of invades) mark(against, a, "Red Fest plan 2", "against");
   }
 
-  // Line 2, rank I (#400, Slick): invade only for the same-column push with a counter to follow.
+  // Line 2, rank I (#400): invade only for the same-column push with a counter to follow.
   const topNumber = top ? state.cards[top.cardId]?.deckCardNumber : undefined;
   if (rankOne && topNumber === FEST_RANK_ONE && invades.length > 0) {
     const theirAt = opponent.monsterPosition;
@@ -177,7 +177,7 @@ export function festVerdict(
     }
   }
 
-  // #406 (Slick), line 2's exceptions below rank IV:
+  // #406, line 2's exceptions below rank IV:
   // (a) the rank II Fest EBP01-012's push: invading, its end phase advances their monster a zone;
   // an invasion when that takes their monster to zone 6 or beyond, where the counter next turn
   // sends it back (5.15.1.1), lines up that counter.
@@ -213,7 +213,7 @@ export function festVerdict(
       }
     }
 
-  // #406 (Slick), line 2c: at rank III in reach of their counter (zone 6 or beyond, their counter
+  // #406, line 2c: at rank III in reach of their counter (zone 6 or beyond, their counter
   // power at least your threat), the counter comes and the rank IV is next: carry the rage to it
   // as cards in hand (no rage discards this turn), and play out the battle cards and strategies
   // that do nothing now, to make room for the end-of-turn draw (no passing while one can go).
@@ -309,7 +309,7 @@ export function festVerdict(
         if (a.type === "pass") mark(against, a, "Red Fest plan 5", "against");
   }
 
-  // Line 5, wall up (#400, Slick): against Monster X and losing the counter race, which Slick
+  // Line 5, wall up (#400): against Monster X and losing the counter race, which the plan
   // counts as "about to be two ranks ahead of them" (a countered monster goes up a rank,
   // 5.15.1.2): 2 ranks above their monster, or 1 with their counter likely next turn (your
   // monster in zones 6-8, where it can be countered).

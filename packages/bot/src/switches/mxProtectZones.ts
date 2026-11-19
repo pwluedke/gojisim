@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "mxPlan",
   option: "protectZones",
-  what: "Monster X plan rule 17: with Godzilla and its son on Monster Island EBP01-080 in the bot's cards, a rank 5 or lower battle card goes to zones 1-5 off its monster's path, not 6-8; the blue Monster X EBP04-047 may go to zone 8 with Kaizer Ghidorah EBP04-068 to evolve into (Paul).",
+  what: "Monster X plan rule 17: when Godzilla and its son on Monster Island EBP01-080 is among the bot's cards, play a battle card of rank 5 or lower into zones 1-5 outside your monster's path, not into zones 6-8. The blue Monster X EBP04-047 may still go to zone 8 when it can evolve into Kaizer Ghidorah EBP04-068 there.",
   from: "#371",
   status: "built",
 });

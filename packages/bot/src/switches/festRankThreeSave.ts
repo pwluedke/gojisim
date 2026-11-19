@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "fest",
   option: "rankThreeSave",
-  what: "The Red Fest plan's rank III save (Slick): at rank III in reach of their counter (your monster in zone 6 or beyond, their counter power at least your threat), the rage goes to the rank IV turn as monster cards kept in hand (no rage discards this turn), and the battle cards and strategies that do nothing now are played out before passing, to make room for the end-of-turn draw. Needs `festPlan` (off by default).",
+  what: "The Red Fest plan's rank III save: at rank III, when the opponent can counter you (your monster is in zone 6 or beyond and their counter power is at least your monster's threat), keep your monster cards in hand to discard for rage on the rank IV turn instead of discarding them this turn, and play the battle cards and strategy cards that do nothing now before ending the turn, to make room for the end-of-turn draw. This needs the Red Fest plan (`festPlan`), which is off by default.",
   from: "#406",
   status: "built",
 });

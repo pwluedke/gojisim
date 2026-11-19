@@ -7,12 +7,12 @@ import {
 } from "@gojisim/engine";
 
 /**
- * Paul's play rule for Constructed Future (SD05-005, Nov 5, 2026), part of the Hard rules layer:
+ * The play rule for Constructed Future (SD05-005, Nov 5, 2026), part of the Hard rules layer:
  * activating it is dead unless resolving it would play a target: Mecha-King Ghidorah
  * (EBP02-068), King Ghidorah (2024) (EBP01-074; it turns on Gravity Beam, EPR-019), Godzilla, King
  * of the Monsters (EBP01-075), M.O.G.U.E.R.A. (EBP02-067) or GAM (EBP01-073; the engine plays GAM
  * only with its own condition met, 8+ monster cards in the discard pile). By rank the engine's
- * highest playable card already follows Paul's order. And (Nov 5, later) with a target there, it
+ * highest playable card already follows the rule's order. And (Nov 5, later) with a target there, it
  * is played: the main phase doesn't end (`pass`) while it could be. What it would play is read
  * from the engine's resolution, choices answered with their first option, not guessed from the
  * discard pile.
@@ -82,7 +82,7 @@ export function simulateConstructedFuture(
   return { plays: undefined, after: null };
 }
 
-/** The Constructed Future activations Paul's rule rules out. */
+/** The Constructed Future activations the play rule rules out. */
 export function constructedFutureDead(
   state: GameState,
   actions: readonly Action[],
@@ -107,7 +107,7 @@ export function constructedFutureDead(
 }
 
 /**
- * Paul's "if it can bring back a target, play it" (Nov 5, 2026): in the player's main phase, with
+ * The rule "if it can bring back a target, play it" (Nov 5, 2026): in the player's main phase, with
  * a Constructed Future activation that would bring back a target, ending the main phase (`pass`)
  * is dead. Other plays stay, so a card that makes it resolvable (a third battle card) can go first.
  */

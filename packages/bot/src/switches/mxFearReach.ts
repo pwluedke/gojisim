@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "mxPlan",
   option: "fearReach",
-  what: "The Monster X plan's #373 (Paul's R-5): no Entangling Fear (which holds your monster in place) while a strategy in hand is one rank past your monster's zone (8.3.1, e.g. Godzilla vs. Megaguirus at rank 5 from zone 4) and this turn's counter is made.",
+  what: "The Monster X plan's rule from #373 (report R-5): don't play Entangling Fear (it holds your monster in place) while a strategy card in your hand needs your monster one zone further forward (for example, Godzilla vs. Megaguirus is rank 5 and your monster is in zone 4) and you already have enough counter power to counter the opponent's monster this turn (8.3.1).",
   from: "#373",
   status: "built",
 });

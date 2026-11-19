@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "cardRules",
   option: "keepStrategy",
-  what: "Card rule 27: discarding from your hand (5.7.1, 5.7.2), a strategy card isn't the one to go while a battle card you can't play this turn or next (rank above the opponent's monster's zone plus 2) is offered.",
+  what: "Card rule 27: when you discard from your hand (5.7.1, 5.7.2), don't discard a strategy card while you could discard a battle card that you can't play this turn or next turn (its rank is more than 2 above the zone of the opponent's monster).",
   from: "#353",
   status: "built",
 });

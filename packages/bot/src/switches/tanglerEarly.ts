@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "cardRules",
   option: "tanglerEarly",
-  what: "Card rule 29: a Tangler deck (Godzilla (2002) EBP03-014 and EBP03-015 in its monster deck, Entangling Fear EBP04-081 in its main deck; Paul's signature) doesn't invade before its own turn 4 unless the invasion wins this turn.",
+  what: "Card rule 29: a Tangler deck (one with Godzilla (2002) EBP03-014 and EBP03-015 in its monster deck and Entangling Fear EBP04-081 in its main deck) doesn't invade before its own turn 4, unless the invasion wins the game this turn.",
   from: "#314",
   status: "built",
 });

@@ -20,7 +20,7 @@ import { describe, expect, it } from "vitest";
 import { actionKey, mxPlanFavored } from "./ismcts";
 import { mxPlanV2Verdict, wipesBoard } from "./mxPlanV2";
 
-// Paul's Monster X plan v2 (`mxPlan=2`, Nov 9, 2026, the play guide's edit): every position below
+// The Monster X plan v2 (`mxPlan=2`, Nov 9, 2026, the play guide's edit): every position below
 // is made up, on the starter decks with the cards each rule needs.
 
 function official(file: string): Omit<PlayerSetup, "id"> {
@@ -118,7 +118,7 @@ const ruleOf = (s: ReturnType<typeof position>, pick: (a: Action) => boolean) =>
   [...against(s)].filter(([a]) => pick(a)).map(([, r]) => r);
 const isPass = (a: Action) => a.type === "pass";
 
-describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
+describe("The Monster X plan v2 (mxPlan=2)", () => {
   it("is the default, through mxPlanFavored", () => {
     const s = position({
       turn: 2,
@@ -161,7 +161,7 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     expect([...off].filter(([a]) => isPass(a)).map(([, r]) => r)).toEqual([]);
   });
 
-  it("#377 (Paul, Nov 16): fill the board: no passing while a battle card can be played out of reach of their monster's destroy; one only in reach may be held", () => {
+  it("#377 (Nov 16): fill the board: no passing while a battle card can be played out of reach of their monster's destroy; one only in reach may be held", () => {
     // Their monster in zone 5: their zones 5 and 6 share columns with your zone 1 only.
     const s = position({
       turn: 8,
@@ -373,7 +373,7 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     for (const a of landing(made)) expect(against(made).has(a)).toBe(true);
   });
 
-  it("rule 3 (#338, Paul's ruling): Manda (2004) EBP04-045's discount discard only for a card of a color the discard pile's battle cards lack (b)", () => {
+  it("rule 3 (#338, the ruling): Manda (2004) EBP04-045's discount discard only for a card of a color the discard pile's battle cards lack (b)", () => {
     const costPlays = (s: ReturnType<typeof position>) =>
       s.legal.filter(
         (a) =>
@@ -412,7 +412,7 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
       expect(ruleOf(green, (b) => b === a)).not.toContain(3);
   });
 
-  it("rule 3 (#338, Paul's ruling): Manda (2004)'s discount cheats out the white Monster X EBP03-067 only with 2+ colors among your zones' battle cards (a); otherwise not at all, even with no full-rank play", () => {
+  it("rule 3 (#338, the ruling): Manda (2004)'s discount cheats out the white Monster X EBP03-067 only with 2+ colors among your zones' battle cards (a); otherwise not at all, even with no full-rank play", () => {
     const costPlays = (s: ReturnType<typeof position>) =>
       s.legal.filter(
         (a) =>
@@ -488,7 +488,7 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     expect(zones(false)).toEqual([4, 5, 6]);
   });
 
-  it("rule 17 (#371, Paul's record 1dfdd328 move 29): with Monster Island EBP01-080 in your cards, a rank 5 or lower card goes to zones 1-5 off your monster's path, not 6-8; the blue Monster X may go to zone 8 with Kaizer Ghidorah EBP04-068 to evolve into there", () => {
+  it("rule 17 (#371, the owner's record 1dfdd328 move 29): with Monster Island EBP01-080 in your cards, a rank 5 or lower card goes to zones 1-5 off your monster's path, not 6-8; the blue Monster X may go to zone 8 with Kaizer Ghidorah EBP04-068 to evolve into there", () => {
     const rules = (setup: Setup, number: string, zone: number) => {
       const s = position({ turn: 5, position: 3, oppPosition: 7, ...setup });
       const plays = s.legal.filter(
@@ -589,7 +589,7 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     expect(pay.some((a) => !against(zone).has(a))).toBe(true);
   });
 
-  it("rule 16 (#352, Tuscancow): choosing which of the opponent's zones to hit, one with their Monster X battle cards (EBP04-047, EBP03-067) goes over one with weaker cards (10.5.2.2)", () => {
+  it("rule 16 (#352): choosing which of the opponent's zones to hit, one with their Monster X battle cards (EBP04-047, EBP03-067) goes over one with weaker cards (10.5.2.2)", () => {
     const pick = (targets: boolean, oppZones: Setup["oppZones"]) => {
       const { state } = position({ oppZones });
       state.pendingChoice = {
@@ -622,7 +622,7 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     ]);
   });
 
-  it("rule 16 (#352, Tuscancow's record f6025d71, move 24): with all 8 of their zones offered, only the two with their Monster X are left, not Rodan (2004)'s or King Caesar (2004)'s", () => {
+  it("rule 16 (#352, a tester's record f6025d71, move 24): with all 8 of their zones offered, only the two with their Monster X are left, not Rodan (2004)'s or King Caesar (2004)'s", () => {
     // The record's board: blue Monster X in 1, white in 2, King Caesar in 7, Rodan in 8.
     const { state } = position({
       oppZones: {
@@ -652,7 +652,7 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
     ).toEqual(["P2:1", "P2:2"]);
   });
 
-  it("rule 3 (#370, Paul's R-3 on his game 1dfdd328, turn 1): the white Monster X EBP03-067 isn't Manda (2004)'s discount discard just because the discard pile lacks white; only with 2+ colors in zones", () => {
+  it("rule 3 (#370, report R-3 on the owner's game 1dfdd328, turn 1): the white Monster X EBP03-067 isn't Manda (2004)'s discount discard just because the discard pile lacks white; only with 2+ colors in zones", () => {
     const costPlays = (s: ReturnType<typeof position>) =>
       s.legal.filter(
         (a) =>
@@ -690,7 +690,7 @@ describe("Paul's Monster X plan v2 (mxPlan=2)", () => {
       expect(ruleOf(two, (b) => b === a)).not.toContain(3);
   });
 
-  it("rules 4, 5 (#373, Paul's R-5 on his game 1dfdd328, turn 9): no Entangling Fear that holds your monster in zone 4 while Godzilla vs. Megaguirus (rank 5) needs next turn's advance (8.3.1) and the counter is made", () => {
+  it("rules 4, 5 (#373, report R-5 on the owner's game 1dfdd328, turn 9): no Entangling Fear that holds your monster in zone 4 while Godzilla vs. Megaguirus (rank 5) needs next turn's advance (8.3.1) and the counter is made", () => {
     const fearPlays = (s: ReturnType<typeof position>) =>
       s.legal.filter(
         (a) =>

@@ -10,7 +10,7 @@ import {
 import { type DeckSource, playMatchGame } from "./match";
 
 /**
- * Searches per move at the browser's 1 s budget (M13c), for fixed-search trials: Monarch's
+ * Searches per move at the browser's 1 s budget (M13c), for fixed-search trials: the project
  * testing plan (Oct 29, 2026) gives each bot in a trial its own measured iteration count, so a
  * slower play-out policy keeps its cost while the machine can do other work. Bot a and bot b play
  * each other timed (Hard's settings, then `--a-settings` / `--b-settings`), and every searched

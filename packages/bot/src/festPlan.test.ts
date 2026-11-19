@@ -30,7 +30,7 @@ import {
 } from "./festPlan";
 import type { Decklist } from "./types";
 
-/** Slick's Red Fest plan (Nov 13): the archetype, and lines 2-5 on built positions. */
+/** The Red Fest plan (Nov 13): the archetype, and lines 2-5 on built positions. */
 
 function official(file: string): Omit<PlayerSetup, "id"> {
   const url = new URL(`../../cards/data/decks/${file}`, import.meta.url);
@@ -147,7 +147,7 @@ describe("the Red Fest plan", () => {
     ).toBe(false);
   });
 
-  it("line 2, rank I (#400, Slick): the rank I Fest invades only to line up its same-column push with a counter to follow; not without the counter, not paid with the card the counter needs", () => {
+  it("line 2, rank I (#400): the rank I Fest invades only to line up its same-column push with a counter to follow; not without the counter, not paid with the card the counter needs", () => {
     // Your monster in zone 1, theirs in zone 7: the rank I's advance into their column pushes
     // them to zone 8 (EBP01-011's [column-advance]), where the battle cards in hand counter.
     const verdict = (hand: string[], rankOne = true) => {
@@ -179,7 +179,7 @@ describe("the Red Fest plan", () => {
       expect(d).toBe(true);
   });
 
-  it("#406 (Slick): the rank II Fest invades when its end-phase push takes their monster to zone 6 or beyond (the counter next turn, 5.15.1.1)", () => {
+  it("#406: the rank II Fest invades when its end-phase push takes their monster to zone 6 or beyond (the counter next turn, 5.15.1.1)", () => {
     const against = (oppAt: ZoneNumber, rankTwoPush = true) => {
       const { state } = position(
         "EBP01-012",
@@ -201,7 +201,7 @@ describe("the Red Fest plan", () => {
     for (const d of against(5, false)) expect(d).toBe(true);
   });
 
-  it("#406 (Slick): an early invasion that takes your monster to zone 6 fires Godzilla Emerges ESD01-014 (rank 6, 2 rage) for the rank 8 Godzilla (2023)", () => {
+  it("#406: an early invasion that takes your monster to zone 6 fires Godzilla Emerges ESD01-014 (rank 6, 2 rage) for the rank 8 Godzilla (2023)", () => {
     const WITH_EMERGES: Decklist = {
       ...FEST,
       mainDeck: [...FEST.mainDeck, real("ESD01-014"), real("EBP03-041")],
@@ -234,7 +234,7 @@ describe("the Red Fest plan", () => {
     for (const d of against({ emerges: false })) expect(d).toBe(true);
   });
 
-  it("#406 (Slick): at rank III in reach of their counter, the rage goes to the rank IV as cards in hand (no rage discards), and battle cards are played out before passing", () => {
+  it("#406: at rank III in reach of their counter, the rage goes to the rank IV as cards in hand (no rage discards), and battle cards are played out before passing", () => {
     const judge = (theirCounter: boolean, rankThreeSave = true) => {
       const { state, p1, p2 } = position(
         "EBP01-013",
@@ -323,13 +323,13 @@ describe("the Red Fest plan", () => {
       if (a.type === "pass") expect(plain.against.has(a)).toBe(false);
   });
 
-  it("line 5, wall up (#400, Slick): against Monster X and losing the counter race (two ranks ahead of them, or one with their counter likely), no invasion below rank IV but a winning one, and Heat Ray and the rank IV Godzilla (2023) are held", () => {
+  it("line 5, wall up (#400): against Monster X and losing the counter race (two ranks ahead of them, or one with their counter likely), no invasion below rank IV but a winning one, and Heat Ray and the rank IV Godzilla (2023) are held", () => {
     const monsterX = getAllCards().find(
       (c) =>
         c.name === "Monster X" && c.type === "Monster" && c.parentId === null,
     ) as Card;
     const theirs: Decklist = { monsterDeck: [monsterX], mainDeck: [] };
-    // Your rank III Fest against their rank I: two ranks ahead, the counter race lost (Slick).
+    // Your rank III Fest against their rank I: two ranks ahead, the counter race lost.
     const verdict = (theirTop: string, wall = true, myAt?: ZoneNumber) => {
       const { state, p1, p2 } = position(
         "EBP01-013",
