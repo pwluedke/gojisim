@@ -7,6 +7,8 @@ import {
   defaultMetaDecks,
   loadDeck,
   loadMetaDecks,
+  STOP_FILE,
+  stopReason,
 } from "../src/decks";
 
 // Paul, Nov 9: one flat deck list with tags. The top-tier set is the decks tagged Meta, and run
@@ -88,6 +90,23 @@ describe("the one deck list (local-decks/decks.txt)", () => {
     // The file wins: its own Run/Red (the blue starter), not the moved deck.
     expect(loadDeck("local-decks/old.txt#Run/Red", root, "s").name).toBe(
       "Run/Red",
+    );
+  });
+});
+
+describe("why a run stopped (the pause-visibility PR)", () => {
+  it("prints the stop file's words, or says there was no stop file", () => {
+    const out = mkdtempSync(join(tmpdir(), "gojisim-stop-"));
+    expect(stopReason(out)).toMatch(/^no bot-reports\/STOP: .*not a pause/);
+    mkdirSync(join(out, "bot-reports"));
+    writeFileSync(join(out, STOP_FILE), "");
+    expect(stopReason(out)).toBe(STOP_FILE);
+    writeFileSync(
+      join(out, STOP_FILE),
+      "paused by the owner at 2026-11-19 08:40 CST (bots-pause)\n",
+    );
+    expect(stopReason(out)).toBe(
+      "bot-reports/STOP: paused by the owner at 2026-11-19 08:40 CST (bots-pause)",
     );
   });
 });

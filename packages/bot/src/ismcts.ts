@@ -51,7 +51,12 @@ import {
 import { type TanglerOptions, tanglerVerdict } from "./tanglerPlan";
 import { wranglerVerdict } from "./wranglerPlan";
 import { type WranglerOptions, wranglerV2Verdict } from "./wranglerPlanV2";
-import { applyRules, type RageOrStack } from "./rules";
+import {
+  applyRules,
+  GAM,
+  type PlayRuleOptions,
+  type RageOrStack,
+} from "./rules";
 import { counterWithin, playOut } from "./counterReach";
 import { seededRng } from "./input";
 import type { Bot, BotInput, BotSettings, Decklist } from "./types";
@@ -186,6 +191,17 @@ function rageOrStack(
       }
       return rageStopsCounter(guesses, a, me);
     },
+  };
+}
+
+/** The play rules' switches and the deck facts they read (rule 1's GAM exception). */
+function playRuleOptions(
+  settings: IsmctsSettings,
+  own: Decklist | undefined,
+): PlayRuleOptions {
+  return {
+    stackEveryTurn: settings.stackEveryTurn > 0,
+    gam: own?.mainDeck.some((c) => c.deckCardNumber === GAM) ?? false,
   };
 }
 
@@ -475,9 +491,13 @@ export function search(input: BotInput, settings: IsmctsSettings) {
           (a) => actionKey(first, a),
           settings.collectorRage > 0,
           input.trace,
-          settings.rageOrStack > 0
-            ? rageOrStack(first, input, settings, me)
-            : undefined,
+          {
+            ...playRuleOptions(settings, input.knowledge.decks[me]),
+            rageOrStack:
+              settings.rageOrStack > 0
+                ? rageOrStack(first, input, settings, me)
+                : undefined,
+          },
         );
         const plans = withTrace(input.trace, () =>
           planDead(
@@ -926,9 +946,13 @@ export function blunderAllowed(
       keyOf,
       settings.collectorRage > 0,
       undefined,
-      settings.rageOrStack > 0
-        ? { rageStopsCounter: (a) => rageStopsCounter([state], a, me) }
-        : undefined,
+      {
+        ...playRuleOptions(settings, own),
+        rageOrStack:
+          settings.rageOrStack > 0
+            ? { rageStopsCounter: (a) => rageStopsCounter([state], a, me) }
+            : undefined,
+      },
     ),
     planDead(state, legalActions, me, settings, own),
   );

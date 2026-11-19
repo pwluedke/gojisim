@@ -254,6 +254,12 @@ Default 1 · built · from #408
 
 The SpaceGodzilla plan's positioning rule (Nov 16): aim to end the turn in zone 7, counting the one-zone advance at the end of the turn. An invasion that would leave your monster in zone 8 at the end of the turn waits, while one that leaves it in zone 7 or earlier can be made, unless SpaceGodzilla survives the opponent's next counter there: their board's counter power plus their best battle cards in hand up to rank 8 (one for each of their empty zones; the discard pile doesn't count) stays below SpaceGodzilla's threat. This needs the SpaceGodzilla plan (`spacegPlan`).
 
+### `stackEveryTurn`
+
+Default 1 · built · from #478
+
+Play rule 1, every turn: when you can play a monster card on top of your monster this turn, the bot favors doing it, even when no card needs a bigger stack. A deck with GAM EBP01-073 doesn't: it would rather discard its monster cards toward GAM's 8 or more, so it stacks only when a card needs the bigger stack.
+
 ### `tanglerBuild`
 
 Default 1 · built · from #403
