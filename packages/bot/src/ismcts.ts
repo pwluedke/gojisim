@@ -52,7 +52,12 @@ import {
 import { type TanglerOptions, tanglerVerdict } from "./tanglerPlan";
 import { wranglerVerdict } from "./wranglerPlan";
 import { type WranglerOptions, wranglerV2Verdict } from "./wranglerPlanV2";
-import { applyRules, holdsOnePerRank } from "./rules";
+import {
+  applyRules,
+  GAM,
+  holdsOnePerRank,
+  type PlayRuleOptions,
+} from "./rules";
 import type { Bot, BotInput, BotSettings, Decklist } from "./types";
 
 /**
@@ -132,16 +137,21 @@ export function ismctsSettings(settings: BotSettings): IsmctsSettings {
  * The plans' kills at the root (Constructed Future, the Final Wars ruling), kept apart from the
  * general rules' so they can win a conflict (`combineDead`).
  */
-/** Play rule 2 for this deck (`holdFewMonsters`, Nov 18): few monster cards, or SpaceG's plan. */
-function ruleTwoHolds(
+/** The play rules' switches and the deck facts they read (rule 1's GAM exception, rule 2's deck test). */
+function playRuleOptions(
   settings: IsmctsSettings,
   own: Decklist | undefined,
-): boolean {
-  return holdsOnePerRank(
-    own,
-    settings.holdFewMonsters,
-    settings.spacegPlan > 0 && isSpaceGDeck(own),
-  );
+): PlayRuleOptions {
+  return {
+    stackEveryTurn: settings.stackEveryTurn > 0,
+    gam: own?.mainDeck.some((c) => c.deckCardNumber === GAM) ?? false,
+    // Rule 2 (`holdFewMonsters`, Nov 18): few monster cards, or SpaceG's plan.
+    hold: holdsOnePerRank(
+      own,
+      settings.holdFewMonsters,
+      settings.spacegPlan > 0 && isSpaceGDeck(own),
+    ),
+  };
 }
 
 function planDead(
@@ -430,7 +440,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
           (a) => actionKey(first, a),
           settings.collectorRage > 0,
           input.trace,
-          ruleTwoHolds(settings, input.knowledge.decks[me]),
+          playRuleOptions(settings, input.knowledge.decks[me]),
         );
         const plans = withTrace(input.trace, () =>
           planDead(
@@ -879,7 +889,7 @@ export function blunderAllowed(
       keyOf,
       settings.collectorRage > 0,
       undefined,
-      ruleTwoHolds(settings, own),
+      playRuleOptions(settings, own),
     ),
     planDead(state, legalActions, me, settings, own),
   );

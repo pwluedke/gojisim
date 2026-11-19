@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { STOP_FILE } from "./decks";
+import { STOP_FILE, stopReason } from "./decks";
 
 /**
  * `pnpm bots-plan <plan.json>` (#170): runs a list of `pnpm bots` matchups in order. Each one is
@@ -205,7 +205,7 @@ async function main() {
   );
   if (stopped) {
     console.log(
-      `Stopped (${STOP_FILE}). Delete it and run the same command to resume.`,
+      `Stopped (${stopReason(out)}). Delete ${STOP_FILE} and run the same command to resume.`,
     );
     return;
   }
