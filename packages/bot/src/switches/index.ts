@@ -37,6 +37,7 @@ import revengeStep from "./revengeStep";
 import rules from "./rules";
 import spacegCover from "./spacegCover";
 import spacegInvade from "./spacegInvade";
+import spacegKeepGod from "./spacegKeepGod";
 import spacegPlan from "./spacegPlan";
 import spacegRage from "./spacegRage";
 import spacegZone from "./spacegZone";
@@ -105,6 +106,7 @@ export const SWITCHES = [
   rules,
   spacegCover,
   spacegInvade,
+  spacegKeepGod,
   spacegPlan,
   spacegRage,
   spacegZone,
