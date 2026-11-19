@@ -2,6 +2,7 @@ import { mark } from "./trace";
 import type { Action, GameState, PlayerId } from "@gojisim/engine";
 import { counterPowerOf, getThreat } from "@gojisim/engine";
 import { playOut } from "./counterReach";
+import { winsNow } from "./cardRules";
 import { cardData } from "./mxPlan";
 import type { GroupOptions } from "./switches/settings";
 import type { Decklist } from "./types";
@@ -51,6 +52,34 @@ const END_ZONE = 7;
 const ZONE_8_RANK = 8;
 /** Rule 2: the rank of their battle cards the rank 3's rage destroys. */
 const DESTROY_RANK = 5;
+
+/** Rule 5: God of Destruction's Counterattack, kept out of invasion costs and rage discards. */
+export const GOD_OF_DESTRUCTION = "EBP02-072";
+
+/**
+ * Rule 5 (Nov 18 decision), a hard rule, not a preference: with a SpaceG list, God of
+ * Destruction's Counterattack is never paid for an invasion that doesn't win the game, nor
+ * discarded for rage, while another move is left (the root's plan kills, `planDead`).
+ */
+export function spacegKeepGodDead(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+  own: Decklist | undefined,
+): Action[] {
+  if (!isSpaceGDeck(own)) return [];
+  const player = state.players.find((p) => p.id === me);
+  if (!player || state.turnPlayer !== me || state.pendingChoice) return [];
+  const isGod = (a: Action) =>
+    (a.type === "invade" || a.type === "gainRage") &&
+    cardData(
+      state,
+      player.hand.find((h) => h.instanceId === a.cardInstanceId),
+    )?.deckCardNumber === GOD_OF_DESTRUCTION;
+  return actions.filter(
+    (a) => isGod(a) && (a.type === "gainRage" || !winsNow(state, a, me)),
+  );
+}
 
 /** A SpaceG list: the SpaceGodzilla monster deck's rank 1 and 3. */
 export function isSpaceGDeck(deck: Decklist | undefined): boolean {

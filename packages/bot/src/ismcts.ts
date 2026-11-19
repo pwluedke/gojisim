@@ -43,7 +43,11 @@ import {
 } from "./cardRules";
 import { type FestOptions, festVerdict } from "./festPlan";
 import { noPlanVerdict } from "./noPlan";
-import { type SpaceGOptions, spacegVerdict } from "./spacegPlan";
+import {
+  type SpaceGOptions,
+  spacegKeepGodDead,
+  spacegVerdict,
+} from "./spacegPlan";
 import { type TanglerOptions, tanglerVerdict } from "./tanglerPlan";
 import { wranglerVerdict } from "./wranglerPlan";
 import { type WranglerOptions, wranglerV2Verdict } from "./wranglerPlanV2";
@@ -143,6 +147,8 @@ function planDead(
   actions: readonly Action[],
   me: PlayerId,
   settings: IsmctsSettings,
+  /** The bot's own decklist (the SpaceG plan's rule 5 reads it). */
+  own: Decklist | undefined,
 ): Set<Action> {
   // The Constructed Future rules (all cfTarget modes): play it only for a target; with
   // cfPlan on (the default), the plan (cfPlan.ts).
@@ -153,9 +159,16 @@ function planDead(
   ];
   // The Final Wars ruling (Nov 7): its picks for the highest total counter power.
   const finalWars = [...finalWarsDead(state, actions, me)];
+  // The SpaceG plan's rule 5: God of Destruction's Counterattack stays out of costs.
+  const keepGod =
+    settings.spacegPlan > 0 &&
+    (groupOptions(settings, "spaceg") as SpaceGOptions).keepGod !== false
+      ? spacegKeepGodDead(state, actions, me, own)
+      : [];
+  report("SpaceG plan 5", "removed", keepGod);
   report("Constructed Future plan", "removed", cf);
   report("Final Wars ruling", "removed", finalWars);
-  return new Set<Action>([...cf, ...finalWars]);
+  return new Set<Action>([...cf, ...finalWars, ...keepGod]);
 }
 
 /**
@@ -418,7 +431,13 @@ export function search(input: BotInput, settings: IsmctsSettings) {
           playRuleOptions(settings, input.knowledge.decks[me]),
         );
         const plans = withTrace(input.trace, () =>
-          planDead(first, input.legalActions, me, settings),
+          planDead(
+            first,
+            input.legalActions,
+            me,
+            settings,
+            input.knowledge.decks[me],
+          ),
         );
         bonus = verdict.bonus;
         const keep = combineDead(
@@ -860,7 +879,7 @@ export function blunderAllowed(
       undefined,
       playRuleOptions(settings, own),
     ),
-    planDead(state, legalActions, me, settings),
+    planDead(state, legalActions, me, settings, own),
   );
   const kept = keep
     ? legalActions.filter(
