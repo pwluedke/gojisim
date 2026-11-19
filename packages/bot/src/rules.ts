@@ -27,6 +27,8 @@ import {
  * evaluation are unchanged.
  *
  * 1. Stack a same-rank monster card (8.5.1) when a card wants a stack size it doesn't have yet.
+ *    Nov 18 decision (`stackEveryTurn`): every turn the stack can be made, except in a deck with
+ *    GAM EBP01-073, which discards toward GAM's 8 or more instead.
  * 2. Hold one monster card per rank that can still be played on top for its ability (#189: also
  *    when a cost is paid by discarding from hand, 5.7.1).
  * 3. Discard every other monster card for rage (8.4.1): no pass while one can go.
@@ -37,6 +39,17 @@ import {
  *    while the opponent can invade next turn; a plain stat boost in a zone (#189) is a prune
  *    while your zone 8 isn't exposed.
  */
+
+/** Rule 1's exception (Nov 18): GAM, whose deck discards its monster cards rather than stacking them. */
+export const GAM = "EBP01-073";
+
+/** The play rules' own switches, beside `collectorRage`. */
+export interface PlayRuleOptions {
+  /** `stackEveryTurn` (Nov 18): rule 1 favors a stack every turn; `false` only when wanted. */
+  stackEveryTurn?: boolean;
+  /** The bot's deck has GAM EBP01-073 (rule 1's exception). */
+  gam?: boolean;
+}
 
 /** The prior bonus a rule-preferred root action gets, in evaluation units. */
 export const RULE_BONUS = 0.15;
@@ -323,7 +336,9 @@ export function applyRules(
   collector = true,
   /** #478: where each rule reports the moves it removed or favored (it changes nothing). */
   trace?: TraceSink,
+  options: PlayRuleOptions = {},
 ): RuleVerdict {
+  const { stackEveryTurn = true, gam = false } = options;
   const killed = new Set<Action>();
   // #478: each kill and bonus remembers its rule, reported once the verdict stands.
   const byRule: {
@@ -422,8 +437,9 @@ export function applyRules(
     )
       kill(a, "play rule 2");
   }
-  // Rules 1 and 2: stacking, when a card wants the stack size or the card is held for its ability.
-  const wanted = stackWanted(state, me);
+  // Rules 1 and 2: stacking, when a card wants the stack size or the card is held for its ability;
+  // with `stackEveryTurn` (Nov 18), every turn, except in a GAM deck.
+  const wanted = (stackEveryTurn && !gam) || stackWanted(state, me);
   for (const a of actions)
     if (a.type === "playMonster" && (wanted || held.has(a.cardInstanceId)))
       add(a, "play rule 1");

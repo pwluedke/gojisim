@@ -52,7 +52,7 @@ import {
 import { type TanglerOptions, tanglerVerdict } from "./tanglerPlan";
 import { wranglerVerdict } from "./wranglerPlan";
 import { type WranglerOptions, wranglerV2Verdict } from "./wranglerPlanV2";
-import { applyRules } from "./rules";
+import { applyRules, GAM, type PlayRuleOptions } from "./rules";
 import type { Bot, BotInput, BotSettings, Decklist } from "./types";
 
 /**
@@ -132,6 +132,17 @@ export function ismctsSettings(settings: BotSettings): IsmctsSettings {
  * The plans' kills at the root (Constructed Future, the Final Wars ruling), kept apart from the
  * general rules' so they can win a conflict (`combineDead`).
  */
+/** The play rules' switches and the deck facts they read (rule 1's GAM exception). */
+function playRuleOptions(
+  settings: IsmctsSettings,
+  own: Decklist | undefined,
+): PlayRuleOptions {
+  return {
+    stackEveryTurn: settings.stackEveryTurn > 0,
+    gam: own?.mainDeck.some((c) => c.deckCardNumber === GAM) ?? false,
+  };
+}
+
 function planDead(
   state: GameState,
   actions: readonly Action[],
@@ -418,6 +429,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
           (a) => actionKey(first, a),
           settings.collectorRage > 0,
           input.trace,
+          playRuleOptions(settings, input.knowledge.decks[me]),
         );
         const plans = withTrace(input.trace, () =>
           planDead(
@@ -859,7 +871,15 @@ export function blunderAllowed(
     legalActions,
     keyOf,
     new Set(),
-    applyRules(state, legalActions, me, keyOf, settings.collectorRage > 0),
+    applyRules(
+      state,
+      legalActions,
+      me,
+      keyOf,
+      settings.collectorRage > 0,
+      undefined,
+      playRuleOptions(settings, own),
+    ),
     planDead(state, legalActions, me, settings, own),
   );
   const kept = keep

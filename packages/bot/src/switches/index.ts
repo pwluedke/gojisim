@@ -40,6 +40,7 @@ import spacegKeepGod from "./spacegKeepGod";
 import spacegPlan from "./spacegPlan";
 import spacegRage from "./spacegRage";
 import spacegZone from "./spacegZone";
+import stackEveryTurn from "./stackEveryTurn";
 import tanglerBuild from "./tanglerBuild";
 import tanglerDiscard from "./tanglerDiscard";
 import tanglerEarly from "./tanglerEarly";
@@ -108,6 +109,7 @@ export const SWITCHES = [
   spacegPlan,
   spacegRage,
   spacegZone,
+  stackEveryTurn,
   tanglerBuild,
   tanglerDiscard,
   tanglerEarly,
