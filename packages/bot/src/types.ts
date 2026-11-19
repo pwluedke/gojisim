@@ -1,4 +1,5 @@
 import type { Card } from "@gojisim/cards";
+import type { TraceSink } from "./trace";
 import type { Action, LogEntry, PlayerId, PlayerView } from "@gojisim/engine";
 
 /** A player's monster deck and main deck. */
@@ -31,6 +32,11 @@ export interface BotInput {
   /** Uniform in [0, 1), seeded by the caller, so a game is reproducible. */
   rng: () => number;
   settings: BotSettings;
+  /**
+   * #478: where the rules report what they did at this decision's root (`trace.ts`). Reporting
+   * never changes the decision.
+   */
+  trace?: TraceSink;
 }
 
 export interface Bot {

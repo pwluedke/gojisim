@@ -8,6 +8,13 @@ import {
   type PlayerId,
 } from "@gojisim/engine";
 import {
+  type Alternative,
+  type DecisionTrace,
+  type RuleNote,
+  ruleInfo,
+  type TraceSink,
+} from "./trace";
+import {
   pickWith,
   plausiblePick,
   stateBoard,
@@ -423,6 +430,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         me,
         input.knowledge.decks[me],
         options,
+        input.trace,
       );
       const keys = new Set([
         ...dead,
@@ -438,6 +446,7 @@ export function search(input: BotInput, settings: IsmctsSettings) {
         options,
       );
       for (const a of blocks) keys.delete(actionKey(first, a));
+      input.trace?.rule("card rule 9", "freed", blocks);
       if (blocks.size > 0)
         avoid = new Set(
           [...avoid].filter(
@@ -682,6 +691,48 @@ export interface Decision {
   blundered: boolean;
   /** The root's children by action key, and the legal actions' keys in `legalActions` order. */
   search: ReturnType<typeof search> | null;
+  /** #478: the decision explained, when the input carried a trace sink. */
+  trace?: DecisionTrace;
+}
+
+/** #478: how many alternatives a trace lists. */
+const TRACE_ALTERNATIVES = 3;
+
+/** The decision's trace: the pick, the most-visited moves, and the rules the sink heard. */
+function explain(input: BotInput, decision: Omit<Decision, "trace">): Decision {
+  const sink = input.trace as (TraceSink & { notes?: RuleNote[] }) | undefined;
+  if (!sink) return decision;
+  const alternatives: Alternative[] = [];
+  const result = decision.search;
+  if (result) {
+    const seen = new Set<string>();
+    input.legalActions.forEach((action, i) => {
+      const key = result.rootKeys[i] ?? "";
+      if (seen.has(key)) return;
+      seen.add(key);
+      const node = result.root.children.get(key);
+      const visits = result.avoid.has(i) ? 0 : (node?.visits ?? 0);
+      alternatives.push({
+        action,
+        visits,
+        // The search's values are in [-1, 1] for the bot (`evaluate.ts`): 0 to 1 here.
+        winRate: node && visits > 0 ? (node.value / node.visits + 1) / 2 : null,
+      });
+    });
+    alternatives.sort((a, b) => b.visits - a.visits);
+  }
+  return {
+    ...decision,
+    trace: {
+      pick: decision.action,
+      blundered: decision.blundered,
+      alternatives: alternatives.slice(0, TRACE_ALTERNATIVES),
+      rules: (sink.notes ?? []).map((note) => ({
+        ...note,
+        ...ruleInfo(note.id),
+      })),
+    },
+  };
 }
 
 /** #402: the card rules' switches from the settings (the switch files of group `cardRules`). */
@@ -795,6 +846,10 @@ export function blunderAllowed(
 
 /** Searches and picks, exactly as `ismctsBot.chooseAction` does. */
 export function decide(input: BotInput): Decision {
+  return explain(input, decideUntraced(input));
+}
+
+function decideUntraced(input: BotInput): Decision {
   const { legalActions, rng } = input;
   if (legalActions.length === 1)
     return {
