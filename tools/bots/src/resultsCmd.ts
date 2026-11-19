@@ -140,7 +140,7 @@ async function upload(entry: unknown): Promise<boolean> {
 async function main() {
   const [kind] = positionals;
   if (kind === "reads") {
-    // #340 part b: the players' reads, a JSON list of `Read`s (Monarch's, from the play guides
+    // #340 part b: the players' reads, a JSON list of `Read`s (the project manager's, from the play guides
     // and tester reports), checked here and sent one by one.
     if (!values.file) throw new Error("reads needs --file <reads.json>");
     const reads = JSON.parse(

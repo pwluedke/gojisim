@@ -8,7 +8,7 @@ import {
 import { gameKey, plainMove } from "./feedbackList";
 
 /**
- * `pnpm feedback`'s report (Paul, Oct 28, 2026): the uploaded records deduped to the latest file
+ * `pnpm feedback`'s report (Oct 28, 2026): the uploaded records deduped to the latest file
  * per game, the reports not yet reviewed, and the human's win rate by bot level, as one Markdown
  * file to paste or attach. Pure: the command (`feedbackCmd.ts`) downloads, reads and writes.
  */

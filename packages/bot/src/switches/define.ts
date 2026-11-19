@@ -1,5 +1,5 @@
 /**
- * #402 (Paul, Nov 16): one file per bot switch, so two bot PRs that each add a switch never edit
+ * #402 (Nov 16): one file per bot switch, so two bot PRs that each add a switch never edit
  * the same lines. A switch's file holds everything about it: its default, the plan it belongs
  * to, and its row in `SWITCHES.md` (generated from these files by `pnpm switches`).
  */

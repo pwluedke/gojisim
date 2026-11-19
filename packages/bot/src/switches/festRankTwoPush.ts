@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "fest",
   option: "rankTwoPush",
-  what: "The Red Fest plan's rank II push (Slick): an exception to line 2 (no invasion before rank IV): the rank II Fest EBP01-012 invades when its end-phase push (it advances their monster a zone on a turn it invaded) takes their monster to zone 6 or beyond, lining up the counter next turn. Needs `festPlan` (off by default).",
+  what: "The Red Fest plan's rank II push, an exception to the plan's line 2 (no invasion before rank IV): the rank II Fest EBP01-012 invades when its end-phase push (it moves the opponent's monster forward one zone on a turn it invaded) takes their monster to zone 6 or beyond, which sets up a counter next turn. This needs the Red Fest plan (`festPlan`), which is off by default.",
   from: "#406",
   status: "built",
 });

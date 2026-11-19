@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "cardRules",
   option: "ownCover",
-  what: "Card rule 23: no battle card on top of your own battle card while it has a legal play into an empty zone off your monster's next two zones.",
+  what: "Card rule 23: don't play a battle card on top of one of your own battle cards while it can legally be played into an empty zone outside the next two zones your monster will move into.",
   from: "#345, #342",
   status: "built",
 });

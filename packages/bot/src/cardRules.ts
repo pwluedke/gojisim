@@ -24,14 +24,14 @@ import type { TraceSink } from "./trace";
 import type { Decklist } from "./types";
 
 /**
- * Card-play rules for Medium and Hard (Paul, Nov 12), on with `cardRules` (from Medium up) or
- * with Paul's play rules (`rules`, Hard). Like the rules, they act at the search root and on
+ * Card-play rules for Medium and Hard (Nov 12), on with `cardRules` (from Medium up) or
+ * with the play rules (`rules`, Hard). Like the rules, they act at the search root and on
  * blunders, judged on the first determinization, and read card data, never card names.
  *
  * 1. #255: a monster card that loses the game with no card in your strategy zones (Godzilla (1995)
  *    EBP03-013: "if there are no cards in your strategy zones, you lose") is played only when,
  *    once played, you have a strategy card in play or can play one this turn.
- * 2. #246: in your zone 8 (Paul, Nov 12: or zone 6 or 7, when the invasion can then reach it) with
+ * 2. #246: in your zone 8 (Nov 12: or zone 6 or 7, when the invasion can then reach it) with
  *    the opponent's zone 8 occupied, when a play this turn can clear it and leave an invasion
  *    that wins, clear it first: no invading into the blocker (it spends the turn's invasion,
  *    8.6.2) and no passing; and inside that play, the answers that clear it (the blocker as the
@@ -51,111 +51,111 @@ import type { Decklist } from "./types";
  *    is played only when it's needed: not while the counter is already made without it (7.4.3),
  *    and not when even with it (and the others in hand) the counter isn't made.
  * 6. #248: a slow counter deck (`SLOW_DECK_MONSTERS` or fewer monster cards in its main deck: the
- *    Tangler the bot played in Ian's reports has 4) doesn't invade unless the invasion wins the game now: it hasn't the
+ *    Tangler the bot played in a tester's reports has 4) doesn't invade unless the invasion wins the game now: it hasn't the
  *    threat to live in the high zones, and an invasion ends its turn in reach of a push.
  * 7. #265: with your zone 8 open and the opponent's monster in reach of it (zone 6 or beyond),
  *    when some plays this turn put a battle card in your zone 8, take one: those plays stay even
  *    where another rule holds them (#265: the held monster cards whose rage discards make
  *    Godzilla Against Mechagodzilla playable), and every other move waits (passing too), but an
  *    invasion that wins now.
- *    #305 (Ian): the counter comes first. With the counter made, nothing is forced; with a way to
+ *    #305: the counter comes first. With the counter made, nothing is forced; with a way to
  *    make it this turn (rule 9's plays), those plays are the ones taken instead of the block. A
  *    counter sends their monster back (7.4.3), so it beats the block, and the block can cost it
  *    (a King over your own Godzilla (2023) in zone 8: 17,000 vs 27,000, where zone 1 made 27,000).
  * 8. #272: a battle card whose ability works only in some zones (Godzilla, King of the Monsters
- *    EBP01-075: protected in zones 1-5) is played in one of them when it can be (Paul's rule 6
+ *    EBP01-075: protected in zones 1-5) is played in one of them when it can be (play rule 6
  *    only leans that way, as a prior). Blocking an open zone 8 (rule 7) still comes first.
  * 9. #274: with the opponent's monster in reach of your zone 8 and the counter not made yet, the
  *    plays that start a way to make it this turn (rage discards count: Godzilla, King of the
- *    Monsters EBP01-075 gains +3000 counter power per rage) are freed from the holds of Paul's
- *    rule 2. Unlike rule 7 it forces nothing: the search still picks, and the card rules'
+ *    Monsters EBP01-075 gains +3000 counter power per rage) are freed from the holds of
+ *    play rule 2. Unlike rule 7 it forces nothing: the search still picks, and the card rules'
  *    placements stand.
  * 10. #275: a play that advances the opponent's monster (Godzilla Landing EBP01-030) is made only
  *    when, after it, you can still make the counter this turn or have your zone 8 blocked (or can
  *    block it): pushing their monster toward zone 8 otherwise hands them the invasion win.
- * 11. Paul, Nov 12 (Ian): against an opponent who can legally run Godzilla vs. King Ghidorah
+ * 11. Nov 12: against an opponent who can legally run Godzilla vs. King Ghidorah
  *    EBP02-071 (a green deck) and whose monster can reach zone 7 (zone 5 or beyond), a zone 8
  *    blocker of rank 6 or lower doesn't count (its awakening 6 destroys it), for rules 7, 9 and
  *    10: it takes rank 7 or higher.
- * 12. #130 (Tuscancow): an Evolution's pick (12.6.2) of a card no stronger than the one it stacks
+ * 12. #130: an Evolution's pick (12.6.2) of a card no stronger than the one it stacks
  *    on (counter power not higher: Battra (Larva) onto Battra (Larva)) is left out while a stronger
  *    one or "done" is there.
- * 13. #131 (Tuscancow): a battle card whose [enter] needs Awakening N (Super-X ESD02-009: zone 4)
+ * 13. #131: a battle card whose [enter] needs Awakening N (Super-X ESD02-009: zone 4)
  *    waits while your monster is short of N and an invasion this turn takes it there: invade
  *    first, then play it (combos.md #7, the Cadmium Barrage order).
- * 14. #263 (Paul, Nov 12): no rage discards on turns 1-2 unless the rage is needed (it's on a
- *    way to the counter or to a zone 8 block); passing is freed from Paul's rule 3 then.
- * 15. #264 (Paul, Nov 12): play into your monster cards' abilities. A monster card whose ability
+ * 14. #263 (Nov 12): no rage discards on turns 1-2 unless the rage is needed (it's on a
+ *    way to the counter or to a zone 8 block); passing is freed from play rule 3 then.
+ * 15. #264 (Nov 12): play into your monster cards' abilities. A monster card whose ability
  *    fires on reaching a zone (Godzilla (1954) EBP01-004: on advancing into zone 8, destroy all
  *    battle cards) isn't stacked on a turn your monster can't reach that zone (its invasion, then
  *    the end-phase advance), unless the stack is needed now (it's on a way to the counter) or it's
  *    the only play besides passing.
- * 16. #290 (Keldroc, Nov 13): a mode that does something. At a "choose one" (10.5.2.2.1), a mode
+ * 16. #290 (Nov 13): a mode that does something. At a "choose one" (10.5.2.2.1), a mode
  *    that changes nothing (King Ghidorah (1991) EBP02-049's destroy with no rank 5 or lower battle
  *    card to hit) isn't picked while another mode does something.
- * 17. #288 (Keldroc, Nov 13): a [revenge] card (Dorat EBP02-058) goes where it gets destroyed:
+ * 17. #288 (Nov 13): a [revenge] card (Dorat EBP02-058) goes where it gets destroyed:
  *    ahead of your own monster, whose advance crushes it (11.3), an empty zone first, never zone 8,
- *    and (Monarch, Nov 13) the nearest two zones ahead first, Keldroc's "landmine"; it isn't paid for
+ *    and (Nov 13) the nearest two zones ahead first, a tester's "landmine"; it isn't paid for
  *    an invasion while another card can pay (discarded, it never pays off);
  *    and nothing goes on top of your own [revenge] card while another zone is open (but a column
  *    card, which rule 3 places: Mecha-King Ghidorah in the opponent monster's column, #289).
- *    #339 (Keldroc): a [revenge] card goes in zone 8 only when an invasion this turn takes your
+ *    #339: a [revenge] card goes in zone 8 only when an invasion this turn takes your
  *    own monster there (it's crushed there and its revenge fires).
- * 18. #290 (Keldroc and Monarch, Nov 13): at a "choose one", a mode that makes the opponent
+ * 18. #290 (Nov 13): at a "choose one", a mode that makes the opponent
  *    discard beats one that only mills your own deck (King Ghidorah (1991) EBP02-049: the hand
  *    discard, "9 times out of 10"), unless only the mill lets this turn's Mecha-King Ghidorah
  *    EBP02-068 play or counter happen (its discarded King Ghidorah cards lower Mecha-King's rank).
- * 19. #310 (Paul and Keldroc, Nov 14): a strategy whose only abilities are statuses on a monster
+ * 19. #310 (Nov 14): a strategy whose only abilities are statuses on a monster
  *    (continuous flags, 10.8) isn't activated while every one of them is already in force on that
  *    monster: a second Entangling Fear EBP04-081 ("your monster card cannot advance nor invade")
  *    adds nothing ("never any reason to play a second Entangling Fear"). Any deck.
- * 20. #324, #327 (Ian, Keldroc, Nov 14): wherever the opponent's monster is (Monarch: a counter
+ * 20. #324, #327 (Nov 14): wherever the opponent's monster is (a counter
  *    sends it back from any zone) and rule 7 not involved, a way to make the counter this turn
  *    (rule 9's plays, from any zone) is taken as rule 7 takes it: every other move waits
  *    (passing too), but an invasion that wins now. With the counter made, a play after which it
  *    isn't made any more is left out. Any deck.
- * 21. #304 (Keldroc and Ian, Nov 14): no battle card into your own monster's next two zones (its
+ * 21. #304 (Nov 14): no battle card into your own monster's next two zones (its
  *    advance or invasion crushes it there, 11.3) while that card has a legal play into an empty
  *    zone off the path; [revenge] cards excepted (rule 17 wants them crushed), and not while your
  *    monster can neither advance nor invade. Any deck.
- * 24. #325, #327, #329 (Keldroc; Paul: "Orange" is King Ghidorah (1998) EBP03-063): a card that
+ * 24. #325, #327, #329 ("Orange" is King Ghidorah (1998) EBP03-063): a card that
  *    plays itself back from the discard pile (rule 4) is the one to discard. Paying for an
  *    invasion, or discarding down (5.7.2), the others are left out while it can go. Any deck.
- * 23. #345 (Slick), #342: no battle card on top of your own battle card while that card has a
+ * 23. #345, #342: no battle card on top of your own battle card while that card has a
  *    legal play into an empty zone off your own monster's next two zones; a card with its own play
  *    on top (`onTop`, Godzilla Jr. EBP03-051) and a column card (rule 3) excepted. Any deck.
- *    23b. #345 (BFW182): with no such empty zone, but a legal play over your own token, a play
+ *    23b. #345: with no such empty zone, but a legal play over your own token, a play
  *    over your own battle card is left out (the token goes, not the card). Same exceptions.
- * 30. #386 (Paul, Nov 15): at a choice in the resolution of a strategy whose effects only destroy
+ * 30. #386 (Nov 15): at a choice in the resolution of a strategy whose effects only destroy
  *    the opponent's battle cards (Godzilla vs. Megaguirus EBP01-064: one rank 4 or lower card, or
  *    with 4+ of your own battle cards a zone and its neighbours), each answer is played out with
  *    your best answers to the choices after it; one that destroys fewer of their cards than the
  *    best isn't picked: the mode, then the zone. Any deck.
- * 22. #336 (Tuscancow, Nov 14): a strategy whose effects only destroy the opponent's battle cards
+ * 22. #336 (Nov 14): a strategy whose effects only destroy the opponent's battle cards
  *    (Godzilla vs. Megaguirus EBP01-064) isn't activated when no way of answering its choices
  *    destroys one (no legal target). A plan's rescue still overrides it (the Wrangler's dig). Any
  *    deck.
- * 25. #337 (Tuscancow): with your monster in zone 6, 7 or 8, no battle card into the zone behind
+ * 25. #337: with your monster in zone 6, 7 or 8, no battle card into the zone behind
  *    it (5, 4 or 3), where a counter moves it back and crushes the card (5.15.1.1, 11.3), while
  *    that card has a legal play into an empty zone off your monster's path and not behind it;
  *    [revenge] cards excepted, as in rule 21. Any deck.
- * 26. #328 (Keldroc, Ian): with your top monster's [invading] ability active (its count of cards
+ * 26. #328: with your top monster's [invading] ability active (its count of cards
  *    under it met, Thousand-Year Dragon King Ghidorah EBP03-029) and an invasion legal, no monster
  *    card without an [invading] ability on top of it; but a play that wins now or makes the
  *    counter. Any deck.
- * 27. #353 (BFW182): discarding from your hand (5.7.1, 5.7.2), a strategy card isn't the one to go
+ * 27. #353: discarding from your hand (5.7.1, 5.7.2), a strategy card isn't the one to go
  *    while a battle card you can't play this turn or next is offered (its rank above the zone of
  *    the opponent's monster plus 2, 8.2.1). Any deck.
- * 28. #326 (Keldroc): discarding from your hand (5.7.1, 5.7.2), your only copy of a lower-rank
+ * 28. #326: discarding from your hand (5.7.1, 5.7.2), your only copy of a lower-rank
  *    monster card (the next one up after a counter) isn't the one to go while a higher-rank
  *    monster card or a spare copy of a monster card can go; rule 24's recurring card first. Any
  *    deck.
- * 29. #314 (Tuscancow; Paul's Tangler signature): a Tangler deck (Godzilla (2002) EBP03-014 and
+ * 29. #314 (the Tangler deck's signature): a Tangler deck (Godzilla (2002) EBP03-014 and
  *    EBP03-015 in its monster deck, Entangling Fear EBP04-081 in its main deck) doesn't invade
  *    before its own turn 4 unless the invasion wins the game this turn.
- *    22b. #378 (Paul): the same for every strategy without a continuous ability: one isn't
+ *    22b. #378: the same for every strategy without a continuous ability: one isn't
  *    activated when no way of answering its choices changes anything on the board, the rage, the
- *    discard pile or the decks and hands (beyond the card itself). Paul's exception: with 2+
+ *    discard pile or the decks and hands (beyond the card itself). The exception: with 2+
  *    copies of it in hand, a spare may still go as the turn's hand-cycling play. Any deck.
  */
 
@@ -396,7 +396,7 @@ function revengePlays(
       ),
     );
   const dead: Action[] = [];
-  // Keldroc: "every Dorat is sacred": paid for an invasion it's discarded, never destroyed, so it
+  // A tester: "every Dorat is sacred": paid for an invasion it's discarded, never destroyed, so it
   // isn't the payment while another card can pay.
   const invades = actions.filter((a) => a.type === "invade");
   const revengePays = invades.filter(
@@ -426,7 +426,7 @@ function revengePlays(
     if (columnCard(data)) continue;
     const revenge = hasRevenge(data?.deckCardNumber ?? "");
     const ahead = (z: ZoneNumber) => z > at && z < 8;
-    // Keldroc's "landmine": the nearest zones ahead first, so it's crushed soon.
+    // A tester's "landmine": the nearest zones ahead first, so it's crushed soon.
     const near = (z: ZoneNumber) => ahead(z) && z <= at + LANDMINE_REACH;
     const tiers: ((z: ZoneNumber) => boolean)[] = revenge
       ? [
@@ -438,7 +438,7 @@ function revengePlays(
     const best = tiers
       .map((tier) => plays.filter((a) => tier(a.zone)))
       .find((t) => t.length > 0);
-    // #339 (Keldroc): a [revenge] card goes in zone 8 only when your own monster steps on it this
+    // #339: a [revenge] card goes in zone 8 only when your own monster steps on it this
     // turn (an invasion that reaches zone 8 crushes it there, 11.3, and its revenge fires).
     if (step && revenge && !stepsOnZone8)
       for (const a of plays)
@@ -612,7 +612,7 @@ function spentCounters(
   return plays.filter((a) => !madeAfter(state, a, me));
 }
 
-/** Rule 6: at most this many monster cards in the main deck makes a slow counter deck (Ian, Nov 12). */
+/** Rule 6: at most this many monster cards in the main deck makes a slow counter deck (Nov 12). */
 export const SLOW_DECK_MONSTERS = 4;
 
 /** Rule 6: whether a decklist is a slow counter deck. */
@@ -624,7 +624,7 @@ export function slowCounterDeck(deck: Decklist | undefined): boolean {
   );
 }
 
-/** Rule 29 (Paul): a Tangler deck's signature, its monster deck's Godzilla (2002) and Entangling Fear. */
+/** Rule 29: a Tangler deck's signature, its monster deck's Godzilla (2002) and Entangling Fear. */
 export function tanglerDeck(deck: Decklist | undefined): boolean {
   if (!deck) return false;
   const monsters = new Set(deck.monsterDeck.map((c) => c.deckCardNumber));
@@ -680,7 +680,7 @@ export function winsNow(
 }
 
 /**
- * Rules 7 and 9: the plays freed from Paul's rules' holds: a block's (rule 7), else the counter's
+ * Rules 7 and 9: the plays freed from the play rules' holds: a block's (rule 7), else the counter's
  * (rule 9) that the card rules themselves don't leave out.
  */
 export function rescuedPlays(
@@ -700,7 +700,7 @@ export function rescuedPlays(
   const freed = new Set(
     [...counterPlays(state, actions, me)].filter((a) => !dead.has(a)),
   );
-  // Rule 14: with the early rage discards held, passing is allowed (Paul's rule 3 forbids it
+  // Rule 14: with the early rage discards held, passing is allowed (play rule 3 forbids it
   // while a monster card can go to rage).
   if (earlyRage(state, actions, me).length > 0)
     for (const a of actions) if (a.type === "pass") freed.add(a);
@@ -713,7 +713,7 @@ const BLOCK_BUDGET = 400;
 const BLOCK_DEPTH = 5;
 
 /**
- * Rule 11 (Paul, Nov 12): the rank a zone 8 blocker needs to hold: 7 against an opponent who can
+ * Rule 11 (Nov 12): the rank a zone 8 blocker needs to hold: 7 against an opponent who can
  * legally run Godzilla vs. King Ghidorah EBP02-071 (a green invading monster, public) and whose
  * monster is in zone 5 or beyond (its awakening 6 destroys a rank 6 or lower blocker); else any.
  */
@@ -1324,7 +1324,7 @@ function idleStrategies(
     const c = player.hand.find((h) => h.instanceId === a.cardInstanceId);
     const card = c ? state.cards[c.cardId] : undefined;
     if (!c || !oneShotStrategy(card)) return false;
-    // Paul's exception: a spare copy may go as the turn's hand-cycling play.
+    // The exception: a spare copy may go as the turn's hand-cycling play.
     if (player.hand.filter((h) => h.cardId === c.cardId).length >= 2)
       return false;
     // Hand counts change by the card itself; the rest of the position is what the effect moves.

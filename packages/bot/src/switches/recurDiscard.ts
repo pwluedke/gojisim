@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "cardRules",
   option: "recurDiscard",
-  what: "Card rule 24: paying for an invasion or discarding down, a card that plays itself back from the discard pile goes first.",
+  what: "Card rule 24: when you pay for an invasion or discard down to your hand size, discard first a card that plays itself back from the discard pile.",
   from: "#325, #329",
   status: "built",
 });

@@ -5,7 +5,7 @@ import type { Bot, BotSettings } from "./types";
 export const FULL_ITERATIONS = 1000;
 
 /**
- * M13c (#75, Monarch's call): the virtual visits a new node starts with from Hard up. 51.5 % over
+ * M13c (#75, the project manager's call): the virtual visits a new node starts with from Hard up. 51.5 % over
  * Hard at matched search counts and Flying Form fixed; not trialed at Medium, worse at Easy.
  */
 export const HARD_PRIOR_VISITS = 20;
@@ -19,10 +19,10 @@ export const PRESETS = { easy: 20, medium: 55, hard: 90 } as const;
  * blunder (play a plausible move without searching, #132). 0 is close to random play; 100 is the full
  * search. M13a: from Medium up, dead strategy activations are pruned at the root (`prune.ts`).
  * M13c (#75): from Hard up, new search nodes start with `HARD_PRIOR_VISITS` virtual visits at
- * their static evaluation; Easy and Medium keep none. #175: from Hard up, Paul's play rules act at
+ * their static evaluation; Easy and Medium keep none. #175: from Hard up, the play rules act at
  * the root (`rules.ts`). #191: from Hard up, the deck recognizer draws the opponent's hidden cards
- * toward a recognized archetype (`recognizer.ts`). Paul, Nov 12: from Medium up, the card-play rules
- * (`cardRules.ts`), without the rest of Paul's rules.
+ * toward a recognized archetype (`recognizer.ts`). Nov 12: from Medium up, the card-play rules
+ * (`cardRules.ts`), without the rest of the play rules.
  */
 export function difficultySettings(difficulty: number): {
   iterations: number;
@@ -46,7 +46,7 @@ export function difficultySettings(difficulty: number): {
     priorVisits: difficulty >= PRESETS.hard ? HARD_PRIOR_VISITS : 0,
     rules: difficulty >= PRESETS.hard ? 1 : 0,
     recognizer: difficulty >= PRESETS.hard ? 1 : 0,
-    // Paul, Nov 12: the card-play rules from Medium up (`cardRules.ts`); Hard has them with `rules`.
+    // Nov 12: the card-play rules from Medium up (`cardRules.ts`); Hard has them with `rules`.
     cardRules: difficulty >= PRESETS.medium ? 1 : 0,
   };
 }

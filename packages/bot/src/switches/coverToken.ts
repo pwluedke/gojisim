@@ -6,7 +6,7 @@ export default defineSwitch({
   default: 1,
   group: "cardRules",
   option: "coverToken",
-  what: "Card rule 23b: with no empty zone off your monster's path, but a legal play over your own token, a play over your own battle card is left out.",
+  what: "Card rule 23b: when there is no empty zone left outside the next two zones your monster will move into, but you can legally play over one of your own tokens, don't play over one of your own battle cards.",
   from: "#345",
   status: "built",
 });

@@ -6,7 +6,7 @@ import {
 } from "@gojisim/cards/test-deck-set";
 
 /*
- * #359: `pnpm test-decks check|upload --file <path>`. The file is Paul's local list of test decks
+ * #359: `pnpm test-decks check|upload --file <path>`. The file is the local list of test decks
  * (GojiSim text with a `[deck]` line per deck, or JSON of name → deck list), which stays on the Mac
  * and is never committed. `upload` sends the whole set to the server (`TEST_DECKS_URL`, default
  * the site) with the token in `TEST_DECKS_UPLOAD_TOKEN`, replacing the set there: a deck left out
