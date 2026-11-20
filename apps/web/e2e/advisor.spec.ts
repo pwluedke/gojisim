@@ -77,11 +77,11 @@ test("Classroom advisor: the bot's move in your seat, with Agree kept in the tur
   await expect(page.getByTestId("advisor-agree")).toHaveCount(0);
   const summary = panel.getByTestId("advisor-summary");
   await expect(summary).toContainText(
-    "This turn: 1 answered (1 agreed, 0 disagreed)",
+    "This turn: 1 answered (1 agreed, 0 right move but wrong reason, 0 disagreed)",
   );
 });
 
-test("Classroom advisor: Disagree takes a reason; Other needs your words", async ({
+test("Classroom advisor: Disagree takes a reason and needs your words", async ({
   page,
 }) => {
   test.setTimeout(180_000);
@@ -94,19 +94,45 @@ test("Classroom advisor: Disagree takes a reason; Other needs your words", async
     "Wrong timing",
     "Other",
   ]);
-  // Each reason has its own text box; it's needed only for Other.
+  // Phase 2c (Nov 20): "What would you play, and why?" is needed for every reason.
+  const note = page.getByTestId("advisor-note");
   const send = page.getByTestId("advisor-send");
-  await expect(page.getByTestId("advisor-note")).toBeVisible();
-  await expect(send).toBeEnabled();
-  await reason.selectOption("other");
+  await note.fill("");
   await expect(send).toBeDisabled();
-  await page.getByTestId("advisor-note").fill("hold it for the counter");
+  await reason.selectOption("other");
+  await note.fill("hold it for the counter");
   await send.click();
   await expect(page.getByTestId("advisor-answered")).toHaveText(
     "You disagreed (other: hold it for the counter).",
   );
   await expect(page.getByTestId("advisor-summary")).toContainText(
-    "1 answered (0 agreed, 1 disagreed)",
+    "1 answered (0 agreed, 0 right move but wrong reason, 1 disagreed)",
+  );
+});
+
+test("Classroom advisor: right move, wrong reason needs the real reason, and Copy text keeps the answer", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await classroomFirstTurn(page);
+  await page.getByTestId("advisor-wrong-reason").click();
+  const note = page.getByTestId("advisor-note");
+  const send = page.getByTestId("advisor-send");
+  await note.fill("");
+  await expect(send).toBeDisabled();
+  await note.fill("it stacks for the rank-up, not for rage");
+  await send.click();
+  await expect(page.getByTestId("advisor-answered")).toHaveText(
+    "You said: right move, wrong reason (it stacks for the rank-up, not for rage).",
+  );
+  await expect(page.getByTestId("advisor-summary")).toContainText(
+    "1 answered (0 agreed, 1 right move but wrong reason, 0 disagreed)",
+  );
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.getByTestId("advisor-copy").click();
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toContain(
+    "Your answer: right move, wrong reason (it stacks for the rank-up, not for rage).",
   );
 });
 

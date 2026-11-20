@@ -8,6 +8,7 @@ import {
   getLegalActions,
   type MatchMode,
   stepPhase,
+  type AdviceAnswer,
   type AdviceReason,
   type ClassroomAdvice,
 } from "@gojisim/engine";
@@ -440,7 +441,7 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
   } = useAdvisor(advisorSession, advisorState, advisorOn);
   const adviceAnswers = advisorSession?.record.classroomAdvice ?? [];
   const answerAdvice = (
-    answer: "agree" | "disagree",
+    answer: AdviceAnswer,
     reason?: AdviceReason,
     note?: string,
   ) => {
@@ -465,6 +466,7 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
       answer,
       ...(reason ? { reason } : {}),
       ...(note ? { note } : {}),
+      ...(advice.story ? { why: advice.story } : {}),
       botVersion: BOT_VERSION,
       at: new Date().toISOString(),
     };
