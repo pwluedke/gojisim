@@ -12,7 +12,12 @@ import { isTanglerDeck } from "./tanglerPlan";
 import { isFestDeck } from "./festPlan";
 import { isMonsterXDeck } from "./mxPlan";
 import { boostedZones } from "./rules";
-import { DECK_GOALS, RULE_PHRASES, TYPE_GOALS } from "./rulePhrases";
+import {
+  DECK_GOALS,
+  DECK_STANCES,
+  RULE_PHRASES,
+  TYPE_GOALS,
+} from "./rulePhrases";
 import { isSpaceGDeck } from "./spacegPlan";
 import type { DecisionTrace } from "./trace";
 import type { Decklist } from "./types";
@@ -41,25 +46,50 @@ const INVASION_DECK_MONSTERS = 20;
 
 const number = (n: number) => n.toLocaleString("en-US");
 
-/** The deck's goal: its plan's sentence, or one by deck type for a deck with no plan. */
+/** A list's monster deck holds every one of these. */
+const monstersOf = (own: Decklist | undefined, numbers: string[]) => {
+  const have = new Set(own?.monsterDeck.map((c) => c.deckCardNumber));
+  return numbers.every((n) => have.has(n));
+};
+
+/**
+ * The deck the story speaks for: a plan's deck, or a deck with a play guide but no plan (#478,
+ * Nov 20 review), or `undefined`.
+ */
+export function deckOf(
+  state: GameState,
+  me: PlayerId,
+  own: Decklist | undefined,
+): string | undefined {
+  const player = state.players.find((p) => p.id === me);
+  if (isWranglerDeck(own)) return "Wrangler";
+  if (isTanglerDeck(own)) return "Tangler";
+  if (player && isMonsterXDeck(state, player)) return "Monster X";
+  if (isSpaceGDeck(own)) return "SpaceG";
+  if (isFestDeck(own)) return "Red Fest";
+  if (monstersOf(own, ["EBP01-039", "EBP04-013"])) return "Bungler";
+  if (own?.monsterDeck.some((c) => c.name.startsWith("Biollante")))
+    return "Biollante Stundraw";
+  if (
+    own?.monsterDeck.some((c) => c.name.startsWith("King Ghidorah")) &&
+    own.mainDeck.some((c) => c.name === "Mecha-King Ghidorah")
+  )
+    return "King Ghidorah";
+  if (monstersOf(own, ["ESD01-001", "ESD01-002", "ESD01-003", "ESD01-004"]))
+    return "Minus One starter";
+  if (monstersOf(own, ["ESD02-001", "ESD02-002", "ESD02-003", "ESD02-004"]))
+    return "Heisei starter";
+  return undefined;
+}
+
+/** The deck's goal: its own sentence, or one by deck type for any other deck. */
 export function deckGoal(
   state: GameState,
   me: PlayerId,
   own: Decklist | undefined,
 ): string {
-  const player = state.players.find((p) => p.id === me);
-  const plan = isWranglerDeck(own)
-    ? "Wrangler"
-    : isTanglerDeck(own)
-      ? "Tangler"
-      : player && isMonsterXDeck(state, player)
-        ? "Monster X"
-        : isSpaceGDeck(own)
-          ? "SpaceG"
-          : isFestDeck(own)
-            ? "Red Fest"
-            : undefined;
-  if (plan && DECK_GOALS[plan]) return DECK_GOALS[plan];
+  const deck = deckOf(state, me, own);
+  if (deck && DECK_GOALS[deck]) return DECK_GOALS[deck];
   const monsters =
     own?.mainDeck.filter((c) => c.type === "Monster").length ?? 0;
   return monsters >= INVASION_DECK_MONSTERS
@@ -92,18 +122,18 @@ function describe(state: GameState, action: Action): string | null {
             ?.cardId ?? -1
         ];
       const forEffect = boostedZones(card).includes(action.zone);
-      return `${name} into zone ${action.zone}${forEffect ? " for its effect there" : ""}`;
+      return `plays ${name} into zone ${action.zone}${forEffect ? " for its effect there" : ""}`;
     }
     case "playMonster":
-      return `${nameOf(state, action.cardInstanceId)} on top of its monster`;
+      return `stacks ${nameOf(state, action.cardInstanceId)} on its monster`;
     case "gainRage":
-      return `${nameOf(state, action.cardInstanceId)} discarded for rage`;
+      return `discards ${nameOf(state, action.cardInstanceId)} for rage`;
     case "activateStrategy":
-      return nameOf(state, action.cardInstanceId);
+      return `uses ${nameOf(state, action.cardInstanceId)}`;
     case "invade":
-      return `an invasion paid with ${nameOf(state, action.cardInstanceId)}`;
+      return `invades, paying with ${nameOf(state, action.cardInstanceId)}`;
     case "invadeFromDeck":
-      return "an invasion from the deck";
+      return "invades from the deck";
     default:
       return null;
   }
@@ -175,7 +205,7 @@ export function adviceStory(input: StoryInput): string {
       end = null;
     }
   if (steps.length > 0) {
-    let sentence = `It plays ${list(steps)}`;
+    let sentence = `It ${list(steps)}`;
     if (reasons.length > 0) sentence += `, because ${reasons[0]}`;
     sentences.push(`${sentence}.`);
   }
@@ -212,10 +242,12 @@ export function adviceStory(input: StoryInput): string {
         ),
     );
     const why = held ? phrase(held.id, "leftOut") : undefined;
+    // With no rule holding it back, the plan's general stance, marked as such (Nov 20 review).
+    const stance = DECK_STANCES[deckOf(start, me, own) ?? ""];
     sentences.push(
       why
         ? `It doesn't invade because ${why}.`
-        : "It doesn't invade: the search scored its other moves higher.",
+        : `It doesn't invade: the search scored its other moves higher.${stance ? ` In general, ${stance}.` : ""}`,
     );
   }
 

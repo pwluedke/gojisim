@@ -139,8 +139,9 @@ describe("the Advisor's Why as a short story (#478 phase 2b)", () => {
       /Their SpaceGodzilla is in zone 3 with [\d,]+ threat/,
     );
     // The plays, with Kumonga's zone 8 effect.
-    expect(story).toContain("King Caesar (2004) into zone 1");
-    expect(story).toContain("Kumonga (2004) into zone 8 for its effect there");
+    expect(story).toContain(
+      "It plays King Caesar (2004) into zone 1 and plays Kumonga (2004) into zone 8 for its effect there.",
+    );
     // Not enough to counter, with the battle cards on the board.
     expect(story).toMatch(
       /That makes 5,000 counter power, not enough to counter SpaceGodzilla \(threat [\d,]+\), but it puts 2 battle cards on the board\./,
@@ -150,6 +151,10 @@ describe("the Advisor's Why as a short story (#478 phase 2b)", () => {
     // No rule pointed at the move: the gap line.
     expect(story).toContain(
       "No rule explains this move; the search picked it (55% to win).",
+    );
+    // Not invading: no rule held it back, so the plan's general stance follows, marked as such.
+    expect(story).toContain(
+      "It doesn't invade: the search scored its other moves higher. In general, Monster X wants to move slowly",
     );
     // No card numbers or rule ids in the Why.
     expect(story).not.toMatch(/[A-Z]{2,4}\d{2}-\d{3}|card rule|play rule/);
@@ -210,11 +215,33 @@ describe("the deck's goal, the story's first sentence (#478 phase 2b)", () => {
     expect(deckGoal(noMonsterX(), "P1", tangler)).toBe(DECK_GOALS["Tangler"]);
   });
 
-  it("a deck with no plan gets a goal by type: few monster cards read as a counter deck", () => {
+  it("a deck with a play guide but no plan gets its guide's goal (the Heisei starter)", () => {
     const starter = deck(
       ["ESD02-001", "ESD02-002", "ESD02-003", "ESD02-004"],
       Array(50).fill("ESD02-007"),
     );
-    expect(deckGoal(noMonsterX(), "P1", starter)).toBe(TYPE_GOALS.counter);
+    expect(deckGoal(noMonsterX(), "P1", starter)).toBe(
+      DECK_GOALS["Heisei starter"],
+    );
+  });
+
+  it("any other deck gets a goal by type: few monster cards read as a counter deck", () => {
+    const other = deck(
+      ["ESD02-001", "ESD02-002", "ESD02-003", "EBP02-045"],
+      Array(50).fill("ESD02-007"),
+    );
+    expect(deckGoal(noMonsterX(), "P1", other)).toBe(TYPE_GOALS.counter);
+  });
+});
+
+describe("the rule phrases (#478, Nov 20 review)", () => {
+  it("no rule ids, card numbers or search wording in any phrase", async () => {
+    const { RULE_PHRASES } = await import("./rulePhrases");
+    for (const p of Object.values(RULE_PHRASES))
+      for (const text of [p.chose, p.leftOut]) {
+        expect(text).not.toMatch(
+          /[A-Z]{2,4}\d{2}-\d{3}|#\d|rule \d|head start/,
+        );
+      }
   });
 });

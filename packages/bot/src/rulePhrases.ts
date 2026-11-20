@@ -22,7 +22,7 @@ export const RULE_PHRASES: Record<string, RulePhrases> = {
     chose:
       "a play this turn can clear the blocker in their zone 8, and then an invasion wins the game",
     leftOut:
-      "a play this turn can clear the blocker in their zone 8 first, so invading into the blocker or ending the turn now throws away a winning invasion",
+      "invading into the blocker, or ending the turn, throws away a winning invasion",
   },
   "card rule 3": {
     chose:
@@ -203,15 +203,14 @@ export const RULE_PHRASES: Record<string, RulePhrases> = {
     chose:
       "Godzilla Landing's push lets you make the counter this turn, by itself or with one more battle card",
     leftOut:
-      "a Godzilla Landing that sets up this turn's counter gets the head start instead",
+      "it would skip a Godzilla Landing that sets up this turn's counter",
   },
 
   // Play rules (`rules.ts`).
   "play rule 1": {
     chose:
       "playing a same-rank monster card on top of your monster grows its stack for the cards that count it",
-    leftOut:
-      "stacking a same-rank monster card on your monster gets the head start instead",
+    leftOut: "it would skip stacking a same-rank monster card on your monster",
   },
   "play rule 2": {
     chose:
@@ -244,9 +243,8 @@ export const RULE_PHRASES: Record<string, RulePhrases> = {
   },
   "play rule #195": {
     chose:
-      "the opponent's card offers to counter its own monster for a discard, and the cheapest card you can't play now pays for it",
-    leftOut:
-      "the opponent's card offers to counter its own monster for a discard, and a cheaper card can pay than this one",
+      "their Gigan lets you discard a card to send their monster back, and the cheapest card you can't play now pays for it",
+    leftOut: "a cheaper card can pay for sending their monster back",
   },
 
   // Rulings the search applies for every deck (`ismcts.ts`).
@@ -267,8 +265,7 @@ export const RULE_PHRASES: Record<string, RulePhrases> = {
   "Monster X plan": {
     chose:
       "the Monster X plan wants it: get battle cards of many colors into your zones, stay back with Entangling Fear, and counter",
-    leftOut:
-      "the Monster X plan argues against it, so the moves it wants get the head start",
+    leftOut: "the Monster X plan argues against it in favor of its own moves",
   },
 
   // Wrangler (`wranglerPlan.ts`, `wranglerPlanV2.ts`).
@@ -412,7 +409,7 @@ export const RULE_PHRASES: Record<string, RulePhrases> = {
     chose:
       "a Godzilla the Ride in the discard pile turns on the other Rides' bonus",
     leftOut:
-      "a Godzilla the Ride should go to the discard pile first, to turn on the other Rides' bonus",
+      "it would keep the Godzilla the Ride in hand, and the other Rides stay without their bonus",
   },
   "Red Fest plan 5": {
     chose:
@@ -437,6 +434,16 @@ export const RULE_PHRASES: Record<string, RulePhrases> = {
 
 /** One sentence per deck plan: what the deck is trying to do (from its play guide's "How the deck wins"). */
 export const DECK_GOALS: Record<string, string> = {
+  "King Ghidorah":
+    "King Ghidorah fills its discard pile with King Ghidorah cards so Mecha-King Ghidorah comes cheap, blocks their zone 7 with it, then invades 2 zones for the game.",
+  Bungler:
+    "The Bungler wins with three invade-2 turns, clearing their zone 8 before the last one.",
+  "Biollante Stundraw":
+    "Biollante gets countered up to its rank IV on purpose, then wins by invading after a Godzilla vs. Megaguirus wipes their board.",
+  "Minus One starter":
+    "The Minus One starter is a red invasion deck: it moves up the board every turn, strips the opponent's hand and clears their battle cards, and wins by invading from zone 8.",
+  "Heisei starter":
+    "The Heisei starter is a blue counter deck: it builds larvae early, evolves them into imagos for counter power, and counters the opponent's monster until it runs out of ranks.",
   "Monster X":
     "Monster X wants to build a lot of counter power quickly and counter, moving slowly and staying between zones 3 and 5, especially early.",
   Wrangler:
@@ -457,4 +464,18 @@ export const TYPE_GOALS: { counter: string; invasion: string } = {
     "A counter deck wants to build counter power and counter the opponent's monster before it reaches zone 8.",
   invasion:
     "An invasion deck wants to move its monster forward fast, clear the way, and invade into the opponent's zone 8 to win.",
+};
+
+/**
+ * #478 (Nov 20 review): a plan's general stance on invading, added when the bot doesn't invade and
+ * no rule held this turn's invasion back. It's the plan's stance, not this turn's reason.
+ */
+export const DECK_STANCES: Record<string, string> = {
+  "Monster X":
+    "Monster X wants to move slowly and stay between zones 3 and 5, especially early",
+  Wrangler: "the Wrangler invades only when the invasion wins the game",
+  Tangler:
+    "the Tangler doesn't invade before its own fourth turn unless the invasion wins the game",
+  "Red Fest":
+    "Red Fest invades from its rank IV, or earlier only when it lines up a push or a big play",
 };
