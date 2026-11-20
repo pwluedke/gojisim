@@ -21,7 +21,21 @@ export const POSTS_PER_UPLOAD = 5;
 export const POST_TIMEOUT_MS = 5000;
 
 export type ReportKind =
-  "Report bug" | "Bad Bot!" | "Good Bot!" | "Mailbox" | "Crash";
+  | "Report bug"
+  | "Bad Bot!"
+  | "Good Bot!"
+  | "Mailbox"
+  | "Crash"
+  | "Disagree"
+  | "Right move, wrong reason (reason gap)";
+
+/** #478 phase 2c: what a Disagree said was wrong with the move, in words. */
+const ADVICE_REASONS: Record<string, string> = {
+  wrongCard: "wrong card",
+  wrongZone: "wrong zone",
+  wrongTiming: "wrong timing",
+  other: "other",
+};
 
 /**
  * #214: what the reporter allowed in the community channel. An entry without it (an app from
@@ -115,6 +129,39 @@ function entries(record: Json): { key: string; report: NewReport }[] {
       // A suggestion isn't about a moment of the game (decision 3 of #111): no turn.
       report: { kind: "Mailbox", ...base(e), when: null, actionIndex: null },
     });
+  // #478 phase 2c: the Advisor's Disagree and "right move, wrong reason" answers, from a signed-in
+  // player only, one post per decision (a second answer there replaces the first in the record).
+  if (str(record["playerId"]))
+    for (const e of list(record["classroomAdvice"])) {
+      const answer = e["answer"];
+      if (answer !== "disagree" && answer !== "wrongReason") continue;
+      const reason = ADVICE_REASONS[str(e["reason"]) ?? ""];
+      const note = str(e["note"]) ?? "";
+      const why = str(e["why"]);
+      const turn = num(e["turn"]);
+      out.push({
+        key: `advice|${turn}|${num(e["actionIndex"])}`,
+        report: {
+          kind:
+            answer === "disagree"
+              ? "Disagree"
+              : "Right move, wrong reason (reason gap)",
+          reporter: player,
+          text: [
+            answer === "disagree" && reason ? `(${reason}) ${note}` : note,
+            why ? `Why shown: ${why}` : null,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+          when: turn !== null ? `Turn ${turn}` : null,
+          actionIndex: num(e["actionIndex"]),
+          move: str(e["pickLabel"]),
+          frame: null,
+          source: null,
+          community: "none",
+        },
+      });
+    }
   const crash = obj(record["crash"]);
   if (crash)
     out.push({

@@ -625,3 +625,55 @@ describe("the upload route posts to a fake webhook (#136)", () => {
     }
   });
 });
+
+describe("#478 phase 2c: the Advisor's answers go to #gojisim-reports", () => {
+  const advice = (answer: string, actionIndex: number, extra = {}) => ({
+    actionIndex,
+    player: "P1",
+    turn: 3,
+    pick: { type: "pass", player: "P1" },
+    pickLabel: "You: Pass (Turn 3, Main phase)",
+    alternatives: [],
+    rules: [],
+    answer,
+    at: AT(actionIndex),
+    ...extra,
+  });
+  const record = {
+    ...base,
+    playerId: "player-1",
+    playerName: "Tester",
+    classroomAdvice: [
+      advice("agree", 1),
+      advice("disagree", 2, {
+        reason: "wrongCard",
+        note: "play the larva",
+        why: "No rule explains this move.",
+      }),
+      advice("wrongReason", 3, { note: "it stacks for the rank-up" }),
+    ],
+  };
+
+  it("posts Disagree and right-move-wrong-reason answers once each, with the note, reason and Why; never Agree", () => {
+    const posts = newReports(record, null);
+    expect(posts.map((r) => r.kind)).toEqual([
+      "Disagree",
+      "Right move, wrong reason (reason gap)",
+    ]);
+    expect(posts[0]).toMatchObject({
+      reporter: "Tester",
+      when: "Turn 3",
+      actionIndex: 2,
+      move: "You: Pass (Turn 3, Main phase)",
+      text: "(wrong card) play the larva\nWhy shown: No rule explains this move.",
+    });
+    expect(posts[1]?.text).toBe("it stacks for the rank-up");
+    // The same game uploaded again posts nothing new.
+    expect(newReports(record, record)).toEqual([]);
+  });
+
+  it("an unsigned game's answers post nothing", () => {
+    const { playerId: _p, ...unsigned } = record;
+    expect(newReports(unsigned, null)).toEqual([]);
+  });
+});
