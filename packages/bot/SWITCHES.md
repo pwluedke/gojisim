@@ -104,6 +104,18 @@ Default 1 · built · from #353
 
 Card rule 27: when you discard from your hand (5.7.1, 5.7.2), don't discard a strategy card while you could discard a battle card that you can't play this turn or next turn (its rank is more than 2 above the zone of the opponent's monster).
 
+### `landingIntoCounter`
+
+Default 1 · built · from #364
+
+Card rule 34: favor activating Godzilla Landing EBP01-030 when its push lets you make the counter this turn, by itself or with one more battle card. It's a head start in the search, not a rule: a Landing with no counter after it isn't left out.
+
+### `landingZone8`
+
+Default 1 · built · from #419
+
+Card rule 33: don't activate Godzilla Landing EBP01-030 while the opponent's monster is already in zone 8, where its push can't move it.
+
 ### `modeBest`
 
 Default 1 · built · from #386

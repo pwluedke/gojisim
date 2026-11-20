@@ -39,6 +39,7 @@ import { deadKeys } from "./prune";
 import {
   type CardRulesOptions,
   cardRulesDead,
+  landingIntoCounter,
   rescuedPlays,
 } from "./cardRules";
 import { type FestOptions, festVerdict } from "./festPlan";
@@ -645,6 +646,21 @@ export function search(input: BotInput, settings: IsmctsSettings) {
               actionKey(first, a),
               Math.max(favored.get(actionKey(first, a)) ?? 0, MX_PLAN_BIAS),
             );
+    }
+    // Card rule 34 (#364, #380): a Godzilla Landing into this turn's counter, a preference.
+    if (
+      iterations === 1 &&
+      settings.rules > 0 &&
+      settings.landingIntoCounter > 0
+    ) {
+      const first = state;
+      const into = landingIntoCounter(first, input.legalActions, me);
+      if (into.length > 0) input.trace?.rule("card rule 34", "favored", into);
+      for (const a of into)
+        favored.set(
+          actionKey(first, a),
+          Math.max(favored.get(actionKey(first, a)) ?? 0, MX_PLAN_BIAS),
+        );
     }
     // The Tangler plan (#403), a preference like the Wrangler plan.
     if (iterations === 1 && settings.rules > 0 && settings.tanglerPlan > 0) {
