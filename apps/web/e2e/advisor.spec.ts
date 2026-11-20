@@ -47,6 +47,10 @@ test("Classroom advisor: the bot's move in your seat, with Agree kept in the tur
   await expect(page.getByTestId("advisor-why")).not.toBeEmpty();
   await page.getByTestId("advisor-win-tip").first().hover();
   await expect(page.getByTestId("advisor-win-tip").first()).toBeVisible();
+  // Nov 19 wording: the tip names this move's own number of tries.
+  await expect(
+    page.getByText(/It tried the move \d+ times? in its head/),
+  ).toBeVisible();
   // Nov 19: "Copy text" puts the whole panel on the clipboard as plain text.
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.getByTestId("advisor-copy").click();

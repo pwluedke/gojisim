@@ -34,10 +34,14 @@ const EFFECT_TIP: Record<string, string> = {
     "This deck plan argued against the move: the plan's other moves get a head start instead.",
 };
 
-const WIN_TIP =
-  "The bot's estimate of its chance to win after this move: the average result of the quick games it played out in its head that started with it.";
+/**
+ * #478 (Nov 19 wording): what "% to win" means, with this move's own number of tries. The search's
+ * play-outs run to the end of the opponent's next turn (`rolloutTurns` 1).
+ */
+const winTip = (looks: number) =>
+  `The bot's guess at its chance to win the game if it makes this move. It tried the move ${looks} time${looks === 1 ? "" : "s"} in its head. Each time it guessed your opponent's hidden cards, played both sides on quickly to the end of your opponent's next turn, and scored the position from 0% (lost) to 100% (won). This is the average of those scores.`;
 const LOOKS_TIP =
-  "How many of those quick games started with this move. The search spends its looks on the moves that keep doing well, and the bot plays the most-looked-at one.";
+  "How many of those tries started with this move. The search gives more tries to moves that keep scoring well. The bot plays the move with the most tries, which is usually the highest %.";
 
 /** What a rule id means, by its kind. */
 function ruleTip(id: string): string {
@@ -250,7 +254,7 @@ export function AdvisorPanel({
                     {withTips(labelOf(a.action))}{" "}
                     <span className={styles.muted}>
                       (
-                      <Tooltip tip={WIN_TIP} testId="advisor-win-tip">
+                      <Tooltip tip={winTip(a.visits)} testId="advisor-win-tip">
                         {percent(a.winRate)} to win
                       </Tooltip>
                       ,{" "}
@@ -262,6 +266,12 @@ export function AdvisorPanel({
                   </li>
                 ))}
               </ol>
+            )}
+            {advice.trace.rules.some((r) => r.effect === "removed") && (
+              <p className={styles.muted} data-testid="advisor-untried">
+                Moves the rules took off the list weren&apos;t tried, so they
+                have no %.
+              </p>
             )}
             {advice.trace.rules.length > 0 && (
               <ul className={styles.list} data-testid="advisor-rules">
