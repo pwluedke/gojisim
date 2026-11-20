@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { loadFixture } from "./helpers";
+import { loadFixture, testSite } from "./helpers";
 
 /*
  * #279: My games on the dev server, for a dev sign-in (`/auth/dev?as=<name>`): the games the dev
@@ -31,11 +31,13 @@ test("#279, #244: a game sent mid-game (Report bug) lists as in progress; Load c
   await signIn(page);
   // The fixture: P1 (you) at its play timing against a Medium bot.
   await loadFixture(page, "hand-count-five");
-  await page.getByTestId("report-bug").click();
+  await (await testSite(page)).getByTestId("report-bug").click();
   await page.getByTestId("report-name").fill("Tester");
   await page.getByTestId("report-text").fill("checking My games");
   await page.getByTestId("report-submit").click();
-  await expect(page.getByTestId("test-site-note")).toHaveText("Thanks, sent.");
+  await expect((await testSite(page)).getByTestId("test-site-note")).toHaveText(
+    "Thanks, sent.",
+  );
   await page.goto("/history");
   const rows = page.getByTestId("history-game");
   await expect(rows).toHaveCount(1);

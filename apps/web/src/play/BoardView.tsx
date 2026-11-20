@@ -924,6 +924,7 @@ export function BoardView({
   log = null,
   settings = null,
   header = null,
+  advisor,
   step = null,
   animation = "off",
   onAnimating,
@@ -974,6 +975,8 @@ export function BoardView({
   settings?: ReactNode;
   /** Paul, Nov 10: the theme's header block, at the top of the left column (Showa Poster). */
   header?: ReactNode;
+  /** #478: the Classroom advisor, its own panel under the phase tracker (it scrolls inside). */
+  advisor?: ReactNode;
   /**
    * The shown state's action count while live, `null` in the history view (M5f): a change of
    * exactly one step animates, anything else shows at once.
@@ -1206,7 +1209,8 @@ export function BoardView({
           data-bottom={model.bottom}
         >
           <aside className={styles.leftColumn} data-testid="left-column">
-            {header}
+            {/* #478: the title, the player and the account links stay put. */}
+            <div className={styles.leftHeader}>{header}</div>
             <section className={styles.panel} data-testid="prompt">
               <div className={styles.panelTitle}>Prompt</div>
               {prompt}
@@ -1222,6 +1226,14 @@ export function BoardView({
                 <PhaseTracker view={view} name={name} />
               )}
             </section>
+            {advisor && (
+              <section
+                className={`${styles.panel} ${styles.advisorSlot}`}
+                data-testid="advisor-slot"
+              >
+                {advisor}
+              </section>
+            )}
             {settings}
           </aside>
           <main
@@ -1232,14 +1244,9 @@ export function BoardView({
             onClick={() => setViewTip(null)}
           >
             {viewTip && <TipBubble box={viewTip.box} tip={viewTip.tip} />}
-            {/* The opponent's hand sits left of their mat, top-aligned with it (bot hand row). */}
+            {/* The opponent's hand sits right of their mat, top-aligned with it (bot hand row; #478: on the right). */}
             <div className={styles.oppRow}>
-              <OpponentHand
-                player={opp}
-                cards={view.cards}
-                open={model.openHand}
-                badgeCount={heldCounts?.[`${opp.id}|hand`]}
-              />
+              <div aria-hidden className={styles.oppRowSpacer} />
               <Mat
                 model={model}
                 player={opp}
@@ -1247,6 +1254,12 @@ export function BoardView({
                 glow={glowFor(opp)}
                 mat={mat}
                 warning={deckWarnings[opp.id]}
+              />
+              <OpponentHand
+                player={opp}
+                cards={view.cards}
+                open={model.openHand}
+                badgeCount={heldCounts?.[`${opp.id}|hand`]}
               />
             </div>
             <div className={styles.centerLine} />

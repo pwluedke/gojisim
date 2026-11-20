@@ -210,3 +210,15 @@ export async function dragWindowAndHover(
   await card.hover();
   await expect(page.getByTestId("card-preview").first()).toBeVisible();
 }
+
+/**
+ * #478 (Nov 19): the Test Site panel, opened first (it starts folded, like Settings). For its
+ * buttons and Test settings: `(await testSite(page)).getByTestId("report-bug")`.
+ */
+export async function testSite(page: Page): Promise<Locator> {
+  const panel = page.getByTestId("test-site");
+  if ((await panel.getAttribute("data-open")) !== "true")
+    await page.getByTestId("test-site-toggle").click();
+  await expect(panel).toHaveAttribute("data-open", "true");
+  return panel;
+}

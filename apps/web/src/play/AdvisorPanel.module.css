@@ -1,0 +1,86 @@
+/* #478: the Classroom advisor, in the left column under the prompt (the banner's frame). */
+/* #478: the reasoning scrolls inside; the answer buttons stay in view under it. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.footer {
+  flex: none;
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--color-border);
+}
+
+.footer textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Nov 19: the title, with "Copy text" at the top right. */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-1);
+}
+
+.title {
+  margin: 0;
+  font-size: 1em;
+}
+
+.copy {
+  font-size: var(--font-size-sm);
+}
+
+/* Nov 19: the rules in three groups; "Why it chose this move" stands out, in the theme's accent. */
+.groupTitle {
+  margin: var(--space-1) 0 0;
+  font-size: 0.95em;
+}
+
+.whyGroup {
+  padding-left: var(--space-2);
+  border-left: 3px solid var(--color-accent);
+}
+
+.whyId {
+  color: var(--color-accent);
+}
+
+.muted {
+  color: var(--color-muted);
+}
+
+.list {
+  margin: var(--space-1) 0;
+  padding-left: var(--space-4);
+}
+
+.buttons,
+.disagree {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+  margin-top: var(--space-1);
+}
+
+.summary {
+  margin-top: var(--space-1);
+}
+
+.plan {
+  margin-bottom: var(--space-1);
+  padding-bottom: var(--space-1);
+  border-bottom: 1px dashed var(--color-border);
+}

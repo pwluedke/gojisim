@@ -8,7 +8,10 @@ import {
   getLegalActions,
   type MatchMode,
   stepPhase,
+  type AdviceReason,
+  type ClassroomAdvice,
 } from "@gojisim/engine";
+import { BOT_VERSION } from "@gojisim/bot";
 import { validateDeck } from "@gojisim/cards";
 import { useEffect, useMemo, useRef, useState } from "react";
 import "../theme.css";
@@ -67,7 +70,9 @@ import {
 } from "../game/errors";
 import { FloatingWindow } from "./FloatingWindow";
 import { ReportModal } from "./ReportModal";
+import { AdvisorPanel } from "./AdvisorPanel";
 import { ClassroomCompare, ClassroomSame } from "./ClassroomCompare";
+import { useAdvisor } from "../game/useAdvisor";
 import {
   botTurnLabels,
   classroomBotSeat,
@@ -75,6 +80,7 @@ import {
   classroomStage,
   differenceName,
   sandboxEnd,
+  withClassroomAdvice,
   withClassroomRating,
   withClassroomSubmit,
 } from "../game/classroom";
@@ -410,6 +416,60 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
     stage?.kind === "play" &&
     sandboxFrom === stage.actionIndex &&
     sandboxGame.session !== null;
+  // #478: the Classroom advisor, at the player's own decisions at the live end of a local game.
+  const advisorSession = online ? null : local.session;
+  const advisorState = advisorSession
+    ? (advisorSession.states[advisorSession.position] ?? null)
+    : null;
+  const advisorPlayer = advisorState
+    ? ((advisorState.pendingChoice?.player ??
+        advisorState.turnPlayer) as PlayerId)
+    : null;
+  const advisorOn =
+    !!advisorSession?.record.classroom &&
+    advisorSession.position === advisorSession.record.actions.length &&
+    stage === null &&
+    !inSandbox &&
+    advisorState?.result === null &&
+    advisorPlayer !== null &&
+    advisorSession.seats[advisorPlayer]?.kind === "human";
+  const {
+    advice,
+    thinking: advising,
+    turnPlan,
+  } = useAdvisor(advisorSession, advisorState, advisorOn);
+  const adviceAnswers = advisorSession?.record.classroomAdvice ?? [];
+  const answerAdvice = (
+    answer: "agree" | "disagree",
+    reason?: AdviceReason,
+    note?: string,
+  ) => {
+    if (!advice || !advisorState) return;
+    const label = (a: Action) => actionLabel(advisorState, a);
+    const entry: ClassroomAdvice = {
+      actionIndex: advice.actionIndex,
+      player: advice.player,
+      turn: advice.turn,
+      pick: advice.trace.pick,
+      pickLabel: label(advice.trace.pick),
+      alternatives: advice.trace.alternatives.map((a) => ({
+        label: label(a.action),
+        visits: a.visits,
+        winRate: a.winRate,
+      })),
+      rules: advice.trace.rules.map((r) => ({
+        id: r.id,
+        effect: r.effect,
+        text: r.text,
+      })),
+      answer,
+      ...(reason ? { reason } : {}),
+      ...(note ? { note } : {}),
+      botVersion: BOT_VERSION,
+      at: new Date().toISOString(),
+    };
+    local.setSession((s) => (s ? withClassroomAdvice(s, entry) : s));
+  };
   // M9b: a head to head game uses the server's session, legal actions and boards instead.
   const real = online ? onlineGame(local, online) : local;
   const game = inSandbox ? sandboxGame : real;
@@ -1783,6 +1843,26 @@ export function PlayScreen({ online }: { online?: OnlinePlay } = {}) {
           }
           model={model}
           prompt={prompt}
+          advisor={
+            advisorOn && advisorState ? (
+              <AdvisorPanel
+                advice={advice}
+                thinking={advising}
+                labelOf={(a) => actionLabel(advisorState, a)}
+                answered={
+                  adviceAnswers.find(
+                    (a) => a.actionIndex === advice?.actionIndex,
+                  ) ?? null
+                }
+                turnAnswers={adviceAnswers.filter(
+                  (a) =>
+                    a.turn === advisorState.turn && a.player === advisorPlayer,
+                )}
+                turnPlan={turnPlan?.steps ?? null}
+                onAnswer={answerAdvice}
+              />
+            ) : null
+          }
           matBanner={
             xilien ? (
               <div

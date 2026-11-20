@@ -13,6 +13,7 @@ import {
   classroomStage,
   differenceName,
   sandboxEnd,
+  withClassroomAdvice,
   withClassroomRating,
   withClassroomSubmit,
 } from "./classroom";
@@ -181,5 +182,38 @@ describe("Kaiju Classroom (#365)", () => {
     expect(differenceName("own.zones.3")).toBe("Bot's zone 3");
     expect(differenceName("opponent.handCount")).toBe("Your hand size");
     expect(differenceName("own.hand")).toBe("Bot's hand");
+  });
+});
+
+describe("Classroom advice answers (#478)", () => {
+  const entry = (actionIndex: number, answer: "agree" | "disagree") => ({
+    actionIndex,
+    player: "P1" as const,
+    turn: 1,
+    pick: { type: "pass", player: "P1" } as Action,
+    pickLabel: "Pass",
+    alternatives: [],
+    rules: [{ id: "card rule 7", effect: "forced", text: "…" }],
+    answer,
+    at: "2026-11-18T20:00:00.000Z",
+  });
+
+  it("an answer is kept in the record (information only); a second one at the same decision replaces it", () => {
+    let s = classroomGame();
+    const actions = s.record.actions.length;
+    s = withClassroomAdvice(s, entry(3, "agree"));
+    s = withClassroomAdvice(s, entry(5, "agree"));
+    s = withClassroomAdvice(s, {
+      ...entry(3, "disagree"),
+      reason: "wrongZone",
+    });
+    expect(
+      s.record.classroomAdvice?.map((a) => [a.actionIndex, a.answer]),
+    ).toEqual([
+      [5, "agree"],
+      [3, "disagree"],
+    ]);
+    // Replay never reads it: the game's actions are unchanged.
+    expect(s.record.actions).toHaveLength(actions);
   });
 });

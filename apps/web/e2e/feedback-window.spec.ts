@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { loadFixture } from "./helpers";
+import { loadFixture, testSite } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -36,7 +36,7 @@ for (const w of WINDOWS)
     page,
   }) => {
     await loadFixture(page, "hand-five");
-    await page.getByTestId(w.button).click();
+    await (await testSite(page)).getByTestId(w.button).click();
     const modal = page.getByTestId(w.modal);
     await expect(modal).toBeVisible();
     // No backdrop over the board.
@@ -80,8 +80,8 @@ for (const w of WINDOWS)
 
     // Send still sends.
     await page.getByTestId("report-submit").click();
-    await expect(page.getByTestId("test-site-note")).toHaveText(
-      "Thanks, sent.",
-    );
+    await expect(
+      (await testSite(page)).getByTestId("test-site-note"),
+    ).toHaveText("Thanks, sent.");
     await expect(modal).toHaveCount(0);
   });

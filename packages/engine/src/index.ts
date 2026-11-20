@@ -71,6 +71,8 @@ export {
   type IdeaEntry,
   type CrashEntry,
   type ClassroomRating,
+  type AdviceReason,
+  type ClassroomAdvice,
   type ClassroomTurn,
 } from "./record";
 export { canUndo, type UndoBoundary, undoBoundary, undoLast } from "./undo";

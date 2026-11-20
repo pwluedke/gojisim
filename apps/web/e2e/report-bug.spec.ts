@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
-import { fixture, loadFixture } from "./helpers";
+import { fixture, loadFixture, testSite } from "./helpers";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -13,7 +13,7 @@ test.use({ viewport: { width: 1440, height: 900 } });
 
 /** Opens Report bug and fills it in. */
 async function fillReport(page: Page) {
-  await page.getByTestId("report-bug").click();
+  await (await testSite(page)).getByTestId("report-bug").click();
   await page.getByTestId("report-name").fill("Dr. Serizawa");
   await page.getByTestId("report-text").fill("something looked wrong");
 }
@@ -28,7 +28,9 @@ async function report(page: Page): Promise<Record<string, unknown>> {
     ),
     page.getByTestId("report-submit").click(),
   ]);
-  await expect(page.getByTestId("test-site-note")).toHaveText("Thanks, sent.");
+  await expect((await testSite(page)).getByTestId("test-site-note")).toHaveText(
+    "Thanks, sent.",
+  );
   return JSON.parse(request.postData() ?? "{}") as Record<string, unknown>;
 }
 
@@ -74,10 +76,10 @@ test("not during the First / Second pick: no game record exists yet", async ({
   await page.goto("/play?mode=bot");
   await page.getByTestId("start-game").click();
   await expect(page.getByTestId("first-pick")).toBeVisible();
-  await expect(page.getByTestId("report-bug")).toBeDisabled();
+  await expect((await testSite(page)).getByTestId("report-bug")).toBeDisabled();
   await page.getByTestId("first-pick-card-0").click();
   await page.getByTestId("first-pick-continue").click();
-  await expect(page.getByTestId("report-bug")).toBeEnabled();
+  await expect((await testSite(page)).getByTestId("report-bug")).toBeEnabled();
 });
 
 test("a failed send downloads the file instead, and says so", async ({
@@ -102,7 +104,7 @@ test("a failed send downloads the file instead, and says so", async ({
       when: expect.stringMatching(/^Turn \d+, \w+/),
     },
   ]);
-  await expect(page.getByTestId("test-site-note")).toHaveText(
+  await expect((await testSite(page)).getByTestId("test-site-note")).toHaveText(
     "Couldn't send. The game file was downloaded; send it to Paul.",
   );
 });
@@ -111,9 +113,11 @@ test("the Which button? help says Report bug sends the note and the game", async
   page,
 }) => {
   await loadFixture(page, "hand-five");
-  await page.getByTestId("test-settings").click();
-  await page.getByTestId("which-button").click();
-  await expect(page.getByTestId("which-button-report-bug")).toHaveText(
+  await (await testSite(page)).getByTestId("test-settings").click();
+  await (await testSite(page)).getByTestId("which-button").click();
+  await expect(
+    (await testSite(page)).getByTestId("which-button-report-bug"),
+  ).toHaveText(
     "Report bug: something in the game itself is wrong: a rule, a card doing the wrong thing, or the screen. Your note and the game are sent to us.",
   );
 });

@@ -26,6 +26,8 @@
 /* The left column (M5d): prompt, phase tracker and settings, stacked. */
 .leftColumn {
   flex: none;
+  display: flex;
+  flex-direction: column;
   width: var(--left-column-width);
   height: 100%;
   overflow: auto;
@@ -33,6 +35,29 @@
   padding: 6px var(--space-2);
   border-right: 1px solid var(--color-border);
   background: var(--color-panel-alt);
+}
+
+/* #478: the title block, player and account links stay in place while the column scrolls. */
+.leftHeader {
+  flex: none;
+  position: sticky;
+  top: -6px;
+  z-index: 3;
+  background: var(--color-panel-alt);
+}
+
+.leftColumn > .panel {
+  flex: none;
+}
+
+/* #478: the advisor takes the column's spare height and scrolls inside (`AdvisorPanel`). */
+.leftColumn > .advisorSlot {
+  flex: 1 1 0;
+  /* Nov 19: twice the first height (12rem), Agree and Disagree still pinned under it. */
+  min-height: 24rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .promptRow {
@@ -525,7 +550,13 @@
   display: flex;
   min-width: 0;
   height: calc(var(--card-h) / 2);
-  margin-left: calc(-1 * var(--space-4));
+  /* #478: right of the mat, so it may use the board's right padding. */
+  margin-right: calc(-1 * var(--space-4));
+}
+
+/* The bot hand row's empty left cell, which keeps the mat centered. */
+.oppRowSpacer {
+  min-width: 0;
 }
 
 .handSlot {
@@ -2231,6 +2262,23 @@
     var(--color-hazard) 0 8px,
     var(--color-hazard-dark) 8px 16px
   );
+}
+
+/* #478 (Nov 19): the title is the fold's handle, like Settings' bar. */
+.testSiteSummary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.testSiteSummary::-webkit-details-marker {
+  display: none;
+}
+
+.testSiteBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
 }
 
 .testSiteTitle {

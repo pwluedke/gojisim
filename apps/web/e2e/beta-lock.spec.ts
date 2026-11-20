@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { startGame } from "./helpers";
+import { startGame, testSite } from "./helpers";
 
 /**
  * Beta (Paul, Nov 13, 2026): bot difficulty is locked at 100. The other specs run with the
@@ -48,8 +48,8 @@ test("Ian and Tuscancow (Nov 14): a new game against the bot starts with its han
   const hand = page.getByTestId("opponent-hand");
   await expect(hand.getByTestId("card").first()).toBeVisible();
   await expect(hand.getByTestId("opponent-card-back")).toHaveCount(0);
-  await page.getByTestId("test-settings").click();
-  const toggle = page.getByTestId("show-opponent-hand");
+  await (await testSite(page)).getByTestId("test-settings").click();
+  const toggle = (await testSite(page)).getByTestId("show-opponent-hand");
   await expect(toggle).toBeChecked();
   // Off hides it (backs only), and asks nothing.
   await toggle.click();

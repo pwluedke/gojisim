@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
-import { loadFixture, vsBot } from "./helpers";
+import { loadFixture, vsBot, testSite } from "./helpers";
 
 /**
  * M5h-1: play-test round 2 (board and game flow). Hotseat's removal (#15) and the End Main
@@ -138,8 +138,8 @@ test("#13 Show opponent's hand (vs bot): the bot's hand shows face up", async ({
   await page.goto("/play");
   await page.getByTestId("seed-input").fill("2");
   await page.getByTestId("start-game").click();
-  await page.getByTestId("test-settings").click();
-  await page.getByTestId("show-opponent-hand").click();
+  await (await testSite(page)).getByTestId("test-settings").click();
+  await (await testSite(page)).getByTestId("show-opponent-hand").click();
   await page.getByTestId("confirm-yes").click();
   await page.getByTestId("first-pick-card-0").click();
   await page.getByTestId("first-pick-continue").click();
@@ -149,13 +149,17 @@ test("#13 Show opponent's hand (vs bot): the bot's hand shows face up", async ({
   // Off in the next game: backs only.
   await page.goto("/play");
   await page.getByTestId("start-game").click();
-  await expect(page.getByTestId("show-opponent-hand")).not.toBeChecked();
+  await expect(
+    (await testSite(page)).getByTestId("show-opponent-hand"),
+  ).not.toBeChecked();
   // Watching two bots: not offered.
   await page.goto("/play");
   await page.getByTestId("seat-P1").selectOption("bot");
   await page.getByTestId("start-game").click();
   await expect(page.getByTestId("test-site")).toBeVisible();
-  await expect(page.getByTestId("show-opponent-hand")).toHaveCount(0);
+  await expect(
+    (await testSite(page)).getByTestId("show-opponent-hand"),
+  ).toHaveCount(0);
 });
 
 test("#14 the search pick names what is searched for, with no number badges and no repeated location labels; number keys still pick", async ({

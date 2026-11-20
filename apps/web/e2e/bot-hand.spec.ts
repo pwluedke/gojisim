@@ -42,7 +42,7 @@ for (const [width, height] of [
       ["hand-ten", 5],
       ["hand-five", 8],
     ] as const)
-      test(`${cards} bot cards: the row's top is the mat's top, it stays left of the mat, or it is one card with the count`, async ({
+      test(`${cards} bot cards: the row's top is the mat's top, it stays right of the mat (#478), or it is one card with the count`, async ({
         page,
       }) => {
         await loadFixture(page, fixture);
@@ -63,8 +63,8 @@ for (const [width, height] of [
           // Each next card shows about a sixth of the one before.
           const second = await backs.nth(1).boundingBox();
           expect(second?.x ?? 0).toBeCloseTo(first.x + first.width / 6, 0);
-          const last = await backs.last().boundingBox();
-          expect((last?.x ?? 0) + (last?.width ?? 0)).toBeLessThan(mat.x);
+          // #478: the row sits right of the mat.
+          expect(first.x).toBeGreaterThan(mat.x + mat.width);
           expect(needed).toBeLessThanOrEqual(row.width + 0.5);
         } else {
           // The row would have reached the mat: one card with the count on it. (Paul, Nov 10: with
@@ -73,11 +73,10 @@ for (const [width, height] of [
           expect(needed).toBeGreaterThan(row.width);
           await expect(backs).toHaveCount(1);
           await expect(hand.getByTestId("opponent-hand-count")).toBeVisible();
-          // Known (Nov 10): at 1280×800 the gap left of the mat is a few pixels narrower than one
-          // half-size card in every theme, so the count card touches the mat by up to 3 px. Showa
-          // has it too now that its cards are the other themes' size; the fix is its own issue.
-          expect(first.x + first.width).toBeLessThan(
-            mat.x + (width === 1280 ? 3 : 0),
+          // Known (Nov 10): at 1280×800 the gap beside the mat is a few pixels narrower than one
+          // half-size card in every theme, so the count card may touch the mat by up to 3 px.
+          expect(first.x).toBeGreaterThan(
+            mat.x + mat.width - (width === 1280 ? 3 : 0),
           );
         }
         // Both hands' rows stay inside the board, clear of the side columns.

@@ -1,4 +1,4 @@
-import { type BotInput, PRESETS } from "@gojisim/bot";
+import { type DecisionTrace, type BotInput, PRESETS } from "@gojisim/bot";
 import type { PrivateSetData } from "./privateSetData";
 import {
   type Action,
@@ -113,10 +113,22 @@ export interface BotRequest {
   difficulty: number;
   /** The private card set's cards and abilities (`privateSet.ts`), registered by the worker. */
   privateSet?: PrivateSetData;
+  /** #478: answer with the decision's trace too (the same search: the move doesn't change). */
+  trace?: boolean;
 }
 
 export type BotResponse =
-  { id: number; action: Action; ms: number } | { id: number; error: string };
+  | {
+      id: number;
+      action: Action;
+      ms: number;
+      trace?: DecisionTrace;
+      /** #478: with `trace`, the search's planned line through the turn, as the log words it. */
+      plan?: string[];
+      /** #478 phase 2b: with `trace`, the Why as a short story (`adviceStory`). */
+      story?: string;
+    }
+  | { id: number; error: string };
 
 /**
  * A short log label for a bot action, e.g. "Bot (Hard): Play Super-X [ESD02-009] → zone 8". With

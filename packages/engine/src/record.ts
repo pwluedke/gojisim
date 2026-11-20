@@ -128,6 +128,39 @@ export interface GameRecord {
   classroom?: true;
   /** #365: each compared bot turn, oldest first. Information only; replay never reads it. */
   classroomTurns?: ClassroomTurn[];
+  /**
+   * #478: the bot's advice at the player's own decisions in a Classroom game that the player
+   * answered, oldest first. Information only; replay never reads it.
+   */
+  classroomAdvice?: ClassroomAdvice[];
+}
+
+/** #478: why the player disagreed with the bot's advice (`other` comes with a note). */
+export type AdviceReason = "wrongCard" | "wrongZone" | "wrongTiming" | "other";
+
+/**
+ * #478: one piece of Classroom advice and the player's answer: at the position after
+ * `actionIndex` actions, the bot (in the player's seat, with only what the player knows) would
+ * have played `pick`, for the rules listed; the player agreed or disagreed.
+ */
+export interface ClassroomAdvice {
+  actionIndex: number;
+  player: PlayerId;
+  turn: number;
+  pick: Action;
+  /** The pick and the alternatives as the battle log words them, with their win estimates. */
+  pickLabel: string;
+  alternatives: { label: string; visits: number; winRate: number | null }[];
+  /** The rules that touched the decision: the play guides' ids, what they did, their sentences. */
+  rules: { id: string; effect: string; text: string }[];
+  answer: "agree" | "disagree";
+  reason?: AdviceReason;
+  /** The player's words, with `reason: "other"`. */
+  note?: string;
+  /** `BOT_VERSION` of the bot that advised. */
+  botVersion?: string;
+  /** ISO time the player answered. */
+  at: string;
 }
 
 /** #365: how the player rated the bot's turn (`same`: the automatic same end position). */
