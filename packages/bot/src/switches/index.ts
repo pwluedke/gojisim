@@ -16,6 +16,8 @@ import festRankTwoPush from "./festRankTwoPush";
 import festWall from "./festWall";
 import keepLowRank from "./keepLowRank";
 import keepStrategy from "./keepStrategy";
+import landingIntoCounter from "./landingIntoCounter";
+import landingZone8 from "./landingZone8";
 import modeBest from "./modeBest";
 import mxFearReach from "./mxFearReach";
 import mxFillBoard from "./mxFillBoard";
@@ -30,6 +32,7 @@ import noPlanUse from "./noPlanUse";
 import ownBehind from "./ownBehind";
 import ownCover from "./ownCover";
 import ownPath from "./ownPath";
+import rageOrStack from "./rageOrStack";
 import recognizer from "./recognizer";
 import recurDiscard from "./recurDiscard";
 import revengeStep from "./revengeStep";
@@ -85,6 +88,8 @@ export const SWITCHES = [
   festWall,
   keepLowRank,
   keepStrategy,
+  landingIntoCounter,
+  landingZone8,
   modeBest,
   mxFearReach,
   mxFillBoard,
@@ -99,6 +104,7 @@ export const SWITCHES = [
   ownBehind,
   ownCover,
   ownPath,
+  rageOrStack,
   recognizer,
   recurDiscard,
   revengeStep,

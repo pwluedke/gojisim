@@ -24,6 +24,7 @@ import {
   cardRulesDead,
   enterAwakening,
   hasRevenge,
+  landingIntoCounter,
   losesWithoutStrategy,
   reachZone,
   recursFromDiscard,
@@ -1975,3 +1976,60 @@ describe(
     });
   },
 );
+
+describe("Wrangler group 1: Godzilla Landing EBP01-030 (Nov 19)", () => {
+  const landing = (state: GameState) => {
+    const legal = getLegalActions(state, "P1");
+    const a = legal.find((x) => x.type === "activateStrategy");
+    if (!a) throw new Error("Godzilla Landing can't be activated here");
+    return { legal, a };
+  };
+
+  it("card rule 33 (#419): no Landing at a monster already in zone 8, where its push can't move it", () => {
+    const { state, p1 } = withGodzilla1995();
+    const opp = state.players[1] as PlayerState;
+    opp.monsterPosition = 8;
+    // Zone 8 blocked, so the #275 rule alone would let it go.
+    p1.zones[8] = [[add(state, { ...real("ESD01-008"), rank: 1 }, "P1")]];
+    p1.hand = [add(state, real("EBP01-030"), "P1")];
+    const { legal, a } = landing(state);
+    // As the bot runs: card rule 22b (\`targetAll\`) is off by default, so it doesn't catch this.
+    const dead = (landingZone8: boolean, l = legal) =>
+      cardRulesDead(state, l, "P1", undefined, {
+        targetAll: false,
+        landingZone8,
+      });
+    expect(dead(true).has(a)).toBe(true);
+    expect(dead(false).has(a)).toBe(false);
+    // One zone short, the push moves it: rule 33 doesn't apply.
+    opp.monsterPosition = 7;
+    const short = landing(state);
+    expect(dead(true, short.legal).has(short.a)).toBe(false);
+  });
+
+  it("card rule 34 (#364, #380): a Landing after which the counter is made is the one favored", () => {
+    const { state, p1 } = withGodzilla1995();
+    const opp = state.players[1] as PlayerState;
+    opp.monsterPosition = 6;
+    p1.hand = [add(state, real("EBP01-030"), "P1")];
+    // No counter power at all: nothing after it makes the counter.
+    for (const z of [1, 2, 3, 4, 5, 6, 7, 8] as const) p1.zones[z] = [];
+    const none = landing(state);
+    expect(landingIntoCounter(state, none.legal, "P1")).toEqual([]);
+    // Counter power far past their threat: the counter is made after it.
+    p1.zones[8] = [[add(state, { ...real("ESD01-012"), rank: 1 }, "P1")]];
+    p1.zones[7] = [[add(state, { ...real("ESD01-012"), rank: 1 }, "P1")]];
+    p1.zones[5] = [[add(state, { ...real("ESD01-012"), rank: 1 }, "P1")]];
+    p1.zones[4] = [[add(state, { ...real("ESD01-012"), rank: 1 }, "P1")]];
+    opp.rage = 0;
+    const made = landing(state);
+    // One action per strategy zone it can go into: each is favored.
+    const into = landingIntoCounter(state, made.legal, "P1");
+    expect(into).toContain(made.a);
+    expect(into.every((x) => x.type === "activateStrategy")).toBe(true);
+    // At zone 8 it can't push, so it isn't favored.
+    opp.monsterPosition = 8;
+    const stuck = landing(state);
+    expect(landingIntoCounter(state, stuck.legal, "P1")).toEqual([]);
+  });
+});

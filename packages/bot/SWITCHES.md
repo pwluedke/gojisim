@@ -104,6 +104,18 @@ Default 1 · built · from #353
 
 Card rule 27: when you discard from your hand (5.7.1, 5.7.2), don't discard a strategy card while you could discard a battle card that you can't play this turn or next turn (its rank is more than 2 above the zone of the opponent's monster).
 
+### `landingIntoCounter`
+
+Default 1 · built · from #364
+
+Card rule 34: favor activating Godzilla Landing EBP01-030 when its push lets you make the counter this turn, by itself or with one more battle card. It's a head start in the search, not a rule: a Landing with no counter after it isn't left out.
+
+### `landingZone8`
+
+Default 1 · built · from #419
+
+Card rule 33: don't activate Godzilla Landing EBP01-030 while the opponent's monster is already in zone 8, where its push can't move it.
+
 ### `modeBest`
 
 Default 1 · built · from #386
@@ -187,6 +199,12 @@ Card rule 23: don't play a battle card on top of one of your own battle cards wh
 Default 1 · built · from #304
 
 Card rule 21: don't play a battle card into the next two zones your own monster will move into (its advance or invasion would crush the card there) while it can legally be played into an empty zone outside them. [revenge] cards are the exception.
+
+### `rageOrStack`
+
+Default 1 · built · from #478
+
+Play rule 3, rage or stack: don't end the turn while a monster card in your hand can still be discarded for rage or played on top of your monster. One exception: keep one monster card that is exactly one rank above your monster, has its own ability when played on top and shares a trait with it, to play on top after the rank-up. Discard even that card for rage when one more rage would likely stop the opponent from making the counter next turn (judged across the bot's guesses of their hand).
 
 ### `recognizer`
 

@@ -19,7 +19,7 @@ import {
   type ZoneNumber,
 } from "@gojisim/engine";
 import { describe, expect, it } from "vitest";
-import { actionKey, decide } from "./ismcts";
+import { actionKey, decide, rageStopsCounter } from "./ismcts";
 import { botInput, decklistsOf, seededRng } from "./input";
 import {
   applyRules,
@@ -28,6 +28,7 @@ import {
   columnCard,
   counterOnly,
   heldCards,
+  oneRankUp,
   statBoostZones,
   RULE_BONUS,
   stackWants,
@@ -568,5 +569,65 @@ describe("play rule 1, every turn (Nov 18 decision, `stackEveryTurn`)", () => {
       gam: true,
     });
     expect(gam.bonus.has(key(stack))).toBe(false);
+  });
+});
+
+describe("play rule 3, rage or stack (Nov 19 decision, `rageOrStack`)", () => {
+  const legal = (state: GameState) =>
+    getLegalActions(state, "P1").filter((a) => a.type !== "concede");
+  const never = { rageStopsCounter: () => false };
+
+  it("no pass while a stack is legal (8.5.1), even with the stacking card held by rule 2", () => {
+    const { state, p1 } = base();
+    monster(state, p1, "EBP02-052");
+    p1.hand.push(add(state, real("EBP02-052"), "P1"));
+    const actions = legal(state);
+    const key = (a: Action) => actionKey(state, a);
+    const pass = actions.find((a) => a.type === "pass") as Action;
+    expect(actions.some((a) => a.type === "playMonster")).toBe(true);
+    // The old form: the held card can't go to rage, so passing stays.
+    expect(applyRules(state, actions, "P1", key).dead.has(key(pass))).toBe(
+      false,
+    );
+    const now = applyRules(state, actions, "P1", key, true, undefined, {
+      rageOrStack: never,
+    });
+    expect(now.dead.has(key(pass))).toBe(true);
+  });
+
+  it("the card exactly one rank up with its own ability and a shared trait is the one kept", () => {
+    const { state, p1 } = base();
+    monster(state, p1, "EBP02-052");
+    const two = add(state, real("EBP02-053"), "P1");
+    const three = add(state, real("EBP02-054"), "P1");
+    p1.hand.push(three, two);
+    expect(oneRankUp(state, p1, new Set())?.instanceId).toBe(two.instanceId);
+    // Already held by rule 2: rule 3 keeps nothing more.
+    expect(oneRankUp(state, p1, new Set([two.instanceId]))).toBeUndefined();
+  });
+
+  it("one more rage that stops the opponent's counter next turn is taken", () => {
+    const { state, p1, p2 } = base();
+    monster(state, p1, "ESD01-001");
+    const card = add(state, real("ESD01-001"), "P1");
+    p1.hand.push(card);
+    // The opponent: no cards to draw into a counter, a board just at your threat.
+    p2.hand = [];
+    p2.deck = Array.from({ length: 10 }, () =>
+      add(state, real("ESD01-001"), "P2"),
+    );
+    for (const z of [1, 2, 3, 4, 5, 6, 7, 8] as const) p2.zones[z] = [];
+    p2.zones[1] = [[add(state, real("ESD01-012"), "P2")]];
+    const power = counterPowerOf(state, p2);
+    p1.rage = 0;
+    while (getThreat(state, "P1") + 5000 <= power) p1.rage++;
+    expect(power).toBeGreaterThanOrEqual(getThreat(state, "P1"));
+    const rage = legal(state).find(
+      (a) => a.type === "gainRage" && a.cardInstanceId === card.instanceId,
+    ) as Action;
+    expect(rageStopsCounter([state], rage, "P1")).toBe(true);
+    // An empty board: they can't make the counter anyway, so the rage changes nothing.
+    p2.zones[1] = [];
+    expect(rageStopsCounter([state], rage, "P1")).toBe(false);
   });
 });

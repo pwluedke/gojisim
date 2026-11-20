@@ -157,9 +157,75 @@ import type { Decklist } from "./types";
  *    activated when no way of answering its choices changes anything on the board, the rage, the
  *    discard pile or the decks and hands (beyond the card itself). The exception: with 2+
  *    copies of it in hand, a spare may still go as the turn's hand-cycling play. Any deck.
+ * 33. #419 (Wrangler group 1, Nov 19): Godzilla Landing EBP01-030 isn't activated while the
+ *    opponent's monster is already in zone 8, where its push can't move it. Any deck.
+ * 34. #364, #380 (a preference, in the search, not here): a Landing after which this turn's
+ *    counter is made is favored (`landingIntoCounter`). Any deck.
  */
 
 type Json = Record<string, unknown>;
+
+/** Rules 33 and 34 (#419, #364, #380). */
+const GODZILLA_LANDING = "EBP01-030";
+
+/** Godzilla Landing activations among `actions`, for `me` at their own play timing. */
+function landings(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  if (state.pendingChoice || state.turnPlayer !== me) return [];
+  const player = state.players.find((p) => p.id === me);
+  if (!player) return [];
+  return actions.filter((a) => {
+    if (a.type !== "activateStrategy") return false;
+    const c = player.hand.find((h) => h.instanceId === a.cardInstanceId);
+    return state.cards[c?.cardId ?? -1]?.deckCardNumber === GODZILLA_LANDING;
+  });
+}
+
+/** Rule 33 (#419): Landings at a monster already in zone 8. */
+function landingAtZone8(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const opponent = state.players.find((p) => p.id !== me);
+  if ((opponent?.monsterPosition ?? 0) < 8) return [];
+  return landings(state, actions, me);
+}
+
+/**
+ * Rule 34 (#364, #380): the Landings after which (their choices answered the first way) the
+ * counter is made, or one battle card play away.
+ */
+export function landingIntoCounter(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+): Action[] {
+  const opponent = state.players.find((p) => p.id !== me);
+  if ((opponent?.monsterPosition ?? 0) >= 8) return [];
+  return landings(state, actions, me).filter((a) => {
+    let s: GameState;
+    try {
+      s = advanceToDecision(applyAction(state, a));
+      for (let i = 0; i < 10 && s.pendingChoice?.player === me; i++) {
+        const first = getLegalActions(s, me).find((x) => x.type === "choose");
+        if (!first) break;
+        s = advanceToDecision(applyAction(s, first));
+      }
+    } catch {
+      return false;
+    }
+    return (
+      counters(s, me) ||
+      (s.turnPlayer === me &&
+        !s.pendingChoice &&
+        counterPlays(s, getLegalActions(s, me), me).size > 0)
+    );
+  });
+}
 
 /** Every object nested anywhere in a value. */
 function nested(value: unknown, out: Json[] = []): Json[] {
@@ -1848,6 +1914,8 @@ export function cardRulesDead(
     add("card rule 22", fizzlingStrategies(state, actions, me));
   if (options.coverToken !== false)
     add("card rule 23b", ownCoverPlays(state, actions, me, true));
+  if (options.landingZone8 !== false)
+    add("card rule 33", landingAtZone8(state, actions, me));
   // Rule 7: a way to make the counter (#305), else to block zone 8, is taken: every other move
   // waits (but an invasion that wins now), and it outranks the others' holds. (Rule 9 alone only
   // frees holds, in `rescuedPlays`.)
