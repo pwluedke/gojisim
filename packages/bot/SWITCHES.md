@@ -236,6 +236,18 @@ Default 1 · built · from #408
 
 The SpaceGodzilla plan's rule 3 (with its addendum): before ending the turn, play another rank 3 SpaceGodzilla EBP02-054 from your hand on top of the one in play (for 2 more Crystals), but wait for this turn's invasion while it can still be made (invade first, then play on top, so the Crystals land behind SpaceGodzilla). This needs the SpaceGodzilla plan (`spacegPlan`).
 
+### `spacegCrystalCost`
+
+Default 1 · built · from #497
+
+The SpaceG plan's rule 7: when SpaceGodzilla Flying Form EBP02-052 discards a card to make a Crystal, discard a monster card while you have one, and never God of Destruction's Counterattack EBP02-072.
+
+### `spacegEarlyRage`
+
+Default 1 · built · from #497
+
+Card rule 14 (no rage discards on turns 1 and 2 unless they're needed) doesn't apply to a SpaceGodzilla deck: it discards its monster cards for rage from turn 1, as its plan asks (the SpaceG plan's rule 3).
+
 ### `spacegInvade`
 
 Default 0 (measured worse against Despangler, Nov 18) · measured · from #408
@@ -247,6 +259,12 @@ The SpaceGodzilla plan's rule 1: at ranks 1 and 2 (SpaceGodzilla Flying Form EBP
 Default 1 · built · from #478
 
 The SpaceG plan's rule 5: never discard God of Destruction's Counterattack EBP02-072 to pay for an invasion or to gain rage, unless that invasion wins the game. Needs `spacegPlan`.
+
+### `spacegMonsterCost`
+
+Default 1 · built · from #497
+
+The SpaceG plan's rule 6: pay an invasion with a monster card when one with the same invasion icons can pay it, not with a battle or strategy card, whose value is in your hand. GAM EBP01-073 or another card pays only when no monster card can.
 
 ### `spacegPlan`
 

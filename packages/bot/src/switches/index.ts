@@ -38,8 +38,11 @@ import recurDiscard from "./recurDiscard";
 import revengeStep from "./revengeStep";
 import rules from "./rules";
 import spacegCover from "./spacegCover";
+import spacegCrystalCost from "./spacegCrystalCost";
+import spacegEarlyRage from "./spacegEarlyRage";
 import spacegInvade from "./spacegInvade";
 import spacegKeepGod from "./spacegKeepGod";
+import spacegMonsterCost from "./spacegMonsterCost";
 import spacegPlan from "./spacegPlan";
 import spacegRage from "./spacegRage";
 import spacegZone from "./spacegZone";
@@ -111,8 +114,11 @@ export const SWITCHES = [
   revengeStep,
   rules,
   spacegCover,
+  spacegCrystalCost,
+  spacegEarlyRage,
   spacegInvade,
   spacegKeepGod,
+  spacegMonsterCost,
   spacegPlan,
   spacegRage,
   spacegZone,
