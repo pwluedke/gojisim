@@ -32,6 +32,7 @@ import noPlanUse from "./noPlanUse";
 import ownBehind from "./ownBehind";
 import ownCover from "./ownCover";
 import ownPath from "./ownPath";
+import rageOrStack from "./rageOrStack";
 import recognizer from "./recognizer";
 import recurDiscard from "./recurDiscard";
 import revengeStep from "./revengeStep";
@@ -103,6 +104,7 @@ export const SWITCHES = [
   ownBehind,
   ownCover,
   ownPath,
+  rageOrStack,
   recognizer,
   recurDiscard,
   revengeStep,

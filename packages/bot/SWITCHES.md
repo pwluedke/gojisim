@@ -200,6 +200,12 @@ Default 1 · built · from #304
 
 Card rule 21: don't play a battle card into the next two zones your own monster will move into (its advance or invasion would crush the card there) while it can legally be played into an empty zone outside them. [revenge] cards are the exception.
 
+### `rageOrStack`
+
+Default 1 · built · from #478
+
+Play rule 3, rage or stack: don't end the turn while a monster card in your hand can still be discarded for rage or played on top of your monster. One exception: keep one monster card that is exactly one rank above your monster, has its own ability when played on top and shares a trait with it, to play on top after the rank-up. Discard even that card for rage when one more rage would likely stop the opponent from making the counter next turn (judged across the bot's guesses of their hand).
+
 ### `recognizer`
 
 Default 0; 1 from Hard · kept · from #191
