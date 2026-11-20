@@ -45,6 +45,10 @@ test("Classroom advisor: the bot's move in your seat, with Agree kept in the tur
     "Turn plan",
   );
   await expect(page.getByTestId("advisor-why")).not.toBeEmpty();
+  // Phase 2b: the Why is a short story with the board's numbers from the game.
+  await expect(page.getByTestId("advisor-why")).toContainText(
+    /wants to .* counter power/,
+  );
   // Nov 19: "The bot would:" and a bold "Why:" come first, above the turn plan.
   await expect(
     page.getByTestId("advisor-why").locator("strong", { hasText: "Why:" }),

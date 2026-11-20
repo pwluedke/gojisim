@@ -57,3 +57,4 @@ export const BOTS: Record<string, Bot> = {
   "hard-open": openBot("hard-open", PRESETS.hard),
 };
 export * from "./rules";
+export { adviceStory, deckGoal, noRuleLine, type StoryInput } from "./story";

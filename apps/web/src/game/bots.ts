@@ -125,6 +125,8 @@ export type BotResponse =
       trace?: DecisionTrace;
       /** #478: with `trace`, the search's planned line through the turn, as the log words it. */
       plan?: string[];
+      /** #478 phase 2b: with `trace`, the Why as a short story (`adviceStory`). */
+      story?: string;
     }
   | { id: number; error: string };
 

@@ -24,6 +24,8 @@ export interface Advice {
   trace: NonNullable<Extract<BotResponse, { action: unknown }>["trace"]>;
   /** The search's planned line from this decision through the turn, as the log words it. */
   plan: string[];
+  /** Phase 2b: the Why as a short story, when the worker built one. */
+  story?: string;
 }
 
 /**
@@ -82,6 +84,7 @@ export function useAdvisor(
           turn,
           trace: reply.trace,
           plan: reply.plan ?? [],
+          ...(reply.story ? { story: reply.story } : {}),
         };
         setAdvice(next);
         // The turn's plan is the one made at its first advised decision (it can change).

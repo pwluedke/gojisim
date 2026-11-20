@@ -160,7 +160,7 @@ export function adviceText(
   const lines: string[] = [];
   if (advice) {
     lines.push(`The bot would: ${labelOf(advice.trace.pick)}`);
-    const why = whySentence(advice);
+    const why = advice.story ? `Why: ${advice.story}` : whySentence(advice);
     if (why) lines.push(why);
   }
   if (turnPlan && turnPlan.length > 0) {
@@ -261,16 +261,22 @@ export function AdvisorPanel({
               <strong>The bot would:</strong>{" "}
               {withTips(labelOf(advice.trace.pick))}
             </p>
-            {whySentence(advice) && (
+            {advice.story ? (
               <p data-testid="advisor-why">
-                {whySentence(advice).startsWith("Why: ") ? (
-                  <>
-                    <strong>Why:</strong> {whySentence(advice).slice(5)}
-                  </>
-                ) : (
-                  whySentence(advice)
-                )}
+                <strong>Why:</strong> {advice.story}
               </p>
+            ) : (
+              whySentence(advice) && (
+                <p data-testid="advisor-why">
+                  {whySentence(advice).startsWith("Why: ") ? (
+                    <>
+                      <strong>Why:</strong> {whySentence(advice).slice(5)}
+                    </>
+                  ) : (
+                    whySentence(advice)
+                  )}
+                </p>
+              )
             )}
           </>
         )}
@@ -460,7 +466,14 @@ export function AdvisorPanel({
               </button>
               <button
                 type="button"
-                onClick={() => setRefuting(true)}
+                onClick={() => {
+                  // Phase 2b: no rule explains the move, so the report opens as a rule gap.
+                  const gap = advice.story?.match(
+                    /No rule explains this move[^]*?become a rule\./,
+                  )?.[0];
+                  if (gap && note === "") setNote(`"${gap}" `);
+                  setRefuting(true);
+                }}
                 data-testid="advisor-disagree"
               >
                 Disagree
