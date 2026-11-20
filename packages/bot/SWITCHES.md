@@ -314,6 +314,12 @@ Default 1 · built · from #403
 
 The Tangler plan's rule 5: once you have enough counter power to counter the opponent's monster, battle card plays, strategy cards and rage gains wait (except Entangling Fear and the low evolution cards), so the rest of the hand is kept for later turns. This needs the Tangler plan (`tanglerPlan`).
 
+### `tanglerWorth`
+
+Default 1 · built · from #439
+
+The Tangler plan's discard tiebreaks: at a discard pick, of the cheap battle cards the one worth least goes first. Between cheap cards of the same worth, one that doesn't draw and discard when played goes first (Orga's own discard only breaks ties; it isn't held back), while you still need counter power. A card whose rank keeps it out of play now counts as worth nothing (a Perfect Form that needs their monster in zone 8). Once you have enough counter power to counter, the Destoroyah cards stay and the rest may go. Needs `tanglerDiscard`.
+
 ### `tanglerZoneFive`
 
 Default 1 · built · from #444
