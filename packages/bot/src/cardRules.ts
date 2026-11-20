@@ -20,6 +20,7 @@ import {
   counterOnly,
   counters,
 } from "./rules";
+import { isSpaceGDeck } from "./spacegDeck";
 import type { TraceSink } from "./trace";
 import type { Decklist } from "./types";
 
@@ -84,7 +85,8 @@ import type { Decklist } from "./types";
  *    waits while your monster is short of N and an invasion this turn takes it there: invade
  *    first, then play it (combos.md #7, the Cadmium Barrage order).
  * 14. #263 (Nov 12): no rage discards on turns 1-2 unless the rage is needed (it's on a
- *    way to the counter or to a zone 8 block); passing is freed from play rule 3 then.
+ *    way to the counter or to a zone 8 block); passing is freed from play rule 3 then. #497
+ *    (`spacegEarlyRage`): not for a SpaceG list, which rages from turn 1.
  * 15. #264 (Nov 12): play into your monster cards' abilities. A monster card whose ability
  *    fires on reaching a zone (Godzilla (1954) EBP01-004: on advancing into zone 8, destroy all
  *    battle cards) isn't stacked on a turn your monster can't reach that zone (its invasion, then
@@ -768,7 +770,7 @@ export function rescuedPlays(
   );
   // Rule 14: with the early rage discards held, passing is allowed (play rule 3 forbids it
   // while a monster card can go to rage).
-  if (earlyRage(state, actions, me).length > 0)
+  if (earlyRage(state, actions, me, own, options).length > 0)
     for (const a of actions) if (a.type === "pass") freed.add(a);
   return freed;
 }
@@ -1599,8 +1601,12 @@ function earlyRage(
   state: GameState,
   actions: readonly Action[],
   me: PlayerId,
+  own: Decklist | undefined,
+  options: CardRulesOptions,
 ): Action[] {
   if (state.pendingChoice || state.turnPlayer !== me) return [];
+  // #497: a SpaceG list rages from turn 1 (its plan's rule 3).
+  if (options.spacegEarlyRage !== false && isSpaceGDeck(own)) return [];
   if (state.turn > EARLY_RAGE_TURNS) return [];
   const rages = actions.filter((a) => a.type === "gainRage");
   if (rages.length === 0) return [];
@@ -1871,7 +1877,7 @@ export function cardRulesDead(
   add("card rule 10", unsafeAdvances(state, actions, me));
   add("card rule 12", weakEvolutions(state, actions, me));
   add("card rule 13", earlyAwakenings(state, actions, me));
-  add("card rule 14", earlyRage(state, actions, me));
+  add("card rule 14", earlyRage(state, actions, me, own, options));
   add("card rule 15", heldMonsters(state, actions, me));
   add("card rule 16", idleModes(state, actions, me));
   add("card rule 18", millModes(state, actions, me));

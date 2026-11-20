@@ -5,7 +5,22 @@ import { playOut } from "./counterReach";
 import { winsNow } from "./cardRules";
 import { cardData } from "./mxPlan";
 import type { GroupOptions } from "./switches/settings";
+import {
+  isSpaceGDeck,
+  SPACEG_FOUR,
+  SPACEG_ONE,
+  SPACEG_THREE,
+  SPACEG_TWO,
+} from "./spacegDeck";
 import type { Decklist } from "./types";
+
+export {
+  isSpaceGDeck,
+  SPACEG_FOUR,
+  SPACEG_ONE,
+  SPACEG_THREE,
+  SPACEG_TWO,
+} from "./spacegDeck";
 
 /**
  * The SpaceG plan (#408, Discord #space-godzilla), with its addendum. A preference like the
@@ -32,11 +47,6 @@ import type { Decklist } from "./types";
  *    count) stays below SpaceG's threat.
  */
 
-/** SpaceG's monster deck. */
-export const SPACEG_ONE = "EBP02-052";
-export const SPACEG_TWO = "EBP02-053";
-export const SPACEG_THREE = "EBP02-054";
-export const SPACEG_FOUR = "EBP02-057";
 /** Every SpaceGodzilla monster card in the list (the main deck's rank 4 EBP02-056 too). */
 const SPACEG_MONSTERS = new Set([
   SPACEG_ONE,
@@ -81,11 +91,64 @@ export function spacegKeepGodDead(
   );
 }
 
-/** A SpaceG list: the SpaceGodzilla monster deck's rank 1 and 3. */
-export function isSpaceGDeck(deck: Decklist | undefined): boolean {
-  if (!deck) return false;
-  const monsters = new Set(deck.monsterDeck.map((c) => c.deckCardNumber));
-  return monsters.has(SPACEG_ONE) && monsters.has(SPACEG_THREE);
+/**
+ * Rules 6 and 7 (#497): costs paid with the cards whose value is in the discard pile (monster
+ * cards) before the cards whose value is in hand. Rule 6: an invasion isn't paid with a card
+ * that isn't a monster card while a monster card with the same invasion icons can pay it. Rule 7:
+ * at SpaceGodzilla Flying Form EBP02-052's Crystal discard, God of Destruction's Counterattack
+ * never goes, and no card but a monster card goes while one can. Hard rules, with the plans'
+ * other kills at the root (`planDead`).
+ */
+export function spacegCostDead(
+  state: GameState,
+  actions: readonly Action[],
+  me: PlayerId,
+  own: Decklist | undefined,
+  options: { monsterCost?: boolean; crystalCost?: boolean } = {},
+): { invasions: Action[]; crystals: Action[] } {
+  const none = { invasions: [], crystals: [] };
+  const { monsterCost = true, crystalCost = true } = options;
+  if (!isSpaceGDeck(own)) return none;
+  const player = state.players.find((p) => p.id === me);
+  if (!player) return none;
+  const inHand = (id: string) =>
+    cardData(
+      state,
+      player.hand.find((h) => h.instanceId === id),
+    );
+  const choice = state.pendingChoice;
+  if (choice) {
+    if (!crystalCost || choice.player !== me) return none;
+    const source = state.resolution
+      ? state.cards[state.resolution.standby.sourceCardId]
+      : undefined;
+    if (source?.deckCardNumber !== SPACEG_ONE) return none;
+    const picks = actions.filter(
+      (a): a is Extract<Action, { type: "choose" }> =>
+        a.type === "choose" && inHand(a.optionId) !== undefined,
+    );
+    const monster = (a: (typeof picks)[number]) =>
+      inHand(a.optionId)?.type === "Monster";
+    const crystals = picks.filter(
+      (a) =>
+        inHand(a.optionId)?.deckCardNumber === GOD_OF_DESTRUCTION ||
+        (picks.some(monster) && !monster(a)),
+    );
+    return { invasions: [], crystals };
+  }
+  if (!monsterCost || state.turnPlayer !== me) return none;
+  const invades = actions.filter(
+    (a): a is Extract<Action, { type: "invade" }> => a.type === "invade",
+  );
+  const icons = (a: (typeof invades)[number]) =>
+    inHand(a.cardInstanceId)?.invadeZones ?? 0;
+  const monster = (a: (typeof invades)[number]) =>
+    inHand(a.cardInstanceId)?.type === "Monster";
+  const invasions = invades.filter(
+    (a) =>
+      !monster(a) && invades.some((b) => monster(b) && icons(b) === icons(a)),
+  );
+  return { invasions, crystals: [] };
 }
 
 /** The SpaceG plan's switches (#408): one key per `spaceg` switch file, each on by default. */

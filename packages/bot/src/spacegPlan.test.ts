@@ -23,9 +23,11 @@ import {
   SPACEG_THREE,
   GOD_OF_DESTRUCTION,
   type SpaceGOptions,
+  spacegCostDead,
   spacegKeepGodDead,
   spacegVerdict,
 } from "./spacegPlan";
+import { cardRulesDead } from "./cardRules";
 import type { Decklist } from "./types";
 
 /**
@@ -249,5 +251,102 @@ describe("the SpaceG plan's rule 5: God of Destruction's Counterattack stays out
     const dead = spacegKeepGodDead(state, legal, "P1", SPACEG);
     for (const a of wins) expect(dead).not.toContain(a);
     expect(p1.monsterPosition).toBe(8);
+  });
+});
+
+describe("#497: SpaceG costs paid with monster cards first (Nov 19 decision)", () => {
+  it("rule 6: an invasion isn't paid with GAM EBP01-073 while a monster card with the same icons can pay it", () => {
+    const { state, p1 } = position(
+      SPACEG_ONE,
+      ["EBP01-073", "EBP02-056"],
+      2,
+      2,
+    );
+    const legal = getLegalActions(state, "P1");
+    const paidWith = (n: string) =>
+      legal.find(
+        (a) =>
+          a.type === "invade" &&
+          state.cards[
+            p1.hand.find((h) => h.instanceId === a.cardInstanceId)?.cardId ?? -1
+          ]?.deckCardNumber === n,
+      ) as Action;
+    const { invasions } = spacegCostDead(state, legal, "P1", SPACEG);
+    expect(invasions).toContain(paidWith("EBP01-073"));
+    expect(invasions).not.toContain(paidWith("EBP02-056"));
+    // With its switch off, or no monster card with the same icons, GAM may pay.
+    expect(
+      spacegCostDead(state, legal, "P1", SPACEG, { monsterCost: false })
+        .invasions,
+    ).toEqual([]);
+    const alone = position(SPACEG_ONE, ["EBP01-073", "EBP02-045"], 2, 2);
+    const alegal = getLegalActions(alone.state, "P1");
+    expect(spacegCostDead(alone.state, alegal, "P1", SPACEG).invasions).toEqual(
+      [],
+    );
+  });
+
+  it("rule 7: the Flying Form's Crystal discard takes a monster card, never God of Destruction", () => {
+    const { state, p1 } = position(
+      SPACEG_ONE,
+      ["EBP02-056", GOD_OF_DESTRUCTION, "EBP02-045", "EBP02-068"],
+      2,
+      2,
+    );
+    // Invade, paid with the rank 4 SpaceGodzilla; accept the Crystal cost when asked.
+    let s = advanceToDecision(
+      applyAction(
+        state,
+        getLegalActions(state, "P1").find(
+          (a) =>
+            a.type === "invade" &&
+            state.cards[
+              p1.hand.find((h) => h.instanceId === a.cardInstanceId)?.cardId ??
+                -1
+            ]?.deckCardNumber === "EBP02-056",
+        ) as Action,
+      ),
+    );
+    for (let i = 0; i < 4 && s.pendingChoice?.player === "P1"; i++) {
+      const yes = getLegalActions(s, "P1").find(
+        (a) => a.type === "choose" && a.optionId === "yes",
+      );
+      if (!yes) break;
+      s = advanceToDecision(applyAction(s, yes));
+    }
+    expect(s.pendingChoice?.player).toBe("P1");
+    const legal = getLegalActions(s, "P1");
+    const me = s.players.find((p) => p.id === "P1") as PlayerState;
+    const number = (a: Action) =>
+      a.type === "choose"
+        ? s.cards[
+            me.hand.find((h) => h.instanceId === a.optionId)?.cardId ?? -1
+          ]?.deckCardNumber
+        : undefined;
+    const { crystals } = spacegCostDead(s, legal, "P1", SPACEG);
+    const picks = legal.filter((a) => number(a) !== undefined);
+    expect(picks.length).toBeGreaterThan(1);
+    for (const a of picks)
+      expect(crystals.includes(a)).toBe(number(a) !== "EBP02-045");
+  });
+});
+
+describe("#497 fix 3: card rule 14's turn 1-2 rage hold is off for a SpaceG list", () => {
+  it("a SpaceG list may discard a monster card for rage on turn 1; another list waits", () => {
+    const { state } = position(SPACEG_ONE, ["EBP02-045"], 2, 2);
+    state.turn = 1;
+    const legal = getLegalActions(state, "P1");
+    const rage = legal.filter((a) => a.type === "gainRage");
+    expect(rage.length).toBeGreaterThan(0);
+    const dead = (own: Decklist | undefined, on = true) =>
+      cardRulesDead(state, legal, "P1", own, {
+        targetAll: false,
+        spacegEarlyRage: on,
+      });
+    for (const a of rage) {
+      expect(dead(SPACEG).has(a)).toBe(false);
+      expect(dead(SPACEG, false).has(a)).toBe(true);
+      expect(dead(undefined).has(a)).toBe(true);
+    }
   });
 });

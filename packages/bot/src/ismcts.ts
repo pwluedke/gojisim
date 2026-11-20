@@ -46,6 +46,7 @@ import { type FestOptions, festVerdict } from "./festPlan";
 import { noPlanVerdict } from "./noPlan";
 import {
   type SpaceGOptions,
+  spacegCostDead,
   spacegKeepGodDead,
   spacegVerdict,
 } from "./spacegPlan";
@@ -230,9 +231,26 @@ function planDead(
       ? spacegKeepGodDead(state, actions, me, own)
       : [];
   report("SpaceG plan 5", "removed", keepGod);
+  // The SpaceG plan's rules 6 and 7 (#497): costs paid with monster cards first.
+  const spaceg = groupOptions(settings, "spaceg") as SpaceGOptions;
+  const costs =
+    settings.spacegPlan > 0
+      ? spacegCostDead(state, actions, me, own, {
+          monsterCost: spaceg.monsterCost !== false,
+          crystalCost: spaceg.crystalCost !== false,
+        })
+      : { invasions: [], crystals: [] };
+  report("SpaceG plan 6", "removed", costs.invasions);
+  report("SpaceG plan 7", "removed", costs.crystals);
   report("Constructed Future plan", "removed", cf);
   report("Final Wars ruling", "removed", finalWars);
-  return new Set<Action>([...cf, ...finalWars, ...keepGod]);
+  return new Set<Action>([
+    ...cf,
+    ...finalWars,
+    ...keepGod,
+    ...costs.invasions,
+    ...costs.crystals,
+  ]);
 }
 
 /**
