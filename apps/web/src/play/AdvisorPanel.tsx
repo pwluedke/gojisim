@@ -1,4 +1,9 @@
-import type { Action, AdviceReason, ClassroomAdvice } from "@gojisim/engine";
+import type {
+  Action,
+  AdviceAnswer,
+  AdviceReason,
+  ClassroomAdvice,
+} from "@gojisim/engine";
 import { useState } from "react";
 import type { Advice } from "../game/useAdvisor";
 import styles from "./AdvisorPanel.module.css";
@@ -156,6 +161,8 @@ export function adviceText(
   advice: Advice | null,
   turnPlan: string[] | null,
   labelOf: (action: Action) => string,
+  /** Phase 2c: the player's answer at this decision, when they gave one. */
+  answered?: ClassroomAdvice | null,
 ): string {
   const lines: string[] = [];
   if (advice) {
@@ -184,11 +191,20 @@ export function adviceText(
         lines.push(`- ${r.id} (${EFFECT[r.effect] ?? r.effect}): ${r.text}`);
     }
   }
+  if (answered) lines.push("", `Your answer: ${answerText(answered)}.`);
   return lines.join("\n").trim();
 }
 
 const reasonLabel = (reason: AdviceReason | undefined) =>
   REASONS.find((r) => r.value === reason)?.label.toLowerCase();
+
+/** Phase 2c: an answer in words, as the panel and Copy text show it. */
+export function answerText(a: ClassroomAdvice): string {
+  if (a.answer === "agree") return "agreed";
+  if (a.answer === "wrongReason")
+    return `right move, wrong reason${a.note ? ` (${a.note})` : ""}`;
+  return `disagreed (${reasonLabel(a.reason)}${a.note ? `: ${a.note}` : ""})`;
+}
 
 const percent = (rate: number | null) =>
   rate === null ? "–" : `${Math.round(rate * 100)}%`;
@@ -218,19 +234,23 @@ export function AdvisorPanel({
   /** Your answers this turn, oldest first. */
   turnAnswers: ClassroomAdvice[];
   onAnswer: (
-    answer: "agree" | "disagree",
+    answer: AdviceAnswer,
     reason?: AdviceReason,
     note?: string,
   ) => void;
 }) {
-  const [refuting, setRefuting] = useState(false);
+  // Phase 2c: the open answer form: "right move, wrong reason" or "disagree".
+  const [answering, setAnswering] = useState<Exclude<
+    AdviceAnswer,
+    "agree"
+  > | null>(null);
   const [reason, setReason] = useState<AdviceReason>("wrongCard");
   const [note, setNote] = useState("");
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(
-        adviceText(advice, turnPlan, labelOf),
+        adviceText(advice, turnPlan, labelOf, answered),
       );
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -239,6 +259,21 @@ export function AdvisorPanel({
     }
   };
   const agreed = turnAnswers.filter((a) => a.answer === "agree").length;
+  const wrongReasons = turnAnswers.filter(
+    (a) => a.answer === "wrongReason",
+  ).length;
+  // Phase 2b: no rule explains the move, so either written answer opens quoting that line.
+  const open = (kind: Exclude<AdviceAnswer, "agree">) => {
+    const gap = advice?.story?.match(
+      /No rule explains this move[^]*?become a rule\./,
+    )?.[0];
+    if (gap && note === "") setNote(`"${gap}" `);
+    setAnswering(kind);
+  };
+  const close = () => {
+    setAnswering(null);
+    setNote("");
+  };
   return (
     <div className={styles.panel} data-testid="advisor">
       <div className={styles.header}>
@@ -382,15 +417,13 @@ export function AdvisorPanel({
           <details className={styles.summary} data-testid="advisor-summary">
             <summary>
               This turn: {turnAnswers.length} answered ({agreed} agreed,{" "}
-              {turnAnswers.length - agreed} disagreed)
+              {wrongReasons} right move but wrong reason,{" "}
+              {turnAnswers.length - agreed - wrongReasons} disagreed)
             </summary>
             <ul className={styles.list}>
               {turnAnswers.map((a) => (
                 <li key={a.actionIndex}>
-                  {a.pickLabel}:{" "}
-                  {a.answer === "agree"
-                    ? "agreed"
-                    : `disagreed (${reasonLabel(a.reason)}${a.note ? `: ${a.note}` : ""})`}
+                  {a.pickLabel}: {answerText(a)}
                   {a.rules.length > 0 && (
                     <span className={styles.muted}>
                       {" "}
@@ -407,13 +440,36 @@ export function AdvisorPanel({
         <div className={styles.footer} data-testid="advisor-footer">
           {answered ? (
             <p className={styles.muted} data-testid="advisor-answered">
-              You{" "}
-              {answered.answer === "agree"
-                ? "agreed"
-                : `disagreed (${reasonLabel(answered.reason)}${answered.note ? `: ${answered.note}` : ""})`}
-              .
+              {answered.answer === "wrongReason"
+                ? `You said: ${answerText(answered)}.`
+                : `You ${answerText(answered)}.`}
             </p>
-          ) : refuting ? (
+          ) : answering === "wrongReason" ? (
+            <div className={styles.disagree}>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={3}
+                placeholder="What's the real reason? (needed)"
+                data-testid="advisor-note"
+                aria-label="What's the real reason?"
+              />
+              <button
+                type="button"
+                disabled={note.trim() === ""}
+                onClick={() => {
+                  onAnswer("wrongReason", undefined, note.trim());
+                  close();
+                }}
+                data-testid="advisor-send"
+              >
+                Send
+              </button>
+              <button type="button" onClick={close}>
+                Cancel
+              </button>
+            </div>
+          ) : answering === "disagree" ? (
             <div className={styles.disagree}>
               <select
                 value={reason}
@@ -431,27 +487,22 @@ export function AdvisorPanel({
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={3}
-                placeholder={
-                  reason === "other"
-                    ? "What should it do instead? (needed)"
-                    : "Explain in your words (optional)"
-                }
+                placeholder="What would you play, and why? (needed)"
                 data-testid="advisor-note"
-                aria-label="Your reason in detail"
+                aria-label="What would you play, and why?"
               />
               <button
                 type="button"
-                disabled={reason === "other" && note.trim() === ""}
+                disabled={note.trim() === ""}
                 onClick={() => {
-                  onAnswer("disagree", reason, note.trim() || undefined);
-                  setRefuting(false);
-                  setNote("");
+                  onAnswer("disagree", reason, note.trim());
+                  close();
                 }}
                 data-testid="advisor-send"
               >
                 Send
               </button>
-              <button type="button" onClick={() => setRefuting(false)}>
+              <button type="button" onClick={close}>
                 Cancel
               </button>
             </div>
@@ -466,15 +517,17 @@ export function AdvisorPanel({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  // Phase 2b: no rule explains the move, so the report opens as a rule gap.
-                  const gap = advice.story?.match(
-                    /No rule explains this move[^]*?become a rule\./,
-                  )?.[0];
-                  if (gap && note === "") setNote(`"${gap}" `);
-                  setRefuting(true);
-                }}
+                onClick={() => open("wrongReason")}
+                data-testid="advisor-wrong-reason"
+                title="The move is right, but the Why is wrong or incomplete"
+              >
+                Right move, wrong reason
+              </button>
+              <button
+                type="button"
+                onClick={() => open("disagree")}
                 data-testid="advisor-disagree"
+                title="The move is wrong"
               >
                 Disagree
               </button>

@@ -71,6 +71,7 @@ export {
   type IdeaEntry,
   type CrashEntry,
   type ClassroomRating,
+  type AdviceAnswer,
   type AdviceReason,
   type ClassroomAdvice,
   type ClassroomTurn,

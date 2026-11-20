@@ -139,6 +139,13 @@ export interface GameRecord {
 export type AdviceReason = "wrongCard" | "wrongZone" | "wrongTiming" | "other";
 
 /**
+ * #478 phase 2c (Nov 20): the player's answer. `agree`: right move, right reason. `wrongReason`:
+ * right move, wrong reason (a reason gap: the fix is a rule or its phrase, not the move).
+ * `disagree`: wrong move.
+ */
+export type AdviceAnswer = "agree" | "wrongReason" | "disagree";
+
+/**
  * #478: one piece of Classroom advice and the player's answer: at the position after
  * `actionIndex` actions, the bot (in the player's seat, with only what the player knows) would
  * have played `pick`, for the rules listed; the player agreed or disagreed.
@@ -153,10 +160,13 @@ export interface ClassroomAdvice {
   alternatives: { label: string; visits: number; winRate: number | null }[];
   /** The rules that touched the decision: the play guides' ids, what they did, their sentences. */
   rules: { id: string; effect: string; text: string }[];
-  answer: "agree" | "disagree";
+  answer: AdviceAnswer;
+  /** With `disagree`: what was wrong with the move. */
   reason?: AdviceReason;
-  /** The player's words, with `reason: "other"`. */
+  /** The player's words: the real reason (`wrongReason`), or what they'd play and why (`disagree`). */
   note?: string;
+  /** Phase 2b: the Why the Advisor showed, as the player read it. */
+  why?: string;
   /** `BOT_VERSION` of the bot that advised. */
   botVersion?: string;
   /** ISO time the player answered. */
