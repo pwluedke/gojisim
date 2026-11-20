@@ -21,25 +21,58 @@ export const REASONS: { value: AdviceReason; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
-/** #478: what each effect tag did to the move list, in plain words. */
+/** #478 (Nov 19 wording): what each effect tag did to the move, in plain words. */
 const EFFECT_TIP: Record<string, string> = {
+  forced: "This rule made the bot play this move.",
+  favored: "This rule gave the move a head start in the search.",
+  freed:
+    "Another rule was holding this move back; this rule lifted that hold so the search could try it.",
   removed:
-    "This rule took the move off the list: the bot won't pick it while another move is left.",
-  forced:
-    "This rule kept only these moves: every other move waits while one of them can be made.",
-  freed: "This rule freed the move from another rule that was holding it back.",
-  favored:
-    "This rule gave the move a head start: the search tries it more, but can still pick another.",
+    "This rule took the move off the list, so the search never tried it.",
   against:
-    "This deck plan argued against the move: the plan's other moves get a head start instead.",
+    "This rule counted against the move; the search could still pick it.",
 };
+
+type Rule = Advice["trace"]["rules"][number];
+
+/**
+ * #478 (Nov 19): the rules in three groups: why it chose this move (rules that forced, favored or
+ * freed the pick), the moves it ruled out (rules that removed or argued against other moves), and
+ * every other rule this turn.
+ */
+export function ruleGroups(advice: Advice): {
+  why: Rule[];
+  ruledOut: Rule[];
+  other: Rule[];
+} {
+  const pick = JSON.stringify(advice.trace.pick);
+  const touches = (r: Rule) =>
+    r.actions.some((a) => JSON.stringify(a) === pick);
+  const why = advice.trace.rules.filter(
+    (r) => touches(r) && ["forced", "favored", "freed"].includes(r.effect),
+  );
+  const ruledOut = advice.trace.rules.filter(
+    (r) => !touches(r) && (r.effect === "removed" || r.effect === "against"),
+  );
+  const other = advice.trace.rules.filter(
+    (r) => !why.includes(r) && !ruledOut.includes(r),
+  );
+  return { why, ruledOut, other };
+}
+
+/** The three groups' headings, in their order. */
+const GROUPS = [
+  ["why", "Why it chose this move"],
+  ["ruledOut", "Moves it ruled out"],
+  ["other", "Other rules this turn"],
+] as const;
 
 /**
  * #478 (Nov 19 wording): what "% to win" means, with this move's own number of tries. The search's
  * play-outs run to the end of the opponent's next turn (`rolloutTurns` 1).
  */
 const winTip = (looks: number) =>
-  `The bot's guess at its chance to win the game if it makes this move. It tried the move ${looks} time${looks === 1 ? "" : "s"} in its head. Each time it guessed your opponent's hidden cards, played both sides on quickly to the end of your opponent's next turn, and scored the position from 0% (lost) to 100% (won). This is the average of those scores.`;
+  `The bot's guess at its chance to win the game if it makes this move. It tried the move ${looks} time${looks === 1 ? "" : "s"} in its head. Each time it guessed your opponent's hidden cards, played both sides on quickly to the end of your opponent's next turn, and scored the position from 0% (lost) to 100% (won). This is the average of those scores. It's a guess at the whole game, about one round ahead, not this turn's result.`;
 const LOOKS_TIP =
   "How many of those tries started with this move. The search gives more tries to moves that keep scoring well. The bot plays the move with the most tries, which is usually the highest %.";
 
@@ -125,15 +158,16 @@ export function adviceText(
   labelOf: (action: Action) => string,
 ): string {
   const lines: string[] = [];
-  if (turnPlan && turnPlan.length > 0) {
-    lines.push("Turn plan (it can change as cards are drawn or revealed):");
-    turnPlan.forEach((step, i) => lines.push(`${i + 1}. ${step}`));
-    lines.push("");
-  }
   if (advice) {
     lines.push(`The bot would: ${labelOf(advice.trace.pick)}`);
     const why = whySentence(advice);
     if (why) lines.push(why);
+  }
+  if (turnPlan && turnPlan.length > 0) {
+    lines.push("", "Turn plan (it can change as cards are drawn or revealed):");
+    turnPlan.forEach((step, i) => lines.push(`${i + 1}. ${step}`));
+  }
+  if (advice) {
     if (advice.trace.alternatives.length > 1) {
       lines.push("", "Moves it weighed:");
       advice.trace.alternatives.forEach((a, i) =>
@@ -142,9 +176,11 @@ export function adviceText(
         ),
       );
     }
-    if (advice.trace.rules.length > 0) {
-      lines.push("", "Rules:");
-      for (const r of advice.trace.rules)
+    const groups = ruleGroups(advice);
+    for (const [key, heading] of GROUPS) {
+      if (groups[key].length === 0) continue;
+      lines.push("", `${heading}:`);
+      for (const r of groups[key])
         lines.push(`- ${r.id} (${EFFECT[r.effect] ?? r.effect}): ${r.text}`);
     }
   }
@@ -219,6 +255,25 @@ export function AdvisorPanel({
         )}
       </div>
       <div className={styles.body} data-testid="advisor-body">
+        {advice && (
+          <>
+            <p data-testid="advisor-pick">
+              <strong>The bot would:</strong>{" "}
+              {withTips(labelOf(advice.trace.pick))}
+            </p>
+            {whySentence(advice) && (
+              <p data-testid="advisor-why">
+                {whySentence(advice).startsWith("Why: ") ? (
+                  <>
+                    <strong>Why:</strong> {whySentence(advice).slice(5)}
+                  </>
+                ) : (
+                  whySentence(advice)
+                )}
+              </p>
+            )}
+          </>
+        )}
         {turnPlan && turnPlan.length > 0 && (
           <div className={styles.plan} data-testid="advisor-turn-plan">
             <strong>Turn plan</strong>{" "}
@@ -240,13 +295,6 @@ export function AdvisorPanel({
         )}
         {advice && (
           <>
-            <p data-testid="advisor-pick">
-              <strong>The bot would:</strong>{" "}
-              {withTips(labelOf(advice.trace.pick))}
-            </p>
-            {whySentence(advice) && (
-              <p data-testid="advisor-why">{whySentence(advice)}</p>
-            )}
             {advice.trace.alternatives.length > 1 && (
               <ol className={styles.list} data-testid="advisor-alternatives">
                 {advice.trace.alternatives.map((a, i) => (
@@ -273,28 +321,55 @@ export function AdvisorPanel({
                 have no %.
               </p>
             )}
-            {advice.trace.rules.length > 0 && (
-              <ul className={styles.list} data-testid="advisor-rules">
-                {advice.trace.rules.map((r, i) => (
-                  <li key={i}>
-                    <Tooltip tip={ruleTip(r.id)} testId="advisor-rule-tip">
-                      <strong>{r.id}</strong>
-                    </Tooltip>{" "}
-                    <span className={styles.muted}>
-                      (
-                      <Tooltip
-                        tip={EFFECT_TIP[r.effect] ?? r.effect}
-                        testId="advisor-effect-tip"
-                      >
-                        {EFFECT[r.effect] ?? r.effect}
-                      </Tooltip>
-                      )
-                    </span>
-                    : {r.text}
-                  </li>
-                ))}
-              </ul>
-            )}
+            {advice.trace.rules.length > 0 &&
+              GROUPS.map(([key, heading]) => {
+                const rules = ruleGroups(advice)[key];
+                if (rules.length === 0) return null;
+                return (
+                  <div
+                    key={key}
+                    className={
+                      key === "why"
+                        ? styles.whyGroup
+                        : key === "other"
+                          ? styles.muted
+                          : undefined
+                    }
+                    data-testid={`advisor-rules-${key}`}
+                  >
+                    <h4 className={styles.groupTitle}>{heading}</h4>
+                    <ul className={styles.list} data-testid="advisor-rules">
+                      {rules.map((r, i) => (
+                        <li key={i}>
+                          <Tooltip
+                            tip={ruleTip(r.id)}
+                            testId="advisor-rule-tip"
+                          >
+                            <strong
+                              className={
+                                key === "why" ? styles.whyId : undefined
+                              }
+                            >
+                              {r.id}
+                            </strong>
+                          </Tooltip>{" "}
+                          <span className={styles.muted}>
+                            (
+                            <Tooltip
+                              tip={EFFECT_TIP[r.effect] ?? r.effect}
+                              testId="advisor-effect-tip"
+                            >
+                              {EFFECT[r.effect] ?? r.effect}
+                            </Tooltip>
+                            )
+                          </span>
+                          : {r.text}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
           </>
         )}
         {turnAnswers.length > 0 && (

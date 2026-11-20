@@ -45,6 +45,16 @@ test("Classroom advisor: the bot's move in your seat, with Agree kept in the tur
     "Turn plan",
   );
   await expect(page.getByTestId("advisor-why")).not.toBeEmpty();
+  // Nov 19: "The bot would:" and a bold "Why:" come first, above the turn plan.
+  await expect(
+    page.getByTestId("advisor-why").locator("strong", { hasText: "Why:" }),
+  ).toHaveCount(1);
+  const top = async (id: string) =>
+    (await page.getByTestId(id).boundingBox())?.y ?? 0;
+  expect(await top("advisor-pick")).toBeLessThan(
+    await top("advisor-turn-plan"),
+  );
+  expect(await top("advisor-why")).toBeLessThan(await top("advisor-turn-plan"));
   await page.getByTestId("advisor-win-tip").first().hover();
   await expect(page.getByTestId("advisor-win-tip").first()).toBeVisible();
   // Nov 19 wording: the tip names this move's own number of tries.
