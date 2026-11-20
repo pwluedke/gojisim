@@ -108,6 +108,8 @@ const RULE_SWITCH: Record<string, string> = {
   "card rule 22b": "targetAll",
   "card rule 23": "ownCover",
   "card rule 23b": "coverToken",
+  "card rule 33": "landingZone8",
+  "card rule 34": "landingIntoCounter",
   "card rule 24": "recurDiscard",
   "card rule 25": "ownBehind",
   "card rule 26": "activeInvading",
