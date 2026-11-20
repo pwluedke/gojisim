@@ -31,7 +31,10 @@ import {
  *    GAM EBP01-073, which discards toward GAM's 8 or more instead.
  * 2. Hold one monster card per rank that can still be played on top for its ability (#189: also
  *    when a cost is paid by discarding from hand, 5.7.1).
- * 3. Discard every other monster card for rage (8.4.1): no pass while one can go.
+ * 3. Discard every other monster card for rage (8.4.1): no pass while one can go. Nov 19 decision
+ *    (`rageOrStack`): no pass while one can go to rage or be stacked (8.5.1), except one card
+ *    exactly one rank up with its own ability and a shared trait (`oneRankUp`), kept for the
+ *    rank-up unless one more rage likely stops the opponent's counter next turn.
  * 4. Counter-only strategies: held until the counter is made (with the others still playable),
  *    then preferred (a prior: one if one makes it, both if it takes two).
  * 5. "Same column as the opponent's monster" battle cards go in that column.
@@ -39,6 +42,39 @@ import {
  *    while the opponent can invade next turn; a plain stat boost in a zone (#189) is a prune
  *    while your zone 8 isn't exposed.
  */
+
+/**
+ * Rule 3's exception (Nov 19, `rageOrStack`): the one monster card in hand exactly one rank above
+ * the invading monster with its own ability and a shared trait (rule 2's test, a rank up), kept
+ * for after the rank-up. The first by instance id; none if rule 2 already holds it.
+ */
+export function oneRankUp(
+  state: GameState,
+  me: PlayerState,
+  held: ReadonlySet<string>,
+): CardInstance | undefined {
+  const active = cardOf(state, topOf(me.invadingMonsterZone));
+  if (!active || active.rank === null) return undefined;
+  const traits = new Set(getCardTraits(active));
+  return [...me.hand]
+    .sort((a, b) => a.instanceId.localeCompare(b.instanceId))
+    .find((c) => {
+      const data = cardOf(state, c);
+      return (
+        !held.has(c.instanceId) &&
+        data?.type === "Monster" &&
+        data.rank === (active.rank ?? 0) + 1 &&
+        abilitiesOf(data).length > 0 &&
+        getCardTraits(data).some((t) => traits.has(t))
+      );
+    });
+}
+
+/** Rule 3's new form (Nov 19): its switch, and its read of the opponent's next-turn counter. */
+export interface RageOrStack {
+  /** Whether discarding this card for rage likely stops the opponent's counter next turn. */
+  rageStopsCounter: (rage: Action) => boolean;
+}
 
 /** Rule 1's exception (Nov 18): GAM, whose deck discards its monster cards rather than stacking them. */
 export const GAM = "EBP01-073";
@@ -49,6 +85,8 @@ export interface PlayRuleOptions {
   stackEveryTurn?: boolean;
   /** The bot's deck has GAM EBP01-073 (rule 1's exception). */
   gam?: boolean;
+  /** Rule 3's new form (`rageOrStack`, Nov 19); left out, the old form. */
+  rageOrStack?: RageOrStack | undefined;
 }
 
 /** The prior bonus a rule-preferred root action gets, in evaluation units. */
@@ -338,7 +376,7 @@ export function applyRules(
   trace?: TraceSink,
   options: PlayRuleOptions = {},
 ): RuleVerdict {
-  const { stackEveryTurn = true, gam = false } = options;
+  const { stackEveryTurn = true, gam = false, rageOrStack } = options;
   const killed = new Set<Action>();
   // #478: each kill and bonus remembers its rule, reported once the verdict stands.
   const byRule: {
@@ -443,8 +481,40 @@ export function applyRules(
   for (const a of actions)
     if (a.type === "playMonster" && (wanted || held.has(a.cardInstanceId)))
       add(a, "play rule 1");
-  // Rule 3: no pass while a monster card that isn't held can go to rage.
-  if (
+  // Rule 3, new form (Nov 19): no pass while a monster card can go to rage or be stacked, but for
+  // one card a rank up, kept (its rage and invasion cost left out) unless the rage likely stops
+  // the opponent's counter next turn.
+  if (rageOrStack) {
+    const up = oneRankUp(state, me, held);
+    const upRage = actions.find(
+      (a) => a.type === "gainRage" && a.cardInstanceId === up?.instanceId,
+    );
+    const keep =
+      up !== undefined &&
+      !(upRage !== undefined && rageOrStack.rageStopsCounter(upRage));
+    if (keep) {
+      if (upRage) kill(upRage, "play rule 3");
+      for (const a of invades)
+        if (
+          actionCard(a) === up.instanceId &&
+          invades.some(
+            (b) =>
+              actionCard(b) !== up.instanceId && !held.has(actionCard(b) ?? ""),
+          )
+        )
+          kill(a, "play rule 3");
+    }
+    const usable = actions.some(
+      (a) =>
+        a.type === "playMonster" ||
+        (a.type === "gainRage" &&
+          monster(a)?.type === "Monster" &&
+          !held.has(a.cardInstanceId) &&
+          !(keep && a.cardInstanceId === up?.instanceId)),
+    );
+    if (usable)
+      for (const a of actions) if (a.type === "pass") kill(a, "play rule 3");
+  } else if (
     actions.some(
       (a) =>
         a.type === "gainRage" &&
