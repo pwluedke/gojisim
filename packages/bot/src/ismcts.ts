@@ -60,7 +60,6 @@ import {
   type RageOrStack,
 } from "./rules";
 import { counterWithin, playOut } from "./counterReach";
-import { seededRng } from "./input";
 import type { Bot, BotInput, BotSettings, Decklist } from "./types";
 
 /**
